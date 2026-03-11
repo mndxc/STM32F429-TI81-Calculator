@@ -13,6 +13,7 @@
 #include "cmsis_os.h"   /* FreeRTOS queue and task types */
 #include "keypad_map.h" /* Token_t and KeyDefinition_t */
 #include <stdint.h>
+#include <stdbool.h>
 
 /*---------------------------------------------------------------------------
  * Shared types
@@ -30,6 +31,28 @@ typedef enum {
     MODE_2ND,
     MODE_ALPHA
 } CalcMode_t;
+
+/*---------------------------------------------------------------------------
+ * Graph state
+ *--------------------------------------------------------------------------*/
+/**
+ * @brief Holds all state for the graphing subsystem.
+ *
+ * Initialised to ZStandard defaults (±10 range).
+ */
+typedef struct {
+    char    equation[64];   /* Y= equation string in terms of x */
+    float   x_min;          /* Left edge of graph window */
+    float   x_max;          /* Right edge of graph window */
+    float   y_min;          /* Bottom edge of graph window */
+    float   y_max;          /* Top edge of graph window */
+    float   x_scl;          /* X axis tick spacing */
+    float   y_scl;          /* Y axis tick spacing */
+    bool    active;         /* True when in graph mode */
+} GraphState_t;
+
+/** Global graph state — owned by calculator_core.c */
+extern GraphState_t graph_state;
 
 /*---------------------------------------------------------------------------
  * Shared handles

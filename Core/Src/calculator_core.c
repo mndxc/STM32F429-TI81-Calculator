@@ -93,6 +93,18 @@ static float        ans            = 0.0f;
 static HistoryEntry_t history[HISTORY_LINE_COUNT];
 static uint8_t        history_count = 0;
 
+/* Graph state */
+GraphState_t graph_state = {
+    .equation = "",
+    .x_min    = -10.0f,
+    .x_max    =  10.0f,
+    .y_min    = -10.0f,
+    .y_max    =  10.0f,
+    .x_scl    =   1.0f,
+    .y_scl    =   1.0f,
+    .active   = false,
+};
+
 /*---------------------------------------------------------------------------
  * LVGL thread safety helpers
  *--------------------------------------------------------------------------*/
