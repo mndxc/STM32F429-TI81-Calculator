@@ -77,7 +77,10 @@ static lv_obj_t *ui_lbl_result;
 
 /* Graph screens */
 static lv_obj_t *ui_graph_yeq_screen   = NULL;
-static lv_obj_t *ui_lbl_yeq_expr       = NULL;
+static lv_obj_t *ui_lbl_yeq_name[GRAPH_NUM_EQ]; /* "Y1=" ... "Y4=" row labels */
+static lv_obj_t *ui_lbl_yeq_eq[GRAPH_NUM_EQ];   /* Equation content per row */
+static uint8_t   yeq_selected           = 0;    /* Which Y= row is being edited */
+static lv_obj_t *ui_graph_zoom_screen  = NULL;
 static lv_obj_t *ui_graph_range_screen = NULL;
 static lv_obj_t *ui_lbl_range_xmin     = NULL;
 static lv_obj_t *ui_lbl_range_xmax     = NULL;
@@ -108,7 +111,7 @@ static uint8_t        history_count = 0;
 
 /* Graph state */
 GraphState_t graph_state = {
-    .equation = "",
+    .equations = {{0}},
     .x_min    = -10.0f,
     .x_max    =  10.0f,
     .y_min    = -10.0f,
@@ -122,6 +125,9 @@ GraphState_t graph_state = {
 static uint8_t  range_field_selected = 0;   /* 0=xmin 1=xmax 2=ymin 3=ymax 4=xscl 5=yscl */
 static char     range_field_buf[16]  = {0};
 static uint8_t  range_field_len      = 0;
+
+/* Mode to restore after a 2nd/ALPHA modifier is consumed */
+static CalcMode_t return_mode = MODE_NORMAL;
 
 /*---------------------------------------------------------------------------
  * LVGL thread safety helpers
@@ -295,21 +301,24 @@ static void ui_init_graph_screens(void)
     lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
 
-    /* Title */
-    lv_obj_t *lbl_yeq_title = lv_label_create(ui_graph_yeq_screen);
-    lv_obj_set_pos(lbl_yeq_title, 4, 4);
-    lv_obj_set_style_text_color(lbl_yeq_title,
-                                 lv_color_hex(0xFFFFFF), 0);
-    lv_label_set_text(lbl_yeq_title, "Y=");
+    /* Four Y= equation rows */
+    const char *eq_row_names[] = { "Y1=", "Y2=", "Y3=", "Y4=" };
+    for (int i = 0; i < GRAPH_NUM_EQ; i++) {
+        int32_t row_y = 4 + i * 26;
+        ui_lbl_yeq_name[i] = lv_label_create(ui_graph_yeq_screen);
+        lv_obj_set_pos(ui_lbl_yeq_name[i], 4, row_y);
+        lv_obj_set_style_text_color(ui_lbl_yeq_name[i],
+                                     lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_text(ui_lbl_yeq_name[i], eq_row_names[i]);
 
-    /* Equation display */
-    ui_lbl_yeq_expr = lv_label_create(ui_graph_yeq_screen);
-    lv_obj_set_pos(ui_lbl_yeq_expr, 30, 4);
-    lv_obj_set_width(ui_lbl_yeq_expr, DISPLAY_W - 34);
-    lv_obj_set_style_text_color(ui_lbl_yeq_expr,
-                                 lv_color_hex(0xFFFFFF), 0);
-    lv_label_set_long_mode(ui_lbl_yeq_expr, LV_LABEL_LONG_CLIP);
-    lv_label_set_text(ui_lbl_yeq_expr, "");
+        ui_lbl_yeq_eq[i] = lv_label_create(ui_graph_yeq_screen);
+        lv_obj_set_pos(ui_lbl_yeq_eq[i], 44, row_y);
+        lv_obj_set_width(ui_lbl_yeq_eq[i], DISPLAY_W - 48);
+        lv_obj_set_style_text_color(ui_lbl_yeq_eq[i],
+                                     lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_long_mode(ui_lbl_yeq_eq[i], LV_LABEL_LONG_CLIP);
+        lv_label_set_text(ui_lbl_yeq_eq[i], "");
+    }
 
     /* Hint */
     lv_obj_t *lbl_hint = lv_label_create(ui_graph_yeq_screen);
@@ -365,6 +374,40 @@ static void ui_init_graph_screens(void)
     lv_obj_set_style_text_color(lbl_range_hint,
                                  lv_color_hex(0x888888), 0);
     lv_label_set_text(lbl_range_hint, "ZOOM for ZStandard");
+
+    /* --- ZOOM menu screen --- */
+    ui_graph_zoom_screen = lv_obj_create(scr);
+    lv_obj_set_size(ui_graph_zoom_screen, DISPLAY_W, DISPLAY_H);
+    lv_obj_set_pos(ui_graph_zoom_screen, 0, 0);
+    lv_obj_set_style_bg_color(ui_graph_zoom_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_border_width(ui_graph_zoom_screen, 0, 0);
+    lv_obj_set_style_pad_all(ui_graph_zoom_screen, 0, 0);
+    lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t *lbl_zoom_title = lv_label_create(ui_graph_zoom_screen);
+    lv_obj_set_pos(lbl_zoom_title, 4, 4);
+    lv_obj_set_style_text_color(lbl_zoom_title, lv_color_hex(0xFFFFFF), 0);
+    lv_label_set_text(lbl_zoom_title, "ZOOM");
+
+    const char *zoom_items[] = {
+        "1: ZStandard   (+/-10)",
+        "2: ZTrig       (+/-2pi)",
+        "3: ZDecimal    (+/-4.7)",
+        "4: ZSquare     (fix aspect)",
+        "5: ZInteger    (1px=1unit)",
+    };
+    for (int i = 0; i < 5; i++) {
+        lv_obj_t *lbl = lv_label_create(ui_graph_zoom_screen);
+        lv_obj_set_pos(lbl, 4, 28 + i * 26);
+        lv_obj_set_style_text_color(lbl, lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_text(lbl, zoom_items[i]);
+    }
+
+    lv_obj_t *lbl_zoom_hint = lv_label_create(ui_graph_zoom_screen);
+    lv_obj_set_pos(lbl_zoom_hint, 4, DISPLAY_H - 20);
+    lv_obj_set_style_text_color(lbl_zoom_hint, lv_color_hex(0x888888), 0);
+    lv_label_set_text(lbl_zoom_hint, "Press 1-5 to select  CLEAR to exit");
 
     /* Init graph canvas */
     Graph_Init(scr);
@@ -433,6 +476,62 @@ void Update_Calculator_Display(void)
                       (expr_len == 0) ? "0" : expression);
     ui_update_status_bar();
     lvgl_unlock();
+}
+
+/*---------------------------------------------------------------------------
+ * Y= editor helpers
+ *--------------------------------------------------------------------------*/
+
+static void yeq_update_highlight(void)
+{
+    for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
+        lv_color_t col = (i == yeq_selected) ? lv_color_hex(0xFFFF00)
+                                             : lv_color_hex(0xFFFFFF);
+        lv_obj_set_style_text_color(ui_lbl_yeq_name[i], col, 0);
+    }
+}
+
+/*---------------------------------------------------------------------------
+ * Zoom preset helper
+ *--------------------------------------------------------------------------*/
+
+static void apply_zoom_preset(uint8_t preset)
+{
+    switch (preset) {
+    case 1: /* ZStandard */
+        graph_state.x_min = -10.0f; graph_state.x_max =  10.0f; graph_state.x_scl = 1.0f;
+        graph_state.y_min = -10.0f; graph_state.y_max =  10.0f; graph_state.y_scl = 1.0f;
+        break;
+    case 2: /* ZTrig — ±2π x, ±4 y, x scale = π/2 */
+        graph_state.x_min = -6.2832f; graph_state.x_max = 6.2832f; graph_state.x_scl = 1.5708f;
+        graph_state.y_min =  -4.0f;   graph_state.y_max = 4.0f;    graph_state.y_scl = 1.0f;
+        break;
+    case 3: /* ZDecimal — each pixel = 0.1 unit */
+        graph_state.x_min = -4.7f; graph_state.x_max = 4.7f; graph_state.x_scl = 0.5f;
+        graph_state.y_min = -3.1f; graph_state.y_max = 3.1f; graph_state.y_scl = 0.5f;
+        break;
+    case 4: /* ZSquare — expand shorter axis so pixels are square */
+        {
+            float xs = (graph_state.x_max - graph_state.x_min) / GRAPH_W;
+            float ys = (graph_state.y_max - graph_state.y_min) / GRAPH_H;
+            if (xs > ys) {
+                float yc = (graph_state.y_max + graph_state.y_min) * 0.5f;
+                float yh = xs * GRAPH_H * 0.5f;
+                graph_state.y_min = yc - yh;
+                graph_state.y_max = yc + yh;
+            } else {
+                float xc = (graph_state.x_max + graph_state.x_min) * 0.5f;
+                float xh = ys * GRAPH_W * 0.5f;
+                graph_state.x_min = xc - xh;
+                graph_state.x_max = xc + xh;
+            }
+        }
+        break;
+    case 5: /* ZInteger — each pixel = 1 unit */
+        graph_state.x_min = -160.0f; graph_state.x_max = 159.0f; graph_state.x_scl = 10.0f;
+        graph_state.y_min = -110.0f; graph_state.y_max = 109.0f; graph_state.y_scl = 10.0f;
+        break;
+    }
 }
 
 /*---------------------------------------------------------------------------
@@ -505,7 +604,8 @@ void Execute_Token(Token_t t)
 {
     /* Handle Y= equation editing mode */
     if (current_mode == MODE_GRAPH_YEQ) {
-        uint8_t eq_len = strlen(graph_state.equation);
+        char *eq  = graph_state.equations[yeq_selected];
+        uint8_t eq_len = strlen(eq);
         const char *append = NULL;
         char num_buf[2] = {0, 0};
 
@@ -525,18 +625,30 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_CLEAR:
-            graph_state.equation[0] = '\0';
+            eq[0] = '\0';
             lvgl_lock();
-            lv_label_set_text(ui_lbl_yeq_expr, "");
+            lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], "");
             lvgl_unlock();
             return;
         case TOKEN_DEL:
             if (eq_len > 0) {
-                graph_state.equation[--eq_len] = '\0';
+                eq[--eq_len] = '\0';
                 lvgl_lock();
-                lv_label_set_text(ui_lbl_yeq_expr, graph_state.equation);
+                lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
                 lvgl_unlock();
             }
+            return;
+        case TOKEN_UP:
+            if (yeq_selected > 0) yeq_selected--;
+            lvgl_lock();
+            yeq_update_highlight();
+            lvgl_unlock();
+            return;
+        case TOKEN_DOWN:
+            if (yeq_selected < GRAPH_NUM_EQ - 1) yeq_selected++;
+            lvgl_lock();
+            yeq_update_highlight();
+            lvgl_unlock();
             return;
         case TOKEN_X_T:   append = "x";     break;
         case TOKEN_0 ... TOKEN_9:
@@ -544,6 +656,9 @@ void Execute_Token(Token_t t)
             append = num_buf;
             break;
         case TOKEN_DECIMAL: append = ".";     break;
+        case TOKEN_EE:      append = "*10^";  break;
+        case TOKEN_E_X:     append = "exp(";  break;
+        case TOKEN_TEN_X:   append = "10^(";  break;
         case TOKEN_ADD:     append = "+";     break;
         case TOKEN_SUB:     append = "-";     break;
         case TOKEN_MULT:    append = "*";     break;
@@ -554,20 +669,27 @@ void Execute_Token(Token_t t)
         case TOKEN_SIN:     append = "sin(";  break;
         case TOKEN_COS:     append = "cos(";  break;
         case TOKEN_TAN:     append = "tan(";  break;
+        case TOKEN_ASIN:    append = "asin("; break;
+        case TOKEN_ACOS:    append = "acos("; break;
+        case TOKEN_ATAN:    append = "atan("; break;
         case TOKEN_LN:      append = "ln(";   break;
         case TOKEN_LOG:     append = "log(";  break;
         case TOKEN_SQRT:    append = "sqrt("; break;
+        case TOKEN_ABS:     append = "abs(";  break;
         case TOKEN_SQUARE:  append = "^2";    break;
         case TOKEN_PI:      append = "pi";    break;
+        case TOKEN_NEG:     append = "-";     break;
+        case TOKEN_X_INV:   append = "^-1";   break;
+        case TOKEN_ANS:     append = "ANS";   break;
         default:            return;
         }
 
         if (append != NULL) {
             size_t len = strlen(append);
             if (eq_len + len < 63) {
-                strcat(graph_state.equation, append);
+                strcat(eq, append);
                 lvgl_lock();
-                lv_label_set_text(ui_lbl_yeq_expr, graph_state.equation);
+                lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
                 lvgl_unlock();
             }
         }
@@ -710,6 +832,35 @@ void Execute_Token(Token_t t)
         }
     }
 
+    /* Handle ZOOM menu mode */
+    if (current_mode == MODE_GRAPH_ZOOM) {
+        uint8_t preset = 0;
+        switch (t) {
+        case TOKEN_0 ... TOKEN_9:
+            preset = (uint8_t)(t - TOKEN_0);
+            break;
+        case TOKEN_CLEAR:
+        case TOKEN_ZOOM:
+            current_mode = MODE_NORMAL;
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+            lvgl_unlock();
+            return;
+        default:
+            return;
+        }
+        if (preset >= 1 && preset <= 5) {
+            apply_zoom_preset(preset);
+            current_mode = MODE_NORMAL;
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+            Graph_SetVisible(true);
+            Graph_Render(angle_degrees);
+            lvgl_unlock();
+        }
+        return;
+    }
+
     switch (t) {
 
     case TOKEN_0 ... TOKEN_9:
@@ -839,6 +990,38 @@ case TOKEN_TAN:
     }
     break;
 
+case TOKEN_ASIN:
+    if (expr_len < MAX_EXPR_LEN - 5) {
+        strcat(expression, "asin(");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+
+case TOKEN_ACOS:
+    if (expr_len < MAX_EXPR_LEN - 5) {
+        strcat(expression, "acos(");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+
+case TOKEN_ATAN:
+    if (expr_len < MAX_EXPR_LEN - 5) {
+        strcat(expression, "atan(");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+
+case TOKEN_ABS:
+    if (expr_len < MAX_EXPR_LEN - 4) {
+        strcat(expression, "abs(");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+
 case TOKEN_LN:
     if (expr_len < MAX_EXPR_LEN - 3) {
         strcat(expression, "ln(");
@@ -911,6 +1094,30 @@ case TOKEN_NEG:
     }
     break;
 
+case TOKEN_EE:
+    if (expr_len < MAX_EXPR_LEN - 4) {
+        strcat(expression, "*10^");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+
+case TOKEN_E_X:
+    if (expr_len < MAX_EXPR_LEN - 4) {
+        strcat(expression, "exp(");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+
+case TOKEN_TEN_X:
+    if (expr_len < MAX_EXPR_LEN - 4) {
+        strcat(expression, "10^(");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+
 case TOKEN_PI:
     if (expr_len < MAX_EXPR_LEN - 2) {
         strcat(expression, "pi");
@@ -927,6 +1134,16 @@ case TOKEN_ANS:
     }
     break;
 
+case TOKEN_ENTRY:
+    if (history_count > 0) {
+        uint8_t idx = (history_count - 1) % HISTORY_LINE_COUNT;
+        strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
+        expression[MAX_EXPR_LEN - 1] = '\0';
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+
     case TOKEN_Y_EQUALS:
         current_mode = MODE_GRAPH_YEQ;
         graph_state.active = false;
@@ -934,7 +1151,9 @@ case TOKEN_ANS:
         lvgl_lock();
         Graph_SetVisible(false);
         lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_label_set_text(ui_lbl_yeq_expr, graph_state.equation);
+        for (int i = 0; i < GRAPH_NUM_EQ; i++)
+            lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+        yeq_update_highlight();
         lvgl_unlock();
         break;
 
@@ -955,15 +1174,16 @@ case TOKEN_ANS:
         break;
 
     case TOKEN_ZOOM:
-        /* ZStandard — reset to ±10 window then graph */
-        graph_state.x_min =  -10.0f;
-        graph_state.x_max =   10.0f;
-        graph_state.y_min =  -10.0f;
-        graph_state.y_max =   10.0f;
-        graph_state.x_scl =    1.0f;
-        graph_state.y_scl =    1.0f;
-        /* Fall through to render */
-        /* fall through */
+        /* Show ZOOM preset menu */
+        current_mode = MODE_GRAPH_ZOOM;
+        graph_state.active = false;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
+        Graph_SetVisible(false);
+        lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        lvgl_unlock();
+        break;
 
     case TOKEN_GRAPH:
         lvgl_lock();
@@ -1005,16 +1225,19 @@ void Process_Hardware_Key(uint8_t key_id)
 
     if (current_mode == MODE_2ND) {
         token_to_send  = key.second;
-        current_mode   = MODE_NORMAL;
+        current_mode   = return_mode;   /* restore the mode that was active before 2nd */
+        return_mode    = MODE_NORMAL;
     } else if (current_mode == MODE_ALPHA) {
         token_to_send  = key.alpha;
-        current_mode   = MODE_NORMAL;
+        current_mode   = return_mode;   /* restore the mode that was active before ALPHA */
+        return_mode    = MODE_NORMAL;
     } else {
         token_to_send  = key.normal;
     }
 
-    /* Handle sticky modifier keys */
+    /* Handle sticky modifier keys — save current mode so we can restore it after */
     if (token_to_send == TOKEN_2ND) {
+        return_mode  = current_mode;
         current_mode = MODE_2ND;
         lvgl_lock();
         ui_update_status_bar();
@@ -1022,6 +1245,7 @@ void Process_Hardware_Key(uint8_t key_id)
         return;
     }
     if (token_to_send == TOKEN_ALPHA) {
+        return_mode  = current_mode;
         current_mode = MODE_ALPHA;
         lvgl_lock();
         ui_update_status_bar();

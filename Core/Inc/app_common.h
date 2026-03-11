@@ -31,19 +31,23 @@ typedef enum {
     MODE_2ND,
     MODE_ALPHA,
     MODE_GRAPH_YEQ,
-    MODE_GRAPH_RANGE
+    MODE_GRAPH_RANGE,
+    MODE_GRAPH_ZOOM
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------
  * Graph state
  *--------------------------------------------------------------------------*/
+
+#define GRAPH_NUM_EQ    4   /* Number of simultaneous Y= equations */
+
 /**
  * @brief Holds all state for the graphing subsystem.
  *
  * Initialised to ZStandard defaults (±10 range).
  */
 typedef struct {
-    char    equation[64];   /* Y= equation string in terms of x */
+    char    equations[GRAPH_NUM_EQ][64]; /* Y= equation strings in terms of x */
     float   x_min;          /* Left edge of graph window */
     float   x_max;          /* Right edge of graph window */
     float   y_min;          /* Bottom edge of graph window */

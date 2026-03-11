@@ -41,7 +41,8 @@ static bool is_function(MathTokenType_t t)
             t == MATH_FUNC_TAN  || t == MATH_FUNC_ASIN ||
             t == MATH_FUNC_ACOS || t == MATH_FUNC_ATAN ||
             t == MATH_FUNC_LN   || t == MATH_FUNC_LOG  ||
-            t == MATH_FUNC_SQRT || t == MATH_FUNC_ABS);
+            t == MATH_FUNC_SQRT || t == MATH_FUNC_ABS  ||
+            t == MATH_FUNC_EXP);
 }
 
 static int precedence(MathTokenType_t t)
@@ -108,15 +109,26 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
         }
 
         /* X variable */
-if (*p == 'x' || *p == 'X') {
-    if (out->count >= CALC_MAX_TOKENS)
-        return CALC_ERR_OVERFLOW;
-    out->tokens[out->count].type  = MATH_NUMBER;
-    out->tokens[out->count].value = x_val;
-    out->count++;
-    p += 1;
-    continue;
-}
+        if (*p == 'x' || *p == 'X') {
+            if (out->count >= CALC_MAX_TOKENS)
+                return CALC_ERR_OVERFLOW;
+            out->tokens[out->count].type  = MATH_NUMBER;
+            out->tokens[out->count].value = x_val;
+            out->count++;
+            p += 1;
+            continue;
+        }
+
+        /* pi constant */
+        if (strncmp(p, "pi", 2) == 0) {
+            if (out->count >= CALC_MAX_TOKENS)
+                return CALC_ERR_OVERFLOW;
+            out->tokens[out->count].type  = MATH_NUMBER;
+            out->tokens[out->count].value = 3.14159265358979f;
+            out->count++;
+            p += 2;
+            continue;
+        }
 
         /* Named functions */
         struct { const char *name; MathTokenType_t type; } funcs[] = {
@@ -130,10 +142,11 @@ if (*p == 'x' || *p == 'X') {
             { "log",  MATH_FUNC_LOG  },
             { "sqrt", MATH_FUNC_SQRT },
             { "abs",  MATH_FUNC_ABS  },
+            { "exp",  MATH_FUNC_EXP  },
         };
 
         bool matched = false;
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 11; i++) {
             size_t len = strlen(funcs[i].name);
             if (strncmp(p, funcs[i].name, len) == 0) {
                 if (out->count >= CALC_MAX_TOKENS)
@@ -147,6 +160,18 @@ if (*p == 'x' || *p == 'X') {
             }
         }
         if (matched) continue;
+
+        /* e constant — Euler's number (must be after named-function check so
+           "exp" is consumed above before we reach here) */
+        if (*p == 'e') {
+            if (out->count >= CALC_MAX_TOKENS)
+                return CALC_ERR_OVERFLOW;
+            out->tokens[out->count].type  = MATH_NUMBER;
+            out->tokens[out->count].value = 2.71828182845905f;
+            out->count++;
+            p++;
+            continue;
+        }
 
         /* Single character tokens */
         MathTokenType_t op_type;
@@ -186,6 +211,41 @@ if (*p == 'x' || *p == 'X') {
         return CALC_ERR_SYNTAX;
     }
 
+    return CALC_OK;
+}
+
+/*---------------------------------------------------------------------------
+ * Stage 1b — Implicit multiplication pass
+ *
+ * Inserts MATH_OP_MUL between adjacent tokens where implicit multiplication
+ * is implied: e.g. 2sin(x), 2(3+4), (a+b)(c+d), 2pi, 3ANS.
+ *
+ * Rule: insert '*' when left token is NUMBER or ')' AND
+ *       right token is NUMBER, '(', or any function.
+ *--------------------------------------------------------------------------*/
+
+static CalcError_t ImplicitMulPass(TokenList_t *list)
+{
+    for (int i = 0; i < (int)list->count - 1; i++) {
+        MathTokenType_t cur  = list->tokens[i].type;
+        MathTokenType_t next = list->tokens[i + 1].type;
+
+        bool cur_is_value  = (cur  == MATH_NUMBER || cur  == MATH_PAREN_RIGHT);
+        bool next_is_factor = (next == MATH_NUMBER || next == MATH_PAREN_LEFT ||
+                               is_function(next));
+
+        if (cur_is_value && next_is_factor) {
+            if (list->count >= CALC_MAX_TOKENS)
+                return CALC_ERR_OVERFLOW;
+            /* Shift everything from i+1 onwards one position right */
+            for (int j = (int)list->count; j > i + 1; j--)
+                list->tokens[j] = list->tokens[j - 1];
+            list->tokens[i + 1].type  = MATH_OP_MUL;
+            list->tokens[i + 1].value = 0.0f;
+            list->count++;
+            i++; /* skip the inserted '*' on the next iteration */
+        }
+    }
     return CALC_OK;
 }
 
@@ -353,6 +413,7 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
                 stack[top] = sqrtf(a);
                 break;
             case MATH_FUNC_ABS:    stack[top] = fabsf(a);               break;
+            case MATH_FUNC_EXP:    stack[top] = expf(a);                break;
             default:               break;
             }
             continue;
@@ -435,6 +496,14 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees)
         return res;
     }
 
+    err = ImplicitMulPass(&infix);
+    if (err != CALC_OK) {
+        res.error = err;
+        strncpy(res.error_msg, "Expression too long",
+                sizeof(res.error_msg) - 1);
+        return res;
+    }
+
     err = ShuntingYard(&infix, &postfix);
     if (err != CALC_OK) {
         res.error = err;
@@ -462,6 +531,13 @@ CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
     if (err != CALC_OK) {
         res.error = err;
         strncpy(res.error_msg, "Tokenize error",
+                sizeof(res.error_msg) - 1);
+        return res;
+    }
+    err = ImplicitMulPass(&infix);
+    if (err != CALC_OK) {
+        res.error = err;
+        strncpy(res.error_msg, "Expression too long",
                 sizeof(res.error_msg) - 1);
         return res;
     }

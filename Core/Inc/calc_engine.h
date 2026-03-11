@@ -56,6 +56,7 @@ typedef enum {
     MATH_FUNC_LOG,
     MATH_FUNC_SQRT,
     MATH_FUNC_ABS,
+    MATH_FUNC_EXP,          /* e^x */
     MATH_PAREN_LEFT,
     MATH_PAREN_RIGHT,
 } MathTokenType_t;

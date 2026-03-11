@@ -145,7 +145,6 @@ void Graph_Init(lv_obj_t *parent)
 void Graph_Render(bool angle_degrees)
 {
     if (graph_canvas == NULL) return;
-    if (strlen(graph_state.equation) == 0) return;
 
     /* Clear canvas to black */
     lv_canvas_fill_bg(graph_canvas, lv_color_hex(0x000000), LV_OPA_COVER);
@@ -154,53 +153,62 @@ void Graph_Render(bool angle_degrees)
     draw_axes();
     draw_ticks();
 
-    /* Update equation label */
-    char eq_label[70];
-    snprintf(eq_label, sizeof(eq_label), "Y1=%s", graph_state.equation);
-    lv_label_set_text(graph_lbl_eq, eq_label);
+    /* One color per Y= slot */
+    static const uint32_t eq_palette[GRAPH_NUM_EQ] = {
+        0xFFFFFF,   /* Y1 — white   */
+        0x00FFFF,   /* Y2 — cyan    */
+        0xFFFF00,   /* Y3 — yellow  */
+        0xFF80FF,   /* Y4 — magenta */
+    };
 
-    /* Plot the curve */
-    lv_color_t curve_color = lv_color_hex(0xFFFFFF);
-    int32_t prev_py = -1;
-    bool    prev_valid = false;
+    /* Build label from active slots and plot each curve */
+    char eq_label[24] = "";
+    const char *eq_names[] = { "Y1 ", "Y2 ", "Y3 ", "Y4 " };
 
-    for (int32_t px = 0; px < GRAPH_W; px++) {
-        /* Map pixel column to math x value */
-        float x = graph_state.x_min +
-                  (float)px / (float)(GRAPH_W - 1) *
-                  (graph_state.x_max - graph_state.x_min);
+    for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
+        const char *eqstr = graph_state.equations[eq];
+        if (strlen(eqstr) == 0) continue;
 
-        CalcResult_t r = Calc_EvaluateAt(graph_state.equation, x,
-                                          0.0f, angle_degrees);
+        strncat(eq_label, eq_names[eq], sizeof(eq_label) - strlen(eq_label) - 1);
 
-        if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
-            prev_valid = false;
-            continue;
-        }
+        lv_color_t curve_color = lv_color_hex(eq_palette[eq]);
+        int32_t prev_py    = -1;
+        bool    prev_valid = false;
 
-        int32_t py = math_y_to_px(r.value);
+        for (int32_t px = 0; px < GRAPH_W; px++) {
+            float x = graph_state.x_min +
+                      (float)px / (float)(GRAPH_W - 1) *
+                      (graph_state.x_max - graph_state.x_min);
 
-        /* Skip points outside the canvas */
-        if (py < 0 || py >= GRAPH_H) {
-            prev_valid = false;
-            continue;
-        }
+            CalcResult_t r = Calc_EvaluateAt(eqstr, x, 0.0f, angle_degrees);
 
-        /* Connect to previous point with a vertical line segment
-           to avoid gaps on steep curves */
-        if (prev_valid) {
-            int32_t y_start = prev_py < py ? prev_py : py;
-            int32_t y_end   = prev_py < py ? py : prev_py;
-            for (int32_t y = y_start; y <= y_end; y++) {
-                lv_canvas_set_px(graph_canvas, px, y, curve_color, LV_OPA_COVER);
+            if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
+                prev_valid = false;
+                continue;
             }
-        } else {
-            lv_canvas_set_px(graph_canvas, px, py, curve_color, LV_OPA_COVER);
-        }
 
-        prev_py    = py;
-        prev_valid = true;
+            int32_t py = math_y_to_px(r.value);
+
+            if (py < 0 || py >= GRAPH_H) {
+                prev_valid = false;
+                continue;
+            }
+
+            if (prev_valid) {
+                int32_t y_start = prev_py < py ? prev_py : py;
+                int32_t y_end   = prev_py < py ? py : prev_py;
+                for (int32_t y = y_start; y <= y_end; y++)
+                    lv_canvas_set_px(graph_canvas, px, y, curve_color, LV_OPA_COVER);
+            } else {
+                lv_canvas_set_px(graph_canvas, px, py, curve_color, LV_OPA_COVER);
+            }
+
+            prev_py    = py;
+            prev_valid = true;
+        }
     }
+
+    lv_label_set_text(graph_lbl_eq, eq_label);
 }
 
 void Graph_SetVisible(bool visible)
