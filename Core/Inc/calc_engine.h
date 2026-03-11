@@ -97,4 +97,8 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees);
  */
 void Calc_FormatResult(float value, char *buf, uint8_t buf_len);
 
+
+CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
+                              float ans, bool angle_degrees);
+
 #endif /* CALC_ENGINE_H */

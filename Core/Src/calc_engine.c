@@ -67,7 +67,7 @@ static bool is_right_assoc(MathTokenType_t t)
  * Stage 1 — Tokenizer
  *--------------------------------------------------------------------------*/
 
-static CalcError_t Tokenize(const char *expr, float ans,
+static CalcError_t Tokenize(const char *expr, float ans, float x_val,
                              TokenList_t *out)
 {
     out->count = 0;
@@ -106,6 +106,17 @@ static CalcError_t Tokenize(const char *expr, float ans,
             p += 3;
             continue;
         }
+
+        /* X variable */
+if (*p == 'x' || *p == 'X') {
+    if (out->count >= CALC_MAX_TOKENS)
+        return CALC_ERR_OVERFLOW;
+    out->tokens[out->count].type  = MATH_NUMBER;
+    out->tokens[out->count].value = x_val;
+    out->count++;
+    p += 1;
+    continue;
+}
 
         /* Named functions */
         struct { const char *name; MathTokenType_t type; } funcs[] = {
@@ -416,7 +427,7 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees)
     TokenList_t infix  = { .count = 0 };
     TokenList_t postfix = { .count = 0 };
 
-    CalcError_t err = Tokenize(expr, ans, &infix);
+    CalcError_t err = Tokenize(expr, ans, 0.0f, &infix);
     if (err != CALC_OK) {
         res.error = err;
         strncpy(res.error_msg, "Tokenize error",
@@ -432,6 +443,35 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees)
         return res;
     }
 
+    return EvaluateRPN(&postfix, angle_degrees);
+}
+
+CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
+                              float ans, bool angle_degrees)
+{
+    CalcResult_t res = { 0.0f, CALC_OK, "" };
+    if (expr == NULL || strlen(expr) == 0) {
+        res.error = CALC_ERR_SYNTAX;
+        strncpy(res.error_msg, "Empty expression",
+                sizeof(res.error_msg) - 1);
+        return res;
+    }
+    TokenList_t infix   = { .count = 0 };
+    TokenList_t postfix = { .count = 0 };
+    CalcError_t err = Tokenize(expr, ans, x_val, &infix);
+    if (err != CALC_OK) {
+        res.error = err;
+        strncpy(res.error_msg, "Tokenize error",
+                sizeof(res.error_msg) - 1);
+        return res;
+    }
+    err = ShuntingYard(&infix, &postfix);
+    if (err != CALC_OK) {
+        res.error = err;
+        strncpy(res.error_msg, "Syntax error",
+                sizeof(res.error_msg) - 1);
+        return res;
+    }
     return EvaluateRPN(&postfix, angle_degrees);
 }
 
