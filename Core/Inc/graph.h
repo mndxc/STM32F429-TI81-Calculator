@@ -2,8 +2,8 @@
  * @file    graph.h
  * @brief   Graphing subsystem — Y= equation renderer.
  */
-#ifndef GRAPH_H
-#define GRAPH_H
+#ifndef GRAPH_MODULE_H
+#define GRAPH_MODULE_H
 
 #include "lvgl.h"
 #include <stdbool.h>
@@ -28,11 +28,11 @@ void Graph_Init(lv_obj_t *parent);
  * @brief Renders the current Y= equation onto the canvas.
  *        Uses graph_state for equation, range and scale.
  */
-void Graph_Render(void);
+void Graph_Render(bool angle_degrees);
 
 /**
  * @brief Shows or hides the graph screen.
  */
 void Graph_SetVisible(bool visible);
 
-#endif /* GRAPH_H */
+#endif /* GRAPH_MODULE_H */

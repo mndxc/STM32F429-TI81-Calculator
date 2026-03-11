@@ -15,7 +15,7 @@
  *--------------------------------------------------------------------------*/
 
 /* Pixel buffer for the canvas — RGB565, one uint16_t per pixel */
-static uint16_t graph_buf[GRAPH_W * GRAPH_H];
+static uint16_t * const graph_buf = (uint16_t *)0xD0025800;
 
 static lv_obj_t *graph_screen  = NULL;
 static lv_obj_t *graph_canvas  = NULL;
@@ -142,7 +142,7 @@ void Graph_Init(lv_obj_t *parent)
     lv_label_set_text(graph_lbl_xy, "");
 }
 
-void Graph_Render(void)
+void Graph_Render(bool angle_degrees)
 {
     if (graph_canvas == NULL) return;
     if (strlen(graph_state.equation) == 0) return;
@@ -171,7 +171,7 @@ void Graph_Render(void)
                   (graph_state.x_max - graph_state.x_min);
 
         CalcResult_t r = Calc_EvaluateAt(graph_state.equation, x,
-                                          0.0f, true);
+                                          0.0f, angle_degrees);
 
         if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
             prev_valid = false;

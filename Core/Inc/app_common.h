@@ -29,7 +29,8 @@
 typedef enum {
     MODE_NORMAL,
     MODE_2ND,
-    MODE_ALPHA
+    MODE_ALPHA,
+    MODE_GRAPH_YEQ
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------
