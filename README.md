@@ -1,5 +1,7 @@
 # STM32F429 TI-81 Calculator
 
+![Calculator running on STM32F429I-DISC1](docs/FrankenCalc.jpeg)
+
 A TI-81 inspired scientific calculator prototype running on the STM32F429I-DISC1
 discovery board, using LVGL for the display interface and FreeRTOS for task
 management.
@@ -33,10 +35,12 @@ Core/
     main.c                  Application entry, FreeRTOS task setup, hardware init
     calculator_core.c       Calculator UI, token processing, expression building
     calc_engine.c           Expression parser and evaluator (shunting-yard + RPN)
+    graph.c                 Graph canvas, axes, tick marks, curve renderer
   Inc/
     main.h
     app_common.h            Shared types, handles and function declarations
     calc_engine.h           Math engine interface
+    graph.h                 Graphing subsystem interface
 
 Drivers/
   BSP/
@@ -239,19 +243,39 @@ osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 8192);
 ## Building
 
 **Requirements:**
+- STM32CubeMX (to generate vendor library sources)
 - arm-none-eabi-gcc
 - CMake 3.22+
 - ST-LINK for flashing
 
-**Build:**
+### Step 1 — Generate vendor sources
+
+The STM32 HAL, CMSIS, and FreeRTOS sources are not included in this repository
+(they are large, redistributable by ST, and gitignored). You must generate them
+once using STM32CubeMX before building:
+
+1. Open `STM32F429-TI81-Calculator.ioc` in STM32CubeMX
+2. Click **Project → Generate Code**
+3. This will populate:
+   - `Drivers/STM32F4xx_HAL_Driver/`
+   - `Drivers/CMSIS/`
+   - `Middlewares/Third_Party/FreeRTOS/`
+
+After generating, re-apply the manual changes documented in
+[Key Configuration](#key-configuration--read-before-building) as CubeMX
+will reset them.
+
+### Step 2 — Build
+
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 ```
 
-**Flash:**
+### Step 3 — Flash
+
 ```bash
-st-flash write build/BlankDefaultConfigAttempt.bin 0x08000000
+st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 ```
 
 ---
@@ -274,6 +298,10 @@ st-flash write build/BlankDefaultConfigAttempt.bin 0x08000000
 | History display                | ✅ Working     |
 | Error messages                 | ✅ Working     |
 | Full expression parsing        | ✅ Working     |
+| Y= equation editor             | ✅ Working     |
+| Graph rendering                | ✅ Working     |
+| RANGE window editor            | 🚧 WIP         |
+| TRACE cursor                   | 🚧 Planned     |
 | Matrix and list operations     | 🚧 Planned     |
 | PRGM / variable storage        | 🚧 Planned     |
 | Full TI-81 function parity     | 🚧 Planned     |

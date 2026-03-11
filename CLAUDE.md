@@ -15,7 +15,7 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 - **RTOS:** FreeRTOS via CMSIS-OS v1
 - **Toolchain:** GCC ARM None EABI 14.3.1, CMake, VSCode + stm32-cube-clangd extension
 - **Build system:** CMake with `cmake/gcc-arm-none-eabi.cmake`
-- **Repository:** https://github.com/mndxc/STM32F429-TI81-Calculator (private)
+- **Repository:** https://github.com/mndxc/STM32F429-TI81-Calculator
 
 ---
 
@@ -159,7 +159,8 @@ typedef enum {
     MODE_2ND,           — 2nd function layer (sticky, resets after one keypress)
     MODE_ALPHA,         — alpha character layer (sticky, resets after one keypress)
     MODE_GRAPH_YEQ,     — Y= equation editor active
-    MODE_GRAPH_RANGE    — RANGE field editor active (WIP)
+    MODE_GRAPH_RANGE,   — RANGE field editor active (WIP)
+    MODE_GRAPH_ZOOM     — ZOOM key held
 } CalcMode_t;
 ```
 
@@ -173,7 +174,7 @@ the main switch. Each mode intercepts keypresses and routes them appropriately.
 ### State
 ```c
 typedef struct {
-    char    equation[64];   // Y= equation string in terms of x
+    char    equations[GRAPH_NUM_EQ][64]; // Y= equation strings (Y1–Y4), in terms of x
     float   x_min;          // default -10.0f
     float   x_max;          // default  10.0f
     float   y_min;          // default -10.0f
@@ -182,6 +183,8 @@ typedef struct {
     float   y_scl;          // default   1.0f
     bool    active;
 } GraphState_t;
+
+#define GRAPH_NUM_EQ    4   // number of simultaneous Y= equations
 
 GraphState_t graph_state;   // defined in calculator_core.c, extern in app_common.h
 ```

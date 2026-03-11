@@ -26,7 +26,6 @@ mx.scratch
 # Object files
 *.o
 *.obj
-Middlewares/Third_Party/lvgl/tests/
 
 # LVGL duplicate copy
 LVGL/
