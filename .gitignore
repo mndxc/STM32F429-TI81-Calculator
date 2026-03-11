@@ -1,0 +1,49 @@
+# Build output
+build/
+
+# CubeMX internal files
+.mxproject
+mx.scratch
+
+# macOS metadata
+.DS_Store
+
+# IDE settings
+.settings/
+.vscode/
+
+# CubeMX Eclipse settings (not needed for CMake builds)
+.project
+.cproject
+
+# Compiled output
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+
+# Object files
+*.o
+*.obj
+Middlewares/Third_Party/lvgl/tests/
+
+# LVGL duplicate copy
+LVGL/
+
+# LVGL files not needed for embedded build
+Middlewares/Third_Party/lvgl/tests/
+Middlewares/Third_Party/lvgl/docs/
+Middlewares/Third_Party/lvgl/examples/
+Middlewares/Third_Party/lvgl/demos/
+Middlewares/Third_Party/lvgl/scripts/
+Middlewares/Third_Party/lvgl/libs/
+Middlewares/Third_Party/lvgl/env_support/
+Middlewares/Third_Party/lvgl/.github/
+Middlewares/Third_Party/lvgl/.devcontainer/
+
+# STM32 HAL driver sources (large, redistributable by ST)
+Drivers/STM32F4xx_HAL_Driver/
+Drivers/CMSIS/
+Middlewares/Third_Party/FreeRTOS/
+Middlewares/ST/
