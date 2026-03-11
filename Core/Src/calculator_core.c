@@ -118,6 +118,11 @@ GraphState_t graph_state = {
     .active   = false,
 };
 
+/* RANGE editor state */
+static uint8_t  range_field_selected = 0;   /* 0=xmin 1=xmax 2=ymin 3=ymax 4=xscl 5=yscl */
+static char     range_field_buf[16]  = {0};
+static uint8_t  range_field_len      = 0;
+
 /*---------------------------------------------------------------------------
  * LVGL thread safety helpers
  *--------------------------------------------------------------------------*/
@@ -431,6 +436,64 @@ void Update_Calculator_Display(void)
 }
 
 /*---------------------------------------------------------------------------
+ * RANGE editor helpers
+ *--------------------------------------------------------------------------*/
+
+static lv_obj_t *range_get_label(uint8_t idx)
+{
+    switch (idx) {
+    case 0: return ui_lbl_range_xmin;
+    case 1: return ui_lbl_range_xmax;
+    case 2: return ui_lbl_range_ymin;
+    case 3: return ui_lbl_range_ymax;
+    case 4: return ui_lbl_range_xscl;
+    case 5: return ui_lbl_range_yscl;
+    default: return NULL;
+    }
+}
+
+static float range_get_field_value(uint8_t idx)
+{
+    switch (idx) {
+    case 0: return graph_state.x_min;
+    case 1: return graph_state.x_max;
+    case 2: return graph_state.y_min;
+    case 3: return graph_state.y_max;
+    case 4: return graph_state.x_scl;
+    case 5: return graph_state.y_scl;
+    default: return 0.0f;
+    }
+}
+
+static void range_commit_field(void)
+{
+    if (range_field_len == 0)
+        return;
+    float val = strtof(range_field_buf, NULL);
+    switch (range_field_selected) {
+    case 0: graph_state.x_min = val; break;
+    case 1: graph_state.x_max = val; break;
+    case 2: graph_state.y_min = val; break;
+    case 3: graph_state.y_max = val; break;
+    case 4: if (val > 0.0f) graph_state.x_scl = val; break;  /* must be positive */
+    case 5: if (val > 0.0f) graph_state.y_scl = val; break;  /* must be positive */
+    }
+}
+
+static void range_update_highlight(void)
+{
+    for (uint8_t i = 0; i < 6; i++) {
+        lv_obj_t *lbl = range_get_label(i);
+        if (lbl == NULL)
+            continue;
+        lv_obj_set_style_text_color(lbl,
+            (i == range_field_selected) ? lv_color_hex(0xFFFF00)
+                                        : lv_color_hex(0xFFFFFF),
+            0);
+    }
+}
+
+/*---------------------------------------------------------------------------
  * Token execution
  *--------------------------------------------------------------------------*/
 
@@ -509,6 +572,142 @@ void Execute_Token(Token_t t)
             }
         }
         return;
+    }
+
+    /* Handle RANGE field editing mode */
+    if (current_mode == MODE_GRAPH_RANGE) {
+        lv_obj_t *lbl;
+        char stored_buf[16];
+
+        switch (t) {
+        case TOKEN_0 ... TOKEN_9:
+            if (range_field_len < sizeof(range_field_buf) - 1) {
+                range_field_buf[range_field_len++] = (char)((t - TOKEN_0) + '0');
+                range_field_buf[range_field_len]   = '\0';
+                lbl = range_get_label(range_field_selected);
+                lvgl_lock();
+                if (lbl) lv_label_set_text(lbl, range_field_buf);
+                lvgl_unlock();
+            }
+            return;
+
+        case TOKEN_DECIMAL:
+            if (range_field_len < sizeof(range_field_buf) - 1 &&
+                strchr(range_field_buf, '.') == NULL) {
+                range_field_buf[range_field_len++] = '.';
+                range_field_buf[range_field_len]   = '\0';
+                lbl = range_get_label(range_field_selected);
+                lvgl_lock();
+                if (lbl) lv_label_set_text(lbl, range_field_buf);
+                lvgl_unlock();
+            }
+            return;
+
+        case TOKEN_NEG:
+            if (range_field_len > 0 && range_field_buf[0] == '-') {
+                memmove(range_field_buf, range_field_buf + 1, range_field_len);
+                range_field_len--;
+            } else if (range_field_len < sizeof(range_field_buf) - 1) {
+                memmove(range_field_buf + 1, range_field_buf, range_field_len + 1);
+                range_field_buf[0] = '-';
+                range_field_len++;
+            }
+            lbl = range_get_label(range_field_selected);
+            lvgl_lock();
+            if (lbl) {
+                if (range_field_len > 0) {
+                    lv_label_set_text(lbl, range_field_buf);
+                } else {
+                    snprintf(stored_buf, sizeof(stored_buf), "%.4g",
+                             range_get_field_value(range_field_selected));
+                    lv_label_set_text(lbl, stored_buf);
+                }
+            }
+            lvgl_unlock();
+            return;
+
+        case TOKEN_DEL:
+            if (range_field_len > 0)
+                range_field_buf[--range_field_len] = '\0';
+            lbl = range_get_label(range_field_selected);
+            lvgl_lock();
+            if (lbl) {
+                if (range_field_len > 0) {
+                    lv_label_set_text(lbl, range_field_buf);
+                } else {
+                    snprintf(stored_buf, sizeof(stored_buf), "%.4g",
+                             range_get_field_value(range_field_selected));
+                    lv_label_set_text(lbl, stored_buf);
+                }
+            }
+            lvgl_unlock();
+            return;
+
+        case TOKEN_ENTER:
+        case TOKEN_DOWN:
+            range_commit_field();
+            range_field_len      = 0;
+            range_field_buf[0]   = '\0';
+            if (range_field_selected < 5) range_field_selected++;
+            lvgl_lock();
+            ui_update_range_display();
+            range_update_highlight();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_UP:
+            range_commit_field();
+            range_field_len      = 0;
+            range_field_buf[0]   = '\0';
+            if (range_field_selected > 0) range_field_selected--;
+            lvgl_lock();
+            ui_update_range_display();
+            range_update_highlight();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_ZOOM:
+            graph_state.x_min = -10.0f;
+            graph_state.x_max =  10.0f;
+            graph_state.y_min = -10.0f;
+            graph_state.y_max =  10.0f;
+            graph_state.x_scl =   1.0f;
+            graph_state.y_scl =   1.0f;
+            range_field_len      = 0;
+            range_field_buf[0]   = '\0';
+            lvgl_lock();
+            ui_update_range_display();
+            range_update_highlight();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_GRAPH:
+            range_commit_field();
+            current_mode         = MODE_NORMAL;
+            range_field_selected = 0;
+            range_field_len      = 0;
+            range_field_buf[0]   = '\0';
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
+            Graph_SetVisible(true);
+            Graph_Render(angle_degrees);
+            lvgl_unlock();
+            return;
+
+        case TOKEN_RANGE:
+            current_mode         = MODE_NORMAL;
+            range_field_selected = 0;
+            range_field_len      = 0;
+            range_field_buf[0]   = '\0';
+            lvgl_lock();
+            ui_update_range_display();
+            lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
+            lvgl_unlock();
+            return;
+
+        default:
+            return;
+        }
     }
 
     switch (t) {
@@ -740,11 +939,18 @@ case TOKEN_ANS:
         break;
 
     case TOKEN_RANGE:
-        /* Switch to RANGE screen */
+        /* Switch to RANGE editor */
+        current_mode         = MODE_GRAPH_RANGE;
+        range_field_selected = 0;
+        range_field_len      = 0;
+        range_field_buf[0]   = '\0';
+        graph_state.active   = false;
         lvgl_lock();
+        lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
         Graph_SetVisible(false);
         lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_range_display();
+        range_update_highlight();
         lvgl_unlock();
         break;
 
