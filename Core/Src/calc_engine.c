@@ -440,19 +440,33 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees)
  */
 void Calc_FormatResult(float value, char *buf, uint8_t buf_len)
 {
-    /* Check for integer result */
-    if (value == (int32_t)value &&
-        value >= -9999999.0f && value <= 9999999.0f) {
-        snprintf(buf, buf_len, "%d", (int32_t)value);
-        return;
-    }
-
     /* Use scientific notation for very large or very small values */
     if (fabsf(value) >= 1e7f || (fabsf(value) < 1e-4f && value != 0.0f)) {
         snprintf(buf, buf_len, "%.4e", value);
         return;
     }
 
-    /* Standard decimal — trim trailing zeros */
-    snprintf(buf, buf_len, "%.6g", value);
+    /* Check for integer result using epsilon comparison */
+    float rounded = roundf(value);
+    if (fabsf(value - rounded) < 1e-4f &&
+        rounded >= -9999999.0f && rounded <= 9999999.0f) {
+        snprintf(buf, buf_len, "%d", (int)rounded);
+        return;
+    }
+
+    /* Standard decimal — print with 6 decimal places then trim zeros */
+    snprintf(buf, buf_len, "%.6f", value);
+
+    /* Trim trailing zeros after decimal point */
+    char *dot = strchr(buf, '.');
+    if (dot != NULL) {
+        char *end = buf + strlen(buf) - 1;
+        while (end > dot && *end == '0') {
+            *end-- = '\0';
+        }
+        /* Remove trailing dot if all decimals were zero */
+        if (*end == '.') {
+            *end = '\0';
+        }
+    }
 }

@@ -362,6 +362,7 @@ case TOKEN_ENTER:
                                             angle_degrees);
 
         char result_str[MAX_RESULT_LEN];
+        memset(result_str, 0, MAX_RESULT_LEN);
 
         if (result.error != CALC_OK) {
             strncpy(result_str, result.error_msg,
