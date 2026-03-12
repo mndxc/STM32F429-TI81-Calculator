@@ -40,10 +40,12 @@ SDRAM:    64 MB @ 0xD0000000   (external, initialised in main.c)
 ```
 0xD0000000  LCD framebuffer     320*240*2 = 153,600 bytes
 0xD0025800  graph_buf           320*220*2 = 140,800 bytes
+0xD0047E00  graph_buf_clean     320*220*2 = 140,800 bytes  (trace cache)
 ```
-`graph_buf` is a pointer into SDRAM, not a static array:
+`graph_buf` and `graph_buf_clean` are pointers into SDRAM, not static arrays:
 ```c
-static uint16_t * const graph_buf = (uint16_t *)0xD0025800;
+static uint16_t * const graph_buf       = (uint16_t *)0xD0025800;
+static uint16_t * const graph_buf_clean = (uint16_t *)0xD0047E00;
 ```
 
 ### VSCode extensions
@@ -120,7 +122,15 @@ void         Calc_FormatResult(float value, char *buf, uint8_t buf_len);
 
 ### Variables supported in expressions
 - `ANS` — last result
-- `x` or `X` — graph variable (substituted by `Calc_EvaluateAt`)
+- `x` or `X` — graph variable (substituted by `Calc_EvaluateAt`; in normal calc mode uses stored value of X)
+- `A`–`Z` (uppercase) — user variables stored via STO→, held in `calc_variables[26]` in `calc_engine.c`
+
+### Variable storage API
+```c
+extern float calc_variables[26];   /* indexed by (ch - 'A') */
+```
+`Calc_Evaluate` passes `calc_variables['X'-'A']` as x_val so stored X works in regular expressions.
+`Calc_EvaluateAt` passes the graph x_val directly, overriding stored X during graphing.
 
 ### Float formatting fix
 `%.6g` was unreliable on newlib-nano. Current implementation uses explicit `%.6f`
@@ -158,6 +168,7 @@ typedef enum {
     MODE_NORMAL,        — standard calculator input
     MODE_2ND,           — 2nd function layer (sticky, resets after one keypress)
     MODE_ALPHA,         — alpha character layer (sticky, resets after one keypress)
+    MODE_ALPHA_LOCK,    — alpha locked on (2nd+ALPHA); stays until ALPHA pressed again
     MODE_GRAPH_YEQ,     — Y= equation editor active
     MODE_GRAPH_RANGE,   — RANGE field editor active
     MODE_GRAPH_ZOOM,    — ZOOM preset menu active
@@ -167,6 +178,14 @@ typedef enum {
 
 `Execute_Token()` in `calculator_core.c` checks `current_mode` at the top before
 the main switch. Each mode intercepts keypresses and routes them appropriately.
+
+### Modifier key behaviour
+- Pressing 2nd or ALPHA a second time cancels the mode (toggle behaviour)
+- `TOKEN_A_LOCK` (2nd+ALPHA) enters `MODE_ALPHA_LOCK` — alpha layer stays active after each keypress
+- Pressing ALPHA while in `MODE_ALPHA_LOCK` exits back to the previous mode
+- `TOKEN_STO` sets `sto_pending = true`; `Process_Hardware_Key` then dispatches `key.alpha` for the next key automatically (no need to press ALPHA)
+- Status bar shows: `2nd` (orange), `ALPHA` (green), `A-LOCK` (green), `STO→` (orange)
+- The Y= screen has its own modifier label (`ui_lbl_yeq_modifier`) mirrored from `ui_update_status_bar()`
 
 ---
 
@@ -198,10 +217,10 @@ GraphState_t graph_state;   // defined in calculator_core.c, extern in app_commo
 ### Key flow
 ```
 Y=    → MODE_GRAPH_YEQ, show ui_graph_yeq_screen
-RANGE → MODE_GRAPH_RANGE, show ui_graph_range_screen (editing WIP)
+RANGE → MODE_GRAPH_RANGE, show ui_graph_range_screen
 ZOOM  → ZStandard reset (±10), fall through to GRAPH
 GRAPH → hide other screens, Graph_SetVisible(true), Graph_Render(angle_degrees)
-TRACE → TODO
+TRACE → MODE_GRAPH_TRACE, cursor at midpoint, Graph_DrawTrace()
 ```
 
 ### Renderer
@@ -220,9 +239,9 @@ Graph evaluates using the same angle mode as the calculator.
 
 ---
 
-## RANGE Editor (Work In Progress)
+## RANGE Editor
 
-State variables added to `calculator_core.c`:
+State variables in `calculator_core.c`:
 ```c
 static uint8_t  range_field_selected = 0;   // 0=xmin 1=xmax 2=ymin 3=ymax 4=xscl 5=yscl
 static char     range_field_buf[16];
@@ -263,17 +282,20 @@ The `MODE_GRAPH_RANGE` handler in `Execute_Token()` is complete:
 - Any other key exits trace, re-renders clean graph, falls through to normal handling
 
 `Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)` in `graph.c`:
-- Calls `Graph_Render` (full re-render) then draws a green (`0x00FF00`) crosshair ±5px
+- If `graph_clean_valid`: memcpy's `graph_buf_clean` → `graph_buf` (fast path, no re-render)
+- Otherwise calls `Graph_Render` (populates the clean cache for subsequent calls)
+- Draws a green (`0x00FF00`) crosshair ±5px at the cursor position
 - Updates `graph_lbl_xy` with formatted `X=` / `Y=` values using `Calc_FormatResult`
+- `graph_clean_valid` is invalidated when `Graph_SetVisible(false)` is called
 
 ---
 
 ## Planned Features (not yet started)
 
-- **Additional math functions** — factorial, combinations, permutations, hyperbolic
+- **Additional math functions** — factorial, combinations, permutations, hyperbolic trig
 - **Implicit multiplication** — `2(3+4)` treated as `2*(3+4)`
-- **Expression history navigation** — UP/DOWN in calculator mode to recall history
-- **Multiple Y= equations** — Y1 through Y4
+- **Expression history navigation** — UP/DOWN in calculator mode to recall history entries
+- **PRGM** — program editor and runner
 - **Battery voltage ADC** — for custom PCB (Rev 1 hardware)
 
 ---

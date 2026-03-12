@@ -289,21 +289,26 @@ st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 | LVGL rendering                 | ✅ Working     |
 | Keypad matrix scan             | ✅ Working     |
 | 2nd and Alpha modifier keys    | ✅ Working     |
+| 2nd / Alpha toggle (press twice to cancel) | ✅ Working |
+| Alpha lock (A-LOCK via 2nd+ALPHA) | ✅ Working  |
+| Alpha character input (A–Z)    | ✅ Working     |
 | Expression building            | ✅ Working     |
 | Basic arithmetic               | ✅ Working     |
 | Trig functions                 | ✅ Working     |
 | Logarithmic functions          | ✅ Working     |
 | ANS variable                   | ✅ Working     |
+| User variables A–Z (STO→)      | ✅ Working     |
 | DEG/RAD mode toggle            | ✅ Working     |
 | History display                | ✅ Working     |
 | Error messages                 | ✅ Working     |
 | Full expression parsing        | ✅ Working     |
 | Y= equation editor             | ✅ Working     |
+| Alpha variables in Y= equations| ✅ Working     |
 | Graph rendering                | ✅ Working     |
 | RANGE window editor            | ✅ Working     |
 | TRACE cursor                   | ✅ Working     |
 | Matrix and list operations     | 🚧 Planned     |
-| PRGM / variable storage        | 🚧 Planned     |
+| PRGM                           | 🚧 Planned     |
 | Full TI-81 function parity     | 🚧 Planned     |
 
 ---

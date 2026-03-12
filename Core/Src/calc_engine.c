@@ -15,6 +15,9 @@
 #include <math.h>
 #include <ctype.h>
 
+/* User variable storage — A through Z, indexed by (ch - 'A') */
+float calc_variables[26] = {0};
+
 /*---------------------------------------------------------------------------
  * Private types
  *--------------------------------------------------------------------------*/
@@ -114,6 +117,17 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
                 return CALC_ERR_OVERFLOW;
             out->tokens[out->count].type  = MATH_NUMBER;
             out->tokens[out->count].value = x_val;
+            out->count++;
+            p += 1;
+            continue;
+        }
+
+        /* User variables A–Z (uppercase; skip X — handled above as graph var) */
+        if (isupper((unsigned char)*p) && *p != 'X') {
+            if (out->count >= CALC_MAX_TOKENS)
+                return CALC_ERR_OVERFLOW;
+            out->tokens[out->count].type  = MATH_NUMBER;
+            out->tokens[out->count].value = calc_variables[*p - 'A'];
             out->count++;
             p += 1;
             continue;
@@ -488,7 +502,7 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees)
     TokenList_t infix  = { .count = 0 };
     TokenList_t postfix = { .count = 0 };
 
-    CalcError_t err = Tokenize(expr, ans, 0.0f, &infix);
+    CalcError_t err = Tokenize(expr, ans, calc_variables['X' - 'A'], &infix);
     if (err != CALC_OK) {
         res.error = err;
         strncpy(res.error_msg, "Tokenize error",

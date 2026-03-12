@@ -30,6 +30,7 @@ typedef enum {
     MODE_NORMAL,
     MODE_2ND,
     MODE_ALPHA,
+    MODE_ALPHA_LOCK,    /* ALPHA locked — stays active after each keypress */
     MODE_GRAPH_YEQ,
     MODE_GRAPH_RANGE,
     MODE_GRAPH_ZOOM,

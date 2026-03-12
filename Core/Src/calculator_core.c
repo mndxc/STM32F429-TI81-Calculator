@@ -79,6 +79,7 @@ static lv_obj_t *ui_lbl_result;
 static lv_obj_t *ui_graph_yeq_screen   = NULL;
 static lv_obj_t *ui_lbl_yeq_name[GRAPH_NUM_EQ]; /* "Y1=" ... "Y4=" row labels */
 static lv_obj_t *ui_lbl_yeq_eq[GRAPH_NUM_EQ];   /* Equation content per row */
+static lv_obj_t *ui_lbl_yeq_modifier  = NULL;   /* 2nd/ALPHA indicator on Y= screen */
 static uint8_t   yeq_selected           = 0;    /* Which Y= row is being edited */
 static lv_obj_t *ui_graph_zoom_screen  = NULL;
 static lv_obj_t *ui_graph_range_screen = NULL;
@@ -105,6 +106,7 @@ static uint8_t      expr_len       = 0;
 static CalcMode_t   current_mode   = MODE_NORMAL;
 static bool         angle_degrees  = true;
 static float        ans            = 0.0f;
+static bool         sto_pending    = false;  /* True after STO — next alpha stores ans */
 
 static HistoryEntry_t history[HISTORY_LINE_COUNT];
 static uint8_t        history_count = 0;
@@ -324,6 +326,12 @@ static void ui_init_graph_screens(void)
         lv_label_set_text(ui_lbl_yeq_eq[i], "");
     }
 
+    /* Modifier indicator (2nd / ALPHA / A-LOCK) — top right */
+    ui_lbl_yeq_modifier = lv_label_create(ui_graph_yeq_screen);
+    lv_obj_set_style_text_font(ui_lbl_yeq_modifier, &lv_font_montserrat_14, 0);
+    lv_obj_align(ui_lbl_yeq_modifier, LV_ALIGN_TOP_RIGHT, -4, 4);
+    lv_label_set_text(ui_lbl_yeq_modifier, "");
+
     /* Hint */
     lv_obj_t *lbl_hint = lv_label_create(ui_graph_yeq_screen);
     lv_obj_set_pos(lbl_hint, 4, DISPLAY_H - 20);
@@ -440,9 +448,29 @@ static void ui_update_status_bar(void)
         lv_obj_add_style(ui_lbl_modifier, &style_modifier_alpha, 0);
         lv_label_set_text(ui_lbl_modifier, "ALPHA");
         break;
-    default:
-        lv_label_set_text(ui_lbl_modifier, "");
+    case MODE_ALPHA_LOCK:
+        lv_obj_remove_style(ui_lbl_modifier, &style_modifier_2nd, 0);
+        lv_obj_add_style(ui_lbl_modifier, &style_modifier_alpha, 0);
+        lv_label_set_text(ui_lbl_modifier, "A-LOCK");
         break;
+    default:
+        if (sto_pending) {
+            lv_obj_remove_style(ui_lbl_modifier, &style_modifier_alpha, 0);
+            lv_obj_add_style(ui_lbl_modifier, &style_modifier_2nd, 0);
+            lv_label_set_text(ui_lbl_modifier, "STO\xE2\x86\x92");  /* STO→ */
+        } else {
+            lv_label_set_text(ui_lbl_modifier, "");
+        }
+        break;
+    }
+
+    /* Mirror modifier onto Y= screen if it exists */
+    if (ui_lbl_yeq_modifier != NULL) {
+        lv_label_set_text(ui_lbl_yeq_modifier,
+                          lv_label_get_text(ui_lbl_modifier));
+        lv_obj_set_style_text_color(ui_lbl_yeq_modifier,
+                                    lv_obj_get_style_text_color(ui_lbl_modifier, 0),
+                                    0);
     }
 }
 
@@ -685,6 +713,17 @@ void Execute_Token(Token_t t)
         case TOKEN_NEG:     append = "-";     break;
         case TOKEN_X_INV:   append = "^-1";   break;
         case TOKEN_ANS:     append = "ANS";   break;
+        case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
+        case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
+        case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
+        case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
+        case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
+        case TOKEN_Z: {
+            static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            num_buf[0] = alpha_chars[t - TOKEN_A];
+            append = num_buf;
+            break;
+        }
         default:            return;
         }
 
@@ -920,6 +959,38 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             break;
         }
+    }
+
+    /* STO pending — next alpha key stores ans to that variable */
+    if (sto_pending) {
+        if (t >= TOKEN_A && t <= TOKEN_Z) {
+            calc_variables[t - TOKEN_A] = ans;
+            sto_pending = false;
+            /* Show "X=value" in result label briefly via expression area */
+            char stored_buf[32];
+            char val_buf[16];
+            Calc_FormatResult(ans, val_buf, sizeof(val_buf));
+            static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            snprintf(stored_buf, sizeof(stored_buf), "%c=%s",
+                     var_names[t - TOKEN_A], val_buf);
+            lvgl_lock();
+            lv_label_set_text(ui_lbl_result, stored_buf);
+            ui_update_status_bar();
+            lvgl_unlock();
+            return;
+        } else if (t == TOKEN_CLEAR || t == TOKEN_2ND || t == TOKEN_ALPHA) {
+            /* Cancel STO with CLEAR, 2nd, or ALPHA */
+            sto_pending = false;
+            lvgl_lock();
+            ui_update_status_bar();
+            lvgl_unlock();
+            return;
+        }
+        /* Any other key cancels STO silently and falls through */
+        sto_pending = false;
+        lvgl_lock();
+        ui_update_status_bar();
+        lvgl_unlock();
     }
 
     switch (t) {
@@ -1205,6 +1276,65 @@ case TOKEN_ENTRY:
     }
     break;
 
+/* Alpha characters A–Z and special alpha tokens */
+case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
+case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
+case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
+case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
+case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
+case TOKEN_Z: {
+    static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    char ch[2] = { alpha_chars[t - TOKEN_A], '\0' };
+    if (expr_len < MAX_EXPR_LEN - 1) {
+        strcat(expression, ch);
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+}
+case TOKEN_THETA:
+    if (expr_len < MAX_EXPR_LEN - 1) {
+        strcat(expression, "θ");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+case TOKEN_SPACE:
+    if (expr_len < MAX_EXPR_LEN - 1) {
+        strcat(expression, " ");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+case TOKEN_COMMA:
+    if (expr_len < MAX_EXPR_LEN - 1) {
+        strcat(expression, ",");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+case TOKEN_QUOTES:
+    if (expr_len < MAX_EXPR_LEN - 1) {
+        strcat(expression, "\"");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+case TOKEN_QSTN_M:
+    if (expr_len < MAX_EXPR_LEN - 1) {
+        strcat(expression, "?");
+        expr_len = strlen(expression);
+        Update_Calculator_Display();
+    }
+    break;
+
+    case TOKEN_STO:
+        sto_pending = true;
+        lvgl_lock();
+        ui_update_status_bar();
+        lvgl_unlock();
+        break;
+
     case TOKEN_Y_EQUALS:
         current_mode = MODE_GRAPH_YEQ;
         graph_state.active = false;
@@ -1303,26 +1433,70 @@ void Process_Hardware_Key(uint8_t key_id)
         token_to_send  = key.second;
         current_mode   = return_mode;   /* restore the mode that was active before 2nd */
         return_mode    = MODE_NORMAL;
+        if (token_to_send == TOKEN_NONE) {
+            lvgl_lock();
+            ui_update_status_bar();
+            lvgl_unlock();
+            return;
+        }
     } else if (current_mode == MODE_ALPHA) {
         token_to_send  = key.alpha;
         current_mode   = return_mode;   /* restore the mode that was active before ALPHA */
         return_mode    = MODE_NORMAL;
+        if (token_to_send == TOKEN_NONE) {
+            lvgl_lock();
+            ui_update_status_bar();
+            lvgl_unlock();
+            return;
+        }
+    } else if (current_mode == MODE_ALPHA_LOCK) {
+        if (key.normal == TOKEN_ALPHA) {
+            /* ALPHA pressed while locked — exit alpha lock */
+            current_mode = return_mode;
+            return_mode  = MODE_NORMAL;
+            lvgl_lock();
+            ui_update_status_bar();
+            lvgl_unlock();
+            return;
+        }
+        token_to_send = key.alpha;  /* stay locked — do not restore mode */
+    } else if (sto_pending) {
+        /* STO implicitly uses the alpha layer for the destination key */
+        token_to_send = key.alpha;
     } else {
         token_to_send  = key.normal;
     }
 
-    /* Handle sticky modifier keys — save current mode so we can restore it after */
+    /* Handle sticky modifier keys — pressing again cancels the mode */
     if (token_to_send == TOKEN_2ND) {
-        return_mode  = current_mode;
-        current_mode = MODE_2ND;
+        if (current_mode == MODE_2ND) {
+            current_mode = return_mode;
+            return_mode  = MODE_NORMAL;
+        } else {
+            return_mode  = current_mode;
+            current_mode = MODE_2ND;
+        }
         lvgl_lock();
         ui_update_status_bar();
         lvgl_unlock();
         return;
     }
     if (token_to_send == TOKEN_ALPHA) {
+        if (current_mode == MODE_ALPHA) {
+            current_mode = return_mode;
+            return_mode  = MODE_NORMAL;
+        } else {
+            return_mode  = current_mode;
+            current_mode = MODE_ALPHA;
+        }
+        lvgl_lock();
+        ui_update_status_bar();
+        lvgl_unlock();
+        return;
+    }
+    if (token_to_send == TOKEN_A_LOCK) {
         return_mode  = current_mode;
-        current_mode = MODE_ALPHA;
+        current_mode = MODE_ALPHA_LOCK;
         lvgl_lock();
         ui_update_status_bar();
         lvgl_unlock();
