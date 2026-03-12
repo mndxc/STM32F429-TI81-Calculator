@@ -47,4 +47,16 @@ void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees);
  */
 void Graph_ClearTrace(void);
 
+/**
+ * @brief Draws the ZBox rubber-band overlay on the graph canvas.
+ *        Restores the clean frame then overlays:
+ *          - A yellow crosshair at the current cursor (px, py).
+ *          - A white rectangle from (px1, py1) to (px, py) once the first
+ *            corner has been set (corner1_set = true).
+ *        Updates the X/Y readout label with the math coordinates of (px, py).
+ */
+void Graph_DrawZBox(int32_t px, int32_t py,
+                    int32_t px1, int32_t py1,
+                    bool corner1_set, bool angle_degrees);
+
 #endif /* GRAPH_MODULE_H */

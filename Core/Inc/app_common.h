@@ -34,7 +34,8 @@ typedef enum {
     MODE_GRAPH_YEQ,     /* Y= equation editor active */
     MODE_GRAPH_RANGE,   /* RANGE field editor active */
     MODE_GRAPH_ZOOM,    /* ZOOM preset menu active */
-    MODE_GRAPH_TRACE    /* Trace cursor active on graph */
+    MODE_GRAPH_TRACE,   /* Trace cursor active on graph */
+    MODE_GRAPH_ZBOX     /* ZBox rubber-band zoom active */
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------

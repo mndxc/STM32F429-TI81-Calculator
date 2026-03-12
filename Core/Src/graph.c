@@ -50,6 +50,26 @@ static int32_t math_y_to_px(float y)
 }
 
 /**
+ * @brief Maps a canvas pixel column to a math x coordinate (inverse of math_x_to_px).
+ */
+static float px_to_math_x(int32_t px)
+{
+    return graph_state.x_min +
+           (float)px / (float)(GRAPH_W - 1) *
+           (graph_state.x_max - graph_state.x_min);
+}
+
+/**
+ * @brief Maps a canvas pixel row to a math y coordinate (inverse of math_y_to_px).
+ */
+static float px_to_math_y(int32_t py)
+{
+    return graph_state.y_max -
+           (float)py / (float)(GRAPH_H - 1) *
+           (graph_state.y_max - graph_state.y_min);
+}
+
+/**
  * @brief Draws the X and Y axes if they fall within the current window.
  */
 static void draw_axes(void)
@@ -130,7 +150,8 @@ void Graph_Init(lv_obj_t *parent)
     /* Equation label at top */
     graph_lbl_eq = lv_label_create(graph_screen);
     lv_obj_set_pos(graph_lbl_eq, 2, 2);
-    lv_obj_set_style_text_color(graph_lbl_eq, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_font(graph_lbl_eq, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(graph_lbl_eq, lv_color_hex(0x888888), 0);
     lv_label_set_text(graph_lbl_eq, "Y=");
 
     /* Canvas */
@@ -142,6 +163,7 @@ void Graph_Init(lv_obj_t *parent)
     /* X/Y trace label at bottom */
     graph_lbl_xy = lv_label_create(graph_screen);
     lv_obj_set_pos(graph_lbl_xy, 2, GRAPH_H + 2);
+    lv_obj_set_style_text_font(graph_lbl_xy, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(graph_lbl_xy, lv_color_hex(0xFFFFFF), 0);
     lv_label_set_text(graph_lbl_xy, "");
 }
@@ -222,6 +244,7 @@ void Graph_Render(bool angle_degrees)
 void Graph_SetVisible(bool visible)
 {
     if (graph_screen == NULL) return;
+    graph_state.active = visible;
     if (visible) {
         lv_obj_clear_flag(graph_screen, LV_OBJ_FLAG_HIDDEN);
     } else {
@@ -289,4 +312,68 @@ void Graph_ClearTrace(void)
 {
     if (graph_lbl_xy != NULL)
         lv_label_set_text(graph_lbl_xy, "");
+}
+
+void Graph_DrawZBox(int32_t px, int32_t py,
+                    int32_t px1, int32_t py1,
+                    bool corner1_set, bool angle_degrees)
+{
+    if (graph_canvas == NULL) return;
+
+    /* Restore the clean frame — avoids a full re-render on every cursor step */
+    if (graph_clean_valid) {
+        memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
+    } else {
+        Graph_Render(angle_degrees);
+    }
+
+    lv_color_t box_color = lv_color_hex(0xFFFFFF);  /* white rectangle */
+    lv_color_t cur_color = lv_color_hex(0xFFFF00);  /* yellow crosshair */
+
+    if (corner1_set) {
+        /* Normalise corners so x0 <= x1 and y0 <= y1 */
+        int32_t x0 = px1 < px ? px1 : px;
+        int32_t x1c = px1 < px ? px  : px1;
+        int32_t y0 = py1 < py ? py1 : py;
+        int32_t y1c = py1 < py ? py  : py1;
+
+        /* Top and bottom edges */
+        for (int32_t x = x0; x <= x1c; x++) {
+            if (x >= 0 && x < GRAPH_W) {
+                if (y0 >= 0 && y0 < GRAPH_H)
+                    lv_canvas_set_px(graph_canvas, x, y0, box_color, LV_OPA_COVER);
+                if (y1c >= 0 && y1c < GRAPH_H)
+                    lv_canvas_set_px(graph_canvas, x, y1c, box_color, LV_OPA_COVER);
+            }
+        }
+        /* Left and right edges */
+        for (int32_t y = y0; y <= y1c; y++) {
+            if (y >= 0 && y < GRAPH_H) {
+                if (x0 >= 0 && x0 < GRAPH_W)
+                    lv_canvas_set_px(graph_canvas, x0, y, box_color, LV_OPA_COVER);
+                if (x1c >= 0 && x1c < GRAPH_W)
+                    lv_canvas_set_px(graph_canvas, x1c, y, box_color, LV_OPA_COVER);
+            }
+        }
+    }
+
+    /* Draw crosshair at the moving cursor */
+    const int32_t ARM = 4;
+    for (int32_t dx = -ARM; dx <= ARM; dx++) {
+        int32_t cx = px + dx;
+        if (cx >= 0 && cx < GRAPH_W && py >= 0 && py < GRAPH_H)
+            lv_canvas_set_px(graph_canvas, cx, py, cur_color, LV_OPA_COVER);
+    }
+    for (int32_t dy = -ARM; dy <= ARM; dy++) {
+        int32_t cy = py + dy;
+        if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
+            lv_canvas_set_px(graph_canvas, px, cy, cur_color, LV_OPA_COVER);
+    }
+
+    /* Update X/Y readout with math coordinates of current cursor */
+    char x_buf[16], y_buf[16], label_buf[48];
+    Calc_FormatResult(px_to_math_x(px), x_buf, sizeof(x_buf));
+    Calc_FormatResult(px_to_math_y(py), y_buf, sizeof(y_buf));
+    snprintf(label_buf, sizeof(label_buf), "X=%-12s Y=%s", x_buf, y_buf);
+    lv_label_set_text(graph_lbl_xy, label_buf);
 }

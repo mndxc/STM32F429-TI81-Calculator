@@ -93,23 +93,63 @@ uint8_t Keypad_Scan(void)
     return MATRIX_NO_KEY;
 }
 
+/* Arrow key IDs that auto-repeat when held */
+static const uint8_t ARROW_KEY_IDS[] = {
+    ID_B1_A6,   /* Down  */
+    ID_B2_A6,   /* Left  */
+    ID_B3_A6,   /* Right */
+    ID_B4_A6,   /* Up    */
+};
+
+/* Repeat timing (scan period = 20ms) */
+#define KEY_REPEAT_DELAY_TICKS  20   /* 400ms before first repeat  */
+#define KEY_REPEAT_RATE_TICKS    4   /* 80ms between repeats        */
+
 /**
  * @brief Keypad scan task.
  *
  * Scans the matrix every 20ms. On a new keypress, passes the key ID
  * to the calculator core via Process_Hardware_Key(). Simple debounce
  * is achieved by requiring the key ID to change between scans.
+ *
+ * Arrow keys (UP/DOWN/LEFT/RIGHT) additionally auto-repeat when held:
+ * first repeat fires after KEY_REPEAT_DELAY_TICKS, then every
+ * KEY_REPEAT_RATE_TICKS thereafter.
  */
 void StartKeypadTask(void const *argument)
 {
-    uint8_t last_key = MATRIX_NO_KEY;
+    (void)argument;
+    uint8_t  last_key   = MATRIX_NO_KEY;
+    uint32_t hold_ticks = 0;
 
     for (;;) {
         uint8_t current_key = Keypad_Scan();
 
-        if (current_key != MATRIX_NO_KEY && current_key != last_key) {
-            HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_13); /* Green LED heartbeat */
-            Process_Hardware_Key(current_key);
+        if (current_key != MATRIX_NO_KEY) {
+            if (current_key != last_key) {
+                /* New keypress — fire immediately */
+                HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_13);
+                Process_Hardware_Key(current_key);
+                hold_ticks = 0;
+            } else {
+                /* Same key held — repeat only for arrow keys */
+                bool is_arrow = false;
+                for (int i = 0; i < 4; i++) {
+                    if (current_key == ARROW_KEY_IDS[i]) { is_arrow = true; break; }
+                }
+                if (is_arrow) {
+                    hold_ticks++;
+                    uint32_t after = hold_ticks - KEY_REPEAT_DELAY_TICKS;
+                    if (hold_ticks == KEY_REPEAT_DELAY_TICKS ||
+                        (hold_ticks > KEY_REPEAT_DELAY_TICKS &&
+                         after % KEY_REPEAT_RATE_TICKS == 0)) {
+                        HAL_GPIO_TogglePin(GPIOG, GPIO_PIN_13);
+                        Process_Hardware_Key(current_key);
+                    }
+                }
+            }
+        } else {
+            hold_ticks = 0;
         }
 
         last_key = current_key;
