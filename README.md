@@ -300,8 +300,8 @@ st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 | Full expression parsing        | ✅ Working     |
 | Y= equation editor             | ✅ Working     |
 | Graph rendering                | ✅ Working     |
-| RANGE window editor            | 🚧 WIP         |
-| TRACE cursor                   | 🚧 Planned     |
+| RANGE window editor            | ✅ Working     |
+| TRACE cursor                   | ✅ Working     |
 | Matrix and list operations     | 🚧 Planned     |
 | PRGM / variable storage        | 🚧 Planned     |
 | Full TI-81 function parity     | 🚧 Planned     |

@@ -35,4 +35,16 @@ void Graph_Render(bool angle_degrees);
  */
 void Graph_SetVisible(bool visible);
 
+/**
+ * @brief Re-renders the graph and draws a trace cursor at math coordinate x.
+ *        Updates the X/Y readout label. eq_idx selects which Y= equation to
+ *        evaluate for the Y value (0–GRAPH_NUM_EQ-1).
+ */
+void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees);
+
+/**
+ * @brief Clears the X/Y readout label left by Graph_DrawTrace.
+ */
+void Graph_ClearTrace(void);
+
 #endif /* GRAPH_MODULE_H */

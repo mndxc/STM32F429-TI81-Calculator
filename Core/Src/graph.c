@@ -220,3 +220,60 @@ void Graph_SetVisible(bool visible)
         lv_obj_add_flag(graph_screen, LV_OBJ_FLAG_HIDDEN);
     }
 }
+
+void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)
+{
+    if (graph_canvas == NULL) return;
+
+    /* Re-render the base graph so the crosshair is always on a clean frame */
+    Graph_Render(angle_degrees);
+
+    const char *eqstr = graph_state.equations[eq_idx];
+
+    char x_buf[16], y_buf[16], label_buf[48];
+
+    if (strlen(eqstr) == 0) {
+        Calc_FormatResult(x, x_buf, sizeof(x_buf));
+        snprintf(label_buf, sizeof(label_buf), "X=%s", x_buf);
+        lv_label_set_text(graph_lbl_xy, label_buf);
+        return;
+    }
+
+    CalcResult_t r = Calc_EvaluateAt(eqstr, x, 0.0f, angle_degrees);
+
+    Calc_FormatResult(x, x_buf, sizeof(x_buf));
+
+    if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
+        snprintf(label_buf, sizeof(label_buf), "X=%s  Y=undef", x_buf);
+        lv_label_set_text(graph_lbl_xy, label_buf);
+        return;
+    }
+
+    Calc_FormatResult(r.value, y_buf, sizeof(y_buf));
+    snprintf(label_buf, sizeof(label_buf), "X=%-12s Y=%s", x_buf, y_buf);
+    lv_label_set_text(graph_lbl_xy, label_buf);
+
+    int32_t px = math_x_to_px(x);
+    int32_t py = math_y_to_px(r.value);
+
+    /* Draw crosshair in bright green — visible against all curve colors */
+    lv_color_t cur = lv_color_hex(0x00FF00);
+    const int32_t ARM = 5;
+
+    for (int32_t dx = -ARM; dx <= ARM; dx++) {
+        int32_t cx = px + dx;
+        if (cx >= 0 && cx < GRAPH_W && py >= 0 && py < GRAPH_H)
+            lv_canvas_set_px(graph_canvas, cx, py, cur, LV_OPA_COVER);
+    }
+    for (int32_t dy = -ARM; dy <= ARM; dy++) {
+        int32_t cy = py + dy;
+        if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
+            lv_canvas_set_px(graph_canvas, px, cy, cur, LV_OPA_COVER);
+    }
+}
+
+void Graph_ClearTrace(void)
+{
+    if (graph_lbl_xy != NULL)
+        lv_label_set_text(graph_lbl_xy, "");
+}

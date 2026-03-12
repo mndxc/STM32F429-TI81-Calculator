@@ -126,6 +126,10 @@ static uint8_t  range_field_selected = 0;   /* 0=xmin 1=xmax 2=ymin 3=ymax 4=xsc
 static char     range_field_buf[16]  = {0};
 static uint8_t  range_field_len      = 0;
 
+/* TRACE cursor state */
+static float   trace_x      = 0.0f;
+static uint8_t trace_eq_idx = 0;
+
 /* Mode to restore after a 2nd/ALPHA modifier is consumed */
 static CalcMode_t return_mode = MODE_NORMAL;
 
@@ -861,6 +865,63 @@ void Execute_Token(Token_t t)
         return;
     }
 
+    /* Handle TRACE cursor mode */
+    if (current_mode == MODE_GRAPH_TRACE) {
+        float step = (graph_state.x_max - graph_state.x_min) / (float)(GRAPH_W - 1);
+        switch (t) {
+        case TOKEN_LEFT:
+            if (trace_x > graph_state.x_min) trace_x -= step;
+            lvgl_lock();
+            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+            lvgl_unlock();
+            return;
+        case TOKEN_RIGHT:
+            if (trace_x < graph_state.x_max) trace_x += step;
+            lvgl_lock();
+            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+            lvgl_unlock();
+            return;
+        case TOKEN_UP:
+            /* Cycle to the previous active equation */
+            for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
+                uint8_t idx = (trace_eq_idx + GRAPH_NUM_EQ - i) % GRAPH_NUM_EQ;
+                if (strlen(graph_state.equations[idx]) > 0) {
+                    trace_eq_idx = idx;
+                    break;
+                }
+            }
+            lvgl_lock();
+            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+            lvgl_unlock();
+            return;
+        case TOKEN_DOWN:
+            /* Cycle to the next active equation */
+            for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
+                uint8_t idx = (trace_eq_idx + i) % GRAPH_NUM_EQ;
+                if (strlen(graph_state.equations[idx]) > 0) {
+                    trace_eq_idx = idx;
+                    break;
+                }
+            }
+            lvgl_lock();
+            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+            lvgl_unlock();
+            return;
+        case TOKEN_TRACE:
+            /* Pressing TRACE again is a no-op while already tracing */
+            return;
+        default:
+            /* Any other key exits trace — clear cursor, re-render clean graph,
+             * then fall through to the main switch to process the key normally */
+            current_mode = MODE_NORMAL;
+            lvgl_lock();
+            Graph_ClearTrace();
+            Graph_Render(angle_degrees);
+            lvgl_unlock();
+            break;
+        }
+    }
+
     switch (t) {
 
     case TOKEN_0 ... TOKEN_9:
@@ -1195,7 +1256,22 @@ case TOKEN_ENTRY:
         break;
 
     case TOKEN_TRACE:
-        /* TODO: implement trace cursor in a follow-up */
+        /* Find the first active (non-empty) Y= equation to start on */
+        trace_eq_idx = 0;
+        for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
+            if (strlen(graph_state.equations[i]) > 0) {
+                trace_eq_idx = i;
+                break;
+            }
+        }
+        trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
+        current_mode = MODE_GRAPH_TRACE;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_yeq_screen,   LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(ui_graph_range_screen,  LV_OBJ_FLAG_HIDDEN);
+        Graph_SetVisible(true);
+        Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+        lvgl_unlock();
         break;
 
 

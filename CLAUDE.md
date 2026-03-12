@@ -159,8 +159,9 @@ typedef enum {
     MODE_2ND,           — 2nd function layer (sticky, resets after one keypress)
     MODE_ALPHA,         — alpha character layer (sticky, resets after one keypress)
     MODE_GRAPH_YEQ,     — Y= equation editor active
-    MODE_GRAPH_RANGE,   — RANGE field editor active (WIP)
-    MODE_GRAPH_ZOOM     — ZOOM key held
+    MODE_GRAPH_RANGE,   — RANGE field editor active
+    MODE_GRAPH_ZOOM,    — ZOOM preset menu active
+    MODE_GRAPH_TRACE    — trace cursor active on graph
 } CalcMode_t;
 ```
 
@@ -239,21 +240,36 @@ range_value_label_ptrs[4] = &ui_lbl_range_xscl;
 range_value_label_ptrs[5] = &ui_lbl_range_yscl;
 ```
 
-**Next step:** Add `MODE_GRAPH_RANGE` handler to `Execute_Token()`:
-- UP/DOWN arrows move `range_field_selected` between 0-5
+The `MODE_GRAPH_RANGE` handler in `Execute_Token()` is complete:
+- UP/DOWN move `range_field_selected` between 0–5
 - Number keys and decimal append to `range_field_buf`
-- NEG key handles negative values
-- ENTER/DOWN confirms field, parses `range_field_buf` with `strtof`, writes to
-  the appropriate `graph_state` field, advances to next field
-- GRAPH exits range editing and renders
-- RANGE exits range editing without rendering
-- Highlight the selected field label differently (e.g. text colour change)
+- NEG toggles the leading minus on the current input
+- DEL removes the last character
+- ENTER/DOWN commits field via `strtof`, advances to next field
+- GRAPH commits, hides range screen, calls `Graph_Render`
+- RANGE exits without rendering
+- ZOOM resets all fields to ZStandard (±10)
+- Active field highlighted yellow, others white
+
+---
+
+## Graphing — TRACE mode
+
+`MODE_GRAPH_TRACE` in `calculator_core.c`:
+- Entered via TOKEN_TRACE; starts at midpoint `(x_min + x_max) * 0.5f` on first active equation
+- LEFT/RIGHT step `trace_x` by one pixel-width: `(x_max - x_min) / (GRAPH_W - 1)`
+- UP/DOWN cycle `trace_eq_idx` through active (non-empty) Y= equations
+- TOKEN_TRACE while tracing is a no-op
+- Any other key exits trace, re-renders clean graph, falls through to normal handling
+
+`Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)` in `graph.c`:
+- Calls `Graph_Render` (full re-render) then draws a green (`0x00FF00`) crosshair ±5px
+- Updates `graph_lbl_xy` with formatted `X=` / `Y=` values using `Calc_FormatResult`
 
 ---
 
 ## Planned Features (not yet started)
 
-- **TRACE mode** — cursor moves along curve with LEFT/RIGHT, X/Y shown at bottom
 - **Additional math functions** — factorial, combinations, permutations, hyperbolic
 - **Implicit multiplication** — `2(3+4)` treated as `2*(3+4)`
 - **Expression history navigation** — UP/DOWN in calculator mode to recall history
