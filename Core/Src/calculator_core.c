@@ -97,6 +97,7 @@ static lv_style_t style_modifier_alpha;
 /* Calculator state */
 static char         expression[MAX_EXPR_LEN];
 static uint8_t      expr_len       = 0;
+static uint8_t      cursor_pos     = 0;  /* Insertion point, 0–expr_len */
 static CalcMode_t   current_mode   = MODE_NORMAL;
 static bool         angle_degrees  = true;
 static float        ans            = 0.0f;
@@ -476,7 +477,7 @@ static void ui_refresh_display(void)
             lv_obj_set_style_text_align(disp_rows[row],
                                         LV_TEXT_ALIGN_LEFT, 0);
             lv_label_set_text(disp_rows[row], expression);
-            cursor_update(disp_rows[row], expr_len);
+            cursor_update(disp_rows[row], cursor_pos);
         } else if (li % 2 == 0) {
             /* Committed expression — left-aligned, grey */
             int entry = (li / 2) % HISTORY_LINE_COUNT;
@@ -587,8 +588,48 @@ static void expr_prepend_ans_if_empty(void)
 {
     if (expr_len == 0 && MAX_EXPR_LEN > 3) {
         memcpy(expression, "ANS", 4);
-        expr_len = 3;
+        expr_len   = 3;
+        cursor_pos = 3;
     }
+}
+
+/**
+ * @brief Inserts a single character at cursor_pos and advances the cursor.
+ */
+static void expr_insert_char(char c)
+{
+    if (expr_len >= MAX_EXPR_LEN - 1) return;
+    memmove(&expression[cursor_pos + 1], &expression[cursor_pos],
+            expr_len - cursor_pos + 1);
+    expression[cursor_pos] = c;
+    expr_len++;
+    cursor_pos++;
+}
+
+/**
+ * @brief Inserts a string at cursor_pos and advances the cursor by its length.
+ */
+static void expr_insert_str(const char *s)
+{
+    uint8_t slen = (uint8_t)strlen(s);
+    if (expr_len + slen >= MAX_EXPR_LEN) return;
+    memmove(&expression[cursor_pos + slen], &expression[cursor_pos],
+            expr_len - cursor_pos + 1);
+    memcpy(&expression[cursor_pos], s, slen);
+    expr_len   += slen;
+    cursor_pos += slen;
+}
+
+/**
+ * @brief Deletes the character immediately before cursor_pos (backspace).
+ */
+static void expr_delete_at_cursor(void)
+{
+    if (cursor_pos == 0) return;
+    memmove(&expression[cursor_pos - 1], &expression[cursor_pos],
+            expr_len - cursor_pos + 1);
+    expr_len--;
+    cursor_pos--;
 }
 
 /**
@@ -1086,54 +1127,49 @@ void Execute_Token(Token_t t)
     switch (t) {
 
     case TOKEN_0 ... TOKEN_9:
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            char c = (char)((t - TOKEN_0) + '0');
-            expression[expr_len++] = c;
-            expression[expr_len]   = '\0';
-            Update_Calculator_Display();
-        }
+        expr_insert_char((char)((t - TOKEN_0) + '0'));
+        Update_Calculator_Display();
         break;
 
     case TOKEN_DECIMAL:
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            expression[expr_len++] = '.';
-            expression[expr_len]   = '\0';
-            Update_Calculator_Display();
-        }
+        expr_insert_char('.');
+        Update_Calculator_Display();
         break;
 
     case TOKEN_ADD:
         expr_prepend_ans_if_empty();
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            expression[expr_len++] = '+';
-            expression[expr_len]   = '\0';
-            Update_Calculator_Display();
-        }
+        expr_insert_char('+');
+        Update_Calculator_Display();
         break;
 
     case TOKEN_SUB:
         expr_prepend_ans_if_empty();
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            expression[expr_len++] = '-';
-            expression[expr_len]   = '\0';
-            Update_Calculator_Display();
-        }
+        expr_insert_char('-');
+        Update_Calculator_Display();
         break;
 
     case TOKEN_MULT:
         expr_prepend_ans_if_empty();
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            expression[expr_len++] = '*';
-            expression[expr_len]   = '\0';
-            Update_Calculator_Display();
-        }
+        expr_insert_char('*');
+        Update_Calculator_Display();
         break;
 
     case TOKEN_DIV:
         expr_prepend_ans_if_empty();
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            expression[expr_len++] = '/';
-            expression[expr_len]   = '\0';
+        expr_insert_char('/');
+        Update_Calculator_Display();
+        break;
+
+    case TOKEN_LEFT:
+        if (cursor_pos > 0) {
+            cursor_pos--;
+            Update_Calculator_Display();
+        }
+        break;
+
+    case TOKEN_RIGHT:
+        if (cursor_pos < expr_len) {
+            cursor_pos++;
             Update_Calculator_Display();
         }
         break;
@@ -1164,6 +1200,7 @@ void Execute_Token(Token_t t)
             history_count++;
 
             expr_len      = 0;
+            cursor_pos    = 0;
             expression[0] = '\0';
 
             lvgl_lock();
@@ -1174,15 +1211,14 @@ void Execute_Token(Token_t t)
 
     case TOKEN_CLEAR:
         expr_len      = 0;
+        cursor_pos    = 0;
         expression[0] = '\0';
         Update_Calculator_Display();
         break;
 
     case TOKEN_DEL:
-        if (expr_len > 0) {
-            expression[--expr_len] = '\0';
-            Update_Calculator_Display();
-        }
+        expr_delete_at_cursor();
+        Update_Calculator_Display();
         break;
 
     case TOKEN_MODE:
@@ -1190,183 +1226,56 @@ void Execute_Token(Token_t t)
         Update_Calculator_Display();
         break;
 
-    case TOKEN_SIN:
-        if (expr_len < MAX_EXPR_LEN - 4) {
-            strcat(expression, "sin(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_COS:
-        if (expr_len < MAX_EXPR_LEN - 4) {
-            strcat(expression, "cos(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_TAN:
-        if (expr_len < MAX_EXPR_LEN - 4) {
-            strcat(expression, "tan(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_ASIN:
-        if (expr_len < MAX_EXPR_LEN - 5) {
-            strcat(expression, "asin(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_ACOS:
-        if (expr_len < MAX_EXPR_LEN - 5) {
-            strcat(expression, "acos(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_ATAN:
-        if (expr_len < MAX_EXPR_LEN - 5) {
-            strcat(expression, "atan(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_ABS:
-        if (expr_len < MAX_EXPR_LEN - 4) {
-            strcat(expression, "abs(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_LN:
-        if (expr_len < MAX_EXPR_LEN - 3) {
-            strcat(expression, "ln(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_LOG:
-        if (expr_len < MAX_EXPR_LEN - 4) {
-            strcat(expression, "log(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_SQRT:
-        if (expr_len < MAX_EXPR_LEN - 5) {
-            strcat(expression, "sqrt(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
+    case TOKEN_SIN:     expr_insert_str("sin(");  Update_Calculator_Display(); break;
+    case TOKEN_COS:     expr_insert_str("cos(");  Update_Calculator_Display(); break;
+    case TOKEN_TAN:     expr_insert_str("tan(");  Update_Calculator_Display(); break;
+    case TOKEN_ASIN:    expr_insert_str("asin("); Update_Calculator_Display(); break;
+    case TOKEN_ACOS:    expr_insert_str("acos("); Update_Calculator_Display(); break;
+    case TOKEN_ATAN:    expr_insert_str("atan("); Update_Calculator_Display(); break;
+    case TOKEN_ABS:     expr_insert_str("abs(");  Update_Calculator_Display(); break;
+    case TOKEN_LN:      expr_insert_str("ln(");   Update_Calculator_Display(); break;
+    case TOKEN_LOG:     expr_insert_str("log(");  Update_Calculator_Display(); break;
+    case TOKEN_SQRT:    expr_insert_str("sqrt("); Update_Calculator_Display(); break;
+    case TOKEN_EE:      expr_insert_str("*10^");  Update_Calculator_Display(); break;
+    case TOKEN_E_X:     expr_insert_str("exp(");  Update_Calculator_Display(); break;
+    case TOKEN_TEN_X:   expr_insert_str("10^(");  Update_Calculator_Display(); break;
+    case TOKEN_PI:      expr_insert_str("pi");    Update_Calculator_Display(); break;
+    case TOKEN_ANS:     expr_insert_str("ANS");   Update_Calculator_Display(); break;
+    case TOKEN_THETA:   expr_insert_str("θ");     Update_Calculator_Display(); break;
+    case TOKEN_SPACE:   expr_insert_char(' ');    Update_Calculator_Display(); break;
+    case TOKEN_COMMA:   expr_insert_char(',');    Update_Calculator_Display(); break;
+    case TOKEN_QUOTES:  expr_insert_char('"');    Update_Calculator_Display(); break;
+    case TOKEN_QSTN_M:  expr_insert_char('?');    Update_Calculator_Display(); break;
 
     case TOKEN_SQUARE:
         expr_prepend_ans_if_empty();
-        if (expr_len < MAX_EXPR_LEN - 2) {
-            strcat(expression, "^2");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
+        expr_insert_str("^2");
+        Update_Calculator_Display();
         break;
 
     case TOKEN_X_INV:
         expr_prepend_ans_if_empty();
-        if (expr_len < MAX_EXPR_LEN - 4) {
-            strcat(expression, "^-1");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
+        expr_insert_str("^-1");
+        Update_Calculator_Display();
         break;
 
     case TOKEN_POWER:
         expr_prepend_ans_if_empty();
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            expression[expr_len++] = '^';
-            expression[expr_len]   = '\0';
-            Update_Calculator_Display();
-        }
+        expr_insert_char('^');
+        Update_Calculator_Display();
         break;
 
-    case TOKEN_L_PAR:
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            expression[expr_len++] = '(';
-            expression[expr_len]   = '\0';
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_R_PAR:
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            expression[expr_len++] = ')';
-            expression[expr_len]   = '\0';
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_NEG:
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            expression[expr_len++] = '-';
-            expression[expr_len]   = '\0';
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_EE:
-        if (expr_len < MAX_EXPR_LEN - 4) {
-            strcat(expression, "*10^");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_E_X:
-        if (expr_len < MAX_EXPR_LEN - 4) {
-            strcat(expression, "exp(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_TEN_X:
-        if (expr_len < MAX_EXPR_LEN - 4) {
-            strcat(expression, "10^(");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_PI:
-        if (expr_len < MAX_EXPR_LEN - 2) {
-            strcat(expression, "pi");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
-
-    case TOKEN_ANS:
-        if (expr_len < MAX_EXPR_LEN - 3) {
-            strcat(expression, "ANS");
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
-        break;
+    case TOKEN_L_PAR:   expr_insert_char('('); Update_Calculator_Display(); break;
+    case TOKEN_R_PAR:   expr_insert_char(')'); Update_Calculator_Display(); break;
+    case TOKEN_NEG:     expr_insert_char('-'); Update_Calculator_Display(); break;
 
     case TOKEN_ENTRY:
         if (history_count > 0) {
             uint8_t idx = (history_count - 1) % HISTORY_LINE_COUNT;
             strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
             expression[MAX_EXPR_LEN - 1] = '\0';
-            expr_len = strlen(expression);
+            expr_len   = (uint8_t)strlen(expression);
+            cursor_pos = expr_len;
             Update_Calculator_Display();
         }
         break;
@@ -1380,48 +1289,10 @@ void Execute_Token(Token_t t)
     case TOKEN_Z: {
         static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         char ch[2] = { alpha_chars[t - TOKEN_A], '\0' };
-        if (expr_len < MAX_EXPR_LEN - 1) {
-            strcat(expression, ch);
-            expr_len = strlen(expression);
-            Update_Calculator_Display();
-        }
+        expr_insert_str(ch);
+        Update_Calculator_Display();
         break;
     }
-case TOKEN_THETA:
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        strcat(expression, "θ");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
-case TOKEN_SPACE:
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        strcat(expression, " ");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
-case TOKEN_COMMA:
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        strcat(expression, ",");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
-case TOKEN_QUOTES:
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        strcat(expression, "\"");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
-case TOKEN_QSTN_M:
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        strcat(expression, "?");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
 
     case TOKEN_STO:
         sto_pending = true;
