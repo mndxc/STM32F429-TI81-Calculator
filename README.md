@@ -47,7 +47,7 @@ Drivers/
     STM32F429I-Discovery/   ST board support package (LCD, SDRAM)
     Components/             ILI9341 driver and fonts
   Keypad/
-    keypad.c                Matrix scan driver and FreeRTOS scan task
+    keypad.c                Matrix scan driver, FreeRTOS scan task, arrow auto-repeat
     keypad.h                Key ID enum and scan function prototype
     keypad_map.c            Hardware key to token lookup table
     keypad_map.h            Token_t enum and lookup table declaration
@@ -71,9 +71,10 @@ Initialises SDRAM, LCD, and LVGL in sequence. Drives the LVGL timer handler
 every 5ms. Signals `xLVGL_Ready` when initialisation is complete.
 
 **KeypadTask** (2048 word stack)
-Scans the 7x8 key matrix every 20ms. On a new keypress, calls
-`Process_Hardware_Key()` which translates the hardware ID into a token
-and posts it to `keypadQueueHandle`.
+Scans the 7×8 key matrix every 20ms. On a new keypress, calls
+`Process_Hardware_Key()` which translates the hardware ID into a token and
+posts it to `keypadQueueHandle`. Arrow keys auto-repeat when held (400ms
+initial delay, 80ms repeat rate).
 
 **CalcCoreTask** (2048 word stack)
 Waits on `xLVGL_Ready` before creating any UI elements. Blocks on
@@ -107,6 +108,65 @@ in landscape coordinates. The rotation is invisible above the port layer.
 
 ---
 
+## UI Layout
+
+The full 320×240 display is used as a scrolling console — there is no status
+bar. Eight rows of 30px each fill the screen exactly.
+
+```
+┌────────────────────────────────────────┐  y=0
+│ 3+sin(45)*2                            │  expression (grey)
+│                                 24.000 │  result (white)
+│ 12/4                                   │
+│                                  3.000 │
+│ ANS+1                                  │
+│                                  4.000 │
+│ ANS*2                                  │  DEG (top-right corner)
+│                          8.0█          │  current expression + cursor
+└────────────────────────────────────────┘  y=240
+```
+
+History entries scroll upward as new results are added. The current expression
+occupies the last row with a block cursor that reflects the active input mode:
+
+| Cursor appearance        | Mode                     |
+|--------------------------|--------------------------|
+| Blinking grey block      | Normal                   |
+| Steady amber `^` block   | 2nd (next key is 2nd fn) |
+| Steady green `A` block   | ALPHA / A-LOCK / STO→    |
+
+A small `DEG` / `RAD` label sits in the top-right corner (Montserrat 14, dim
+grey). Font scheme: Montserrat 24 for all content, Montserrat 14 for small
+status labels.
+
+---
+
+## Input Modes
+
+`CalcMode_t` tracks the current input state:
+
+| Mode              | Description                                             |
+|-------------------|---------------------------------------------------------|
+| `MODE_NORMAL`     | Standard expression entry                               |
+| `MODE_2ND`        | 2nd function layer — one-shot, reverts after next key   |
+| `MODE_ALPHA`      | Alpha character layer — one-shot, reverts after next key|
+| `MODE_ALPHA_LOCK` | Alpha stays active (entered via 2nd+ALPHA)              |
+| `MODE_GRAPH_YEQ`  | Y= equation editor                                      |
+| `MODE_GRAPH_RANGE`| RANGE field editor                                      |
+| `MODE_GRAPH_ZOOM` | ZOOM preset menu                                        |
+| `MODE_GRAPH_TRACE`| Trace cursor active on graph                            |
+| `MODE_GRAPH_ZBOX` | ZBox rubber-band zoom selection                         |
+
+Pressing 2nd or ALPHA a second time cancels the modifier (toggle). `STO→` sets
+a pending flag and automatically enters ALPHA mode for the next keypress so the
+destination variable can be typed without pressing ALPHA manually.
+
+Cursor navigation (LEFT / RIGHT) works in both the main expression and the Y=
+equation editor, moving the insertion point one character at a time. Characters
+are inserted at the cursor and DEL removes the character to its left.
+
+---
+
 ## Math Engine
 
 The calculator uses a three-stage expression evaluator:
@@ -116,8 +176,8 @@ Expression string → Tokenizer → Shunting-yard → RPN Evaluator → Result
 ```
 
 **Tokenizer** — splits the infix string into typed math tokens (numbers,
-operators, functions, parentheses). Handles unary negation and the ANS
-variable.
+operators, functions, parentheses). Handles unary negation, negative exponents
+(`2^-3`), and the ANS variable.
 
 **Shunting-yard** — converts infix token stream to postfix (RPN) respecting
 operator precedence, associativity, and function calls.
@@ -128,13 +188,17 @@ error code and message.
 
 ### Supported Functions
 
-| Category      | Functions                                      |
-|---------------|------------------------------------------------|
-| Arithmetic    | `+` `-` `*` `/` `^` `(-)`                     |
-| Trig          | `sin` `cos` `tan` `asin` `acos` `atan`         |
-| Logarithmic   | `ln` `log`                                     |
-| Other         | `sqrt` `abs`                                   |
-| Constants     | `ANS`                                          |
+| Category      | Functions                                                  |
+|---------------|------------------------------------------------------------|
+| Arithmetic    | `+` `-` `*` `/` `^` `x²` `x⁻¹` unary `-`                 |
+| Trig          | `sin` `cos` `tan` `sin⁻¹` `cos⁻¹` `tan⁻¹`                |
+| Logarithmic   | `ln` `log`                                                 |
+| Other         | `√(` `abs(`                                                |
+| Constants     | `ANS`, `π`, `e`                                            |
+| Variables     | `A`–`Z` (stored via STO→), `X` (graph variable)           |
+
+Auto-ANS: pressing a binary operator with an empty expression prepends `ANS`
+automatically, matching TI-81 behaviour.
 
 ### Error Handling
 
@@ -161,35 +225,50 @@ The shunting-yard algorithm never needs to change.
 
 ---
 
-## UI Layout
+## Graphing
 
-Landscape 320x240 display with a dark theme:
+Pressing GRAPH plots all active Y= equations over the current RANGE window.
 
-```
-┌────────────────────────────────────────┐  y=0
-│ DEG          2nd / ALPHA          ANS  │  status bar (20px)
-├────────────────────────────────────────┤  y=20
-│ 3+sin(45)*2                    24.000  │
-│ 12/4                            3.000  │  history (4 lines)
-│ ANS+1                           4.000  │
-│ ANS*2                           8.000  │
-├────────────────────────────────────────┤  y=180
-│  3+sin(45)*2^3                         │  expression (30px)
-├────────────────────────────────────────┤  y=210
-│                                24.000  │  result (30px)
-└────────────────────────────────────────┘  y=240
-```
+### Graph screens
 
-| Element         | Font              | Color     |
-|-----------------|-------------------|-----------|
-| Status bar      | Montserrat 14     | `#888888` |
-| 2nd indicator   | Montserrat 14     | `#F5A623` |
-| Alpha indicator | Montserrat 14     | `#7ED321` |
-| History         | Montserrat 14     | `#888888` |
-| Expression      | Montserrat 14     | `#CCCCCC` |
-| Result          | Montserrat 28     | `#FFFFFF` |
-| Background      | —                 | `#1A1A1A` |
-| Status bar bg   | —                 | `#2A2A2A` |
+| Key    | Screen / action                                              |
+|--------|--------------------------------------------------------------|
+| Y=     | Equation editor — up to four simultaneous equations Y1–Y4   |
+| RANGE  | Window settings: Xmin, Xmax, Ymin, Ymax, Xscl, Yscl        |
+| ZOOM   | Preset menu (see below)                                      |
+| GRAPH  | Renders all active equations onto the graph canvas           |
+| TRACE  | Moves a crosshair along the curve; LEFT/RIGHT step one pixel |
+
+### ZOOM presets
+
+| Key | Preset      | Window                        |
+|-----|-------------|-------------------------------|
+| 1   | ZBox        | Rubber-band selection on graph|
+| 2   | ZStandard   | ±10 on both axes              |
+| 3   | ZTrig       | ±2π / ±4                      |
+| 4   | ZDecimal    | ±4.7 / ±3.1                   |
+| 5   | ZSquare     | Corrects aspect ratio         |
+| 6   | ZInteger    | 1 pixel = 1 unit              |
+
+**ZBox:** after selecting ZBox, a yellow crosshair appears on the graph. Press
+ENTER to set the first corner, move with arrow keys, press ENTER again to zoom
+to the selected rectangle. CLEAR exits ZBox and returns to the calculator.
+
+### Angle mode
+
+GRAPH respects the current angle mode (DEG / RAD). Toggle with the MODE key.
+In DEG mode `sin(x)` on a ±10 window is nearly flat — this is correct TI-81
+behaviour. Switch to RAD to see sine waves.
+
+### CLEAR behaviour in graph screens
+
+| Screen        | CLEAR with content        | CLEAR with no content   |
+|---------------|---------------------------|-------------------------|
+| Y= editor     | Clears current equation   | —                       |
+| RANGE editor  | Clears current field edit | Exits to calculator     |
+| Graph canvas  | —                         | Exits to calculator     |
+| TRACE         | (exits trace first, then) | Exits to calculator     |
+| ZBox          | —                         | Exits to calculator     |
 
 ---
 
@@ -204,7 +283,15 @@ CubeMX resets this to 32KB which is insufficient for three tasks.
 #define configTOTAL_HEAP_SIZE    ((size_t)(65536))
 ```
 
-### 2. LVGL OS integration — `Middlewares/Third_Party/lv_conf.h`
+### 2. FreeRTOS stack sizes — `freertos.c`
+CubeMX resets task stack sizes. Required values:
+```c
+osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 4096 * 2);
+osThreadDef(keypadTask,  StartKeypadTask,  osPriorityNormal, 0, 1024 * 2);
+osThreadDef(calcCore,    StartCalcCoreTask,osPriorityNormal, 0, 1024 * 2);
+```
+
+### 3. LVGL OS integration — `Middlewares/Third_Party/lv_conf.h`
 Must be `LV_OS_NONE`. Setting this to `LV_OS_FREERTOS` causes LVGL to
 attempt creating its own internal task which fails silently and breaks
 the render pipeline.
@@ -212,7 +299,7 @@ the render pipeline.
 #define LV_USE_OS   LV_OS_NONE
 ```
 
-### 3. BSP pixel format fix — `stm32f429i_discovery_lcd.c`
+### 4. BSP pixel format fix — `stm32f429i_discovery_lcd.c`
 The BSP hardcodes ARGB8888 in `BSP_LCD_LayerDefaultInit()`. Change it
 to RGB565 to match the LTDC and LVGL configuration:
 ```c
@@ -220,7 +307,7 @@ to RGB565 to match the LTDC and LVGL configuration:
 LTDC_PIXEL_FORMAT_RGB565   /* was LTDC_PIXEL_FORMAT_ARGB8888 */
 ```
 
-### 4. Pixel clock — CubeMX Clock Configuration
+### 5. Pixel clock — CubeMX Clock Configuration
 Set via PLLSAI. The recommended setting for comfortable rendering:
 ```
 PLLSAIN = 100
@@ -231,11 +318,11 @@ PLLSAIDivR = 2
 Below ~6 MHz produces visible diagonal motion artifacts on mid-range
 background colours. Above ~20 MHz exceeds the ILI9341 specification.
 
-### 5. DefaultTask stack size
-The software rotation flush is pixel-by-pixel and stack intensive.
-The DefaultTask stack must be at least 8192 words:
-```c
-osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 8192);
+### 6. Float printf — `CMakeLists.txt`
+`--specs=nano.specs` disables `%f`/`%g`/`%e` in `snprintf` by default.
+The linker flags include `-u _printf_float` to re-enable it:
+```cmake
+set(CMAKE_EXE_LINKER_FLAGS "... --specs=nano.specs -u _printf_float")
 ```
 
 ---
@@ -282,34 +369,42 @@ st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 
 ## Status
 
-| Feature                        | Status         |
-|--------------------------------|----------------|
-| Display initialisation         | ✅ Working     |
-| Landscape orientation          | ✅ Working     |
-| LVGL rendering                 | ✅ Working     |
-| Keypad matrix scan             | ✅ Working     |
-| 2nd and Alpha modifier keys    | ✅ Working     |
-| 2nd / Alpha toggle (press twice to cancel) | ✅ Working |
-| Alpha lock (A-LOCK via 2nd+ALPHA) | ✅ Working  |
-| Alpha character input (A–Z)    | ✅ Working     |
-| Expression building            | ✅ Working     |
-| Basic arithmetic               | ✅ Working     |
-| Trig functions                 | ✅ Working     |
-| Logarithmic functions          | ✅ Working     |
-| ANS variable                   | ✅ Working     |
-| User variables A–Z (STO→)      | ✅ Working     |
-| DEG/RAD mode toggle            | ✅ Working     |
-| History display                | ✅ Working     |
-| Error messages                 | ✅ Working     |
-| Full expression parsing        | ✅ Working     |
-| Y= equation editor             | ✅ Working     |
-| Alpha variables in Y= equations| ✅ Working     |
-| Graph rendering                | ✅ Working     |
-| RANGE window editor            | ✅ Working     |
-| TRACE cursor                   | ✅ Working     |
-| Matrix and list operations     | 🚧 Planned     |
-| PRGM                           | 🚧 Planned     |
-| Full TI-81 function parity     | 🚧 Planned     |
+| Feature                                    | Status         |
+|--------------------------------------------|----------------|
+| Display initialisation                     | ✅ Working     |
+| Landscape orientation                      | ✅ Working     |
+| LVGL rendering                             | ✅ Working     |
+| Keypad matrix scan                         | ✅ Working     |
+| Arrow key auto-repeat                      | ✅ Working     |
+| 2nd and Alpha modifier keys                | ✅ Working     |
+| 2nd / Alpha toggle (press twice to cancel) | ✅ Working     |
+| Alpha lock (A-LOCK via 2nd+ALPHA)          | ✅ Working     |
+| Alpha character input (A–Z)                | ✅ Working     |
+| Block cursor with mode indicator           | ✅ Working     |
+| Expression building                        | ✅ Working     |
+| Cursor navigation within expression        | ✅ Working     |
+| Basic arithmetic                           | ✅ Working     |
+| Trig functions (deg and rad)               | ✅ Working     |
+| Logarithmic functions                      | ✅ Working     |
+| ANS variable and auto-ANS                  | ✅ Working     |
+| User variables A–Z (STO→)                 | ✅ Working     |
+| DEG/RAD mode toggle                        | ✅ Working     |
+| History display (scrolling console)        | ✅ Working     |
+| Error messages                             | ✅ Working     |
+| Y= equation editor (up to 4 equations)    | ✅ Working     |
+| Cursor navigation within Y= equations     | ✅ Working     |
+| Graph rendering                            | ✅ Working     |
+| RANGE window editor                        | ✅ Working     |
+| TRACE cursor with X/Y readout             | ✅ Working     |
+| ZOOM menu (6 presets)                      | ✅ Working     |
+| ZBox rubber-band zoom                      | ✅ Working     |
+| Context-aware CLEAR on all screens         | ✅ Working     |
+| MATH menu and functions                    | 🚧 Planned     |
+| MATRIX menu and operations                 | 🚧 Planned     |
+| MODE screen (number format, graph type…)   | 🚧 Planned     |
+| History recall with UP arrow               | 🚧 Planned     |
+| Persist state across resets                | 🚧 Planned     |
+| PRGM editor and runner                     | 🚧 Planned     |
 
 ---
 
@@ -336,8 +431,8 @@ st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 The final target is a custom PCB using the STM32H7B0VBT6 with:
 - 16-bit 8080 parallel display interface (eliminates pixel clock artifact)
 - Large internal SRAM (no external SDRAM required)
+- LiPo charging (RT9526A), 3.3V buck (MT2492), always-on LDO (RT9078)
 - Same keypad matrix hardware
-- FMC peripheral configured for native 8080 timing
 
 The LVGL architecture, FreeRTOS task structure, math engine, and keypad
 driver will transfer unchanged. Only `lv_port_disp.c` requires rewriting
