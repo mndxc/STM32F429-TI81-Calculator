@@ -105,7 +105,18 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees);
  */
 void Calc_FormatResult(float value, char *buf, uint8_t buf_len);
 
-
+/**
+ * @brief Evaluates an infix expression with a specific value substituted for X.
+ *
+ * Used by the graphing subsystem — the graph x coordinate overrides whatever
+ * is stored in calc_variables['X'-'A'] for the duration of this call.
+ *
+ * @param expr          Null-terminated infix expression in terms of x
+ * @param x_val         Value to substitute for the variable x/X
+ * @param ans           Current ANS value substituted for "ANS" in expression
+ * @param angle_degrees True for degrees, false for radians
+ * @return              CalcResult_t containing value or error
+ */
 CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
                               float ans, bool angle_degrees);
 

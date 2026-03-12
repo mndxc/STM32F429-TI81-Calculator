@@ -38,7 +38,7 @@ const KeyDefinition_t TI81_LookupTable[] = {
     /* --- Top left cluster --- */
     [ID_B8_A1] = { TOKEN_ALPHA,    TOKEN_A_LOCK, TOKEN_NONE  },
     [ID_B8_A2] = { TOKEN_X_T,      TOKEN_NONE,   TOKEN_NONE  },
-    [ID_B8_A3] = { TOKEN_MODE,     TOKEN_NONE,  TOKEN_NONE   },
+    [ID_B8_A3] = { TOKEN_MODE,     TOKEN_NONE,   TOKEN_NONE  },
 
     /* --- Menu row --- */
     [ID_B7_A1] = { TOKEN_MATH,     TOKEN_TEST,   TOKEN_A     },
@@ -90,5 +90,5 @@ const KeyDefinition_t TI81_LookupTable[] = {
 };
 
 
-const uint32_t TI81_LookupTable_Size = 
+const uint32_t TI81_LookupTable_Size =
     sizeof(TI81_LookupTable) / sizeof(TI81_LookupTable[0]);

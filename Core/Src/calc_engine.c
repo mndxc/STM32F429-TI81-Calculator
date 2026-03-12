@@ -251,11 +251,16 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
  * Stage 1b — Implicit multiplication pass
  *
  * Inserts MATH_OP_MUL between adjacent tokens where implicit multiplication
- * is implied: e.g. 2sin(x), 2(3+4), (a+b)(c+d), 2pi, 3ANS.
+ * is implied by juxtaposition.  Handled patterns:
+ *   number·function    2sin(x)
+ *   number·paren       2(3+4)
+ *   paren·paren        (a+b)(c+d)
+ *   number·number      2pi  (pi already resolved to a number token)
+ *   paren·number       (x+1)2
  *
  * Rule: insert '*' when left token is NUMBER or ')' AND
  *       right token is NUMBER, '(', or any function.
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 static CalcError_t ImplicitMulPass(TokenList_t *list)
 {
@@ -506,6 +511,14 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
 
 /**
  * @brief Evaluates an infix expression string.
+ *
+ * Passes the stored value of variable X as x_val so that bare references
+ * to "X" in regular (non-graph) mode use whatever was last stored via STO→X.
+ *
+ * @param expr          Null-terminated infix expression e.g. "3+sin(45)*2"
+ * @param ans           Current ANS value substituted for "ANS" in expression
+ * @param angle_degrees True for degrees, false for radians
+ * @return              CalcResult_t containing value or error
  */
 CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees)
 {
@@ -548,6 +561,18 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees)
     return EvaluateRPN(&postfix, angle_degrees);
 }
 
+/**
+ * @brief Evaluates an infix expression with a specific value substituted for X.
+ *
+ * Used by the graphing subsystem so that each pixel column can pass its own
+ * x coordinate, independent of the stored variable value.
+ *
+ * @param expr          Null-terminated infix expression in terms of x
+ * @param x_val         Value to substitute for the variable x/X
+ * @param ans           Current ANS value substituted for "ANS" in expression
+ * @param angle_degrees True for degrees, false for radians
+ * @return              CalcResult_t containing value or error
+ */
 CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
                               float ans, bool angle_degrees)
 {
@@ -586,6 +611,15 @@ CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
 
 /**
  * @brief Formats a float result into a clean display string.
+ *
+ * Produces integers without a decimal point, trims trailing zeros from
+ * decimal results, and switches to scientific notation for values outside
+ * the range [1e-4, 1e7).  Uses explicit %.6f rather than %.6g because
+ * newlib-nano's %g formatting is unreliable on ARM targets.
+ *
+ * @param value   Float to format
+ * @param buf     Output buffer
+ * @param buf_len Buffer size in bytes
  */
 void Calc_FormatResult(float value, char *buf, uint8_t buf_len)
 {

@@ -148,6 +148,7 @@ void lvgl_unlock(void) {
  * UI initialisation
  *---------------------------------------------------------------------------*/
 
+/* Initialises the three shared LVGL styles used across the calculator UI. */
 static void ui_init_styles(void)
 {
     /* Background */
@@ -168,6 +169,7 @@ static void ui_init_styles(void)
     lv_style_set_text_color(&style_modifier_alpha, lv_color_hex(COLOR_ALPHA));
 }
 
+/* Creates the main calculator screen: history rows, angle label, and cursor. */
 static void ui_init_screen(void)
 {
     lv_obj_t *scr = lv_scr_act();
@@ -242,6 +244,7 @@ static void ui_update_range_display(void)
     lv_label_set_text(ui_lbl_range_yscl, buf);
 }
 
+/* Creates the Y=, RANGE, ZOOM, and graph canvas screens (all hidden at startup). */
 static void ui_init_graph_screens(void)
 {
     lv_obj_t *scr = lv_scr_act();
@@ -407,22 +410,22 @@ static void cursor_update(lv_obj_t *row_label, uint32_t char_pos)
         box_color  = lv_color_hex(COLOR_ALPHA);
         inner_text = "A";
     } else switch (current_mode) {
-    case MODE_2ND:
-        show       = true;
-        box_color  = lv_color_hex(COLOR_2ND);
-        inner_text = "^";
-        break;
-    case MODE_ALPHA:
-    case MODE_ALPHA_LOCK:
-        show       = true;
-        box_color  = lv_color_hex(COLOR_ALPHA);
-        inner_text = "A";
-        break;
-    default:
-        show       = cursor_visible;
-        box_color  = lv_color_hex(0xCCCCCC);
-        inner_text = "";
-        break;
+        case MODE_2ND:
+            show       = true;
+            box_color  = lv_color_hex(COLOR_2ND);
+            inner_text = "^";
+            break;
+        case MODE_ALPHA:
+        case MODE_ALPHA_LOCK:
+            show       = true;
+            box_color  = lv_color_hex(COLOR_ALPHA);
+            inner_text = "A";
+            break;
+        default:
+            show       = cursor_visible;
+            box_color  = lv_color_hex(0xCCCCCC);
+            inner_text = "";
+            break;
     }
 
     if (!show) {
@@ -581,8 +584,11 @@ void Update_Calculator_Display(void)
 }
 
 /**
- * @brief If the expression is empty, prepend "ANS" — mirrors TI-81 behaviour
- *        where pressing a binary operator on a fresh line auto-inserts ANS.
+ * @brief If the expression is empty, prepend "ANS" and set cursor_pos to 3.
+ *
+ * Mirrors TI-81 behaviour where pressing a binary operator on a fresh line
+ * automatically inserts ANS as the left-hand operand.  cursor_pos is also
+ * advanced so subsequent insertions append after "ANS" rather than before it.
  */
 static void expr_prepend_ans_if_empty(void)
 {
@@ -644,6 +650,7 @@ static void ui_update_history(void)
  * Y= editor helpers
  *---------------------------------------------------------------------------*/
 
+/* Highlights the active Y= row label in yellow; all others are white. */
 static void yeq_update_highlight(void)
 {
     for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
@@ -657,6 +664,8 @@ static void yeq_update_highlight(void)
  * Zoom preset helper
  *---------------------------------------------------------------------------*/
 
+/* Applies one of the five TI-81 ZOOM presets to graph_state.
+ * preset 1=ZStandard, 2=ZTrig, 3=ZDecimal, 4=ZSquare, 5=ZInteger. */
 static void apply_zoom_preset(uint8_t preset)
 {
     switch (preset) {
@@ -700,6 +709,7 @@ static void apply_zoom_preset(uint8_t preset)
  * RANGE editor helpers
  *---------------------------------------------------------------------------*/
 
+/* Returns the LVGL label pointer for RANGE field index idx (0=Xmin … 5=Yscl). */
 static lv_obj_t *range_get_label(uint8_t idx)
 {
     switch (idx) {
@@ -713,6 +723,7 @@ static lv_obj_t *range_get_label(uint8_t idx)
     }
 }
 
+/* Returns the committed graph_state value for RANGE field index idx. */
 static float range_get_field_value(uint8_t idx)
 {
     switch (idx) {
@@ -726,6 +737,8 @@ static float range_get_field_value(uint8_t idx)
     }
 }
 
+/* Parses range_field_buf and writes it into the appropriate graph_state field.
+ * Scale fields (xscl, yscl) reject zero or negative values. */
 static void range_commit_field(void)
 {
     if (range_field_len == 0)
@@ -741,6 +754,7 @@ static void range_commit_field(void)
     }
 }
 
+/* Highlights the active RANGE field label in yellow; all others are white. */
 static void range_update_highlight(void)
 {
     for (uint8_t i = 0; i < 6; i++) {
@@ -764,7 +778,7 @@ static void range_update_highlight(void)
  */
 void Execute_Token(Token_t t)
 {
-    /* Handle Y= equation editing mode */
+    /*--- Y= equation editor mode handler -----------------------------------*/
     if (current_mode == MODE_GRAPH_YEQ) {
         char *eq  = graph_state.equations[yeq_selected];
         uint8_t eq_len = strlen(eq);
@@ -869,7 +883,7 @@ void Execute_Token(Token_t t)
         return;
     }
 
-    /* Handle RANGE field editing mode */
+    /*--- RANGE field editor mode handler -----------------------------------*/
     if (current_mode == MODE_GRAPH_RANGE) {
         lv_obj_t *lbl;
         char stored_buf[16];
@@ -1005,7 +1019,7 @@ void Execute_Token(Token_t t)
         }
     }
 
-    /* Handle ZOOM menu mode */
+    /*--- ZOOM preset menu mode handler -------------------------------------*/
     if (current_mode == MODE_GRAPH_ZOOM) {
         uint8_t preset = 0;
         switch (t) {
@@ -1034,7 +1048,7 @@ void Execute_Token(Token_t t)
         return;
     }
 
-    /* Handle TRACE cursor mode */
+    /*--- TRACE cursor mode handler -----------------------------------------*/
     if (current_mode == MODE_GRAPH_TRACE) {
         float step = (graph_state.x_max - graph_state.x_min) / (float)(GRAPH_W - 1);
         switch (t) {
@@ -1091,7 +1105,8 @@ void Execute_Token(Token_t t)
         }
     }
 
-    /* STO pending — next alpha key stores ans to that variable */
+    /*--- STO pending handler -----------------------------------------------*/
+    /* When sto_pending is set, the next alpha key stores ans to that variable */
     if (sto_pending) {
         if (t >= TOKEN_A && t <= TOKEN_Z) {
             calc_variables[t - TOKEN_A] = ans;

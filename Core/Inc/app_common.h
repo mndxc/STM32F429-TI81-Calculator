@@ -17,7 +17,7 @@
 
 /*---------------------------------------------------------------------------
  * Shared types
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 /**
  * @brief Calculator input mode — controls which token layer is active.
@@ -31,15 +31,15 @@ typedef enum {
     MODE_2ND,
     MODE_ALPHA,
     MODE_ALPHA_LOCK,    /* ALPHA locked — stays active after each keypress */
-    MODE_GRAPH_YEQ,
-    MODE_GRAPH_RANGE,
-    MODE_GRAPH_ZOOM,
-    MODE_GRAPH_TRACE
+    MODE_GRAPH_YEQ,     /* Y= equation editor active */
+    MODE_GRAPH_RANGE,   /* RANGE field editor active */
+    MODE_GRAPH_ZOOM,    /* ZOOM preset menu active */
+    MODE_GRAPH_TRACE    /* Trace cursor active on graph */
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------
  * Graph state
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 #define GRAPH_NUM_EQ    4   /* Number of simultaneous Y= equations */
 
@@ -64,14 +64,14 @@ extern GraphState_t graph_state;
 
 /*---------------------------------------------------------------------------
  * Shared handles
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 /** Queue for passing keypad tokens from the keypad task to the core task. */
 extern osMessageQId keypadQueueHandle;
 
 /*---------------------------------------------------------------------------
  * Function declarations
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 /** FreeRTOS task entry points */
 void StartCalcCoreTask(void const *argument);
