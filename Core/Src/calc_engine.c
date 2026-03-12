@@ -187,6 +187,25 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
             continue;
         }
 
+        /* Special case: '-' immediately after '^' before a digit or dot —
+           fold the sign into the number literal so shunting-yard never
+           tries to pop '^' before its right operand is ready.
+           e.g. 2^-3  →  tokens [2, ^, -3]  rather than [2, ^, NEG, 3]. */
+        if (*p == '-' &&
+            out->count > 0 &&
+            out->tokens[out->count - 1].type == MATH_OP_POW &&
+            (isdigit((unsigned char)p[1]) || p[1] == '.')) {
+            char *end;
+            float val = strtof(p, &end);
+            if (end == p) return CALC_ERR_SYNTAX;
+            if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+            out->tokens[out->count].type  = MATH_NUMBER;
+            out->tokens[out->count].value = val;
+            out->count++;
+            p = end;
+            continue;
+        }
+
         /* Single character tokens */
         MathTokenType_t op_type;
         bool is_op = true;

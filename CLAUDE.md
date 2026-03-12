@@ -184,8 +184,51 @@ the main switch. Each mode intercepts keypresses and routes them appropriately.
 - `TOKEN_A_LOCK` (2nd+ALPHA) enters `MODE_ALPHA_LOCK` — alpha layer stays active after each keypress
 - Pressing ALPHA while in `MODE_ALPHA_LOCK` exits back to the previous mode
 - `TOKEN_STO` sets `sto_pending = true`; `Process_Hardware_Key` then dispatches `key.alpha` for the next key automatically (no need to press ALPHA)
-- Status bar shows: `2nd` (orange), `ALPHA` (green), `A-LOCK` (green), `STO→` (orange)
+- There is no visible status bar. Mode state is shown entirely through the block cursor:
+  - Normal: blinking light-grey filled block, no inner character
+  - 2nd: steady amber block with `^` inside (inverted)
+  - ALPHA / A-LOCK: steady green block with `A` inside (inverted)
+  - STO pending: steady green block with `A` inside (same as ALPHA — signals next key is a variable)
 - The Y= screen has its own modifier label (`ui_lbl_yeq_modifier`) mirrored from `ui_update_status_bar()`
+
+### Cursor implementation
+`cursor_update(row_label, char_pos)` in `calculator_core.c`:
+- Uses `lv_label_get_letter_pos()` to find the pixel X of the insertion point within the current row label
+- Positions `cursor_box` (16×26 px `lv_obj`) over that point
+- Sets `cursor_box` background color and `cursor_inner` label text based on mode / `sto_pending`
+- LVGL timer `cursor_timer_cb` fires every `CURSOR_BLINK_MS` (530 ms); 2nd/ALPHA/STO states force `cursor_visible = true` (no blink)
+- **Do not call `lvgl_lock()` inside `cursor_timer_cb`** — it is invoked from `lv_task_handler()` which DefaultTask already holds the mutex for; calling lock again deadlocks.
+
+### Auto-ANS insertion
+When the expression buffer is empty and a binary operator is pressed, `expr_prepend_ans_if_empty()` prepends `"ANS"` before appending the operator. This matches TI-81 behaviour. Tokens that trigger it: `TOKEN_ADD`, `TOKEN_SUB`, `TOKEN_MULT`, `TOKEN_DIV`, `TOKEN_POWER`, `TOKEN_SQUARE`, `TOKEN_X_INV`.
+
+---
+
+## Calculator UI
+
+No status bar. The full 320×240 display is used as a scrolling console.
+
+### Display layout
+```
+DISP_ROW_COUNT = 8   rows
+DISP_ROW_H     = 30  px per row   (8 × 30 = 240px — fills screen exactly)
+Font: Montserrat 24
+```
+
+Each history entry occupies two rows:
+- Even row: expression — left-aligned, grey (`0x888888`)
+- Odd row: result — right-aligned, white (`0xFFFFFF`)
+
+The current expression being typed is always the last row, left-aligned in light grey (`0xCCCCCC`). As history grows beyond 8 rows the display scrolls: only the most recent entries are visible.
+
+A small `DEG` / `RAD` indicator is floated in the top-right corner (Montserrat 14, dim grey `0x444444`).
+
+### Key display functions
+```c
+void Update_Calculator_Display(void);   // called after every expression keypress
+static void ui_refresh_display(void);   // raw redraw — must be called under lvgl_lock
+static void ui_update_history(void);    // called after ENTER commits an entry
+```
 
 ---
 
@@ -244,20 +287,11 @@ Graph evaluates using the same angle mode as the calculator.
 State variables in `calculator_core.c`:
 ```c
 static uint8_t  range_field_selected = 0;   // 0=xmin 1=xmax 2=ymin 3=ymax 4=xscl 5=yscl
-static char     range_field_buf[16];
-static uint8_t  range_field_len = 0;
-static lv_obj_t **range_value_label_ptrs[6];
+static char     range_field_buf[16]  = {0};
+static uint8_t  range_field_len      = 0;
 ```
 
-`range_value_label_ptrs` is populated in `ui_init_graph_screens()`:
-```c
-range_value_label_ptrs[0] = &ui_lbl_range_xmin;
-range_value_label_ptrs[1] = &ui_lbl_range_xmax;
-range_value_label_ptrs[2] = &ui_lbl_range_ymin;
-range_value_label_ptrs[3] = &ui_lbl_range_ymax;
-range_value_label_ptrs[4] = &ui_lbl_range_xscl;
-range_value_label_ptrs[5] = &ui_lbl_range_yscl;
-```
+`range_get_label(uint8_t field)` returns the correct `lv_obj_t*` for each field index.
 
 The `MODE_GRAPH_RANGE` handler in `Execute_Token()` is complete:
 - UP/DOWN move `range_field_selected` between 0–5
@@ -293,8 +327,6 @@ The `MODE_GRAPH_RANGE` handler in `Execute_Token()` is complete:
 ## Planned Features (not yet started)
 
 - **Additional math functions** — factorial, combinations, permutations, hyperbolic trig
-- **Implicit multiplication** — `2(3+4)` treated as `2*(3+4)`
-- **Expression history navigation** — UP/DOWN in calculator mode to recall history entries
 - **PRGM** — program editor and runner
 - **Battery voltage ADC** — for custom PCB (Rev 1 hardware)
 
@@ -356,3 +388,4 @@ Middlewares/ST/
 7. **`%.6g` unreliable on ARM newlib-nano** — use `%.6f` with manual trimming
 8. **graph.h include guard conflict** — guard is `GRAPH_MODULE_H` not `GRAPH_H`
    (GRAPH_H conflicts with the height constant)
+9. **`2^-3` tokenizer special-case** — `-` immediately after `^` followed by a digit/dot is folded into a negative number literal in `Tokenize()` to prevent shunting-yard from popping `^` before its right operand is ready. `-3^2` still evaluates as `-(3^2) = -9` (correct TI-81 behaviour) because that `-` is at the start of the expression, not after `^`.

@@ -20,33 +20,30 @@
 
 /*---------------------------------------------------------------------------
  * Constants
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 #define DISPLAY_W           320
 #define DISPLAY_H           240
 
-#define STATUS_BAR_H        20
-#define RESULT_AREA_H       40
-#define EXPR_AREA_H         30
-#define HISTORY_AREA_H      (DISPLAY_H - STATUS_BAR_H - EXPR_AREA_H - RESULT_AREA_H)
+#define DISP_ROW_COUNT      8           /* Visible text rows on the main screen */
+#define DISP_ROW_H          30          /* Pixels per row */
+#define CURSOR_BLINK_MS     530         /* Cursor blink interval */
 
-#define HISTORY_LINE_COUNT  4
+#define HISTORY_LINE_COUNT  32          /* Expression+result pairs stored in history */
 #define MAX_EXPR_LEN        64
 #define MAX_RESULT_LEN      32
 
 /* Color scheme */
 #define COLOR_BG            0x1A1A1A    /* Near black background */
-#define COLOR_STATUS_BG     0x2A2A2A    /* Slightly lighter status bar */
-#define COLOR_HISTORY       0x888888    /* Grey history text */
-#define COLOR_EXPR          0xCCCCCC    /* Light grey expression text */
-#define COLOR_RESULT        0xFFFFFF    /* White result text */
-#define COLOR_ACCENT        0x4A90D9    /* Blue accent */
+#define COLOR_HISTORY_EXPR  0x888888    /* Grey for committed expressions */
+#define COLOR_HISTORY_RES   0xFFFFFF    /* White for results */
+#define COLOR_EXPR          0xCCCCCC    /* Light grey for current expression */
 #define COLOR_2ND           0xF5A623    /* Amber for 2nd mode indicator */
 #define COLOR_ALPHA         0x7ED321    /* Green for alpha mode indicator */
 
 /*---------------------------------------------------------------------------
  * External references
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 extern SemaphoreHandle_t xLVGL_Mutex;
 extern SemaphoreHandle_t xLVGL_Ready;
@@ -54,7 +51,7 @@ extern const uint32_t TI81_LookupTable_Size;
 
 /*---------------------------------------------------------------------------
  * Private types
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 typedef struct {
     char expression[MAX_EXPR_LEN];
@@ -63,17 +60,18 @@ typedef struct {
 
 /*---------------------------------------------------------------------------
  * Private variables
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
-/* LVGL objects */
-static lv_obj_t *ui_status_bar;
-static lv_obj_t *ui_lbl_angle_mode;
-static lv_obj_t *ui_lbl_modifier;
-static lv_obj_t *ui_lbl_ans_indicator;
-static lv_obj_t *ui_history_labels[HISTORY_LINE_COUNT];
-static lv_obj_t *ui_history_results[HISTORY_LINE_COUNT];
-static lv_obj_t *ui_lbl_expression;
-static lv_obj_t *ui_lbl_result;
+/* LVGL objects — main display */
+static lv_obj_t *disp_rows[DISP_ROW_COUNT]; /* Full-width text rows (Montserrat 24) */
+static lv_obj_t *ui_lbl_angle_mode;         /* Small DEG/RAD corner label */
+static lv_obj_t *ui_lbl_modifier;           /* Hidden — used only for Y= mirror */
+
+/* Cursor blink state */
+static bool        cursor_visible = true;
+static lv_timer_t *cursor_timer   = NULL;
+static lv_obj_t   *cursor_box     = NULL;  /* Filled-block cursor rectangle */
+static lv_obj_t   *cursor_inner   = NULL;  /* Character label inside cursor_box */
 
 /* Graph screens */
 static lv_obj_t *ui_graph_yeq_screen   = NULL;
@@ -93,10 +91,6 @@ static lv_obj_t *ui_lbl_range_yscl     = NULL;
 
 /* Styles */
 static lv_style_t style_bg;
-static lv_style_t style_status_bar;
-static lv_style_t style_history;
-static lv_style_t style_expression;
-static lv_style_t style_result;
 static lv_style_t style_modifier_2nd;
 static lv_style_t style_modifier_alpha;
 
@@ -137,7 +131,7 @@ static CalcMode_t return_mode = MODE_NORMAL;
 
 /*---------------------------------------------------------------------------
  * LVGL thread safety helpers
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 void lvgl_lock(void) {
     if (xLVGL_Mutex != NULL)
@@ -151,7 +145,7 @@ void lvgl_unlock(void) {
 
 /*---------------------------------------------------------------------------
  * UI initialisation
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 static void ui_init_styles(void)
 {
@@ -162,34 +156,12 @@ static void ui_init_styles(void)
     lv_style_set_border_width(&style_bg, 0);
     lv_style_set_pad_all(&style_bg, 0);
 
-    /* Status bar */
-    lv_style_init(&style_status_bar);
-    lv_style_set_bg_color(&style_status_bar, lv_color_hex(COLOR_STATUS_BG));
-    lv_style_set_bg_opa(&style_status_bar, LV_OPA_COVER);
-    lv_style_set_border_width(&style_status_bar, 0);
-    lv_style_set_pad_all(&style_status_bar, 4);
-
-    /* History text */
-    lv_style_init(&style_history);
-    lv_style_set_text_font(&style_history, &lv_font_montserrat_14);
-    lv_style_set_text_color(&style_history, lv_color_hex(COLOR_HISTORY));
-
-    /* Expression text */
-    lv_style_init(&style_expression);
-    lv_style_set_text_font(&style_expression, &lv_font_montserrat_14);
-    lv_style_set_text_color(&style_expression, lv_color_hex(COLOR_EXPR));
-
-    /* Result text */
-    lv_style_init(&style_result);
-    lv_style_set_text_font(&style_result, &lv_font_montserrat_28);
-    lv_style_set_text_color(&style_result, lv_color_hex(COLOR_RESULT));
-
-    /* 2nd modifier indicator */
+    /* 2nd modifier indicator (used on Y= screen) */
     lv_style_init(&style_modifier_2nd);
     lv_style_set_text_font(&style_modifier_2nd, &lv_font_montserrat_14);
     lv_style_set_text_color(&style_modifier_2nd, lv_color_hex(COLOR_2ND));
 
-    /* Alpha modifier indicator */
+    /* Alpha modifier indicator (used on Y= screen) */
     lv_style_init(&style_modifier_alpha);
     lv_style_set_text_font(&style_modifier_alpha, &lv_font_montserrat_14);
     lv_style_set_text_color(&style_modifier_alpha, lv_color_hex(COLOR_ALPHA));
@@ -197,84 +169,61 @@ static void ui_init_styles(void)
 
 static void ui_init_screen(void)
 {
-    /* Root screen */
     lv_obj_t *scr = lv_scr_act();
     lv_obj_add_style(scr, &style_bg, 0);
     lv_obj_set_size(scr, DISPLAY_W, DISPLAY_H);
 
-    /* --- Status bar --- */
-    ui_status_bar = lv_obj_create(scr);
-    lv_obj_set_size(ui_status_bar, DISPLAY_W, STATUS_BAR_H);
-    lv_obj_set_pos(ui_status_bar, 0, 0);
-    lv_obj_add_style(ui_status_bar, &style_status_bar, 0);
-    lv_obj_clear_flag(ui_status_bar, LV_OBJ_FLAG_SCROLLABLE);
-
-    /* Angle mode label — left side of status bar */
-    ui_lbl_angle_mode = lv_label_create(ui_status_bar);
-    lv_obj_add_style(ui_lbl_angle_mode, &style_history, 0);
-    lv_obj_align(ui_lbl_angle_mode, LV_ALIGN_LEFT_MID, 0, 0);
-    lv_label_set_text(ui_lbl_angle_mode, "DEG");
-
-    /* Modifier indicator — centre of status bar */
-    ui_lbl_modifier = lv_label_create(ui_status_bar);
-    lv_obj_add_style(ui_lbl_modifier, &style_modifier_2nd, 0);
-    lv_obj_align(ui_lbl_modifier, LV_ALIGN_CENTER, 0, 0);
-    lv_label_set_text(ui_lbl_modifier, "");
-
-    /* ANS indicator — right side of status bar */
-    ui_lbl_ans_indicator = lv_label_create(ui_status_bar);
-    lv_obj_add_style(ui_lbl_ans_indicator, &style_history, 0);
-    lv_obj_align(ui_lbl_ans_indicator, LV_ALIGN_RIGHT_MID, 0, 0);
-    lv_label_set_text(ui_lbl_ans_indicator, "ANS");
-
-    /* --- History area --- */
-    int32_t history_y = STATUS_BAR_H;
-    int32_t line_h    = HISTORY_AREA_H / HISTORY_LINE_COUNT;
-
-    for (int i = 0; i < HISTORY_LINE_COUNT; i++) {
-        /* Expression side — left aligned */
-        ui_history_labels[i] = lv_label_create(scr);
-        lv_obj_add_style(ui_history_labels[i], &style_history, 0);
-        lv_obj_set_pos(ui_history_labels[i], 4,
-                       history_y + (i * line_h) + (line_h / 2) - 7);
-        lv_label_set_text(ui_history_labels[i], "");
-        lv_label_set_long_mode(ui_history_labels[i],
-                               LV_LABEL_LONG_CLIP);
-        lv_obj_set_width(ui_history_labels[i], 200);
-
-        /* Result side — right aligned */
-        ui_history_results[i] = lv_label_create(scr);
-        lv_obj_add_style(ui_history_results[i], &style_history, 0);
-        lv_obj_set_pos(ui_history_results[i], 204,
-                       history_y + (i * line_h) + (line_h / 2) - 7);
-        lv_label_set_text(ui_history_results[i], "");
-        lv_label_set_long_mode(ui_history_results[i],
-                               LV_LABEL_LONG_CLIP);
-        lv_obj_set_width(ui_history_results[i], 112);
+    /* DISP_ROW_COUNT full-width text rows — Montserrat 24, DISP_ROW_H px each */
+    for (int i = 0; i < DISP_ROW_COUNT; i++) {
+        disp_rows[i] = lv_label_create(scr);
+        lv_obj_set_pos(disp_rows[i], 4, i * DISP_ROW_H + 2);
+        lv_obj_set_width(disp_rows[i], DISPLAY_W - 8);
+        lv_obj_set_style_text_font(disp_rows[i], &lv_font_montserrat_24, 0);
+        lv_obj_set_style_text_color(disp_rows[i],
+                                    lv_color_hex(COLOR_HISTORY_EXPR), 0);
+        lv_label_set_long_mode(disp_rows[i], LV_LABEL_LONG_CLIP);
+        lv_label_set_text(disp_rows[i], "");
     }
 
-    /* --- Expression area --- */
-    ui_lbl_expression = lv_label_create(scr);
-    lv_obj_add_style(ui_lbl_expression, &style_expression, 0);
-    lv_obj_set_pos(ui_lbl_expression, 4,
-                   STATUS_BAR_H + HISTORY_AREA_H + 6);
-    lv_label_set_long_mode(ui_lbl_expression, LV_LABEL_LONG_CLIP);
-    lv_obj_set_width(ui_lbl_expression, DISPLAY_W - 8);
-    lv_label_set_text(ui_lbl_expression, "");
+    /* DEG/RAD indicator — small, dimly visible in top-right corner */
+    ui_lbl_angle_mode = lv_label_create(scr);
+    lv_obj_set_style_text_font(ui_lbl_angle_mode, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(ui_lbl_angle_mode,
+                                lv_color_hex(0x444444), 0);
+    lv_obj_align(ui_lbl_angle_mode, LV_ALIGN_TOP_RIGHT, -2, 3);
+    lv_label_set_text(ui_lbl_angle_mode, "DEG");
 
-    /* --- Result area --- */
-    ui_lbl_result = lv_label_create(scr);
-    lv_obj_add_style(ui_lbl_result, &style_result, 0);
-    lv_obj_set_pos(ui_lbl_result, 0,
-                   STATUS_BAR_H + HISTORY_AREA_H + EXPR_AREA_H);
-    lv_obj_set_width(ui_lbl_result, DISPLAY_W - 8);
-    lv_obj_set_style_text_align(ui_lbl_result, LV_TEXT_ALIGN_RIGHT, 0);
-    lv_label_set_text(ui_lbl_result, "0");
+    /* Hidden modifier label — kept alive only for Y= screen mirroring */
+    ui_lbl_modifier = lv_label_create(scr);
+    lv_obj_set_style_opa(ui_lbl_modifier, LV_OPA_TRANSP, 0);
+    lv_label_set_text(ui_lbl_modifier, "");
+
+    /* Cursor block — filled rectangle that overlays the insertion point.
+     * Sized to match one Montserrat-24 character cell (16 x 26 px). */
+    cursor_box = lv_obj_create(scr);
+    lv_obj_set_size(cursor_box, 16, 26);
+    lv_obj_set_style_bg_color(cursor_box, lv_color_hex(0xCCCCCC), 0);
+    lv_obj_set_style_bg_opa(cursor_box, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(cursor_box, 0, 0);
+    lv_obj_set_style_pad_all(cursor_box, 0, 0);
+    lv_obj_set_style_radius(cursor_box, 0, 0);
+    lv_obj_clear_flag(cursor_box, LV_OBJ_FLAG_SCROLLABLE);
+
+    cursor_inner = lv_label_create(cursor_box);
+    lv_obj_set_style_text_font(cursor_inner, &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_color(cursor_inner, lv_color_hex(COLOR_BG), 0);
+    lv_obj_center(cursor_inner);
+    lv_label_set_text(cursor_inner, "");
 }
 
 /*---------------------------------------------------------------------------
  * Graph screen initialisation
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief Refreshes all six RANGE field labels from the current graph_state values.
+ *        Called whenever graph_state is modified while the RANGE screen is visible.
+ */
 static void ui_update_range_display(void)
 {
     char buf[16];
@@ -427,17 +376,157 @@ static void ui_init_graph_screens(void)
 
 /*---------------------------------------------------------------------------
  * UI update functions
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 /**
- * @brief Updates the modifier indicator in the status bar.
+ * @brief Positions and styles the block cursor for the given display row.
+ *
+ * Uses lv_label_get_letter_pos() to compute the pixel X offset of the
+ * insertion point, then moves cursor_box to that position and sets its
+ * color and inner character to reflect the current input mode:
+ *   - Normal / A-LOCK: light-grey block, no inner character, blinks.
+ *   - 2nd:             amber block, '^' inside, always on.
+ *   - ALPHA / A-LOCK:  green block, 'A' inside, always on.
+ *   - STO pending:     green block, 'A' inside, always on.
+ *
+ * @param row_label  The LVGL label whose text contains the current expression.
+ * @param char_pos   Character index within row_label at which to place the cursor.
+ */
+static void cursor_update(lv_obj_t *row_label, uint32_t char_pos)
+{
+    if (cursor_box == NULL) return;
+
+    bool show;
+    lv_color_t box_color;
+    const char *inner_text;
+
+    if (sto_pending) {
+        /* STO waiting for a variable letter — show alpha cursor */
+        show       = true;
+        box_color  = lv_color_hex(COLOR_ALPHA);
+        inner_text = "A";
+    } else switch (current_mode) {
+    case MODE_2ND:
+        show       = true;
+        box_color  = lv_color_hex(COLOR_2ND);
+        inner_text = "^";
+        break;
+    case MODE_ALPHA:
+    case MODE_ALPHA_LOCK:
+        show       = true;
+        box_color  = lv_color_hex(COLOR_ALPHA);
+        inner_text = "A";
+        break;
+    default:
+        show       = cursor_visible;
+        box_color  = lv_color_hex(0xCCCCCC);
+        inner_text = "";
+        break;
+    }
+
+    if (!show) {
+        lv_obj_add_flag(cursor_box, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+
+    /* Find pixel position of character at char_pos within the row label */
+    lv_point_t pos;
+    lv_label_get_letter_pos(row_label, char_pos, &pos);
+
+    int32_t lx = lv_obj_get_x(row_label);
+    int32_t ly = lv_obj_get_y(row_label);
+    lv_obj_set_pos(cursor_box, lx + pos.x, ly + pos.y);
+
+    lv_obj_set_style_bg_color(cursor_box, box_color, 0);
+    lv_label_set_text(cursor_inner, inner_text);
+    lv_obj_clear_flag(cursor_box, LV_OBJ_FLAG_HIDDEN);
+}
+
+/**
+ * @brief Redraws all DISP_ROW_COUNT display rows from the history buffer
+ *        and the current input expression.
+ *
+ * Display line model (li = absolute line index):
+ *   even li:               committed expression — left-aligned, grey
+ *   odd  li:               result               — right-aligned, white
+ *   li == history_count*2: current expression being typed + cursor
+ */
+static void ui_refresh_display(void)
+{
+    if (disp_rows[0] == NULL) return;
+
+    int total = history_count * 2 + 1;   /* lines incl. current expr */
+    int start = (total > DISP_ROW_COUNT) ? (total - DISP_ROW_COUNT) : 0;
+
+    lv_label_set_text(ui_lbl_angle_mode, angle_degrees ? "DEG" : "RAD");
+
+    for (int row = 0; row < DISP_ROW_COUNT; row++) {
+        int li = start + row;
+
+        if (li >= total) {
+            /* Below current position — blank */
+            lv_label_set_text(disp_rows[row], "");
+            continue;
+        }
+
+        if (li == history_count * 2) {
+            /* Current expression being typed */
+            lv_obj_set_style_text_color(disp_rows[row],
+                                        lv_color_hex(COLOR_EXPR), 0);
+            lv_obj_set_style_text_align(disp_rows[row],
+                                        LV_TEXT_ALIGN_LEFT, 0);
+            lv_label_set_text(disp_rows[row], expression);
+            cursor_update(disp_rows[row], expr_len);
+        } else if (li % 2 == 0) {
+            /* Committed expression — left-aligned, grey */
+            int entry = (li / 2) % HISTORY_LINE_COUNT;
+            lv_obj_set_style_text_color(disp_rows[row],
+                                        lv_color_hex(COLOR_HISTORY_EXPR), 0);
+            lv_obj_set_style_text_align(disp_rows[row],
+                                        LV_TEXT_ALIGN_LEFT, 0);
+            lv_label_set_text(disp_rows[row], history[entry].expression);
+        } else {
+            /* Result — right-aligned, white */
+            int entry = ((li - 1) / 2) % HISTORY_LINE_COUNT;
+            lv_obj_set_style_text_color(disp_rows[row],
+                                        lv_color_hex(COLOR_HISTORY_RES), 0);
+            lv_obj_set_style_text_align(disp_rows[row],
+                                        LV_TEXT_ALIGN_RIGHT, 0);
+            lv_label_set_text(disp_rows[row], history[entry].result);
+        }
+    }
+
+    /* If the current expression row scrolled off-screen, hide the cursor */
+    if (history_count * 2 < start && cursor_box != NULL) {
+        lv_obj_add_flag(cursor_box, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+/**
+ * @brief LVGL timer callback — blinks the cursor every CURSOR_BLINK_MS.
+ */
+static void cursor_timer_cb(lv_timer_t *timer)
+{
+    (void)timer;
+    /* 2nd and ALPHA show a fixed cursor (always on).
+       Normal and ALPHA_LOCK blink the block. */
+    if (sto_pending || current_mode == MODE_2ND || current_mode == MODE_ALPHA) {
+        cursor_visible = true;
+    } else {
+        cursor_visible = !cursor_visible;
+    }
+    /* Called from lv_task_handler() — DefaultTask already holds the LVGL
+       mutex. Do NOT call lvgl_lock() here or it will deadlock. */
+    ui_refresh_display();
+}
+
+/**
+ * @brief Updates the hidden modifier label (for Y= screen mirroring)
+ *        and refreshes the main display so the cursor reflects current mode.
  */
 static void ui_update_status_bar(void)
 {
-    /* Angle mode */
-    lv_label_set_text(ui_lbl_angle_mode, angle_degrees ? "DEG" : "RAD");
-
-    /* Modifier mode */
+    /* Update the hidden modifier label text/color for Y= mirroring */
     switch (current_mode) {
     case MODE_2ND:
         lv_obj_add_style(ui_lbl_modifier, &style_modifier_2nd, 0);
@@ -457,14 +546,14 @@ static void ui_update_status_bar(void)
         if (sto_pending) {
             lv_obj_remove_style(ui_lbl_modifier, &style_modifier_alpha, 0);
             lv_obj_add_style(ui_lbl_modifier, &style_modifier_2nd, 0);
-            lv_label_set_text(ui_lbl_modifier, "STO\xE2\x86\x92");  /* STO→ */
+            lv_label_set_text(ui_lbl_modifier, "STO\xE2\x86\x92");
         } else {
             lv_label_set_text(ui_lbl_modifier, "");
         }
         break;
     }
 
-    /* Mirror modifier onto Y= screen if it exists */
+    /* Mirror modifier onto Y= screen */
     if (ui_lbl_yeq_modifier != NULL) {
         lv_label_set_text(ui_lbl_yeq_modifier,
                           lv_label_get_text(ui_lbl_modifier));
@@ -472,47 +561,47 @@ static void ui_update_status_bar(void)
                                     lv_obj_get_style_text_color(ui_lbl_modifier, 0),
                                     0);
     }
+
+    /* Cursor char changes with mode — force an immediate refresh */
+    cursor_visible = true;
+    ui_refresh_display();
 }
 
 /**
- * @brief Refreshes all history lines from the history buffer.
+ * @brief Refreshes the display with the current expression and cursor.
+ *        Called after every keypress that modifies the expression.
  */
-static void ui_update_history(void)
+void Update_Calculator_Display(void)
 {
-    for (int i = 0; i < HISTORY_LINE_COUNT; i++) {
-        int entry = history_count - HISTORY_LINE_COUNT + i;
-        if (entry >= 0 && entry < history_count) {
-            lv_label_set_text(ui_history_labels[i],
-                              history[entry % HISTORY_LINE_COUNT].expression);
-            lv_label_set_text(ui_history_results[i],
-                              history[entry % HISTORY_LINE_COUNT].result);
-        } else {
-            lv_label_set_text(ui_history_labels[i], "");
-            lv_label_set_text(ui_history_results[i], "");
-        }
+    if (disp_rows[0] == NULL) return;
+    lvgl_lock();
+    ui_refresh_display();
+    lvgl_unlock();
+}
+
+/**
+ * @brief If the expression is empty, prepend "ANS" — mirrors TI-81 behaviour
+ *        where pressing a binary operator on a fresh line auto-inserts ANS.
+ */
+static void expr_prepend_ans_if_empty(void)
+{
+    if (expr_len == 0 && MAX_EXPR_LEN > 3) {
+        memcpy(expression, "ANS", 4);
+        expr_len = 3;
     }
 }
 
 /**
- * @brief Updates the expression and result display labels.
+ * @brief Refreshes the display after history changes.
  */
-void Update_Calculator_Display(void)
+static void ui_update_history(void)
 {
-    if (ui_lbl_expression == NULL || ui_lbl_result == NULL)
-        return;
-
-    lvgl_lock();
-    lv_label_set_text(ui_lbl_expression,
-                      (expr_len == 0) ? "" : expression);
-    lv_label_set_text(ui_lbl_result,
-                      (expr_len == 0) ? "0" : expression);
-    ui_update_status_bar();
-    lvgl_unlock();
+    ui_refresh_display();
 }
 
 /*---------------------------------------------------------------------------
  * Y= editor helpers
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 static void yeq_update_highlight(void)
 {
@@ -525,7 +614,7 @@ static void yeq_update_highlight(void)
 
 /*---------------------------------------------------------------------------
  * Zoom preset helper
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 static void apply_zoom_preset(uint8_t preset)
 {
@@ -568,7 +657,7 @@ static void apply_zoom_preset(uint8_t preset)
 
 /*---------------------------------------------------------------------------
  * RANGE editor helpers
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 static lv_obj_t *range_get_label(uint8_t idx)
 {
@@ -626,7 +715,7 @@ static void range_update_highlight(void)
 
 /*---------------------------------------------------------------------------
  * Token execution
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 /**
  * @brief Processes a single calculator token from the keypad queue.
@@ -966,15 +1055,16 @@ void Execute_Token(Token_t t)
         if (t >= TOKEN_A && t <= TOKEN_Z) {
             calc_variables[t - TOKEN_A] = ans;
             sto_pending = false;
-            /* Show "X=value" in result label briefly via expression area */
-            char stored_buf[32];
+            /* Show assignment as a history entry */
+            static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
             char val_buf[16];
             Calc_FormatResult(ans, val_buf, sizeof(val_buf));
-            static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            snprintf(stored_buf, sizeof(stored_buf), "%c=%s",
-                     var_names[t - TOKEN_A], val_buf);
+            uint8_t idx = history_count % HISTORY_LINE_COUNT;
+            char var_str[3] = { var_names[t - TOKEN_A], '\0', '\0' };
+            strncpy(history[idx].expression, var_str, MAX_EXPR_LEN - 1);
+            strncpy(history[idx].result, val_buf, MAX_RESULT_LEN - 1);
+            history_count++;
             lvgl_lock();
-            lv_label_set_text(ui_lbl_result, stored_buf);
             ui_update_status_bar();
             lvgl_unlock();
             return;
@@ -1013,6 +1103,7 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_ADD:
+        expr_prepend_ans_if_empty();
         if (expr_len < MAX_EXPR_LEN - 1) {
             expression[expr_len++] = '+';
             expression[expr_len]   = '\0';
@@ -1021,6 +1112,7 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_SUB:
+        expr_prepend_ans_if_empty();
         if (expr_len < MAX_EXPR_LEN - 1) {
             expression[expr_len++] = '-';
             expression[expr_len]   = '\0';
@@ -1029,6 +1121,7 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_MULT:
+        expr_prepend_ans_if_empty();
         if (expr_len < MAX_EXPR_LEN - 1) {
             expression[expr_len++] = '*';
             expression[expr_len]   = '\0';
@@ -1037,6 +1130,7 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_DIV:
+        expr_prepend_ans_if_empty();
         if (expr_len < MAX_EXPR_LEN - 1) {
             expression[expr_len++] = '/';
             expression[expr_len]   = '\0';
@@ -1044,41 +1138,39 @@ void Execute_Token(Token_t t)
         }
         break;
 
-case TOKEN_ENTER:
-    if (expr_len > 0) {
-        CalcResult_t result = Calc_Evaluate(expression, ans,
-                                            angle_degrees);
+    case TOKEN_ENTER:
+        if (expr_len > 0) {
+            CalcResult_t result = Calc_Evaluate(expression, ans,
+                                                angle_degrees);
 
-        char result_str[MAX_RESULT_LEN];
-        memset(result_str, 0, MAX_RESULT_LEN);
+            char result_str[MAX_RESULT_LEN];
+            memset(result_str, 0, MAX_RESULT_LEN);
 
-        if (result.error != CALC_OK) {
-            strncpy(result_str, result.error_msg,
+            if (result.error != CALC_OK) {
+                strncpy(result_str, result.error_msg,
+                        MAX_RESULT_LEN - 1);
+            } else {
+                Calc_FormatResult(result.value, result_str,
+                                  MAX_RESULT_LEN);
+                ans = result.value;
+            }
+
+            /* Store in history */
+            uint8_t idx = history_count % HISTORY_LINE_COUNT;
+            strncpy(history[idx].expression, expression,
+                    MAX_EXPR_LEN - 1);
+            strncpy(history[idx].result, result_str,
                     MAX_RESULT_LEN - 1);
-        } else {
-            Calc_FormatResult(result.value, result_str,
-                              MAX_RESULT_LEN);
-            ans = result.value;
+            history_count++;
+
+            expr_len      = 0;
+            expression[0] = '\0';
+
+            lvgl_lock();
+            ui_update_history();
+            lvgl_unlock();
         }
-
-        /* Store in history */
-        uint8_t idx = history_count % HISTORY_LINE_COUNT;
-        strncpy(history[idx].expression, expression,
-                MAX_EXPR_LEN - 1);
-        strncpy(history[idx].result, result_str,
-                MAX_RESULT_LEN - 1);
-        history_count++;
-
-        expr_len      = 0;
-        expression[0] = '\0';
-
-        lvgl_lock();
-        lv_label_set_text(ui_lbl_result, result_str);
-        lv_label_set_text(ui_lbl_expression, "");
-        ui_update_history();
-        lvgl_unlock();
-    }
-    break;
+        break;
 
     case TOKEN_CLEAR:
         expr_len      = 0;
@@ -1098,200 +1190,203 @@ case TOKEN_ENTER:
         Update_Calculator_Display();
         break;
 
-        case TOKEN_SIN:
-    if (expr_len < MAX_EXPR_LEN - 4) {
-        strcat(expression, "sin(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_SIN:
+        if (expr_len < MAX_EXPR_LEN - 4) {
+            strcat(expression, "sin(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_COS:
-    if (expr_len < MAX_EXPR_LEN - 4) {
-        strcat(expression, "cos(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_COS:
+        if (expr_len < MAX_EXPR_LEN - 4) {
+            strcat(expression, "cos(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_TAN:
-    if (expr_len < MAX_EXPR_LEN - 4) {
-        strcat(expression, "tan(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_TAN:
+        if (expr_len < MAX_EXPR_LEN - 4) {
+            strcat(expression, "tan(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_ASIN:
-    if (expr_len < MAX_EXPR_LEN - 5) {
-        strcat(expression, "asin(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_ASIN:
+        if (expr_len < MAX_EXPR_LEN - 5) {
+            strcat(expression, "asin(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_ACOS:
-    if (expr_len < MAX_EXPR_LEN - 5) {
-        strcat(expression, "acos(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_ACOS:
+        if (expr_len < MAX_EXPR_LEN - 5) {
+            strcat(expression, "acos(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_ATAN:
-    if (expr_len < MAX_EXPR_LEN - 5) {
-        strcat(expression, "atan(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_ATAN:
+        if (expr_len < MAX_EXPR_LEN - 5) {
+            strcat(expression, "atan(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_ABS:
-    if (expr_len < MAX_EXPR_LEN - 4) {
-        strcat(expression, "abs(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_ABS:
+        if (expr_len < MAX_EXPR_LEN - 4) {
+            strcat(expression, "abs(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_LN:
-    if (expr_len < MAX_EXPR_LEN - 3) {
-        strcat(expression, "ln(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_LN:
+        if (expr_len < MAX_EXPR_LEN - 3) {
+            strcat(expression, "ln(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_LOG:
-    if (expr_len < MAX_EXPR_LEN - 4) {
-        strcat(expression, "log(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_LOG:
+        if (expr_len < MAX_EXPR_LEN - 4) {
+            strcat(expression, "log(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_SQRT:
-    if (expr_len < MAX_EXPR_LEN - 5) {
-        strcat(expression, "sqrt(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_SQRT:
+        if (expr_len < MAX_EXPR_LEN - 5) {
+            strcat(expression, "sqrt(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_SQUARE:
-    if (expr_len < MAX_EXPR_LEN - 2) {
-        strcat(expression, "^2");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_SQUARE:
+        expr_prepend_ans_if_empty();
+        if (expr_len < MAX_EXPR_LEN - 2) {
+            strcat(expression, "^2");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_X_INV:
-    if (expr_len < MAX_EXPR_LEN - 4) {
-        strcat(expression, "^-1");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_X_INV:
+        expr_prepend_ans_if_empty();
+        if (expr_len < MAX_EXPR_LEN - 4) {
+            strcat(expression, "^-1");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_POWER:
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        expression[expr_len++] = '^';
-        expression[expr_len]   = '\0';
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_POWER:
+        expr_prepend_ans_if_empty();
+        if (expr_len < MAX_EXPR_LEN - 1) {
+            expression[expr_len++] = '^';
+            expression[expr_len]   = '\0';
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_L_PAR:
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        expression[expr_len++] = '(';
-        expression[expr_len]   = '\0';
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_L_PAR:
+        if (expr_len < MAX_EXPR_LEN - 1) {
+            expression[expr_len++] = '(';
+            expression[expr_len]   = '\0';
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_R_PAR:
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        expression[expr_len++] = ')';
-        expression[expr_len]   = '\0';
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_R_PAR:
+        if (expr_len < MAX_EXPR_LEN - 1) {
+            expression[expr_len++] = ')';
+            expression[expr_len]   = '\0';
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_NEG:
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        expression[expr_len++] = '-';
-        expression[expr_len]   = '\0';
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_NEG:
+        if (expr_len < MAX_EXPR_LEN - 1) {
+            expression[expr_len++] = '-';
+            expression[expr_len]   = '\0';
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_EE:
-    if (expr_len < MAX_EXPR_LEN - 4) {
-        strcat(expression, "*10^");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_EE:
+        if (expr_len < MAX_EXPR_LEN - 4) {
+            strcat(expression, "*10^");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_E_X:
-    if (expr_len < MAX_EXPR_LEN - 4) {
-        strcat(expression, "exp(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_E_X:
+        if (expr_len < MAX_EXPR_LEN - 4) {
+            strcat(expression, "exp(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_TEN_X:
-    if (expr_len < MAX_EXPR_LEN - 4) {
-        strcat(expression, "10^(");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_TEN_X:
+        if (expr_len < MAX_EXPR_LEN - 4) {
+            strcat(expression, "10^(");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_PI:
-    if (expr_len < MAX_EXPR_LEN - 2) {
-        strcat(expression, "pi");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_PI:
+        if (expr_len < MAX_EXPR_LEN - 2) {
+            strcat(expression, "pi");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_ANS:
-    if (expr_len < MAX_EXPR_LEN - 3) {
-        strcat(expression, "ANS");
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_ANS:
+        if (expr_len < MAX_EXPR_LEN - 3) {
+            strcat(expression, "ANS");
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-case TOKEN_ENTRY:
-    if (history_count > 0) {
-        uint8_t idx = (history_count - 1) % HISTORY_LINE_COUNT;
-        strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
-        expression[MAX_EXPR_LEN - 1] = '\0';
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
-    }
-    break;
+    case TOKEN_ENTRY:
+        if (history_count > 0) {
+            uint8_t idx = (history_count - 1) % HISTORY_LINE_COUNT;
+            strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
+            expression[MAX_EXPR_LEN - 1] = '\0';
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
 
-/* Alpha characters A–Z and special alpha tokens */
-case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
-case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
-case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
-case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
-case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
-case TOKEN_Z: {
-    static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    char ch[2] = { alpha_chars[t - TOKEN_A], '\0' };
-    if (expr_len < MAX_EXPR_LEN - 1) {
-        strcat(expression, ch);
-        expr_len = strlen(expression);
-        Update_Calculator_Display();
+    /* Alpha characters A–Z */
+    case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
+    case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
+    case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
+    case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
+    case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
+    case TOKEN_Z: {
+        static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        char ch[2] = { alpha_chars[t - TOKEN_A], '\0' };
+        if (expr_len < MAX_EXPR_LEN - 1) {
+            strcat(expression, ch);
+            expr_len = strlen(expression);
+            Update_Calculator_Display();
+        }
+        break;
     }
-    break;
-}
 case TOKEN_THETA:
     if (expr_len < MAX_EXPR_LEN - 1) {
         strcat(expression, "θ");
@@ -1412,7 +1507,7 @@ case TOKEN_QSTN_M:
 
 /*---------------------------------------------------------------------------
  * Keypad event handler
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 /**
  * @brief Translates a hardware key ID into a token and posts it to the queue.
@@ -1512,7 +1607,7 @@ void Process_Hardware_Key(uint8_t key_id)
 
 /*---------------------------------------------------------------------------
  * FreeRTOS task
- *--------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------*/
 
 /**
  * @brief Calculator core task.
@@ -1527,6 +1622,8 @@ void StartCalcCoreTask(void const *argument)
     ui_init_styles();
     ui_init_screen();
     ui_init_graph_screens();
+    cursor_timer = lv_timer_create(cursor_timer_cb, CURSOR_BLINK_MS, NULL);
+    ui_refresh_display();
     lvgl_unlock();
 
     if (keypadQueueHandle == NULL) {
