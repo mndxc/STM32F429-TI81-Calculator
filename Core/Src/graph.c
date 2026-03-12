@@ -15,7 +15,11 @@
  *--------------------------------------------------------------------------*/
 
 /* Pixel buffer for the canvas — RGB565, one uint16_t per pixel */
-static uint16_t * const graph_buf = (uint16_t *)0xD0025800;
+static uint16_t * const graph_buf       = (uint16_t *)0xD0025800;
+
+/* Clean-frame cache for trace: SDRAM immediately after graph_buf */
+static uint16_t * const graph_buf_clean = (uint16_t *)(0xD0025800 + GRAPH_W * GRAPH_H * 2);
+static bool graph_clean_valid = false;
 
 static lv_obj_t *graph_screen  = NULL;
 static lv_obj_t *graph_canvas  = NULL;
@@ -208,6 +212,10 @@ void Graph_Render(bool angle_degrees)
         }
     }
 
+    /* Cache the clean frame so Graph_DrawTrace can restore it without re-rendering */
+    memcpy(graph_buf_clean, graph_buf, (size_t)GRAPH_W * GRAPH_H * 2);
+    graph_clean_valid = true;
+
     lv_label_set_text(graph_lbl_eq, eq_label);
 }
 
@@ -218,6 +226,7 @@ void Graph_SetVisible(bool visible)
         lv_obj_clear_flag(graph_screen, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(graph_screen, LV_OBJ_FLAG_HIDDEN);
+        graph_clean_valid = false;
     }
 }
 
@@ -225,8 +234,12 @@ void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)
 {
     if (graph_canvas == NULL) return;
 
-    /* Re-render the base graph so the crosshair is always on a clean frame */
-    Graph_Render(angle_degrees);
+    /* Restore the clean frame — avoids a full 320-column re-render on every step */
+    if (graph_clean_valid) {
+        memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
+    } else {
+        Graph_Render(angle_degrees);
+    }
 
     const char *eqstr = graph_state.equations[eq_idx];
 
