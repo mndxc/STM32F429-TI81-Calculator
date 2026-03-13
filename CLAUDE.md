@@ -89,7 +89,6 @@ Building on commit `99a047d`, this commit adds:
 - Split X=/Y= trace readouts; x_res interpolation; Xres clamped to 1–8
 
 ### Known issues
-- **Scroll indicator glyphs** — Menus use literal `v`/`^` as overflow indicators. The ↓/↑ (U+2193/U+2191) glyphs are now confirmed in the regenerated font — switch menu overflow indicators to use them.
 - **Red flashing LED** — Irregular-period LED present on board. Decide: remove or set to a regular interval (e.g. 1 Hz heartbeat).
 
 ### Next session priorities (in order)
@@ -114,7 +113,7 @@ These specs describe the intended final state of each menu screen.
 - The menu top bar uses the same font as the items below.
 - When a menu scrolls, the top tab bar stays fixed and items scroll into the visible window.
 - Normal cursor entry applies in menus (INS toggles overwrite/insert; LEFT/RIGHT move cursor).
-- Overflow indicators: `v` at bottom means list continues below; `^` at top means list continues above. Use U+2193/U+2191 if the font confirms support.
+- Overflow indicators: ↓ (U+2193) at bottom means list continues below; ↑ (U+2191) at top means list continues above. Both glyphs are in the font and implemented in code (`\xE2\x86\x93` / `\xE2\x86\x91`).
 
 ---
 
@@ -150,7 +149,7 @@ MATH NUM HYP PRB
 4:∛(          (cube root symbol)
 5: !
 6:°           (degree symbol)
-7vr           (v = overflow indicator; list continues)
+7↓r           (↓ = overflow indicator; list continues)
   8:NDeriv(   (visible after scrolling)
 ```
 
@@ -193,7 +192,7 @@ ZOOM
 4:Set Factors
 5:Square
 6:Standard
-7vTrig        (v = overflow indicator)
+7↓Trig        (↓ = overflow indicator)
   8:Integer   (visible after scrolling)
 ```
 Navigation: UP/DOWN cursor; ENTER selects. Number keys 1–8 are direct shortcuts.
@@ -627,9 +626,8 @@ In priority order:
 1. MATH PRB completion — factorial, nPr, nCr evaluation
 2. MATRIX menu and 3×3 input UI
 3. PRGM — program editor and runner
-4. Scroll indicator glyphs — switch `v`/`^` to ↓/↑ (now in font)
-5. Battery voltage ADC (custom PCB only)
-6. Red flashing LED — decide: remove or regularize at 1 Hz heartbeat
+4. Battery voltage ADC (custom PCB only)
+5. Red flashing LED — decide: remove or regularize at 1 Hz heartbeat
 
 ---
 
