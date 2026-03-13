@@ -49,28 +49,18 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 ## Session Stopping Point (2026-03-13)
 
-### What was just committed
+### What was just committed (commit `6a33415`)
 
-Building on commit `99a047d`, this commit adds:
+Documentation-only session. Discovered that scroll indicator glyphs (↓/↑) were
+already implemented in `calculator_core.c` using UTF-8 sequences `\xE2\x86\x93` /
+`\xE2\x86\x91` for both ZOOM and MATH menus — the code was correct but CLAUDE.md
+had not been updated. Cleaned up all stale references:
+- Removed "Scroll indicator glyphs" from Known Issues
+- Removed "Scroll indicator glyphs" from Planned Features backlog
+- Updated General menu rules to describe ↓/↑ as the implemented standard
+- Corrected ZOOM and MATH menu spec examples from `v`/`^` to ↓/↑
 
-1. **TEST menu** — Full implementation: `MODE_TEST_MENU` added to `CalcMode_t`. `ui_init_test_screen()` creates the overlay (black panel, yellow "TEST" title, 6 white item labels). `ui_update_test_display()` highlights cursor row in yellow. Opened with 2nd+MATH from normal mode or from Y= editor (`test_return_mode` tracks origin). UP/DOWN navigate, ENTER or keys 1–6 select, CLEAR/TEST exits. Items insert =, ≠ (U+2260), >, ≥ (U+2265), <, ≤ (U+2264).
-
-2. **TEST operator evaluation** — All 6 comparison operators wired through the full engine pipeline:
-   - `MATH_OP_EQ/NEQ/GT/GTE/LT/LTE` added to `MathTokenType_t` in `calc_engine.h`
-   - `is_operator()` updated; `precedence()` returns 0 for all six (below ADD/SUB at 1, so `2+3>4` → `(2+3)>4` = 1)
-   - `Tokenize()` recognises `=`, `>`, `<` as single chars; checks 3-byte UTF-8 sequences for ≠/≥/≤ before the single-char switch
-   - `EvaluateRPN()` evaluates each as a binary op returning 1.0 (true) or 0.0 (false)
-   - Unary `-` after a comparison is correctly treated as negation (`3>-1` works)
-
-3. **UTF-8 cursor integrity fix** — Four locations in `calculator_core.c` were each operating on the main expression buffer one byte at a time, allowing `cursor_pos` to land inside a multi-byte UTF-8 sequence (e.g. ≠/≥/≤ are 3 bytes each). This caused intermittent tokenize errors: LVGL silently skips invalid UTF-8 so the display looked correct, but the tokenizer returned `CALC_ERR_SYNTAX` on the orphaned continuation bytes.
-   - `TOKEN_LEFT` — now skips back past all `10xxxxxx` continuation bytes to the sequence start byte (mirrors the existing Y= cursor logic)
-   - `TOKEN_RIGHT` — now skips forward past the full current character's byte sequence
-   - `expr_delete_at_cursor` — now walks back to the start byte of the preceding character and removes all `N` bytes of it, not just the last byte
-   - `expr_insert_char` (overwrite mode) — now uses `utf8_char_size()` to remove all bytes of the character at cursor before writing the new single byte, keeping `expr_len` correct
-
-4. **Font regeneration** — Both `jetbrains_mono_24.c` and `jetbrains_mono_20.c` regenerated to add ↑↓ (U+2191/U+2193) and ≠/≥/≤ (U+2260/U+2264/U+2265) to the glyph set. The ↑/↓ glyphs are now available in the font; menus still use `v`/`^` as overflow indicators (see Known Issues).
-
-### Previously completed (earlier sessions, committed)
+### Previously completed (all committed, as of `6a33415`)
 - JetBrains Mono font wired into LVGL (`jetbrains_mono_24.c`, `lv_conf.h` updated)
 - MODE screen — arrow-key navigation, row highlight, ENTER commits
 - MATH menu — four tabs (MATH/NUM/HYP/PRB), scrollable item list, overflow indicators
@@ -87,6 +77,10 @@ Building on commit `99a047d`, this commit adds:
 - NUM tab functions (round, iPart, fPart, int); Fix decimal mode from MODE; grid toggle from MODE
 - MATH menu from Y= editor; UTF-8 aware Y= cursor; wrapped history entries; full-height graph canvas
 - Split X=/Y= trace readouts; x_res interpolation; Xres clamped to 1–8
+- TEST menu — full UI + all 6 comparison operators evaluated (=, ≠, >, ≥, <, ≤ → 1/0)
+- UTF-8 cursor integrity fix — LEFT/RIGHT/DEL/overwrite all handle multi-byte sequences correctly
+- Font regeneration — ↑↓ (U+2191/U+2193) and ≠/≥/≤ (U+2260/U+2264/U+2265) added to both font sizes
+- Scroll indicator glyphs — ZOOM and MATH menus use ↓/↑ (U+2193/U+2191) amber overlays
 
 ### Known issues
 - **Red flashing LED** — Irregular-period LED present on board. Decide: remove or set to a regular interval (e.g. 1 Hz heartbeat).
