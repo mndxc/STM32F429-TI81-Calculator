@@ -62,6 +62,7 @@ typedef struct {
     float   y_scl;          /* Y axis tick spacing */
     float   x_res;          /* Graph resolution (1 = evaluate at every pixel column) */
     bool    active;         /* True when in graph mode */
+    bool    grid_on;        /* True when grid dots are enabled (MODE row 7) */
 } GraphState_t;
 
 /** Global graph state — owned by calculator_core.c */

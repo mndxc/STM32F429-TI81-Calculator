@@ -12,7 +12,7 @@
  * Constants
  *--------------------------------------------------------------------------*/
 #define GRAPH_W         320
-#define GRAPH_H         220     /* Full display minus status bar */
+#define GRAPH_H         240     /* Full display height */
 
 /*---------------------------------------------------------------------------
  * Function declarations

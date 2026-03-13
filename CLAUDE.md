@@ -5,6 +5,34 @@ all key decisions, gotchas, and work-in-progress state for the project.
 
 ---
 
+## Feature Completion Status (~45% of original TI-81, as of 2026-03-13)
+
+### Well-implemented (60–100%)
+
+| Area | Est. Done | Notes |
+|---|---|---|
+| Basic arithmetic | ~95% | +, −, ×, ÷, ^, parentheses, precedence all solid |
+| Standard math functions | ~75% | sin/cos/tan, asin/acos/atan, ln, log, √, abs, round, iPart, fPart, int work; factorial, nCr, nPr, cube root, ∛, nDeriv NOT evaluated |
+| Variables (A–Z, ANS) | ~90% | STO, ANS, X in graph all work; list variables missing |
+| Display / UI / navigation | ~85% | Expression wrap, wrapped history, Fix/Float mode, MATH from Y=, UTF-8 cursor all solid; Sci/Eng notation display not wired |
+| Graphing (function mode) | ~75% | 4 equations, axes, grid (toggle from MODE), trace, ZBox, zoom, RANGE, Xres step, interpolated curves; Connected/Dot mode not wired |
+
+### Entirely missing (0%)
+
+| Area | TI-81 weight | Notes |
+|---|---|---|
+| STAT | ~15% | 1-Var/2-Var stats, regression, stat plots — nothing implemented |
+| PRGM | ~15% | Program editor, runner, control flow, I/O — stub only |
+| MATRIX | ~10% | 3 matrices, det, transpose, row ops — stub only |
+| DRAW | ~5% | Line, Horizontal, Vertical, DrawF, Shade — stub only |
+| TEST | ~5% | =, ≠, >, ≥, <, ≤, and, or, not — stub only |
+| Parametric / Polar / Seq graphing | ~5% | Only function mode works |
+| VARS menu | ~3% | Window, Zoom, GDB, Picture, Statistics vars — stub only |
+
+The core calculator (arithmetic + standard functions + function graphing) covers ~70% of day-to-day TI-81 usage. STAT, PRGM, and MATRIX are entirely absent and together account for roughly 40% of the original hardware's capability.
+
+---
+
 ## Project Overview
 
 A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
@@ -19,17 +47,23 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 ---
 
-## Session Stopping Point (2026-03-12)
+## Session Stopping Point (2026-03-13)
 
-### What was just completed (uncommitted working-tree changes)
+### What was just committed
 
-Building on commit `ca98667`, the following are implemented but not yet committed:
+Building on commit `3649788`, the following are now implemented and committed:
 
-1. **Input text wrap** — Long expressions wrap across multiple display rows instead of truncating. `MAX_EXPR_LEN` raised to 96. `expr_chars_per_row` measured at init from JetBrains Mono glyph width. `ui_refresh_display` rewritten to render expression sub-rows and place the cursor on the correct sub-row/column.
-2. **MATH HYP items 4–6 renamed** — `sinh^-1(` / `cosh^-1(` / `tanh^-1(` → `asinh(` / `acosh(` / `atanh(` in both display names and insert strings.
-3. **√ radical symbol** — `calc_engine.c` tokenizer now matches the UTF-8 sequence `"\xE2\x88\x9A"` (√) instead of `"sqrt"`, so the radical symbol works as a live token.
-4. **ZOOM Set Factors sub-screen** — Selecting ZOOM option 4 ("Set Factors") opens `ui_graph_zoom_factors_screen`. Two editable fields: XFact (default 4) and YFact (default 4). UP/DOWN move between fields; number keys and DEL edit; ENTER commits and returns to ZOOM menu. `MODE_GRAPH_ZOOM_FACTORS` added to `CalcMode_t`. Zoom In / Zoom Out now use `zoom_x_fact` / `zoom_y_fact`.
-5. **CMakeLists cleanup** — Removed unused BSP font sources (`font20.c`, `font16.c`, `font12.c`, `font8.c`); kept only `font24.c` (required by BSP LCD driver symbol).
+1. **NUM tab functions wired** — `round(`, `iPart`, `fPart`, `int(` tokenised and evaluated in `calc_engine.c`. `MATH_FUNC_ROUND/IPART/FPART/INT` added to `MathTokenType_t`. `Calc_SetDecimalMode()` API added.
+2. **Fix decimal mode from MODE screen** — Row 2 of MODE (Float | 0–9) now wired via `Calc_SetDecimalMode()`; `Calc_FormatResult` formats to exactly N decimal places in Fix N mode.
+3. **Grid on/off from MODE screen** — Row 7 of MODE (Grid off | Grid on) wired to `graph_state.grid_on`; `draw_grid()` draws TI-81-style dots at every (x_scl, y_scl) intersection.
+4. **MATH menu accessible from Y= editor** — Pressing MATH while in MODE_GRAPH_YEQ opens the MATH menu. On selection, the string is inserted at `yeq_cursor_pos` and the Y= screen is restored. `math_return_mode` tracks the originating context.
+5. **UTF-8 aware Y= cursor** — LEFT/RIGHT/DEL and overwrite in the Y= editor all handle multi-byte UTF-8 sequences (e.g. √ U+221A). `utf8_char_size()` / `utf8_byte_to_glyph()` helpers added.
+6. **Wrapped history entries** — `ui_refresh_display` rewritten to give each history entry a variable number of expression sub-rows (matches current expression wrap logic). Long committed expressions no longer truncate.
+7. **Graph full height** — `GRAPH_H` changed from 220 → 240. Equation-name label at top removed; canvas now fills the full display. `jetbrains_mono_20` font added for trace readouts.
+8. **Split X=/Y= readouts** — `graph_lbl_eq` / `graph_lbl_xy` replaced by `graph_lbl_x` (bottom-left) and `graph_lbl_y` (bottom-right) with semi-transparent black background. `format_graph_coord()` formats trace/ZBox values concisely.
+9. **x_res interpolation in renderer** — When `x_res > 1`, the renderer steps by that many pixel columns and linearly interpolates between sampled points to keep curves continuous.
+10. **ZOOM ui_update_zoom_display call** — `ui_update_zoom_display()` now called whenever the ZOOM screen is made visible from other graph screens (was missing, causing stale highlight).
+11. **Xres field clamped to 1–8** — `range_commit_field` now validates the Xres field as an integer in [1, 8].
 
 ### Previously completed (earlier sessions, committed)
 - JetBrains Mono font wired into LVGL (`jetbrains_mono_24.c`, `lv_conf.h` updated)
@@ -38,14 +72,13 @@ Building on commit `ca98667`, the following are implemented but not yet committe
 - ZOOM cursor navigation — UP/DOWN highlight; ENTER selects; scroll indicators for items 7–8
 - RANGE Xres= field — seventh field added; combined name=value labels
 - Overwrite mode — INS toggles; `expr_insert_char/str` respects mode
-- `graph_state.x_res` field added
 - Arrow key hold-to-repeat (400ms delay, 80ms rate; arrows only)
 - Y= cursor navigation (LEFT/RIGHT within equation, DEL at cursor, UP/DOWN between rows)
 - Free graph screen navigation (any graph key works from any graph screen)
 - Context-aware CLEAR (wipes eq/field; exits if already empty)
 - RANGE ZOOM bug fix (ZOOM from RANGE opens ZOOM menu, not ZStandard)
 - UP arrow history recall (UP scrolls back through history; DOWN scrolls forward)
-- Removed DEG/RAD corner indicator from main screen
+- Input text wrap; MATH HYP items renamed; √ tokeniser; ZOOM Set Factors sub-screen
 
 ### Known issues
 - **Scroll indicator glyphs** — Menus use literal `v`/`^` as overflow indicators because U+2193/U+2191 availability in JetBrains Mono at the current glyph range was not verified. Confirm glyph coverage and switch to ↓/↑ if present.
@@ -57,11 +90,13 @@ Building on commit `ca98667`, the following are implemented but not yet committe
 
 **2. MATRIX menu** — Deferred; start with menu and 3×3 input UI before wiring math.
 
-**3. Additional math functions** — Factorial, combinations, permutations (wiring for MATH PRB items already in menu).
+**3. MATH PRB menu completion** — PRB tab items (rand, nPr, nCr) are displayed but none are functionally wired — factorial, combinations, and permutations evaluation is not yet implemented.
 
-**4. PRGM** — Program editor and runner.
+**4. Additional math functions** — Factorial (!), combinations (nCr), permutations (nPr).
 
-**5. Battery voltage ADC** — Custom PCB only.
+**5. PRGM** — Program editor and runner.
+
+**6. Battery voltage ADC** — Custom PCB only.
 
 ---
 
@@ -402,8 +437,9 @@ typedef struct {
     char    equations[GRAPH_NUM_EQ][64];
     float   x_min, x_max, y_min, y_max;
     float   x_scl, y_scl;
-    float   x_res;   // render step (1 = every pixel column)
+    float   x_res;   // render step (1 = every pixel column, integer 1–8)
     bool    active;
+    bool    grid_on; // true when grid dots enabled (MODE row 7)
 } GraphState_t;
 ```
 
@@ -411,7 +447,7 @@ typedef struct {
 - `ui_graph_yeq_screen` — Y= equation editor
 - `ui_graph_range_screen` — RANGE value editor
 - `ui_graph_zoom_screen` — ZOOM preset menu
-- `graph_screen` (in graph.c) — canvas + X/Y readout label
+- `graph_screen` (in graph.c) — full-height canvas (320×240) + split X=/Y= readout labels
 
 ### Navigation key flow
 Any of these keys works from any graph screen (free navigation):
@@ -425,9 +461,11 @@ CLEAR → clears active content (eq/field), or exits to calculator if nothing to
 ```
 
 ### Y= editor cursor
-`yeq_cursor_pos` (uint8_t in calculator_core.c) tracks insertion point within the selected equation.
+`yeq_cursor_pos` (uint8_t in calculator_core.c) tracks insertion point within the selected equation as a **byte offset** (not glyph index). UTF-8 multi-byte sequences (e.g. √ U+221A) are handled by `utf8_char_size()` / `utf8_byte_to_glyph()`.
 - LEFT/RIGHT move it; DEL deletes at cursor; characters insert at cursor
+- Overwrite mode handles multi-byte chars: replaces all bytes of the current char with the incoming ASCII byte
 - Reset to end-of-equation when switching rows (UP/DOWN) or opening Y= from main screen
+- MATH key opens the MATH menu; on selection, inserts at `yeq_cursor_pos` and restores Y= screen
 
 ### ZOOM menu
 Eight options (number keys 1–8 or UP/DOWN + ENTER):
@@ -451,15 +489,16 @@ ZOOM from RANGE navigates to the ZOOM menu (does not reset to ZStandard).
 ### Renderer
 `Graph_Render(bool angle_degrees)` in `graph.c`:
 1. Clears canvas to black
-2. Draws axes (grey lines at x=0, y=0 if in window)
-3. Draws tick marks at x_scl, y_scl intervals
-4. Per pixel column: maps to x_math → `Calc_EvaluateAt` → y_px → vertical segment to prev point
+2. Draws grid dots if `graph_state.grid_on` (`draw_grid()`) at every (x_scl, y_scl) intersection
+3. Draws axes (grey lines at x=0, y=0 if in window)
+4. Draws tick marks at x_scl, y_scl intervals
+5. Per `x_res` pixel columns: maps to x_math → `Calc_EvaluateAt` → y_px; linearly interpolates between sampled points to fill gaps when `x_res > 1`
 
 ### Trace mode
 `Graph_DrawTrace()` in `graph.c`:
 - memcpy `graph_buf_clean` → `graph_buf` if `graph_clean_valid` (fast path)
 - Otherwise calls `Graph_Render` to populate cache
-- Draws green crosshair ±5px at cursor; updates X=/Y= readout label
+- Draws green crosshair ±5px at cursor; updates `graph_lbl_x` (X=) and `graph_lbl_y` (Y=)
 - `graph_clean_valid` invalidated by `Graph_SetVisible(false)`
 
 ### ZBox mode

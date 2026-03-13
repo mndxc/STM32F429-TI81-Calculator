@@ -198,6 +198,7 @@ error code and message.
 | Trig          | `sin` `cos` `tan` `sin⁻¹` `cos⁻¹` `tan⁻¹`                            |
 | Hyperbolic    | `sinh` `cosh` `tanh` `asinh` `acosh` `atanh`                          |
 | Logarithmic   | `ln` `log`                                                             |
+| NUM tab       | `round(` `iPart` `fPart` `int(`                                        |
 | Other         | `√(` `abs(`                                                            |
 | Constants     | `ANS`, `π`, `e`                                                        |
 | Variables     | `A`–`Z` (stored via STO→), `X` (graph variable)                       |
@@ -431,6 +432,13 @@ st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 | ZBox rubber-band zoom                      | ✅ Working     |
 | Context-aware CLEAR on all screens         | ✅ Working     |
 | Free navigation between graph screens      | ✅ Working     |
+| NUM tab functions (round, iPart, fPart, int)| ✅ Working     |
+| Fix decimal mode from MODE screen          | ✅ Working     |
+| Grid on/off from MODE screen               | ✅ Working     |
+| MATH menu accessible from Y= editor        | ✅ Working     |
+| UTF-8 aware cursor in Y= editor            | ✅ Working     |
+| Wrapped history entries                    | ✅ Working     |
+| Split X=/Y= readout in trace/ZBox          | ✅ Working     |
 | MATRIX menu and operations                 | 🚧 Planned     |
 | TEST menu                                  | 🚧 Planned     |
 | Additional math functions (!, nPr, nCr)    | 🚧 Planned     |

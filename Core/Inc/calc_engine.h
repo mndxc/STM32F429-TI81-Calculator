@@ -57,6 +57,10 @@ typedef enum {
     MATH_FUNC_SQRT,
     MATH_FUNC_ABS,
     MATH_FUNC_EXP,          /* e^x */
+    MATH_FUNC_ROUND,        /* round( — round to nearest integer */
+    MATH_FUNC_IPART,        /* iPart( — integer part (truncate toward zero) */
+    MATH_FUNC_FPART,        /* fPart( — fractional part */
+    MATH_FUNC_INT,          /* int(   — floor (greatest integer) */
     MATH_PAREN_LEFT,
     MATH_PAREN_RIGHT,
 } MathTokenType_t;
@@ -104,6 +108,14 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees);
  * @param buf_len Buffer size
  */
 void Calc_FormatResult(float value, char *buf, uint8_t buf_len);
+
+/**
+ * @brief Sets the decimal display mode used by Calc_FormatResult.
+ *
+ * @param mode  0 = Float (auto), 1 = Fix 0, 2 = Fix 1, … 10 = Fix 9.
+ *              Matches mode_committed[1] from the MODE screen directly.
+ */
+void Calc_SetDecimalMode(uint8_t mode);
 
 /**
  * @brief Evaluates an infix expression with a specific value substituted for X.

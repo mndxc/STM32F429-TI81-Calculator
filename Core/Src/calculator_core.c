@@ -214,6 +214,7 @@ static lv_obj_t *ui_math_screen                    = NULL;
 static uint8_t   math_tab                          = 0;  /* 0=MATH 1=NUM 2=HYP 3=PRB */
 static uint8_t   math_item_cursor                  = 0;  /* visible row of cursor */
 static uint8_t   math_scroll_offset                = 0;
+static CalcMode_t math_return_mode                 = MODE_NORMAL; /* mode to restore after MATH selection */
 static lv_obj_t *math_tab_labels[MATH_TAB_COUNT];
 static lv_obj_t *math_item_labels[MENU_VISIBLE_ROWS];
 static lv_obj_t *math_scroll_ind[2];   /* [0]=top(↑), [1]=bottom(↓) — amber overlay */
@@ -665,14 +666,50 @@ static void cursor_update(lv_obj_t *row_label, uint32_t char_pos)
 }
 
 /**
+ * @brief Returns the byte length of the UTF-8 character starting at s[0].
+ *        Returns 1 for ASCII or any invalid/continuation byte so iteration
+ *        never gets stuck.  Returns 0 only at the null terminator.
+ */
+static uint8_t utf8_char_size(const char *s)
+{
+    uint8_t c = (uint8_t)s[0];
+    if (c == 0)    return 0;
+    if (c < 0x80)  return 1;   /* ASCII */
+    if (c < 0xC0)  return 1;   /* Continuation byte — skip safely */
+    if (c < 0xE0)  return 2;   /* 2-byte sequence (e.g. π U+03C0) */
+    if (c < 0xF0)  return 3;   /* 3-byte sequence (e.g. √ U+221A) */
+    return 4;                   /* 4-byte sequence */
+}
+
+/**
+ * @brief Converts a byte cursor position to a glyph (character) index.
+ *        lv_label_get_letter_pos expects a glyph index; yeq_cursor_pos is
+ *        stored as a byte offset so this conversion is required whenever
+ *        the equation may contain multi-byte UTF-8 characters (e.g. √, π).
+ */
+static uint32_t utf8_byte_to_glyph(const char *s, uint32_t byte_idx)
+{
+    uint32_t glyph = 0;
+    uint32_t i = 0;
+    while (i < byte_idx && s[i] != '\0') {
+        uint8_t sz = utf8_char_size(&s[i]);
+        i += sz;
+        glyph++;
+    }
+    return glyph;
+}
+
+/**
  * @brief Positions the Y= equation editor cursor over the active equation row.
  *        Must be called under lvgl_lock() (or from cursor_timer_cb).
  */
 static void yeq_cursor_update(void)
 {
     if (yeq_cursor_box == NULL || ui_lbl_yeq_eq[yeq_selected] == NULL) return;
+    const char *txt = lv_label_get_text(ui_lbl_yeq_eq[yeq_selected]);
+    uint32_t glyph_pos = utf8_byte_to_glyph(txt, yeq_cursor_pos);
     cursor_place(yeq_cursor_box, yeq_cursor_inner,
-                 ui_lbl_yeq_eq[yeq_selected], yeq_cursor_pos);
+                 ui_lbl_yeq_eq[yeq_selected], glyph_pos);
 }
 
 /**
@@ -694,21 +731,31 @@ static void range_cursor_update(void)
  * @brief Redraws all DISP_ROW_COUNT display rows from the history buffer
  *        and the current input expression.
  *
- * Display line model (li = absolute line index):
- *   even li < history*2:   committed expression — left-aligned, grey
- *   odd  li < history*2:   result               — right-aligned, white
- *   li >= history*2:       current expression sub-row (wraps across multiple rows)
+ * Each history entry occupies ceil(expr_len/cpr) expression sub-rows + 1 result
+ * row, so long committed expressions wrap just as the active expression does.
+ * Current expression sub-rows follow immediately after all history rows.
  */
 static void ui_refresh_display(void)
 {
     if (disp_rows[0] == NULL) return;
 
-    /* How many display rows the current expression occupies (always at least 1) */
     int cpr = (int)expr_chars_per_row;
     int expr_rows = (expr_len == 0) ? 1 : (expr_len + cpr - 1) / cpr;
 
-    int history_lines = history_count * 2;
-    int total = history_lines + expr_rows;
+    /* Number of history entries visible (circular buffer cap) */
+    int num_entries = ((int)history_count < HISTORY_LINE_COUNT)
+                      ? (int)history_count : HISTORY_LINE_COUNT;
+
+    /* Total display lines consumed by history (variable per entry) */
+    int total_history_lines = 0;
+    for (int d = 0; d < num_entries; d++) {
+        int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
+        int elen = (int)strlen(history[idx].expression);
+        int erows = (elen == 0) ? 1 : (elen + cpr - 1) / cpr;
+        total_history_lines += erows + 1; /* expression sub-rows + result row */
+    }
+
+    int total = total_history_lines + expr_rows;
     int start = (total > DISP_ROW_COUNT) ? (total - DISP_ROW_COUNT) : 0;
 
     /* Which expression sub-row holds the cursor, and column within that row */
@@ -719,32 +766,50 @@ static void ui_refresh_display(void)
         int li = start + row;
 
         if (li >= total) {
-            /* Below current position — blank */
             lv_label_set_text(disp_rows[row], "");
             continue;
         }
 
-        if (li < history_lines) {
-            if (li % 2 == 0) {
-                /* Committed expression — left-aligned, grey */
-                int entry = (li / 2) % HISTORY_LINE_COUNT;
-                lv_obj_set_style_text_color(disp_rows[row],
-                                            lv_color_hex(COLOR_HISTORY_EXPR), 0);
-                lv_obj_set_style_text_align(disp_rows[row],
-                                            LV_TEXT_ALIGN_LEFT, 0);
-                lv_label_set_text(disp_rows[row], history[entry].expression);
-            } else {
-                /* Result — right-aligned, white */
-                int entry = ((li - 1) / 2) % HISTORY_LINE_COUNT;
-                lv_obj_set_style_text_color(disp_rows[row],
-                                            lv_color_hex(COLOR_HISTORY_RES), 0);
-                lv_obj_set_style_text_align(disp_rows[row],
-                                            LV_TEXT_ALIGN_RIGHT, 0);
-                lv_label_set_text(disp_rows[row], history[entry].result);
+        if (li < total_history_lines) {
+            /* Walk history entries to find which owns line li */
+            int line = 0;
+            for (int d = 0; d < num_entries; d++) {
+                int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
+                int elen = (int)strlen(history[idx].expression);
+                int erows = (elen == 0) ? 1 : (elen + cpr - 1) / cpr;
+
+                if (li < line + erows) {
+                    /* Expression sub-row er of this history entry */
+                    int er = li - line;
+                    int char_start = er * cpr;
+                    int char_end = char_start + cpr;
+                    if (char_end > elen) char_end = elen;
+                    int seg_len = char_end - char_start;
+                    if (seg_len < 0) seg_len = 0;
+                    char row_buf[MAX_EXPR_LEN + 1];
+                    memcpy(row_buf, history[idx].expression + char_start, (size_t)seg_len);
+                    row_buf[seg_len] = '\0';
+                    lv_obj_set_style_text_color(disp_rows[row],
+                                                lv_color_hex(COLOR_HISTORY_EXPR), 0);
+                    lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
+                    lv_label_set_text(disp_rows[row], row_buf);
+                    break;
+                }
+                line += erows;
+
+                if (li == line) {
+                    /* Result row for this history entry */
+                    lv_obj_set_style_text_color(disp_rows[row],
+                                                lv_color_hex(COLOR_HISTORY_RES), 0);
+                    lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_RIGHT, 0);
+                    lv_label_set_text(disp_rows[row], history[idx].result);
+                    break;
+                }
+                line += 1;
             }
         } else {
             /* Current expression sub-row */
-            int expr_line  = li - history_lines;
+            int expr_line  = li - total_history_lines;
             int char_start = expr_line * cpr;
             int char_end   = char_start + cpr;
             if (char_end > (int)expr_len) char_end = (int)expr_len;
@@ -755,10 +820,8 @@ static void ui_refresh_display(void)
             memcpy(row_buf, &expression[char_start], (size_t)seg_len);
             row_buf[seg_len] = '\0';
 
-            lv_obj_set_style_text_color(disp_rows[row],
-                                        lv_color_hex(COLOR_EXPR), 0);
-            lv_obj_set_style_text_align(disp_rows[row],
-                                        LV_TEXT_ALIGN_LEFT, 0);
+            lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_EXPR), 0);
+            lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
             lv_label_set_text(disp_rows[row], row_buf);
 
             /* Place cursor on the sub-row that contains cursor_pos */
@@ -768,7 +831,7 @@ static void ui_refresh_display(void)
     }
 
     /* If the cursor's sub-row scrolled off-screen, hide the cursor */
-    if (history_lines + cursor_expr_row < start && cursor_box != NULL)
+    if (total_history_lines + cursor_expr_row < start && cursor_box != NULL)
         lv_obj_add_flag(cursor_box, LV_OBJ_FLAG_HIDDEN);
 }
 
@@ -1240,7 +1303,7 @@ static void range_commit_field(void)
     case 3: graph_state.y_min = val; break;
     case 4: graph_state.y_max = val; break;
     case 5: if (val > 0.0f) graph_state.y_scl = val; break;  /* must be positive */
-    case 6: if (val > 0.0f) graph_state.x_res = val; break;  /* must be positive */
+    case 6: { int32_t iv = (int32_t)val; if (iv >= 1 && iv <= 8) graph_state.x_res = (float)iv; } break;  /* integer 1–8 */
     }
 }
 
@@ -1329,6 +1392,42 @@ static void zoom_factors_cursor_update(void)
  *---------------------------------------------------------------------------*/
 
 /**
+ * @brief Inserts a MATH menu item into the active destination and exits the
+ *        MATH menu.  If the menu was opened from the Y= editor it inserts
+ *        at yeq_cursor_pos and restores the Y= screen; otherwise it inserts
+ *        into the main expression.  Called from the MODE_MATH_MENU handler.
+ */
+static void math_menu_insert(const char *ins)
+{
+    lvgl_lock();
+    lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
+    lvgl_unlock();
+
+    if (math_return_mode == MODE_GRAPH_YEQ) {
+        current_mode = MODE_GRAPH_YEQ;
+        char *eq = graph_state.equations[yeq_selected];
+        size_t ins_len = strlen(ins);
+        size_t eq_len  = strlen(eq);
+        if (eq_len + ins_len < 63) {
+            memmove(&eq[yeq_cursor_pos + ins_len], &eq[yeq_cursor_pos],
+                    eq_len - yeq_cursor_pos + 1);
+            memcpy(&eq[yeq_cursor_pos], ins, ins_len);
+            yeq_cursor_pos += (uint8_t)ins_len;
+        }
+        lvgl_lock();
+        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+        yeq_cursor_update();
+        lvgl_unlock();
+    } else {
+        current_mode = MODE_NORMAL;
+        expr_insert_str(ins);
+        Update_Calculator_Display();
+    }
+    math_return_mode = MODE_NORMAL;
+}
+
+/**
  * @brief Processes a single calculator token from the keypad queue.
  * @param t  Token to execute.
  */
@@ -1369,13 +1468,23 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_LEFT:
-            if (yeq_cursor_pos > 0) yeq_cursor_pos--;
+            if (yeq_cursor_pos > 0) {
+                /* Step back past all UTF-8 continuation bytes (10xxxxxx) to
+                 * land on the start byte of the previous character. */
+                do { yeq_cursor_pos--; }
+                while (yeq_cursor_pos > 0 &&
+                       ((uint8_t)eq[yeq_cursor_pos] & 0xC0) == 0x80);
+            }
             lvgl_lock();
             yeq_cursor_update();
             lvgl_unlock();
             return;
         case TOKEN_RIGHT:
-            if (yeq_cursor_pos < eq_len) yeq_cursor_pos++;
+            if (yeq_cursor_pos < eq_len) {
+                uint8_t step = utf8_char_size(&eq[yeq_cursor_pos]);
+                yeq_cursor_pos += step ? step : 1;
+                if (yeq_cursor_pos > (uint8_t)eq_len) yeq_cursor_pos = (uint8_t)eq_len;
+            }
             lvgl_lock();
             yeq_cursor_update();
             lvgl_unlock();
@@ -1421,9 +1530,14 @@ void Execute_Token(Token_t t)
             return;
         case TOKEN_DEL:
             if (yeq_cursor_pos > 0) {
-                memmove(&eq[yeq_cursor_pos - 1], &eq[yeq_cursor_pos],
+                /* Find the start byte of the previous UTF-8 character by
+                 * stepping back past any continuation bytes (10xxxxxx). */
+                uint8_t prev = yeq_cursor_pos;
+                do { prev--; }
+                while (prev > 0 && ((uint8_t)eq[prev] & 0xC0) == 0x80);
+                memmove(&eq[prev], &eq[yeq_cursor_pos],
                         eq_len - yeq_cursor_pos + 1);
-                yeq_cursor_pos--;
+                yeq_cursor_pos = prev;
                 lvgl_lock();
                 lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
                 yeq_cursor_update();
@@ -1477,6 +1591,18 @@ void Execute_Token(Token_t t)
         case TOKEN_NEG:     append = "-";     break;
         case TOKEN_X_INV:   append = "^-1";   break;
         case TOKEN_ANS:     append = "ANS";   break;
+        case TOKEN_MATH:
+            math_return_mode   = MODE_GRAPH_YEQ;
+            math_tab           = 0;
+            math_item_cursor   = 0;
+            math_scroll_offset = 0;
+            current_mode       = MODE_MATH_MENU;
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
+            ui_update_math_display();
+            lvgl_unlock();
+            return;
         case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
         case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
         case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
@@ -1494,8 +1620,19 @@ void Execute_Token(Token_t t)
         if (append != NULL) {
             size_t len = strlen(append);
             if (!insert_mode && len == 1 && yeq_cursor_pos < eq_len) {
-                /* Overwrite the single character at cursor position */
-                eq[yeq_cursor_pos++] = append[0];
+                /* Overwrite the character at cursor position.  If it is a
+                 * multi-byte UTF-8 sequence (e.g. √, π) remove all its bytes
+                 * before placing the single incoming ASCII character. */
+                uint8_t cur_size = utf8_char_size(&eq[yeq_cursor_pos]);
+                if (cur_size <= 1) {
+                    eq[yeq_cursor_pos++] = append[0];
+                } else {
+                    /* Shrink: replace cur_size bytes with 1 ASCII byte */
+                    memmove(&eq[yeq_cursor_pos + 1],
+                            &eq[yeq_cursor_pos + cur_size],
+                            eq_len - yeq_cursor_pos - cur_size + 1);
+                    eq[yeq_cursor_pos++] = append[0];
+                }
                 lvgl_lock();
                 lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
                 yeq_cursor_update();
@@ -2210,9 +2347,13 @@ void Execute_Token(Token_t t)
             return;
         case TOKEN_ENTER:
             mode_committed[mode_row_selected] = mode_cursor[mode_row_selected];
-            /* Apply the setting that is currently wired */
+            /* Apply settings that are currently wired */
+            if (mode_row_selected == 1)
+                Calc_SetDecimalMode(mode_committed[1]); /* 0=Float, 1-10=Fix0-9 */
             if (mode_row_selected == 2)
                 angle_degrees = (mode_committed[2] == 1); /* 0=Radian, 1=Degree */
+            if (mode_row_selected == 6)
+                graph_state.grid_on = (mode_committed[6] == 1); /* 0=Grid off, 1=Grid on */
             lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
             return;
         case TOKEN_CLEAR:
@@ -2266,15 +2407,7 @@ void Execute_Token(Token_t t)
             int idx = (int)math_scroll_offset + (int)math_item_cursor;
             if (idx < total) {
                 const char *ins = math_insert_strings[math_tab][idx];
-                if (ins != NULL) {
-                    current_mode = MODE_NORMAL;
-                    lvgl_lock();
-                    lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
-                    lvgl_unlock();
-                    expr_insert_str(ins);
-                    Update_Calculator_Display();
-                    return;
-                }
+                if (ins != NULL) { math_menu_insert(ins); return; }
             }
             break;
         }
@@ -2282,35 +2415,36 @@ void Execute_Token(Token_t t)
             int idx = (int)(t - TOKEN_0) - 1; /* 0-indexed */
             if (idx < total) {
                 const char *ins = math_insert_strings[math_tab][idx];
-                if (ins != NULL) {
-                    current_mode = MODE_NORMAL;
-                    lvgl_lock();
-                    lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
-                    lvgl_unlock();
-                    expr_insert_str(ins);
-                    Update_Calculator_Display();
-                    return;
-                }
+                if (ins != NULL) { math_menu_insert(ins); return; }
             }
             break;
         }
         case TOKEN_CLEAR:
         case TOKEN_MATH:
-            current_mode        = MODE_NORMAL;
+            current_mode        = math_return_mode;
+            math_return_mode    = MODE_NORMAL;
             math_item_cursor    = 0;
             math_scroll_offset  = 0;
             lvgl_lock();
             lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
+            if (current_mode == MODE_GRAPH_YEQ)
+                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
             lvgl_unlock();
             return;
         default:
             /* Any other key exits the MATH menu and is processed normally */
-            current_mode        = MODE_NORMAL;
+            current_mode        = math_return_mode;
+            math_return_mode    = MODE_NORMAL;
             math_item_cursor    = 0;
             math_scroll_offset  = 0;
             lvgl_lock();
             lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
+            if (current_mode == MODE_GRAPH_YEQ)
+                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
             lvgl_unlock();
+            /* If returning to Y=, don't fall through to the main switch */
+            if (current_mode == MODE_GRAPH_YEQ)
+                return;
             break;
         }
         /* Execution reaches here only from default — fall through to main switch */
@@ -2507,6 +2641,7 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_MATH:
+        math_return_mode   = MODE_NORMAL;
         math_tab           = 0;
         math_item_cursor   = 0;
         math_scroll_offset = 0;
@@ -2632,6 +2767,7 @@ void Execute_Token(Token_t t)
         lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
         Graph_SetVisible(false);
         lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_zoom_display();
         lvgl_unlock();
         break;
 

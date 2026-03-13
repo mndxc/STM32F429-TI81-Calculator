@@ -63,6 +63,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # --- FONT SOURCES ---
     Drivers/BSP/Components/Fonts/font24.c   # Required by BSP LCD driver (Font24 symbol)
     Core/Fonts/jetbrains_mono_24.c
+    Core/Fonts/jetbrains_mono_20.c
 
     # --- KEYPAD SOURCES ---
     Drivers/Keypad/keypad.c

@@ -18,6 +18,14 @@
 /* User variable storage — A through Z, indexed by (ch - 'A') */
 float calc_variables[26] = {0};
 
+/* Decimal display mode: 0=Float, 1=Fix0 … 10=Fix9 (mirrors MODE screen row 2) */
+static uint8_t calc_decimal_mode = 0;
+
+void Calc_SetDecimalMode(uint8_t mode)
+{
+    calc_decimal_mode = mode;
+}
+
 /*---------------------------------------------------------------------------
  * Private types
  *--------------------------------------------------------------------------*/
@@ -44,8 +52,10 @@ static bool is_function(MathTokenType_t t)
             t == MATH_FUNC_TAN  || t == MATH_FUNC_ASIN ||
             t == MATH_FUNC_ACOS || t == MATH_FUNC_ATAN ||
             t == MATH_FUNC_LN   || t == MATH_FUNC_LOG  ||
-            t == MATH_FUNC_SQRT || t == MATH_FUNC_ABS  ||
-            t == MATH_FUNC_EXP);
+            t == MATH_FUNC_SQRT  || t == MATH_FUNC_ABS   ||
+            t == MATH_FUNC_EXP   || t == MATH_FUNC_ROUND ||
+            t == MATH_FUNC_IPART || t == MATH_FUNC_FPART ||
+            t == MATH_FUNC_INT);
 }
 
 static int precedence(MathTokenType_t t)
@@ -147,21 +157,25 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
 
         /* Named functions */
         struct { const char *name; MathTokenType_t type; } funcs[] = {
-            { "sin",  MATH_FUNC_SIN  },
-            { "cos",  MATH_FUNC_COS  },
-            { "tan",  MATH_FUNC_TAN  },
-            { "asin", MATH_FUNC_ASIN },
-            { "acos", MATH_FUNC_ACOS },
-            { "atan", MATH_FUNC_ATAN },
-            { "ln",   MATH_FUNC_LN   },
-            { "log",  MATH_FUNC_LOG  },
+            { "sin",   MATH_FUNC_SIN   },
+            { "cos",   MATH_FUNC_COS   },
+            { "tan",   MATH_FUNC_TAN   },
+            { "asin",  MATH_FUNC_ASIN  },
+            { "acos",  MATH_FUNC_ACOS  },
+            { "atan",  MATH_FUNC_ATAN  },
+            { "ln",    MATH_FUNC_LN    },
+            { "log",   MATH_FUNC_LOG   },
             { "\xE2\x88\x9A", MATH_FUNC_SQRT },
-            { "abs",  MATH_FUNC_ABS  },
-            { "exp",  MATH_FUNC_EXP  },
+            { "abs",   MATH_FUNC_ABS   },
+            { "exp",   MATH_FUNC_EXP   },
+            { "round", MATH_FUNC_ROUND },
+            { "iPart", MATH_FUNC_IPART },
+            { "fPart", MATH_FUNC_FPART },
+            { "int",   MATH_FUNC_INT   },
         };
 
         bool matched = false;
-        for (int i = 0; i < 11; i++) {
+        for (int i = 0; i < 15; i++) {
             size_t len = strlen(funcs[i].name);
             if (strncmp(p, funcs[i].name, len) == 0) {
                 if (out->count >= CALC_MAX_TOKENS)
@@ -453,6 +467,10 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
                 break;
             case MATH_FUNC_ABS:    stack[top] = fabsf(a);               break;
             case MATH_FUNC_EXP:    stack[top] = expf(a);                break;
+            case MATH_FUNC_ROUND:  stack[top] = roundf(a);              break;
+            case MATH_FUNC_IPART:  stack[top] = truncf(a);              break;
+            case MATH_FUNC_FPART:  stack[top] = a - truncf(a);          break;
+            case MATH_FUNC_INT:    stack[top] = floorf(a);              break;
             default:               break;
             }
             continue;
@@ -624,33 +642,46 @@ CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
  */
 void Calc_FormatResult(float value, char *buf, uint8_t buf_len)
 {
-    /* Use scientific notation for very large or very small values */
+    /* Fixed-decimal mode: fix_decimals >= 0; Float mode: fix_decimals = -1 */
+    int fix_decimals = (calc_decimal_mode > 0) ? (int)calc_decimal_mode - 1 : -1;
+
+    /* Scientific notation for very large or very small non-zero values */
     if (fabsf(value) >= 1e7f || (fabsf(value) < 1e-4f && value != 0.0f)) {
-        snprintf(buf, buf_len, "%.4e", value);
+        if (fix_decimals < 0) {
+            snprintf(buf, buf_len, "%.4e", value);
+        } else {
+            char fmt[8];
+            snprintf(fmt, sizeof(fmt), "%%.%de", fix_decimals);
+            snprintf(buf, buf_len, fmt, value);
+        }
         return;
     }
 
-    /* Check for integer result using epsilon comparison */
-    float rounded = roundf(value);
-    if (fabsf(value - rounded) < 1e-4f &&
-        rounded >= -9999999.0f && rounded <= 9999999.0f) {
-        snprintf(buf, buf_len, "%d", (int)rounded);
-        return;
-    }
-
-    /* Standard decimal — print with 6 decimal places then trim zeros */
-    snprintf(buf, buf_len, "%.6f", value);
-
-    /* Trim trailing zeros after decimal point */
-    char *dot = strchr(buf, '.');
-    if (dot != NULL) {
-        char *end = buf + strlen(buf) - 1;
-        while (end > dot && *end == '0') {
-            *end-- = '\0';
+    if (fix_decimals < 0) {
+        /* Float mode: show integers without decimal point; trim trailing zeros */
+        float rounded = roundf(value);
+        if (fabsf(value - rounded) < 1e-4f &&
+            rounded >= -9999999.0f && rounded <= 9999999.0f) {
+            snprintf(buf, buf_len, "%d", (int)rounded);
+            return;
         }
-        /* Remove trailing dot if all decimals were zero */
-        if (*end == '.') {
-            *end = '\0';
+
+        snprintf(buf, buf_len, "%.6f", value);
+
+        char *dot = strchr(buf, '.');
+        if (dot != NULL) {
+            char *end = buf + strlen(buf) - 1;
+            while (end > dot && *end == '0') {
+                *end-- = '\0';
+            }
+            if (*end == '.') {
+                *end = '\0';
+            }
         }
+    } else {
+        /* Fix N mode: always show exactly N decimal places */
+        char fmt[8];
+        snprintf(fmt, sizeof(fmt), "%%.%df", fix_decimals);
+        snprintf(buf, buf_len, fmt, value);
     }
 }
