@@ -61,11 +61,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/BSP/Components/ili9341/ili9341.c
     
     # --- FONT SOURCES ---
-    Drivers/BSP/Components/Fonts/font24.c
-    Drivers/BSP/Components/Fonts/font20.c
-    Drivers/BSP/Components/Fonts/font16.c
-    Drivers/BSP/Components/Fonts/font12.c
-    Drivers/BSP/Components/Fonts/font8.c
+    Drivers/BSP/Components/Fonts/font24.c   # Required by BSP LCD driver (Font24 symbol)
     Core/Fonts/jetbrains_mono_24.c
 
     # --- KEYPAD SOURCES ---

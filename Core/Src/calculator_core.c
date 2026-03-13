@@ -30,7 +30,7 @@
 #define CURSOR_BLINK_MS     530         /* Cursor blink interval */
 
 #define HISTORY_LINE_COUNT  32          /* Expression+result pairs stored in history */
-#define MAX_EXPR_LEN        64
+#define MAX_EXPR_LEN        96          /* Supports up to 4 wrapped display rows */
 #define MAX_RESULT_LEN      32
 
 /* Scrollable menu geometry */
@@ -71,7 +71,6 @@ typedef struct {
 
 /* LVGL objects — main display */
 static lv_obj_t *disp_rows[DISP_ROW_COUNT]; /* Full-width text rows (Montserrat 24) */
-static lv_obj_t *ui_lbl_angle_mode;         /* Small DEG/RAD corner label */
 
 /* Cursor blink state */
 static bool        cursor_visible = true;
@@ -108,6 +107,7 @@ static lv_style_t style_bg;
 static char         expression[MAX_EXPR_LEN];
 static uint8_t      expr_len       = 0;
 static uint8_t      cursor_pos     = 0;  /* Insertion point, 0–expr_len */
+static uint8_t      expr_chars_per_row = 22; /* Chars that fit on one display row; set at init */
 static bool         insert_mode    = false; /* false=overwrite (default), true=insert */
 static CalcMode_t   current_mode   = MODE_NORMAL;
 static bool         angle_degrees  = true;
@@ -116,6 +116,7 @@ static bool         sto_pending    = false;  /* True after STO — next alpha st
 
 static HistoryEntry_t history[HISTORY_LINE_COUNT];
 static uint8_t        history_count = 0;
+static int8_t         history_recall_offset = 0; /* 0=not recalling; N=Nth-most-recent entry */
 
 /* Graph state */
 GraphState_t graph_state = {
@@ -155,6 +156,19 @@ static uint8_t   zoom_scroll_offset = 0;
 static uint8_t   zoom_item_cursor   = 0;  /* visible row of highlight cursor */
 static lv_obj_t *zoom_item_labels[MENU_VISIBLE_ROWS];
 static lv_obj_t *zoom_scroll_ind[2];   /* [0]=top(↑), [1]=bottom(↓) — amber overlay */
+
+/* ZOOM FACTORS sub-screen state */
+static lv_obj_t *ui_graph_zoom_factors_screen = NULL;
+static lv_obj_t *ui_lbl_zoom_factors_rows[2];
+static lv_obj_t *zoom_factors_cursor_box   = NULL;
+static lv_obj_t *zoom_factors_cursor_inner = NULL;
+static float     zoom_x_fact          = 4.0f;  /* XFact default */
+static float     zoom_y_fact          = 4.0f;  /* YFact default */
+static uint8_t   zoom_factors_field   = 0;     /* 0=XFact, 1=YFact */
+static char      zoom_factors_buf[16] = {0};
+static uint8_t   zoom_factors_len     = 0;
+static uint8_t   zoom_factors_cursor  = 0;
+static const char * const zoom_factors_names[2] = {"XFact=", "YFact="};
 
 /* ZOOM item data */
 static const char * const zoom_item_names[ZOOM_ITEM_COUNT] = {
@@ -212,8 +226,8 @@ static const char * const math_display_names[MATH_TAB_COUNT][8] = {
     {"R>P(",   "P>R(",   "^3",       "^(1/3)",
      "!",      "deg",    "rad",      "nDeriv("},
     {"Round(", "IPart(", "FPart(",   "Int(",    NULL, NULL, NULL, NULL},
-    {"sinh(",  "cosh(",  "tanh(",    "sinh^-1(",
-     "cosh^-1(", "tanh^-1(", NULL, NULL},
+    {"sinh(",  "cosh(",  "tanh(",    "asinh(",
+     "acosh(", "atanh(", NULL, NULL},
     {"Rand",   "nPr",    "nCr",      NULL, NULL, NULL, NULL, NULL},
 };
 /* String inserted into expression when item is selected */
@@ -224,6 +238,18 @@ static const char * const math_insert_strings[MATH_TAB_COUNT][8] = {
     {"sinh(",  "cosh(",  "tanh(",    "asinh(",  "acosh(", "atanh(", NULL, NULL},
     {"rand",   " nPr ",  " nCr ",    NULL, NULL, NULL, NULL, NULL},
 };
+
+/*---------------------------------------------------------------------------
+ * Forward declarations for display helpers defined later in this file
+ *---------------------------------------------------------------------------*/
+
+static void ui_update_zoom_display(void);
+static void ui_update_mode_display(void);
+static void ui_update_math_display(void);
+static void zoom_factors_reset(void);
+static void ui_update_zoom_factors_display(void);
+static void zoom_factors_update_highlight(void);
+static void zoom_factors_cursor_update(void);
 
 /*---------------------------------------------------------------------------
  * LVGL thread safety helpers
@@ -301,16 +327,13 @@ static void ui_init_screen(void)
         lv_label_set_text(disp_rows[i], "");
     }
 
-    /* DEG/RAD indicator — small, dimly visible in top-right corner */
-    ui_lbl_angle_mode = lv_label_create(scr);
-    lv_obj_set_style_text_font(ui_lbl_angle_mode, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(ui_lbl_angle_mode,
-                                lv_color_hex(0x444444), 0);
-    lv_obj_align(ui_lbl_angle_mode, LV_ALIGN_TOP_RIGHT, -2, 3);
-    lv_label_set_text(ui_lbl_angle_mode, "DEG");
-
     /* Cursor block — filled rectangle that overlays the insertion point. */
     cursor_box_create(scr, false, &cursor_box, &cursor_inner);
+
+    /* Measure how many monospaced characters fit on one display row. */
+    uint16_t glyph_w = lv_font_get_glyph_width(&jetbrains_mono_24, 'X', 0);
+    if (glyph_w > 0)
+        expr_chars_per_row = (uint8_t)((DISPLAY_W - 8) / glyph_w);
 }
 
 /*---------------------------------------------------------------------------
@@ -455,6 +478,33 @@ static void ui_init_graph_screens(void)
         lv_label_set_text(zoom_scroll_ind[i], "");
         lv_obj_add_flag(zoom_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
     }
+
+    /* --- ZOOM FACTORS sub-screen --- */
+    ui_graph_zoom_factors_screen = lv_obj_create(scr);
+    lv_obj_set_size(ui_graph_zoom_factors_screen, DISPLAY_W, DISPLAY_H);
+    lv_obj_set_pos(ui_graph_zoom_factors_screen, 0, 0);
+    lv_obj_set_style_bg_color(ui_graph_zoom_factors_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_border_width(ui_graph_zoom_factors_screen, 0, 0);
+    lv_obj_set_style_pad_all(ui_graph_zoom_factors_screen, 0, 0);
+    lv_obj_clear_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t *lbl_zf_title = lv_label_create(ui_graph_zoom_factors_screen);
+    lv_obj_set_pos(lbl_zf_title, 4, 4);
+    lv_obj_set_style_text_font(lbl_zf_title, &jetbrains_mono_24, 0);
+    lv_obj_set_style_text_color(lbl_zf_title, lv_color_hex(0xFFFFFF), 0);
+    lv_label_set_text(lbl_zf_title, "ZOOM FACTORS");
+
+    for (int i = 0; i < 2; i++) {
+        ui_lbl_zoom_factors_rows[i] = lv_label_create(ui_graph_zoom_factors_screen);
+        lv_obj_set_pos(ui_lbl_zoom_factors_rows[i], 4, 30 + i * 30);
+        lv_obj_set_style_text_font(ui_lbl_zoom_factors_rows[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(ui_lbl_zoom_factors_rows[i], lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_text(ui_lbl_zoom_factors_rows[i], zoom_factors_names[i]);
+    }
+
+    cursor_box_create(ui_graph_zoom_factors_screen, true,
+                      &zoom_factors_cursor_box, &zoom_factors_cursor_inner);
 
     /* Init graph canvas */
     Graph_Init(scr);
@@ -645,18 +695,25 @@ static void range_cursor_update(void)
  *        and the current input expression.
  *
  * Display line model (li = absolute line index):
- *   even li:               committed expression — left-aligned, grey
- *   odd  li:               result               — right-aligned, white
- *   li == history_count*2: current expression being typed + cursor
+ *   even li < history*2:   committed expression — left-aligned, grey
+ *   odd  li < history*2:   result               — right-aligned, white
+ *   li >= history*2:       current expression sub-row (wraps across multiple rows)
  */
 static void ui_refresh_display(void)
 {
     if (disp_rows[0] == NULL) return;
 
-    int total = history_count * 2 + 1;   /* lines incl. current expr */
+    /* How many display rows the current expression occupies (always at least 1) */
+    int cpr = (int)expr_chars_per_row;
+    int expr_rows = (expr_len == 0) ? 1 : (expr_len + cpr - 1) / cpr;
+
+    int history_lines = history_count * 2;
+    int total = history_lines + expr_rows;
     int start = (total > DISP_ROW_COUNT) ? (total - DISP_ROW_COUNT) : 0;
 
-    lv_label_set_text(ui_lbl_angle_mode, angle_degrees ? "DEG" : "RAD");
+    /* Which expression sub-row holds the cursor, and column within that row */
+    int cursor_expr_row = (int)cursor_pos / cpr;
+    int cursor_col      = (int)cursor_pos % cpr;
 
     for (int row = 0; row < DISP_ROW_COUNT; row++) {
         int li = start + row;
@@ -667,37 +724,52 @@ static void ui_refresh_display(void)
             continue;
         }
 
-        if (li == history_count * 2) {
-            /* Current expression being typed */
+        if (li < history_lines) {
+            if (li % 2 == 0) {
+                /* Committed expression — left-aligned, grey */
+                int entry = (li / 2) % HISTORY_LINE_COUNT;
+                lv_obj_set_style_text_color(disp_rows[row],
+                                            lv_color_hex(COLOR_HISTORY_EXPR), 0);
+                lv_obj_set_style_text_align(disp_rows[row],
+                                            LV_TEXT_ALIGN_LEFT, 0);
+                lv_label_set_text(disp_rows[row], history[entry].expression);
+            } else {
+                /* Result — right-aligned, white */
+                int entry = ((li - 1) / 2) % HISTORY_LINE_COUNT;
+                lv_obj_set_style_text_color(disp_rows[row],
+                                            lv_color_hex(COLOR_HISTORY_RES), 0);
+                lv_obj_set_style_text_align(disp_rows[row],
+                                            LV_TEXT_ALIGN_RIGHT, 0);
+                lv_label_set_text(disp_rows[row], history[entry].result);
+            }
+        } else {
+            /* Current expression sub-row */
+            int expr_line  = li - history_lines;
+            int char_start = expr_line * cpr;
+            int char_end   = char_start + cpr;
+            if (char_end > (int)expr_len) char_end = (int)expr_len;
+            int seg_len = char_end - char_start;
+            if (seg_len < 0) seg_len = 0;
+
+            char row_buf[MAX_EXPR_LEN + 1];
+            memcpy(row_buf, &expression[char_start], (size_t)seg_len);
+            row_buf[seg_len] = '\0';
+
             lv_obj_set_style_text_color(disp_rows[row],
                                         lv_color_hex(COLOR_EXPR), 0);
             lv_obj_set_style_text_align(disp_rows[row],
                                         LV_TEXT_ALIGN_LEFT, 0);
-            lv_label_set_text(disp_rows[row], expression);
-            cursor_update(disp_rows[row], cursor_pos);
-        } else if (li % 2 == 0) {
-            /* Committed expression — left-aligned, grey */
-            int entry = (li / 2) % HISTORY_LINE_COUNT;
-            lv_obj_set_style_text_color(disp_rows[row],
-                                        lv_color_hex(COLOR_HISTORY_EXPR), 0);
-            lv_obj_set_style_text_align(disp_rows[row],
-                                        LV_TEXT_ALIGN_LEFT, 0);
-            lv_label_set_text(disp_rows[row], history[entry].expression);
-        } else {
-            /* Result — right-aligned, white */
-            int entry = ((li - 1) / 2) % HISTORY_LINE_COUNT;
-            lv_obj_set_style_text_color(disp_rows[row],
-                                        lv_color_hex(COLOR_HISTORY_RES), 0);
-            lv_obj_set_style_text_align(disp_rows[row],
-                                        LV_TEXT_ALIGN_RIGHT, 0);
-            lv_label_set_text(disp_rows[row], history[entry].result);
+            lv_label_set_text(disp_rows[row], row_buf);
+
+            /* Place cursor on the sub-row that contains cursor_pos */
+            if (expr_line == cursor_expr_row)
+                cursor_update(disp_rows[row], (uint32_t)cursor_col);
         }
     }
 
-    /* If the current expression row scrolled off-screen, hide the cursor */
-    if (history_count * 2 < start && cursor_box != NULL) {
+    /* If the cursor's sub-row scrolled off-screen, hide the cursor */
+    if (history_lines + cursor_expr_row < start && cursor_box != NULL)
         lv_obj_add_flag(cursor_box, LV_OBJ_FLAG_HIDDEN);
-    }
 }
 
 /**
@@ -709,11 +781,6 @@ static void ui_refresh_display(void)
  * Updates the main screen cursor and, when an overlay input screen is active,
  * also blinks the corresponding overlay cursor box.
  */
-/* Forward declarations for display helpers defined later in this file */
-static void ui_update_zoom_display(void);
-static void ui_update_mode_display(void);
-static void ui_update_math_display(void);
-
 static void cursor_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
@@ -727,6 +794,9 @@ static void cursor_timer_cb(lv_timer_t *timer)
     else if (ui_graph_range_screen != NULL &&
              !lv_obj_has_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN))
         range_cursor_update();
+    else if (ui_graph_zoom_factors_screen != NULL &&
+             !lv_obj_has_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN))
+        zoom_factors_cursor_update();
 }
 
 /**
@@ -745,6 +815,9 @@ static void ui_update_status_bar(void)
     else if (ui_graph_range_screen != NULL &&
              !lv_obj_has_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN))
         range_cursor_update();
+    else if (ui_graph_zoom_factors_screen != NULL &&
+             !lv_obj_has_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN))
+        zoom_factors_cursor_update();
 }
 
 /**
@@ -939,6 +1012,36 @@ static void ui_update_zoom_display(void)
 }
 
 /*---------------------------------------------------------------------------
+ * Graph/menu state helpers
+ *---------------------------------------------------------------------------*/
+
+/* Returns the index of the first non-empty Y= equation, or 0 if all are empty. */
+static uint8_t find_first_active_eq(void)
+{
+    for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
+        if (strlen(graph_state.equations[i]) > 0)
+            return i;
+    }
+    return 0;
+}
+
+/* Resets the RANGE editor input buffer and field state to defaults. */
+static void range_field_reset(void)
+{
+    range_field_selected   = 0;
+    range_field_len        = 0;
+    range_field_buf[0]     = '\0';
+    range_field_cursor_pos = 0;
+}
+
+/* Resets the ZOOM menu scroll and cursor position to defaults. */
+static void zoom_menu_reset(void)
+{
+    zoom_scroll_offset = 0;
+    zoom_item_cursor   = 0;
+}
+
+/*---------------------------------------------------------------------------
  * ZOOM action executor
  *---------------------------------------------------------------------------*/
 
@@ -946,8 +1049,7 @@ static void ui_update_zoom_display(void)
  * Hides the ZOOM screen and performs the associated action. */
 static void zoom_execute_item(uint8_t item_num)
 {
-    zoom_scroll_offset = 0;
-    zoom_item_cursor   = 0;
+    zoom_menu_reset();
     switch (item_num) {
     case 1: /* Box — enter rubber-band zoom */
         zbox_px = GRAPH_W / 2; zbox_py = GRAPH_H / 2; zbox_corner1_set = false;
@@ -958,12 +1060,12 @@ static void zoom_execute_item(uint8_t item_num)
         Graph_DrawZBox(zbox_px, zbox_py, 0, 0, false, angle_degrees);
         lvgl_unlock();
         break;
-    case 2: /* Zoom In — shrink window by factor 4 around centre */
+    case 2: /* Zoom In — shrink window by XFact/YFact around centre */
         {
             float xc = (graph_state.x_min + graph_state.x_max) * 0.5f;
             float yc = (graph_state.y_min + graph_state.y_max) * 0.5f;
-            float xh = (graph_state.x_max - graph_state.x_min) / 8.0f;
-            float yh = (graph_state.y_max - graph_state.y_min) / 8.0f;
+            float xh = (graph_state.x_max - graph_state.x_min) / (2.0f * zoom_x_fact);
+            float yh = (graph_state.y_max - graph_state.y_min) / (2.0f * zoom_y_fact);
             graph_state.x_min = xc - xh; graph_state.x_max = xc + xh;
             graph_state.y_min = yc - yh; graph_state.y_max = yc + yh;
         }
@@ -974,12 +1076,12 @@ static void zoom_execute_item(uint8_t item_num)
         Graph_Render(angle_degrees);
         lvgl_unlock();
         break;
-    case 3: /* Zoom Out — expand window by factor 4 around centre */
+    case 3: /* Zoom Out — expand window by XFact/YFact around centre */
         {
             float xc = (graph_state.x_min + graph_state.x_max) * 0.5f;
             float yc = (graph_state.y_min + graph_state.y_max) * 0.5f;
-            float xh = (graph_state.x_max - graph_state.x_min) * 2.0f;
-            float yh = (graph_state.y_max - graph_state.y_min) * 2.0f;
+            float xh = (graph_state.x_max - graph_state.x_min) * zoom_x_fact / 2.0f;
+            float yh = (graph_state.y_max - graph_state.y_min) * zoom_y_fact / 2.0f;
             graph_state.x_min = xc - xh; graph_state.x_max = xc + xh;
             graph_state.y_min = yc - yh; graph_state.y_max = yc + yh;
         }
@@ -990,10 +1092,15 @@ static void zoom_execute_item(uint8_t item_num)
         Graph_Render(angle_degrees);
         lvgl_unlock();
         break;
-    case 4: /* Set Factors — stub, exit menu */
-        current_mode = MODE_NORMAL;
+    case 4: /* Set Factors — open ZOOM FACTORS sub-screen */
+        zoom_factors_reset();
+        current_mode = MODE_GRAPH_ZOOM_FACTORS;
         lvgl_lock();
         lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_zoom_factors_display();
+        zoom_factors_update_highlight();
+        zoom_factors_cursor_update();
         lvgl_unlock();
         break;
     case 5: /* Square */
@@ -1152,6 +1259,72 @@ static void range_update_highlight(void)
 }
 
 /*---------------------------------------------------------------------------
+ * ZOOM FACTORS editor helpers
+ *---------------------------------------------------------------------------*/
+
+/* Resets the ZOOM FACTORS input buffer and field state. */
+static void zoom_factors_reset(void)
+{
+    zoom_factors_field  = 0;
+    zoom_factors_len    = 0;
+    zoom_factors_buf[0] = '\0';
+    zoom_factors_cursor = 0;
+}
+
+/* Parses zoom_factors_buf and writes it to zoom_x_fact or zoom_y_fact.
+ * Rejects zero and negative values. */
+static void zoom_factors_commit_field(void)
+{
+    if (zoom_factors_len == 0) return;
+    float val = strtof(zoom_factors_buf, NULL);
+    if (val <= 0.0f) return;
+    if (zoom_factors_field == 0) zoom_x_fact = val;
+    else                         zoom_y_fact = val;
+}
+
+/* Refreshes both ZOOM FACTORS row labels from current state. */
+static void ui_update_zoom_factors_display(void)
+{
+    char buf[32];
+    float vals[2] = { zoom_x_fact, zoom_y_fact };
+    for (int i = 0; i < 2; i++) {
+        if (ui_lbl_zoom_factors_rows[i] == NULL) continue;
+        if (i == (int)zoom_factors_field && zoom_factors_len > 0) {
+            snprintf(buf, sizeof(buf), "%s%s", zoom_factors_names[i], zoom_factors_buf);
+        } else {
+            /* Format value — strip trailing zeros like %.4g */
+            char val_str[16];
+            snprintf(val_str, sizeof(val_str), "%.4g", vals[i]);
+            snprintf(buf, sizeof(buf), "%s%s", zoom_factors_names[i], val_str);
+        }
+        lv_label_set_text(ui_lbl_zoom_factors_rows[i], buf);
+    }
+}
+
+/* Highlights the active ZOOM FACTORS field in yellow; the other in white. */
+static void zoom_factors_update_highlight(void)
+{
+    for (int i = 0; i < 2; i++) {
+        if (ui_lbl_zoom_factors_rows[i] == NULL) continue;
+        lv_obj_set_style_text_color(ui_lbl_zoom_factors_rows[i],
+            (i == (int)zoom_factors_field) ? lv_color_hex(0xFFFF00)
+                                           : lv_color_hex(0xFFFFFF),
+            0);
+    }
+}
+
+/* Positions the cursor over the active ZOOM FACTORS field. */
+static void zoom_factors_cursor_update(void)
+{
+    if (zoom_factors_cursor_box == NULL) return;
+    if (ui_lbl_zoom_factors_rows[zoom_factors_field] == NULL) return;
+    uint32_t char_pos = (uint32_t)strlen(zoom_factors_names[zoom_factors_field])
+                      + zoom_factors_cursor;
+    cursor_place(zoom_factors_cursor_box, zoom_factors_cursor_inner,
+                 ui_lbl_zoom_factors_rows[zoom_factors_field], char_pos);
+}
+
+/*---------------------------------------------------------------------------
  * Token execution
  *---------------------------------------------------------------------------*/
 
@@ -1214,12 +1387,9 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_RANGE:
-            current_mode           = MODE_GRAPH_RANGE;
-            range_field_selected   = 0;
-            range_field_len        = 0;
-            range_field_buf[0]     = '\0';
-            range_field_cursor_pos = 0;
-            graph_state.active     = false;
+            current_mode = MODE_GRAPH_RANGE;
+            range_field_reset();
+            graph_state.active = false;
             lvgl_lock();
             lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
             Graph_SetVisible(false);
@@ -1230,9 +1400,8 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_ZOOM:
-            current_mode       = MODE_GRAPH_ZOOM;
-            zoom_scroll_offset = 0;
-            zoom_item_cursor   = 0;
+            current_mode = MODE_GRAPH_ZOOM;
+            zoom_menu_reset();
             graph_state.active = false;
             lvgl_lock();
             lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1241,10 +1410,7 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_TRACE:
-            trace_eq_idx = 0;
-            for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
-                if (strlen(graph_state.equations[i]) > 0) { trace_eq_idx = i; break; }
-            }
+            trace_eq_idx = find_first_active_eq();
             trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
             current_mode = MODE_GRAPH_TRACE;
             lvgl_lock();
@@ -1304,7 +1470,7 @@ void Execute_Token(Token_t t)
         case TOKEN_ATAN:    append = "atan("; break;
         case TOKEN_LN:      append = "ln(";   break;
         case TOKEN_LOG:     append = "log(";  break;
-        case TOKEN_SQRT:    append = "sqrt("; break;
+        case TOKEN_SQRT:    append = "\xE2\x88\x9A("; break;
         case TOKEN_ABS:     append = "abs(";  break;
         case TOKEN_SQUARE:  append = "^2";    break;
         case TOKEN_PI:      append = "π";     break;
@@ -1478,13 +1644,10 @@ void Execute_Token(Token_t t)
 
         case TOKEN_ZOOM:
             range_commit_field();
-            range_field_selected = 0;
-            range_field_len      = 0;
-            range_field_buf[0]   = '\0';
-            current_mode         = MODE_GRAPH_ZOOM;
-            zoom_scroll_offset   = 0;
-            zoom_item_cursor     = 0;
-            graph_state.active   = false;
+            range_field_reset();
+            current_mode       = MODE_GRAPH_ZOOM;
+            zoom_menu_reset();
+            graph_state.active = false;
             lvgl_lock();
             lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
             Graph_SetVisible(false);
@@ -1494,10 +1657,8 @@ void Execute_Token(Token_t t)
 
         case TOKEN_GRAPH:
             range_commit_field();
-            current_mode         = MODE_NORMAL;
-            range_field_selected = 0;
-            range_field_len      = 0;
-            range_field_buf[0]   = '\0';
+            current_mode = MODE_NORMAL;
+            range_field_reset();
             lvgl_lock();
             lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
             Graph_SetVisible(true);
@@ -1506,10 +1667,8 @@ void Execute_Token(Token_t t)
             return;
 
         case TOKEN_RANGE:
-            current_mode         = MODE_NORMAL;
-            range_field_selected = 0;
-            range_field_len      = 0;
-            range_field_buf[0]   = '\0';
+            current_mode = MODE_NORMAL;
+            range_field_reset();
             lvgl_lock();
             ui_update_range_display();
             lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1528,10 +1687,8 @@ void Execute_Token(Token_t t)
                 lvgl_unlock();
             } else {
                 /* Field already empty — exit RANGE screen to calculator */
-                current_mode           = MODE_NORMAL;
-                range_field_selected   = 0;
-                range_field_buf[0]     = '\0';
-                range_field_cursor_pos = 0;
+                current_mode = MODE_NORMAL;
+                range_field_reset();
                 lvgl_lock();
                 ui_update_range_display();
                 lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1541,11 +1698,8 @@ void Execute_Token(Token_t t)
 
         case TOKEN_Y_EQUALS:
             range_commit_field();
-            range_field_selected   = 0;
-            range_field_len        = 0;
-            range_field_buf[0]     = '\0';
-            range_field_cursor_pos = 0;
-            current_mode           = MODE_GRAPH_YEQ;
+            range_field_reset();
+            current_mode = MODE_GRAPH_YEQ;
             graph_state.active     = false;
             yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
             lvgl_lock();
@@ -1561,13 +1715,8 @@ void Execute_Token(Token_t t)
 
         case TOKEN_TRACE:
             range_commit_field();
-            range_field_selected = 0;
-            range_field_len      = 0;
-            range_field_buf[0]   = '\0';
-            trace_eq_idx = 0;
-            for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
-                if (strlen(graph_state.equations[i]) > 0) { trace_eq_idx = i; break; }
-            }
+            range_field_reset();
+            trace_eq_idx = find_first_active_eq();
             trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
             current_mode = MODE_GRAPH_TRACE;
             lvgl_lock();
@@ -1615,9 +1764,8 @@ void Execute_Token(Token_t t)
             return;
         case TOKEN_CLEAR:
         case TOKEN_ZOOM:
-            current_mode       = MODE_NORMAL;
-            zoom_scroll_offset = 0;
-            zoom_item_cursor   = 0;
+            current_mode = MODE_NORMAL;
+            zoom_menu_reset();
             lvgl_lock();
             lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
             lvgl_unlock();
@@ -1625,8 +1773,7 @@ void Execute_Token(Token_t t)
         case TOKEN_Y_EQUALS:
             current_mode = MODE_GRAPH_YEQ;
             graph_state.active = false;
-            zoom_scroll_offset = 0;
-            zoom_item_cursor   = 0;
+            zoom_menu_reset();
             yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
             lvgl_lock();
             lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1639,14 +1786,10 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_RANGE:
-            current_mode           = MODE_GRAPH_RANGE;
-            range_field_selected   = 0;
-            range_field_len        = 0;
-            range_field_buf[0]     = '\0';
-            range_field_cursor_pos = 0;
-            graph_state.active     = false;
-            zoom_scroll_offset     = 0;
-            zoom_item_cursor       = 0;
+            current_mode = MODE_GRAPH_RANGE;
+            range_field_reset();
+            zoom_menu_reset();
+            graph_state.active = false;
             lvgl_lock();
             lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
             Graph_SetVisible(false);
@@ -1657,8 +1800,7 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_GRAPH:
-            zoom_scroll_offset = 0;
-            zoom_item_cursor   = 0;
+            zoom_menu_reset();
             current_mode = MODE_NORMAL;
             lvgl_lock();
             lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1667,14 +1809,10 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_TRACE:
-            trace_eq_idx = 0;
-            for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
-                if (strlen(graph_state.equations[i]) > 0) { trace_eq_idx = i; break; }
-            }
-            trace_x            = (graph_state.x_min + graph_state.x_max) * 0.5f;
-            current_mode       = MODE_GRAPH_TRACE;
-            zoom_scroll_offset = 0;
-            zoom_item_cursor   = 0;
+            trace_eq_idx = find_first_active_eq();
+            trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
+            current_mode = MODE_GRAPH_TRACE;
+            zoom_menu_reset();
             lvgl_lock();
             lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
             Graph_SetVisible(true);
@@ -1689,11 +1827,212 @@ void Execute_Token(Token_t t)
         }
         default:
             /* Any unrecognized key exits the ZOOM menu */
-            current_mode       = MODE_NORMAL;
-            zoom_scroll_offset = 0;
-            zoom_item_cursor   = 0;
+            current_mode = MODE_NORMAL;
+            zoom_menu_reset();
             lvgl_lock();
             lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+            lvgl_unlock();
+            return;
+        }
+    }
+
+    /*--- ZOOM FACTORS sub-screen handler -----------------------------------*/
+    if (current_mode == MODE_GRAPH_ZOOM_FACTORS) {
+        switch (t) {
+        case TOKEN_0 ... TOKEN_9: {
+            char ch = (char)((t - TOKEN_0) + '0');
+            if (!insert_mode && zoom_factors_cursor < zoom_factors_len) {
+                zoom_factors_buf[zoom_factors_cursor++] = ch;
+            } else if (zoom_factors_len < sizeof(zoom_factors_buf) - 1) {
+                memmove(&zoom_factors_buf[zoom_factors_cursor + 1],
+                        &zoom_factors_buf[zoom_factors_cursor],
+                        zoom_factors_len - zoom_factors_cursor + 1);
+                zoom_factors_buf[zoom_factors_cursor++] = ch;
+                zoom_factors_len++;
+            }
+            lvgl_lock();
+            ui_update_zoom_factors_display();
+            zoom_factors_cursor_update();
+            lvgl_unlock();
+            return;
+        }
+
+        case TOKEN_DECIMAL:
+            if (strchr(zoom_factors_buf, '.') == NULL) {
+                char ch = '.';
+                if (!insert_mode && zoom_factors_cursor < zoom_factors_len) {
+                    zoom_factors_buf[zoom_factors_cursor++] = ch;
+                } else if (zoom_factors_len < sizeof(zoom_factors_buf) - 1) {
+                    memmove(&zoom_factors_buf[zoom_factors_cursor + 1],
+                            &zoom_factors_buf[zoom_factors_cursor],
+                            zoom_factors_len - zoom_factors_cursor + 1);
+                    zoom_factors_buf[zoom_factors_cursor++] = ch;
+                    zoom_factors_len++;
+                }
+                lvgl_lock();
+                ui_update_zoom_factors_display();
+                zoom_factors_cursor_update();
+                lvgl_unlock();
+            }
+            return;
+
+        case TOKEN_DEL:
+            if (zoom_factors_cursor > 0) {
+                memmove(&zoom_factors_buf[zoom_factors_cursor - 1],
+                        &zoom_factors_buf[zoom_factors_cursor],
+                        zoom_factors_len - zoom_factors_cursor + 1);
+                zoom_factors_len--;
+                zoom_factors_cursor--;
+                lvgl_lock();
+                ui_update_zoom_factors_display();
+                zoom_factors_cursor_update();
+                lvgl_unlock();
+            }
+            return;
+
+        case TOKEN_LEFT:
+            if (zoom_factors_cursor > 0) zoom_factors_cursor--;
+            lvgl_lock();
+            zoom_factors_cursor_update();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_RIGHT:
+            if (zoom_factors_cursor < zoom_factors_len) zoom_factors_cursor++;
+            lvgl_lock();
+            zoom_factors_cursor_update();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_INS:
+            insert_mode = !insert_mode;
+            lvgl_lock();
+            zoom_factors_cursor_update();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_ENTER:
+        case TOKEN_DOWN:
+            zoom_factors_commit_field();
+            zoom_factors_len        = 0;
+            zoom_factors_buf[0]     = '\0';
+            zoom_factors_cursor     = 0;
+            if (zoom_factors_field < 1) zoom_factors_field++;
+            lvgl_lock();
+            ui_update_zoom_factors_display();
+            zoom_factors_update_highlight();
+            zoom_factors_cursor_update();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_UP:
+            zoom_factors_commit_field();
+            zoom_factors_len        = 0;
+            zoom_factors_buf[0]     = '\0';
+            zoom_factors_cursor     = 0;
+            if (zoom_factors_field > 0) zoom_factors_field--;
+            lvgl_lock();
+            ui_update_zoom_factors_display();
+            zoom_factors_update_highlight();
+            zoom_factors_cursor_update();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_ZOOM:
+            /* Commit and return to ZOOM menu */
+            zoom_factors_commit_field();
+            zoom_factors_reset();
+            current_mode = MODE_GRAPH_ZOOM;
+            zoom_menu_reset();
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+            ui_update_zoom_display();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_CLEAR:
+            if (zoom_factors_len > 0) {
+                zoom_factors_len        = 0;
+                zoom_factors_buf[0]     = '\0';
+                zoom_factors_cursor     = 0;
+                lvgl_lock();
+                ui_update_zoom_factors_display();
+                zoom_factors_cursor_update();
+                lvgl_unlock();
+            } else {
+                /* Field already empty — return to ZOOM menu */
+                zoom_factors_reset();
+                current_mode = MODE_GRAPH_ZOOM;
+                zoom_menu_reset();
+                lvgl_lock();
+                lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+                ui_update_zoom_display();
+                lvgl_unlock();
+            }
+            return;
+
+        case TOKEN_Y_EQUALS:
+            zoom_factors_commit_field();
+            zoom_factors_reset();
+            current_mode   = MODE_GRAPH_YEQ;
+            graph_state.active = false;
+            yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+            Graph_SetVisible(false);
+            lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+            for (int i = 0; i < GRAPH_NUM_EQ; i++)
+                lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+            yeq_update_highlight();
+            yeq_cursor_update();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_RANGE:
+            zoom_factors_commit_field();
+            zoom_factors_reset();
+            current_mode = MODE_GRAPH_RANGE;
+            range_field_reset();
+            graph_state.active = false;
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+            Graph_SetVisible(false);
+            lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
+            ui_update_range_display();
+            range_update_highlight();
+            range_cursor_update();
+            lvgl_unlock();
+            return;
+
+        case TOKEN_GRAPH:
+            zoom_factors_commit_field();
+            zoom_factors_reset();
+            current_mode = MODE_NORMAL;
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+            Graph_SetVisible(true);
+            Graph_Render(angle_degrees);
+            lvgl_unlock();
+            return;
+
+        case TOKEN_TRACE:
+            zoom_factors_commit_field();
+            zoom_factors_reset();
+            trace_eq_idx = find_first_active_eq();
+            trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
+            current_mode = MODE_GRAPH_TRACE;
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+            Graph_SetVisible(true);
+            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+            lvgl_unlock();
+            return;
+
+        default:
+            lvgl_lock();
+            zoom_factors_cursor_update();
             lvgl_unlock();
             return;
         }
@@ -2063,6 +2402,40 @@ void Execute_Token(Token_t t)
         }
         break;
 
+    case TOKEN_UP:
+        /* History recall — UP scrolls back through previous expressions */
+        if (expr_len == 0 || history_recall_offset > 0) {
+            if (history_recall_offset < history_count) {
+                history_recall_offset++;
+                uint8_t idx = (history_count - history_recall_offset) % HISTORY_LINE_COUNT;
+                strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
+                expression[MAX_EXPR_LEN - 1] = '\0';
+                expr_len   = (uint8_t)strlen(expression);
+                cursor_pos = expr_len;
+                Update_Calculator_Display();
+            }
+        }
+        break;
+
+    case TOKEN_DOWN:
+        /* History recall — DOWN scrolls forward; clears expression at newest */
+        if (history_recall_offset > 0) {
+            history_recall_offset--;
+            if (history_recall_offset == 0) {
+                expr_len      = 0;
+                cursor_pos    = 0;
+                expression[0] = '\0';
+            } else {
+                uint8_t idx = (history_count - history_recall_offset) % HISTORY_LINE_COUNT;
+                strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
+                expression[MAX_EXPR_LEN - 1] = '\0';
+                expr_len   = (uint8_t)strlen(expression);
+                cursor_pos = expr_len;
+            }
+            Update_Calculator_Display();
+        }
+        break;
+
     case TOKEN_ENTER:
         if (expr_len > 0) {
             CalcResult_t result = Calc_Evaluate(expression, ans,
@@ -2088,9 +2461,10 @@ void Execute_Token(Token_t t)
             history[idx].result[MAX_RESULT_LEN - 1] = '\0';
             history_count++;
 
-            expr_len      = 0;
-            cursor_pos    = 0;
-            expression[0] = '\0';
+            expr_len              = 0;
+            cursor_pos            = 0;
+            expression[0]         = '\0';
+            history_recall_offset = 0;
 
             lvgl_lock();
             ui_update_history();
@@ -2152,7 +2526,7 @@ void Execute_Token(Token_t t)
     case TOKEN_ABS:     expr_insert_str("abs(");  Update_Calculator_Display(); break;
     case TOKEN_LN:      expr_insert_str("ln(");   Update_Calculator_Display(); break;
     case TOKEN_LOG:     expr_insert_str("log(");  Update_Calculator_Display(); break;
-    case TOKEN_SQRT:    expr_insert_str("sqrt("); Update_Calculator_Display(); break;
+    case TOKEN_SQRT:    expr_insert_str("\xE2\x88\x9A("); Update_Calculator_Display(); break;
     case TOKEN_EE:      expr_insert_str("*10^");  Update_Calculator_Display(); break;
     case TOKEN_E_X:     expr_insert_str("exp(");  Update_Calculator_Display(); break;
     case TOKEN_TEN_X:   expr_insert_str("10^(");  Update_Calculator_Display(); break;
@@ -2235,12 +2609,9 @@ void Execute_Token(Token_t t)
 
     case TOKEN_RANGE:
         /* Switch to RANGE editor */
-        current_mode           = MODE_GRAPH_RANGE;
-        range_field_selected   = 0;
-        range_field_len        = 0;
-        range_field_buf[0]     = '\0';
-        range_field_cursor_pos = 0;
-        graph_state.active     = false;
+        current_mode = MODE_GRAPH_RANGE;
+        range_field_reset();
+        graph_state.active = false;
         lvgl_lock();
         lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
         Graph_SetVisible(false);
@@ -2253,9 +2624,8 @@ void Execute_Token(Token_t t)
 
     case TOKEN_ZOOM:
         /* Show ZOOM preset menu */
-        current_mode       = MODE_GRAPH_ZOOM;
-        zoom_scroll_offset = 0;
-        zoom_item_cursor   = 0;
+        current_mode = MODE_GRAPH_ZOOM;
+        zoom_menu_reset();
         graph_state.active = false;
         lvgl_lock();
         lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
@@ -2275,14 +2645,7 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_TRACE:
-        /* Find the first active (non-empty) Y= equation to start on */
-        trace_eq_idx = 0;
-        for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
-            if (strlen(graph_state.equations[i]) > 0) {
-                trace_eq_idx = i;
-                break;
-            }
-        }
+        trace_eq_idx = find_first_active_eq();
         trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
         current_mode = MODE_GRAPH_TRACE;
         lvgl_lock();

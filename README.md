@@ -121,13 +121,15 @@ bar. Eight rows of 30px each fill the screen exactly.
 │                                  3.000 │
 │ ANS+1                                  │
 │                                  4.000 │
-│ ANS*2                                  │  DEG (top-right corner)
-│                          8.0█          │  current expression + cursor
+│ ANS*2                                  │
+│ 8.0+sin(ANS)*cos(ANS)+tan(ANS)+log(ANS│  long expression: wraps to next row
+│ )+ln(ANS)█                             │  continuation + cursor
 └────────────────────────────────────────┘  y=240
 ```
 
 History entries scroll upward as new results are added. The current expression
-occupies the last row with a block cursor that reflects the active input mode:
+wraps across multiple rows when it exceeds the line width. The cursor reflects
+the active input mode:
 
 | Cursor appearance        | Mode                     |
 |--------------------------|--------------------------|
@@ -135,9 +137,8 @@ occupies the last row with a block cursor that reflects the active input mode:
 | Steady amber `^` block   | 2nd (next key is 2nd fn) |
 | Steady green `A` block   | ALPHA / A-LOCK / STO→    |
 
-A small `DEG` / `RAD` label sits in the top-right corner (Montserrat 14, dim
-grey). Font scheme: Montserrat 24 for all content, Montserrat 14 for small
-status labels.
+Font: JetBrains Mono 24 (monospaced) for all content. The number of characters
+per row is measured at runtime from the glyph width.
 
 ---
 
@@ -145,17 +146,20 @@ status labels.
 
 `CalcMode_t` tracks the current input state:
 
-| Mode              | Description                                             |
-|-------------------|---------------------------------------------------------|
-| `MODE_NORMAL`     | Standard expression entry                               |
-| `MODE_2ND`        | 2nd function layer — one-shot, reverts after next key   |
-| `MODE_ALPHA`      | Alpha character layer — one-shot, reverts after next key|
-| `MODE_ALPHA_LOCK` | Alpha stays active (entered via 2nd+ALPHA)              |
-| `MODE_GRAPH_YEQ`  | Y= equation editor                                      |
-| `MODE_GRAPH_RANGE`| RANGE field editor                                      |
-| `MODE_GRAPH_ZOOM` | ZOOM preset menu                                        |
-| `MODE_GRAPH_TRACE`| Trace cursor active on graph                            |
-| `MODE_GRAPH_ZBOX` | ZBox rubber-band zoom selection                         |
+| Mode                       | Description                                             |
+|----------------------------|---------------------------------------------------------|
+| `MODE_NORMAL`              | Standard expression entry                               |
+| `MODE_2ND`                 | 2nd function layer — one-shot, reverts after next key   |
+| `MODE_ALPHA`               | Alpha character layer — one-shot, reverts after next key|
+| `MODE_ALPHA_LOCK`          | Alpha stays active (entered via 2nd+ALPHA)              |
+| `MODE_GRAPH_YEQ`           | Y= equation editor                                      |
+| `MODE_GRAPH_RANGE`         | RANGE field editor                                      |
+| `MODE_GRAPH_ZOOM`          | ZOOM preset menu                                        |
+| `MODE_GRAPH_TRACE`         | Trace cursor active on graph                            |
+| `MODE_GRAPH_ZBOX`          | ZBox rubber-band zoom selection                         |
+| `MODE_MODE_SCREEN`         | MODE settings screen                                    |
+| `MODE_MATH_MENU`           | MATH/NUM/HYP/PRB function menu                          |
+| `MODE_GRAPH_ZOOM_FACTORS`  | ZOOM FACTORS sub-screen (XFact/YFact editing)           |
 
 Pressing 2nd or ALPHA a second time cancels the modifier (toggle). `STO→` sets
 a pending flag and automatically enters ALPHA mode for the next keypress so the
@@ -188,14 +192,19 @@ error code and message.
 
 ### Supported Functions
 
-| Category      | Functions                                                  |
-|---------------|------------------------------------------------------------|
-| Arithmetic    | `+` `-` `*` `/` `^` `x²` `x⁻¹` unary `-`                 |
-| Trig          | `sin` `cos` `tan` `sin⁻¹` `cos⁻¹` `tan⁻¹`                |
-| Logarithmic   | `ln` `log`                                                 |
-| Other         | `√(` `abs(`                                                |
-| Constants     | `ANS`, `π`, `e`                                            |
-| Variables     | `A`–`Z` (stored via STO→), `X` (graph variable)           |
+| Category      | Functions                                                              |
+|---------------|------------------------------------------------------------------------|
+| Arithmetic    | `+` `-` `*` `/` `^` `x²` `x⁻¹` unary `-`                             |
+| Trig          | `sin` `cos` `tan` `sin⁻¹` `cos⁻¹` `tan⁻¹`                            |
+| Hyperbolic    | `sinh` `cosh` `tanh` `asinh` `acosh` `atanh`                          |
+| Logarithmic   | `ln` `log`                                                             |
+| Other         | `√(` `abs(`                                                            |
+| Constants     | `ANS`, `π`, `e`                                                        |
+| Variables     | `A`–`Z` (stored via STO→), `X` (graph variable)                       |
+
+The `√` radical symbol is used as the display token for square root. The
+tokenizer recognises the UTF-8 sequence directly so expressions containing `√(`
+evaluate correctly.
 
 Auto-ANS: pressing a binary operator with an empty expression prepends `ANS`
 automatically, matching TI-81 behaviour.
@@ -231,13 +240,13 @@ Pressing GRAPH plots all active Y= equations over the current RANGE window.
 
 ### Graph screens
 
-| Key    | Screen / action                                              |
-|--------|--------------------------------------------------------------|
-| Y=     | Equation editor — up to four simultaneous equations Y1–Y4   |
-| RANGE  | Window settings: Xmin, Xmax, Ymin, Ymax, Xscl, Yscl        |
-| ZOOM   | Preset menu (see below)                                      |
-| GRAPH  | Renders all active equations onto the graph canvas           |
-| TRACE  | Moves a crosshair along the curve; LEFT/RIGHT step one pixel |
+| Key    | Screen / action                                                    |
+|--------|--------------------------------------------------------------------|
+| Y=     | Equation editor — up to four simultaneous equations Y1–Y4         |
+| RANGE  | Window settings: Xmin, Xmax, Xscl, Ymin, Ymax, Yscl, Xres        |
+| ZOOM   | Preset menu (see below)                                            |
+| GRAPH  | Renders all active equations onto the graph canvas                 |
+| TRACE  | Moves a crosshair along the curve; LEFT/RIGHT step one pixel       |
 
 ### ZOOM presets
 
@@ -257,6 +266,15 @@ Navigate with UP/DOWN arrows and ENTER, or press the number key shortcut directl
 **Box:** after selecting Box (ZBox), a yellow crosshair appears on the graph.
 Press ENTER to set the first corner, move with arrow keys, press ENTER again to
 zoom to the selected rectangle. CLEAR exits ZBox and returns to the calculator.
+
+**Set Factors:** opens a sub-screen with two editable fields:
+```
+ZOOM FACTORS
+XFact=4
+YFact=4
+```
+UP/DOWN move between fields; number keys and DEL edit the value; ENTER commits
+and exits. Zoom In and Zoom Out then use the stored factors.
 
 ### Angle mode
 
@@ -387,30 +405,35 @@ st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 | Block cursor with mode indicator           | ✅ Working     |
 | Expression building                        | ✅ Working     |
 | Cursor navigation within expression        | ✅ Working     |
+| Input text wrap (multi-row expression)     | ✅ Working     |
 | Basic arithmetic                           | ✅ Working     |
 | Trig functions (deg and rad)               | ✅ Working     |
+| Hyperbolic functions (sinh/cosh/tanh/…)   | ✅ Working     |
 | Logarithmic functions                      | ✅ Working     |
+| √ radical symbol for square root           | ✅ Working     |
 | ANS variable and auto-ANS                  | ✅ Working     |
 | User variables A–Z (STO→)                 | ✅ Working     |
 | DEG/RAD mode toggle                        | ✅ Working     |
 | History display (scrolling console)        | ✅ Working     |
+| History recall with UP/DOWN arrows         | ✅ Working     |
+| Overwrite / insert cursor mode (INS)       | ✅ Working     |
 | Error messages                             | ✅ Working     |
+| JetBrains Mono monospaced font             | ✅ Working     |
+| MODE screen (number format, graph type…)   | ✅ Working     |
+| MATH menu (MATH/NUM/HYP/PRB tabs)          | ✅ Working     |
 | Y= equation editor (up to 4 equations)    | ✅ Working     |
 | Cursor navigation within Y= equations     | ✅ Working     |
 | Graph rendering                            | ✅ Working     |
-| RANGE window editor                        | ✅ Working     |
+| RANGE window editor (7 fields incl. Xres) | ✅ Working     |
 | TRACE cursor with X/Y readout             | ✅ Working     |
-| ZOOM menu (6 presets, number-key select)   | ✅ Working     |
+| ZOOM menu (8 presets, cursor + number-key) | ✅ Working     |
+| ZOOM Set Factors sub-screen                | ✅ Working     |
 | ZBox rubber-band zoom                      | ✅ Working     |
 | Context-aware CLEAR on all screens         | ✅ Working     |
 | Free navigation between graph screens      | ✅ Working     |
-| ZOOM cursor-selectable navigation          | 🚧 In progress |
-| Monospaced font                            | 🚧 In progress |
-| MATH menu and functions                    | 🚧 Planned     |
 | MATRIX menu and operations                 | 🚧 Planned     |
-| MODE screen (number format, graph type…)   | 🚧 Planned     |
-| History recall with UP arrow               | 🚧 Planned     |
-| Overwrite / insert cursor mode             | 🚧 Planned     |
+| TEST menu                                  | 🚧 Planned     |
+| Additional math functions (!, nPr, nCr)    | 🚧 Planned     |
 | Persist state across resets                | 🚧 Planned     |
 | PRGM editor and runner                     | 🚧 Planned     |
 

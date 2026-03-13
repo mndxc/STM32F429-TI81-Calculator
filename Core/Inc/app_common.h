@@ -36,8 +36,9 @@ typedef enum {
     MODE_GRAPH_ZOOM,    /* ZOOM preset menu active */
     MODE_GRAPH_TRACE,   /* Trace cursor active on graph */
     MODE_GRAPH_ZBOX,    /* ZBox rubber-band zoom active */
-    MODE_MODE_SCREEN,   /* MODE settings screen active */
-    MODE_MATH_MENU      /* MATH/NUM/HYP/PRB menu active */
+    MODE_MODE_SCREEN,        /* MODE settings screen active */
+    MODE_MATH_MENU,          /* MATH/NUM/HYP/PRB menu active */
+    MODE_GRAPH_ZOOM_FACTORS  /* ZOOM FACTORS sub-screen active */
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------

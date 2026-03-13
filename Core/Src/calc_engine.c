@@ -155,7 +155,7 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
             { "atan", MATH_FUNC_ATAN },
             { "ln",   MATH_FUNC_LN   },
             { "log",  MATH_FUNC_LOG  },
-            { "sqrt", MATH_FUNC_SQRT },
+            { "\xE2\x88\x9A", MATH_FUNC_SQRT },
             { "abs",  MATH_FUNC_ABS  },
             { "exp",  MATH_FUNC_EXP  },
         };

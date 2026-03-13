@@ -10,7 +10,7 @@ all key decisions, gotchas, and work-in-progress state for the project.
 A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 - **MCU:** STM32F429ZIT6 (Cortex-M4, 2MB Flash, 192KB RAM, 64KB CCMRAM)
-- **Display:** ILI9341 240x320 RGB565 via LTDC, landscape orientation (software rotated)
+- **Display:** ILI9341 240×320 RGB565 via LTDC, landscape orientation (software rotated)
 - **UI:** LVGL v9.x
 - **RTOS:** FreeRTOS via CMSIS-OS v1
 - **Toolchain:** GCC ARM None EABI 14.3.1, CMake, VSCode + stm32-cube-clangd extension
@@ -21,136 +21,187 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 ## Session Stopping Point (2026-03-12)
 
-### What was just completed
-Changes in `calculator_core.c` and `keypad.c` — committed.
+### What was just completed (uncommitted working-tree changes)
 
-**Features implemented and working:**
-1. **Arrow key hold-to-repeat** — Hold any arrow key for 400ms then repeats at 80ms. Only arrow keys repeat; all others fire once.
-2. **Y= cursor navigation** — LEFT/RIGHT move insertion point within equations. DEL deletes at cursor. Characters insert at cursor. UP/DOWN move between Y= rows and reset cursor to end-of-equation.
-3. **Free graph screen navigation** — Any graph navigation key (Y=, RANGE, ZOOM, GRAPH, TRACE) works from any graph screen without needing a specific exit first.
-4. **CLEAR behavior revised:**
-   - Y= screen: CLEAR wipes the current equation (stays in Y= screen)
-   - RANGE screen: CLEAR clears in-progress field edit; if field already empty, exits to calculator
-   - TRACE/graph view: CLEAR exits to calculator
-   - Main calculator: CLEAR clears expression
-5. **RANGE ZOOM bug fixed** — ZOOM from RANGE now opens the ZOOM menu (previously reset to ZStandard)
-6. **Code quality cleanup** — Fixed critical null-termination bug in history `strncpy` calls, added explicit null terminators throughout, fixed zoom preset comment, added `(void)argument` casts to FreeRTOS tasks, added default case to `apply_zoom_preset()`.
+Building on commit `ca98667`, the following are implemented but not yet committed:
 
-### Known issues to fix in next session
-- **Missing scroll indicator characters** — Menu items use "down arrow" and "up arrow" symbols to indicate that the list continues beyond the visible window (rows 7↓ and 8↑ in MATH menu). The font must include U+2193 (↓) and U+2191 (↑), or the implementation must substitute ASCII approximations (`v` / `^`) until a suitable font is confirmed. Verify the chosen monospaced font covers these glyphs during the font switch task.
-- **HYP menu inverse trig display** — `sinh^-1(`, `cosh^-1(`, `tanh^-1(` must be rendered as literal text `sinh^-1(` etc. since there is no dedicated superscript-minus-one character available. See HYP menu spec below.
-- **ZOOM cursor navigation** — ZOOM menu must support UP/DOWN arrow keys to move a highlight cursor through options, with ENTER to select. Number key shortcuts (1–8) remain as a secondary method but should not be the only way to select.
+1. **Input text wrap** — Long expressions wrap across multiple display rows instead of truncating. `MAX_EXPR_LEN` raised to 96. `expr_chars_per_row` measured at init from JetBrains Mono glyph width. `ui_refresh_display` rewritten to render expression sub-rows and place the cursor on the correct sub-row/column.
+2. **MATH HYP items 4–6 renamed** — `sinh^-1(` / `cosh^-1(` / `tanh^-1(` → `asinh(` / `acosh(` / `atanh(` in both display names and insert strings.
+3. **√ radical symbol** — `calc_engine.c` tokenizer now matches the UTF-8 sequence `"\xE2\x88\x9A"` (√) instead of `"sqrt"`, so the radical symbol works as a live token.
+4. **ZOOM Set Factors sub-screen** — Selecting ZOOM option 4 ("Set Factors") opens `ui_graph_zoom_factors_screen`. Two editable fields: XFact (default 4) and YFact (default 4). UP/DOWN move between fields; number keys and DEL edit; ENTER commits and returns to ZOOM menu. `MODE_GRAPH_ZOOM_FACTORS` added to `CalcMode_t`. Zoom In / Zoom Out now use `zoom_x_fact` / `zoom_y_fact`.
+5. **CMakeLists cleanup** — Removed unused BSP font sources (`font20.c`, `font16.c`, `font12.c`, `font8.c`); kept only `font24.c` (required by BSP LCD driver symbol).
+
+### Previously completed (earlier sessions, committed)
+- JetBrains Mono font wired into LVGL (`jetbrains_mono_24.c`, `lv_conf.h` updated)
+- MODE screen — arrow-key navigation, row highlight, ENTER commits
+- MATH menu — four tabs (MATH/NUM/HYP/PRB), scrollable item list, overflow indicators
+- ZOOM cursor navigation — UP/DOWN highlight; ENTER selects; scroll indicators for items 7–8
+- RANGE Xres= field — seventh field added; combined name=value labels
+- Overwrite mode — INS toggles; `expr_insert_char/str` respects mode
+- `graph_state.x_res` field added
+- Arrow key hold-to-repeat (400ms delay, 80ms rate; arrows only)
+- Y= cursor navigation (LEFT/RIGHT within equation, DEL at cursor, UP/DOWN between rows)
+- Free graph screen navigation (any graph key works from any graph screen)
+- Context-aware CLEAR (wipes eq/field; exits if already empty)
+- RANGE ZOOM bug fix (ZOOM from RANGE opens ZOOM menu, not ZStandard)
+- UP arrow history recall (UP scrolls back through history; DOWN scrolls forward)
+- Removed DEG/RAD corner indicator from main screen
+
+### Known issues
+- **Scroll indicator glyphs** — Menus use literal `v`/`^` as overflow indicators because U+2193/U+2191 availability in JetBrains Mono at the current glyph range was not verified. Confirm glyph coverage and switch to ↓/↑ if present.
+- **Red flashing LED** — Irregular-period LED present on board. Decide: remove or set to a regular interval (e.g. 1 Hz heartbeat).
 
 ### Next session priorities (in order)
 
-**1. Monospaced font** — Switch the main calculator display from Montserrat 24 (proportional) to a fixed-width font so the cursor block aligns correctly with any character. Options:
-- `lv_font_unscii_16` — built into LVGL, truly monospaced, but bitmap/blocky
-- Roboto Mono or Courier-style — requires LVGL font converter (`lv_font_conv`) to generate a `.c` font file. Recommended size: 18–20px to fit 8 rows in 240px height.
-- The cursor block is currently 16×26px, sized for Montserrat 24. It will need resizing to match the new font's cell dimensions.
-- All graph screens use Montserrat 24 for content — consider whether to keep those proportional or unify everything.
-- consider JetBrains Mono as a preferred option. verify it has characters for various math needs: squared symbol, cubed symbol, power of negative one symbol, triangle pointing right symbol, degrees symbol, pi symbol, theta symbol, uppercase sigma symbol, lowercase sigma symbol, x bar symbol, y bar symbol, 
+**1. TEST menu** — New backlog item; spec TBD.
 
-**2. MODE screen** — TI-81 MODE has no title text. The screen is just filled with options to select. The options are not selected by pressing numbers on the key pad. The selection occurs when the arrow keys move the blinking highlighted option. Moving the highlighted blinking right and left change the selection for that line and using up and down change the active row. There are no dividers between row options, just a single whitespace. Pressing enter key moves the 'activated' option to the cursor location and stays in this screen
-- Row 1: Normal | Sci | Eng  (number format)
-- Row 2: Float | 0–9  (decimal places — currently hardcoded to 6)
-- Row 3: Radian | Degree  (currently just toggled with MODE key — no screen)
-- Row 4: Function | Param  (graph type — graph only supports Function currently)
-- Row 5: Connected | Dot  (graph draw style)
-- Row 6: Sequential | Simul  (equation evaluation order)
-- Row 7:Grid off | Grid on
-- Row 8: Polar | Seq  
-- Mode state persists in a `CalcSettings_t` struct. Only Radian/Degree is currently wired.
+**2. MATRIX menu** — Deferred; start with menu and 3×3 input UI before wiring math.
 
-**3. UP arrow recalls history** — In MODE_NORMAL with an empty expression, UP should load the previous history entry into the expression buffer (same as ENTRY token / 2nd+ENTER). Subsequent UP presses scroll further back. DOWN scrolls forward. This is a small change to the main TOKEN_UP case.
+**3. Additional math functions** — Factorial, combinations, permutations (wiring for MATH PRB items already in menu).
 
-**4. Overwrite mode by default / INS toggles insert** — Currently always insert mode. Add `insert_mode` bool (default false = overwrite). In overwrite mode, `expr_insert_char/str` replaces the character at cursor_pos instead of shifting right. INS key toggles the flag. Cursor appearance can differ (underscore for overwrite vs. block for insert).
+**4. PRGM** — Program editor and runner.
 
-**5. MATH menu** — Key opens a menu screen. TI-81 MATH has four tabs (MATH, NUM, HYP and PRB). Menu screens use highlighted text to display which tab is active. Change the active taby using the left and right keys and select which item of the list is active highlighted by up and down arrow keys. Using enter on the key or pressing the noted number key will insert that function into the previously active entry screen.
+**5. Battery voltage ADC** — Custom PCB only.
 
-- MATH:
-- Row 1: MATH NUM HYP PRB (tabs, active one selected by left and right arrows)(MATH highlighted to indicate it is active)
-- Row 2: 1:R>P( (selected by pressing number 1 as indicated)
-- Row 3: 2:P>R(
-- Row 4: 3:3 (cubed symbol)
-- Row 5: 4: (3rd root symbol)
-- Row 6: 5: !
-- Row 7: 6: (degree symbol)
-- Row 8: 7↓r  (↓ replaces colon to signal list continues below; use literal "v" if font lacks U+2193)
-- Row 9: 8: NDeriv(  (visible after scrolling; the overflowed item at top gains ↑ before its number to signal list continues above; use "^" if font lacks U+2191)
+---
 
-- NUM: 
-- Row 1: MATH NUM HYP PRB (NUM highlighted to indicate it is active)
-- Row 2: 1:Round(
-- Row 3: 2:IPart
-- Row 4: 3:FPart
-- Row 5: 4:Int
+## Menu Specs
 
-- HYP:
-- Row 1: MATH NUM HYP PRB (HYP highlighted to indicate it is active)
-- Row 2: 1:sinh
-- Row 3: 2:cosh
-- Row 4: 3:tanh
-- Row 5: 4:sinh^-1(   (rendered as literal text "sinh^-1(" — no special superscript character)
-- Row 6: 5:cosh^-1(   (rendered as literal text "cosh^-1(")
-- Row 7: 6:tanh^-1(   (rendered as literal text "tanh^-1(")
+These specs describe the intended final state of each menu screen.
 
-- PRB:
-- Row 1: MATH NUM HYP PRB (PRB highlighted to indicate it is active)
-- Row 2: 1:Rand
-- Row 3: 2: nPr (note intended white space before and after this item. it is inserted into the active screen with that space)
-- Row 4: 3: nCr  (note intended white space before and after this item. it is inserted into the active screen with that space)
-- Implement as a MODE_MATH_MENU state with a screen similar to ZOOM.
+### General menu rules
+- The menu top bar uses the same font as the items below.
+- When a menu scrolls, the top tab bar stays fixed and items scroll into the visible window.
+- Normal cursor entry applies in menus (INS toggles overwrite/insert; LEFT/RIGHT move cursor).
+- Overflow indicators: `v` at bottom means list continues below; `^` at top means list continues above. Use U+2193/U+2191 if the font confirms support.
 
-**6. MATRIX menu** — Deferred. Start with menu and 3×3 input UI before wiring math.
-- MATRIX:
-- Row 1: MATRIX EDIT (tabs, active one selected by left and right arrows)(MATRIX highlighted to indicate it is active)
-- Row 2: 1:RowSwap(
-- Row 3: 2:Row+(
-- Row 4: 3:*Row(
-- Row 5: 4:*Row+(
-- Row 6: 5:det
-- Row 7: T (superscript T symbol)
+---
 
-- EDIT:
-- Row 1: MATRIX EDIT (tabs, active one selected by left and right arrows)(EDIT highlighted to indicate it is active)
-- Row 2: 1: [A] 6x6
-- Row 3: 2: [B] 6x6
-- Row 4: 3: [C] 6x6
+### MODE screen
+No title text. Screen filled with option rows; arrow keys navigate.
 
-**7. ZOOM menu** — Adjust to better mimic original
+| Row | Options |
+|-----|---------|
+| 1 | Normal \| Sci \| Eng |
+| 2 | Float \| 0 1 2 3 4 5 6 7 8 9 |
+| 3 | Radian \| Degree |
+| 4 | Function \| Param |
+| 5 | Connected \| Dot |
+| 6 | Sequential \| Simul |
+| 7 | Grid off \| Grid on |
+| 8 | Polar \| Seq |
 
-- Row 1: ZOOM (appears to be an active tab even though there is no other option)
-- Row 2: 1:Box
-- Row 3: 2:Zoom In
-- Row 4: 3:Zoom Out
-- Row 5: 4:Set Factors (describes how much zoom in and zoom out are scaled)
-- Row 6: 5:Square
-- Row 7: 6:Standard
-- Row 8: 7↓Trig  (the ↓ replaces the colon to indicate the list continues below; use literal "v" if font lacks U+2193)
-- Row 9: 8:Integer  (visible after scrolling down; row 8 header gains ↑ indicator)
-- Navigation: UP/DOWN arrows move the highlight cursor through options; ENTER selects. Number keys 1–8 remain as direct shortcuts but cursor-based navigation is the primary method.
+- LEFT/RIGHT moves selection within a row. UP/DOWN changes active row.
+- ENTER commits the highlighted selection; stays in MODE screen.
+- State persists in `CalcSettings_t` (only Radian/Degree and basic fields wired so far).
 
-**7.1 ZOOM Set Factors sub menu** - To do.
-- Row 1: ZOOM FACTORS
-- Row 2: XFact= (4 by default)
-- Row 3: YFact= (4 by default)
+---
 
-**8. RANGE menu** — Adjust to better mimic original. The cursor edits the value directly after the equal sign
-- Row 1: RANGE (appears to be an active tab even though there is no other option)
-- Row 2: Xmin=
-- Row 3: Xmax=
-- Row 4: Xscl=
-- Row 5: Ymin=
-- Row 6: Ymax=
-- Row 7: Yscl=
-- Row 8: Xres=
+### MATH menu
+Four tabs. Tab LEFT/RIGHT; item UP/DOWN; ENTER or number key inserts.
 
+**MATH tab:**
+```
+MATH NUM HYP PRB
+1:R>P(
+2:P>R(
+3:³           (cubed symbol)
+4:∛(          (cube root symbol)
+5: !
+6:°           (degree symbol)
+7vr           (v = overflow indicator; list continues)
+  8:NDeriv(   (visible after scrolling)
+```
 
-Note regarding menus: 
-The menu top bar uses the same font as the items below.
-When a menu scrolls up and down the top 'tab bar' stays active and the options listed below it scroll up and down into the visible window.
-Allow normal cursor entry in menus. For example allow INS to be used to insert and left right arrows to move cursor for overwrite.
-In normal calculator mode cause text input to wrap around to a new line instead of staying on current line and scrolling offscreen.
+**NUM tab:**
+```
+MATH NUM HYP PRB
+1:Round(
+2:iPart
+3:fPart
+4:int(
+```
+
+**HYP tab:**
+```
+MATH NUM HYP PRB
+1:sinh(
+2:cosh(
+3:tanh(
+4:asinh(
+5:acosh(
+6:atanh(
+```
+
+**PRB tab:**
+```
+MATH NUM HYP PRB
+1:rand
+2: nPr        (spaces before and after are inserted into expression)
+3: nCr        (spaces before and after are inserted into expression)
+```
+
+---
+
+### ZOOM menu
+```
+ZOOM
+1:Box
+2:Zoom In
+3:Zoom Out
+4:Set Factors
+5:Square
+6:Standard
+7vTrig        (v = overflow indicator)
+  8:Integer   (visible after scrolling)
+```
+Navigation: UP/DOWN cursor; ENTER selects. Number keys 1–8 are direct shortcuts.
+
+**Set Factors sub-screen (implemented):**
+```
+ZOOM FACTORS
+XFact=4
+YFact=4
+```
+
+---
+
+### RANGE menu
+```
+RANGE
+Xmin=
+Xmax=
+Xscl=
+Ymin=
+Ymax=
+Yscl=
+Xres=
+```
+Cursor edits value directly after the `=` sign. ENTER/UP/DOWN commit and move between fields.
+
+---
+
+### MATRIX menu (deferred)
+
+**MATRIX tab:**
+```
+MATRIX EDIT
+1:RowSwap(
+2:Row+(
+3:*Row(
+4:*Row+(
+5:det(
+6:T            (transpose superscript)
+```
+
+**EDIT tab:**
+```
+MATRIX EDIT
+1:[A] 6×6
+2:[B] 6×6
+3:[C] 6×6
+```
+
 ---
 
 ## Critical Build Settings
@@ -160,21 +211,21 @@ In normal calculator mode cause text input to wrap around to a new line instead 
 ```cmake
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --specs=nano.specs -u _printf_float")
 ```
-Without `-u _printf_float`, `%f`, `%g`, and `%e` all produce empty strings silently.
+Without `-u _printf_float`, `%f`, `%g`, and `%e` produce empty strings silently.
 
 ### Memory regions
 ```
-RAM:     192 KB @ 0x20000000   (currently ~57% used)
-CCMRAM:   64 KB @ 0x10000000   (currently ~98% used — graph_buf was here, now moved)
-FLASH:     2 MB @ 0x08000000   (currently ~35% used)
+RAM:     192 KB @ 0x20000000   (~57% used)
+CCMRAM:   64 KB @ 0x10000000   (~98% used — graph_buf was here, now moved)
+FLASH:     2 MB @ 0x08000000   (~35% used)
 SDRAM:    64 MB @ 0xD0000000   (external, initialised in main.c)
 ```
 
 ### SDRAM layout
 ```
-0xD0000000  LCD framebuffer     320*240*2 = 153,600 bytes
-0xD0025800  graph_buf           320*220*2 = 140,800 bytes
-0xD0047E00  graph_buf_clean     320*220*2 = 140,800 bytes  (trace cache)
+0xD0000000  LCD framebuffer     320×240×2 = 153,600 bytes
+0xD0025800  graph_buf           320×220×2 = 140,800 bytes
+0xD0047E00  graph_buf_clean     320×220×2 = 140,800 bytes  (trace cache)
 ```
 `graph_buf` and `graph_buf_clean` are pointers into SDRAM, not static arrays:
 ```c
@@ -193,7 +244,7 @@ osThreadDef(keypadTask,  StartKeypadTask,  osPriorityNormal, 0, 1024 * 2);  // 2
 osThreadDef(calcCore,    StartCalcCoreTask,osPriorityNormal, 0, 1024 * 2);  // 2048 words
 #define configTOTAL_HEAP_SIZE ((size_t)65536)
 ```
-CubeMX resets these when regenerating — always check after any .ioc changes.
+CubeMX resets these when regenerating — always check after any `.ioc` changes.
 
 ---
 
@@ -211,6 +262,9 @@ Core/Src/
     calc_engine.c       — tokenizer, shunting-yard, RPN evaluator
     graph.c             — graph canvas, renderer, axes, curve plotting
     freertos.c          — FreeRTOS task definitions
+Core/Fonts/
+    jetbrains_mono_20.c — JetBrains Mono 20px LVGL font
+    jetbrains_mono_24.c — JetBrains Mono 24px LVGL font
 Drivers/Keypad/
     keypad.c/h          — hardware key matrix scanning
     keypad_map.c/h      — Token_t enum, hardware key → token lookup table
@@ -234,7 +288,7 @@ lvgl_lock();
 // lv_* calls here
 lvgl_unlock();
 ```
-These are defined in `calculator_core.c` using `xLVGL_Mutex`.
+Defined in `calculator_core.c` using `xLVGL_Mutex`.
 
 **Critical:** Never call `lvgl_lock()` inside `cursor_timer_cb()` — it runs inside
 `lv_task_handler()` which DefaultTask already holds the mutex for; a second lock deadlocks.
@@ -254,19 +308,25 @@ typedef enum {
     MODE_GRAPH_RANGE,   // RANGE field editor active
     MODE_GRAPH_ZOOM,    // ZOOM preset menu active
     MODE_GRAPH_TRACE,   // trace cursor active on graph
-    MODE_GRAPH_ZBOX     // ZBox rubber-band zoom active
+    MODE_GRAPH_ZBOX,    // ZBox rubber-band zoom active
+    MODE_MODE_SCREEN,        // MODE settings screen active
+    MODE_MATH_MENU,          // MATH/NUM/HYP/PRB menu active
+    MODE_GRAPH_ZOOM_FACTORS  // ZOOM FACTORS sub-screen (XFact/YFact editing)
 } CalcMode_t;
 ```
 
-`Execute_Token()` in `calculator_core.c` is structured as a series of early-return mode handlers
+`Execute_Token()` in `calculator_core.c` is structured as early-return mode handlers
 at the top, followed by a main `switch(t)` for MODE_NORMAL. Handler order:
 1. MODE_GRAPH_YEQ
 2. MODE_GRAPH_RANGE
 3. MODE_GRAPH_ZOOM
-4. MODE_GRAPH_ZBOX
-5. MODE_GRAPH_TRACE  ← exits trace then **falls through** to main switch
-6. STO pending check ← fires if `sto_pending`, then falls through
-7. Main switch (MODE_NORMAL)
+4. MODE_GRAPH_ZOOM_FACTORS
+5. MODE_GRAPH_ZBOX
+6. MODE_MODE_SCREEN
+7. MODE_MATH_MENU
+8. MODE_GRAPH_TRACE ← exits trace then **falls through** to main switch
+9. STO pending check ← fires if `sto_pending`, then falls through
+10. Main switch (MODE_NORMAL)
 
 ### Modifier key behaviour
 - Pressing 2ND or ALPHA a second time cancels the mode (toggle)
@@ -280,14 +340,20 @@ at the top, followed by a main `switch(t)` for MODE_NORMAL. Handler order:
   - STO pending: steady green block, `A` inside
 - `ui_lbl_modifier` is an invisible LVGL label on the main screen. It holds the current
   modifier text/color so `ui_update_status_bar()` can mirror it to `ui_lbl_yeq_modifier`
-  and `ui_lbl_range_modifier` on the graph editing screens.
+  and `ui_lbl_range_modifier` on graph editing screens.
 
 ### Cursor implementation
 `cursor_update(row_label, char_pos)` in `calculator_core.c`:
 - Uses `lv_label_get_letter_pos()` to find pixel X of the insertion point
-- Positions `cursor_box` (16×26 px `lv_obj`) over that point
+- Positions `cursor_box` (sized for JetBrains Mono, `lv_obj`) over that point
 - Sets `cursor_box` background color and `cursor_inner` label text based on mode / `sto_pending`
 - LVGL timer `cursor_timer_cb` fires every `CURSOR_BLINK_MS` (530 ms)
+
+### Insert / Overwrite mode
+- Default: overwrite mode (`insert_mode = false`)
+- INS key toggles `insert_mode`
+- `expr_insert_char` / `expr_insert_str` replace character at cursor in overwrite mode, shift right in insert mode
+- Cursor appearance: block for overwrite, underscore for insert (TBD)
 
 ### Auto-ANS insertion
 When the expression is empty and a binary operator is pressed, `expr_prepend_ans_if_empty()`
@@ -302,17 +368,20 @@ No status bar. The full 320×240 display is a scrolling console.
 
 ### Display layout
 ```
-DISP_ROW_COUNT = 8   rows
-DISP_ROW_H     = 30  px per row   (8 × 30 = 240px — fills screen exactly)
-Font: Montserrat 24 (proportional — switching to monospaced is next task)
+DISP_ROW_COUNT = 8    rows
+DISP_ROW_H     = 30   px per row   (8 × 30 = 240px — fills screen exactly)
+Font: JetBrains Mono 24 (monospaced)
+MAX_EXPR_LEN   = 96   chars (~4 wrapped rows)
 ```
 
 Each history entry occupies two rows:
 - Even row: expression — left-aligned, grey (`0x888888`)
 - Odd row: result — right-aligned, white (`0xFFFFFF`)
 
-Current expression being typed: last row, left-aligned, light grey (`0xCCCCCC`).
-Small `DEG` / `RAD` indicator: top-right corner, Montserrat 14, dim grey (`0x444444`).
+Current expression being typed: one or more rows (wraps), left-aligned, light grey
+(`0xCCCCCC`). `expr_chars_per_row` is measured at init from the JetBrains Mono glyph
+width; `ui_refresh_display` slices `expression[]` into `cpr`-char segments and renders
+each onto its own display row. The cursor is placed on the sub-row containing `cursor_pos`.
 
 ### Key display functions
 ```c
@@ -329,7 +398,13 @@ static void ui_update_history(void);    // called after ENTER commits a result
 ```c
 GraphState_t graph_state;   // defined in calculator_core.c, extern in app_common.h
 
-// graph_state.active is set by Graph_SetVisible() — use it to check if graph is on-screen
+typedef struct {
+    char    equations[GRAPH_NUM_EQ][64];
+    float   x_min, x_max, y_min, y_max;
+    float   x_scl, y_scl;
+    float   x_res;   // render step (1 = every pixel column)
+    bool    active;
+} GraphState_t;
 ```
 
 ### Graph screens (all children of lv_scr_act(), all hidden at startup)
@@ -355,12 +430,21 @@ CLEAR → clears active content (eq/field), or exits to calculator if nothing to
 - Reset to end-of-equation when switching rows (UP/DOWN) or opening Y= from main screen
 
 ### ZOOM menu
-Six options (number keys 1–6):
-- 1: ZBox → MODE_GRAPH_ZBOX (rubber-band zoom)
-- 2–6: Fixed presets via `apply_zoom_preset(preset - 1)` → renders graph immediately
+Eight options (number keys 1–8 or UP/DOWN + ENTER):
+- 1: Box → MODE_GRAPH_ZBOX (rubber-band zoom)
+- 2: Zoom In (uses `zoom_x_fact` / `zoom_y_fact`)
+- 3: Zoom Out (uses `zoom_x_fact` / `zoom_y_fact`)
+- 4: Set Factors → MODE_GRAPH_ZOOM_FACTORS, opens `ui_graph_zoom_factors_screen`
+- 5–8: Fixed presets via `apply_zoom_preset()` → renders graph immediately
+
+**ZOOM FACTORS sub-screen** (`ui_graph_zoom_factors_screen`):
+- Two rows: `XFact=` and `YFact=` (defaults 4.0)
+- State: `zoom_x_fact`, `zoom_y_fact`, `zoom_factors_field` (0/1), `zoom_factors_buf[16]`, `zoom_factors_len`, `zoom_factors_cursor`
+- UP/DOWN move between fields; digits and DEL edit value; ENTER commits and exits to ZOOM menu
+- Cursor box (`zoom_factors_cursor_box` / `zoom_factors_cursor_inner`) works same as RANGE editor
 
 ### RANGE editor
-`range_field_selected` (0=Xmin … 5=Yscl), `range_field_buf[16]`, `range_field_len`.
+`range_field_selected` (0=Xmin … 6=Xres), `range_field_buf[16]`, `range_field_len`.
 Fields commit on UP/DOWN/ENTER. CLEAR clears in-progress edit; if already empty, exits screen.
 ZOOM from RANGE navigates to the ZOOM menu (does not reset to ZStandard).
 
@@ -434,16 +518,13 @@ shunting-yard from treating it as binary subtraction. `-3^2` still evaluates as 
 
 ## Planned Features (backlog)
 
-In priority order for next sessions:
-1. **Monospaced font** — see "Next session priorities" above
-2. **MODE screen** — angle, number format, decimal places, graph type
-3. **UP arrow history recall** — MODE_NORMAL + empty expression: UP scrolls back through history
-4. **Overwrite/insert cursor mode** — default overwrite, INS key toggles
-5. **MATH menu** — MATH and NUM submenus with function insertion
-6. **MATRIX menu** — input UI and matrix math (deferred until MATH done)
-7. **Additional math functions** — factorial, hyperbolic trig, combinations, permutations
-8. **PRGM** — program editor and runner
-9. **Battery voltage ADC** — custom PCB only
+In priority order:
+1. TEST menu (spec TBD)
+2. MATRIX menu and 3×3 input UI
+3. Additional math functions (factorial, nPr, nCr wiring)
+4. PRGM — program editor and runner
+5. Battery voltage ADC (custom PCB only)
+6. Red flashing LED — decide: remove or regularize at 1 Hz heartbeat
 
 ---
 
