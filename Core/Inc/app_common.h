@@ -38,7 +38,10 @@ typedef enum {
     MODE_GRAPH_ZBOX,    /* ZBox rubber-band zoom active */
     MODE_MODE_SCREEN,        /* MODE settings screen active */
     MODE_MATH_MENU,          /* MATH/NUM/HYP/PRB menu active */
-    MODE_GRAPH_ZOOM_FACTORS  /* ZOOM FACTORS sub-screen active */
+    MODE_GRAPH_ZOOM_FACTORS, /* ZOOM FACTORS sub-screen active */
+    MODE_TEST_MENU,          /* TEST comparison-operator menu active */
+    MODE_MATRIX_MENU,        /* MATRIX/EDIT tabs active */
+    MODE_MATRIX_EDIT,        /* Matrix cell editor active */
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------

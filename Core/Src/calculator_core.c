@@ -39,6 +39,13 @@
 #define MODE_ROW_COUNT      8           /* Rows in the MODE screen */
 #define MODE_MAX_COLS       11          /* Max options per MODE row (row 1 has 11) */
 #define MATH_TAB_COUNT      4           /* MATH menu tabs: MATH NUM HYP PRB */
+#define TEST_ITEM_COUNT     6           /* TEST menu items: = ≠ > ≥ < ≤ */
+
+#define MATRIX_COUNT        3           /* Number of matrices: [A], [B], [C] */
+#define MATRIX_MAX_DIM      3           /* Fixed 3x3 for now */
+#define MATRIX_TAB_COUNT    2           /* MATRX and EDIT tabs */
+#define MATRIX_MATRX_ITEMS  6           /* Items in the MATRX operations tab */
+#define MATRIX_EDIT_ITEMS   3           /* Items in the EDIT tab */
 
 /* Color scheme */
 #define COLOR_BG            0x1A1A1A    /* Near black background */
@@ -64,6 +71,12 @@ typedef struct {
     char expression[MAX_EXPR_LEN];
     char result[MAX_RESULT_LEN];
 } HistoryEntry_t;
+
+typedef struct {
+    float   data[MATRIX_MAX_DIM][MATRIX_MAX_DIM];
+    uint8_t rows;
+    uint8_t cols;
+} Matrix_t;
 
 /*---------------------------------------------------------------------------
  * Private variables
@@ -240,6 +253,67 @@ static const char * const math_insert_strings[MATH_TAB_COUNT][8] = {
     {"rand",   " nPr ",  " nCr ",    NULL, NULL, NULL, NULL, NULL},
 };
 
+/* TEST menu state */
+static lv_obj_t  *ui_test_screen                   = NULL;
+static uint8_t    test_item_cursor                  = 0;
+static CalcMode_t test_return_mode                  = MODE_NORMAL;
+static lv_obj_t  *test_title_label                  = NULL;
+static lv_obj_t  *test_item_labels[TEST_ITEM_COUNT];
+
+/* TEST menu data */
+static const char * const test_display_names[TEST_ITEM_COUNT] = {
+    "=",
+    "\xE2\x89\xA0",   /* U+2260 ≠ */
+    ">",
+    "\xE2\x89\xA5",   /* U+2265 ≥ */
+    "<",
+    "\xE2\x89\xA4",   /* U+2264 ≤ */
+};
+static const char * const test_insert_strings[TEST_ITEM_COUNT] = {
+    "=",
+    "\xE2\x89\xA0",
+    ">",
+    "\xE2\x89\xA5",
+    "<",
+    "\xE2\x89\xA4",
+};
+
+/* Matrix data — rows/cols initialised to MATRIX_MAX_DIM, values zero */
+static Matrix_t matrices[MATRIX_COUNT] = {
+    { .rows = MATRIX_MAX_DIM, .cols = MATRIX_MAX_DIM },
+    { .rows = MATRIX_MAX_DIM, .cols = MATRIX_MAX_DIM },
+    { .rows = MATRIX_MAX_DIM, .cols = MATRIX_MAX_DIM },
+};
+
+/* MATRIX menu state */
+static lv_obj_t    *ui_matrix_screen       = NULL;
+static uint8_t      matrix_tab             = 0;   /* 0=MATRX, 1=EDIT */
+static uint8_t      matrix_item_cursor     = 0;
+static CalcMode_t   matrix_return_mode     = MODE_NORMAL;
+static lv_obj_t    *matrix_tab_labels[MATRIX_TAB_COUNT];
+static lv_obj_t    *matrix_item_labels[MENU_VISIBLE_ROWS];
+
+/* MATRIX EDIT sub-screen state */
+static lv_obj_t    *ui_matrix_edit_screen  = NULL;
+static uint8_t      matrix_edit_idx        = 0;   /* 0=[A], 1=[B], 2=[C] */
+static uint8_t      matrix_edit_row        = 0;
+static uint8_t      matrix_edit_col        = 0;
+static char         matrix_edit_buf[16]    = {0};
+static uint8_t      matrix_edit_len        = 0;
+static lv_obj_t    *matrix_edit_title_lbl  = NULL;
+static lv_obj_t    *matrix_cell_labels[MATRIX_MAX_DIM][MATRIX_MAX_DIM];
+
+/* MATRIX menu data */
+static const char * const matrix_tab_names[MATRIX_TAB_COUNT]     = {"MATRX", "EDIT"};
+static const uint8_t matrix_tab_item_count[MATRIX_TAB_COUNT]     = {MATRIX_MATRX_ITEMS, MATRIX_EDIT_ITEMS};
+static const char * const matrix_op_names[MATRIX_MATRX_ITEMS]   = {
+    "RowSwap(", "Row+(", "*Row(", "*Row+(", "det(", "T"
+};
+static const char * const matrix_op_insert[MATRIX_MATRX_ITEMS]  = {
+    "rowSwap(", "row+(", "*row(", "*row+(", "det(", "T"
+};
+static const char * const matrix_edit_item_names[MATRIX_EDIT_ITEMS] = {"[A]", "[B]", "[C]"};
+
 /*---------------------------------------------------------------------------
  * Forward declarations for display helpers defined later in this file
  *---------------------------------------------------------------------------*/
@@ -247,6 +321,9 @@ static const char * const math_insert_strings[MATH_TAB_COUNT][8] = {
 static void ui_update_zoom_display(void);
 static void ui_update_mode_display(void);
 static void ui_update_math_display(void);
+static void ui_update_test_display(void);
+static void ui_update_matrix_display(void);
+static void ui_update_matrix_edit_display(void);
 static void zoom_factors_reset(void);
 static void ui_update_zoom_factors_display(void);
 static void zoom_factors_update_highlight(void);
@@ -403,7 +480,7 @@ static void ui_init_graph_screens(void)
         lv_obj_set_style_text_font(ui_lbl_yeq_eq[i], &jetbrains_mono_24, 0);
         lv_obj_set_style_text_color(ui_lbl_yeq_eq[i],
                                      lv_color_hex(0xFFFFFF), 0);
-        lv_label_set_long_mode(ui_lbl_yeq_eq[i], LV_LABEL_LONG_CLIP);
+        lv_label_set_long_mode(ui_lbl_yeq_eq[i], LV_LABEL_LONG_WRAP);
         lv_label_set_text(ui_lbl_yeq_eq[i], "");
     }
 
@@ -583,6 +660,104 @@ static void ui_init_math_screen(void)
     }
 }
 
+/* Creates the TEST menu screen (hidden at startup). */
+static void ui_init_test_screen(void)
+{
+    lv_obj_t *scr = lv_scr_act();
+    ui_test_screen = lv_obj_create(scr);
+    lv_obj_set_size(ui_test_screen, DISPLAY_W, DISPLAY_H);
+    lv_obj_set_pos(ui_test_screen, 0, 0);
+    lv_obj_set_style_bg_color(ui_test_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_border_width(ui_test_screen, 0, 0);
+    lv_obj_set_style_pad_all(ui_test_screen, 0, 0);
+    lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
+
+    /* "TEST" title at the top row */
+    test_title_label = lv_label_create(ui_test_screen);
+    lv_obj_set_pos(test_title_label, 4, 4);
+    lv_obj_set_style_text_font(test_title_label, &jetbrains_mono_24, 0);
+    lv_obj_set_style_text_color(test_title_label, lv_color_hex(0xFFFF00), 0);
+    lv_label_set_text(test_title_label, "TEST");
+
+    /* Item labels — text set by ui_update_test_display() */
+    for (int i = 0; i < TEST_ITEM_COUNT; i++) {
+        test_item_labels[i] = lv_label_create(ui_test_screen);
+        lv_obj_set_pos(test_item_labels[i], 4, 30 + i * 30);
+        lv_obj_set_style_text_font(test_item_labels[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(test_item_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_text(test_item_labels[i], "");
+    }
+}
+
+/* Creates the MATRIX menu and MATRIX EDIT sub-screen (both hidden at startup). */
+static void ui_init_matrix_screen(void)
+{
+    lv_obj_t *scr = lv_scr_act();
+
+    /* --- MATRIX menu screen --- */
+    ui_matrix_screen = lv_obj_create(scr);
+    lv_obj_set_size(ui_matrix_screen, DISPLAY_W, DISPLAY_H);
+    lv_obj_set_pos(ui_matrix_screen, 0, 0);
+    lv_obj_set_style_bg_color(ui_matrix_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_border_width(ui_matrix_screen, 0, 0);
+    lv_obj_set_style_pad_all(ui_matrix_screen, 0, 0);
+    lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+
+    /* Tab bar: MATRX  EDIT */
+    static const int16_t matrix_tab_x[MATRIX_TAB_COUNT] = {4, 100};
+    for (int i = 0; i < MATRIX_TAB_COUNT; i++) {
+        matrix_tab_labels[i] = lv_label_create(ui_matrix_screen);
+        lv_obj_set_pos(matrix_tab_labels[i], matrix_tab_x[i], 4);
+        lv_obj_set_style_text_font(matrix_tab_labels[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(matrix_tab_labels[i], lv_color_hex(0x666666), 0);
+        lv_label_set_text(matrix_tab_labels[i], matrix_tab_names[i]);
+    }
+
+    /* Item labels — text set by ui_update_matrix_display() */
+    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
+        matrix_item_labels[i] = lv_label_create(ui_matrix_screen);
+        lv_obj_set_pos(matrix_item_labels[i], 4, 30 + i * 30);
+        lv_obj_set_style_text_font(matrix_item_labels[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(matrix_item_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_text(matrix_item_labels[i], "");
+    }
+
+    /* --- MATRIX EDIT sub-screen --- */
+    ui_matrix_edit_screen = lv_obj_create(scr);
+    lv_obj_set_size(ui_matrix_edit_screen, DISPLAY_W, DISPLAY_H);
+    lv_obj_set_pos(ui_matrix_edit_screen, 0, 0);
+    lv_obj_set_style_bg_color(ui_matrix_edit_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_border_width(ui_matrix_edit_screen, 0, 0);
+    lv_obj_set_style_pad_all(ui_matrix_edit_screen, 0, 0);
+    lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+
+    /* Title label: "[A] 3x3" — text updated when editor opens */
+    matrix_edit_title_lbl = lv_label_create(ui_matrix_edit_screen);
+    lv_obj_set_pos(matrix_edit_title_lbl, 4, 4);
+    lv_obj_set_style_text_font(matrix_edit_title_lbl, &jetbrains_mono_24, 0);
+    lv_obj_set_style_text_color(matrix_edit_title_lbl, lv_color_hex(0xFFFFFF), 0);
+    lv_label_set_text(matrix_edit_title_lbl, "[A] 3x3");
+
+    /* Cell labels — 3x3 grid.
+     * 3 equal columns across 320px: col 0 at x=4, col 1 at x=110, col 2 at x=216.
+     * Each row 30px tall starting at y=34 (below title row). */
+    static const int16_t cell_col_x[MATRIX_MAX_DIM] = {4, 110, 216};
+    for (int r = 0; r < MATRIX_MAX_DIM; r++) {
+        for (int c = 0; c < MATRIX_MAX_DIM; c++) {
+            matrix_cell_labels[r][c] = lv_label_create(ui_matrix_edit_screen);
+            lv_obj_set_pos(matrix_cell_labels[r][c], cell_col_x[c], 34 + r * 30);
+            lv_obj_set_width(matrix_cell_labels[r][c], 100);
+            lv_obj_set_style_text_font(matrix_cell_labels[r][c], &jetbrains_mono_24, 0);
+            lv_obj_set_style_text_color(matrix_cell_labels[r][c], lv_color_hex(0xFFFFFF), 0);
+            lv_label_set_long_mode(matrix_cell_labels[r][c], LV_LABEL_LONG_CLIP);
+            lv_label_set_text(matrix_cell_labels[r][c], "0");
+        }
+    }
+}
+
 /*---------------------------------------------------------------------------
  * UI update functions
  *---------------------------------------------------------------------------*/
@@ -697,6 +872,24 @@ static uint32_t utf8_byte_to_glyph(const char *s, uint32_t byte_idx)
         glyph++;
     }
     return glyph;
+}
+
+/**
+ * @brief Reflows Y= row positions after equation text changes.
+ *        Rows are stacked top-to-bottom; each row's height expands when its
+ *        equation wraps to multiple lines.  Must be called under lvgl_lock().
+ */
+static void yeq_reflow_rows(void)
+{
+    lv_obj_update_layout(ui_graph_yeq_screen);
+    int32_t y = 4;
+    for (int i = 0; i < GRAPH_NUM_EQ; i++) {
+        lv_obj_set_pos(ui_lbl_yeq_name[i], 4,  y);
+        lv_obj_set_pos(ui_lbl_yeq_eq[i],  44,  y);
+        int32_t h = lv_obj_get_height(ui_lbl_yeq_eq[i]);
+        if (h < 26) h = 26; /* minimum one-line height */
+        y += h + 2;
+    }
 }
 
 /**
@@ -921,8 +1114,16 @@ static void expr_prepend_ans_if_empty(void)
 static void expr_insert_char(char c)
 {
     if (!insert_mode && cursor_pos < expr_len) {
-        /* Overwrite the character at cursor_pos */
-        expression[cursor_pos++] = c;
+        /* Overwrite: remove all bytes of the current UTF-8 char, then write c.
+         * Without this, overwriting a 3-byte sequence (e.g. ≥) with one ASCII
+         * byte leaves two orphaned continuation bytes that corrupt the string. */
+        uint8_t cur_size = utf8_char_size(&expression[cursor_pos]);
+        memmove(&expression[cursor_pos + 1],
+                &expression[cursor_pos + cur_size],
+                expr_len - cursor_pos - cur_size + 1);
+        expression[cursor_pos] = c;
+        expr_len = expr_len - cur_size + 1;
+        cursor_pos++;
     } else {
         /* Insert: shift tail right, then write */
         if (expr_len >= MAX_EXPR_LEN - 1) return;
@@ -954,10 +1155,17 @@ static void expr_insert_str(const char *s)
 static void expr_delete_at_cursor(void)
 {
     if (cursor_pos == 0) return;
-    memmove(&expression[cursor_pos - 1], &expression[cursor_pos],
+    /* Find the start byte of the UTF-8 character that ends just before cursor.
+     * Without this, deleting a 3-byte sequence (e.g. ≥) would only remove the
+     * last byte, leaving two orphaned continuation bytes in the expression. */
+    uint8_t start = cursor_pos - 1;
+    while (start > 0 && ((uint8_t)expression[start] & 0xC0) == 0x80)
+        start--;
+    uint8_t char_bytes = cursor_pos - start;
+    memmove(&expression[start], &expression[cursor_pos],
             expr_len - cursor_pos + 1);
-    expr_len--;
-    cursor_pos--;
+    expr_len  -= char_bytes;
+    cursor_pos = start;
 }
 
 /**
@@ -1285,6 +1493,71 @@ static void ui_update_math_display(void)
     }
 }
 
+/* Refreshes the TEST menu item labels based on test_item_cursor. */
+static void ui_update_test_display(void)
+{
+    for (int i = 0; i < TEST_ITEM_COUNT; i++) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%d:%s", i + 1, test_display_names[i]);
+        lv_obj_set_style_text_color(test_item_labels[i],
+            (i == (int)test_item_cursor) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_text(test_item_labels[i], buf);
+    }
+}
+
+/* Redraws the MATRIX menu: highlights active tab, populates item rows. */
+static void ui_update_matrix_display(void)
+{
+    for (int i = 0; i < MATRIX_TAB_COUNT; i++) {
+        lv_obj_set_style_text_color(matrix_tab_labels[i],
+            (i == (int)matrix_tab) ? lv_color_hex(0xFFFF00) : lv_color_hex(0x666666), 0);
+    }
+
+    uint8_t item_count = matrix_tab_item_count[matrix_tab];
+    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
+        if (i < (int)item_count) {
+            char buf[32];
+            if (matrix_tab == 0) {
+                snprintf(buf, sizeof(buf), "%d:%s", i + 1, matrix_op_names[i]);
+            } else {
+                snprintf(buf, sizeof(buf), "%d:%s %dx%d",
+                         i + 1, matrix_edit_item_names[i],
+                         matrices[i].rows, matrices[i].cols);
+            }
+            lv_obj_set_style_text_color(matrix_item_labels[i],
+                (i == (int)matrix_item_cursor) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
+            lv_label_set_text(matrix_item_labels[i], buf);
+        } else {
+            lv_label_set_text(matrix_item_labels[i], "");
+        }
+    }
+}
+
+/* Redraws the MATRIX EDIT sub-screen: title, all cells, cursor highlight. */
+static void ui_update_matrix_edit_display(void)
+{
+    Matrix_t *m = &matrices[matrix_edit_idx];
+    char title_buf[20];
+    snprintf(title_buf, sizeof(title_buf), "%s %dx%d",
+             matrix_edit_item_names[matrix_edit_idx], m->rows, m->cols);
+    lv_label_set_text(matrix_edit_title_lbl, title_buf);
+
+    char cell_buf[16];
+    for (int r = 0; r < MATRIX_MAX_DIM; r++) {
+        for (int c = 0; c < MATRIX_MAX_DIM; c++) {
+            bool is_cursor = (r == (int)matrix_edit_row && c == (int)matrix_edit_col);
+            if (is_cursor && matrix_edit_len > 0) {
+                snprintf(cell_buf, sizeof(cell_buf), "%s", matrix_edit_buf);
+            } else {
+                Calc_FormatResult(m->data[r][c], cell_buf, sizeof(cell_buf));
+            }
+            lv_obj_set_style_text_color(matrix_cell_labels[r][c],
+                is_cursor ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
+            lv_label_set_text(matrix_cell_labels[r][c], cell_buf);
+        }
+    }
+}
+
 /*---------------------------------------------------------------------------
  * RANGE editor helpers
  *---------------------------------------------------------------------------*/
@@ -1417,6 +1690,7 @@ static void math_menu_insert(const char *ins)
         lvgl_lock();
         lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
         lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+        yeq_reflow_rows();
         yeq_cursor_update();
         lvgl_unlock();
     } else {
@@ -1425,6 +1699,77 @@ static void math_menu_insert(const char *ins)
         Update_Calculator_Display();
     }
     math_return_mode = MODE_NORMAL;
+}
+
+/**
+ * @brief Inserts a TEST menu item into the active destination and exits the
+ *        TEST menu.  Mirrors math_menu_insert — supports return to Y= or
+ *        normal calculator input.
+ */
+static void test_menu_insert(const char *ins)
+{
+    lvgl_lock();
+    lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
+    lvgl_unlock();
+
+    if (test_return_mode == MODE_GRAPH_YEQ) {
+        current_mode = MODE_GRAPH_YEQ;
+        char *eq = graph_state.equations[yeq_selected];
+        size_t ins_len = strlen(ins);
+        size_t eq_len  = strlen(eq);
+        if (eq_len + ins_len < 63) {
+            memmove(&eq[yeq_cursor_pos + ins_len], &eq[yeq_cursor_pos],
+                    eq_len - yeq_cursor_pos + 1);
+            memcpy(&eq[yeq_cursor_pos], ins, ins_len);
+            yeq_cursor_pos += (uint8_t)ins_len;
+        }
+        lvgl_lock();
+        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        lvgl_unlock();
+    } else {
+        current_mode = MODE_NORMAL;
+        expr_insert_str(ins);
+        Update_Calculator_Display();
+    }
+    test_return_mode = MODE_NORMAL;
+}
+
+/**
+ * @brief Inserts a MATRIX MATRX-tab operation string into the active destination
+ *        and returns to the prior mode (normal or Y= editor).
+ */
+static void matrix_menu_insert(const char *ins)
+{
+    lvgl_lock();
+    lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+    lvgl_unlock();
+
+    if (matrix_return_mode == MODE_GRAPH_YEQ) {
+        current_mode = MODE_GRAPH_YEQ;
+        char *eq = graph_state.equations[yeq_selected];
+        size_t ins_len = strlen(ins);
+        size_t eq_len  = strlen(eq);
+        if (eq_len + ins_len < 63) {
+            memmove(&eq[yeq_cursor_pos + ins_len], &eq[yeq_cursor_pos],
+                    eq_len - yeq_cursor_pos + 1);
+            memcpy(&eq[yeq_cursor_pos], ins, ins_len);
+            yeq_cursor_pos += (uint8_t)ins_len;
+        }
+        lvgl_lock();
+        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        lvgl_unlock();
+    } else {
+        current_mode = MODE_NORMAL;
+        expr_insert_str(ins);
+        Update_Calculator_Display();
+    }
+    matrix_return_mode = MODE_NORMAL;
 }
 
 /**
@@ -1464,6 +1809,7 @@ void Execute_Token(Token_t t)
             yeq_cursor_pos = 0;
             lvgl_lock();
             lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+            yeq_reflow_rows();
             yeq_cursor_update();
             lvgl_unlock();
             return;
@@ -1540,6 +1886,7 @@ void Execute_Token(Token_t t)
                 yeq_cursor_pos = prev;
                 lvgl_lock();
                 lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+                yeq_reflow_rows();
                 yeq_cursor_update();
                 lvgl_unlock();
             }
@@ -1549,6 +1896,7 @@ void Execute_Token(Token_t t)
             yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
             lvgl_lock();
             yeq_update_highlight();
+            yeq_reflow_rows();
             yeq_cursor_update();
             lvgl_unlock();
             return;
@@ -1557,6 +1905,7 @@ void Execute_Token(Token_t t)
             yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
             lvgl_lock();
             yeq_update_highlight();
+            yeq_reflow_rows();
             yeq_cursor_update();
             lvgl_unlock();
             return;
@@ -1603,6 +1952,30 @@ void Execute_Token(Token_t t)
             ui_update_math_display();
             lvgl_unlock();
             return;
+        case TOKEN_TEST:
+            test_return_mode  = MODE_GRAPH_YEQ;
+            test_item_cursor  = 0;
+            current_mode      = MODE_TEST_MENU;
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
+            ui_update_test_display();
+            lvgl_unlock();
+            return;
+        case TOKEN_MATRX:
+            matrix_return_mode = MODE_GRAPH_YEQ;
+            matrix_tab         = 0;
+            matrix_item_cursor = 0;
+            current_mode       = MODE_MATRIX_MENU;
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+            ui_update_matrix_display();
+            lvgl_unlock();
+            return;
+        case TOKEN_MTRX_A: append = "[A]"; break;
+        case TOKEN_MTRX_B: append = "[B]"; break;
+        case TOKEN_MTRX_C: append = "[C]"; break;
         case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
         case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
         case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
@@ -1635,6 +2008,7 @@ void Execute_Token(Token_t t)
                 }
                 lvgl_lock();
                 lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+                yeq_reflow_rows();
                 yeq_cursor_update();
                 lvgl_unlock();
             } else if (eq_len + len < 63) {
@@ -1645,6 +2019,7 @@ void Execute_Token(Token_t t)
                 yeq_cursor_pos += (uint8_t)len;
                 lvgl_lock();
                 lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+                yeq_reflow_rows();
                 yeq_cursor_update();
                 lvgl_unlock();
             }
@@ -1846,6 +2221,7 @@ void Execute_Token(Token_t t)
             for (int i = 0; i < GRAPH_NUM_EQ; i++)
                 lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
             yeq_update_highlight();
+            yeq_reflow_rows();
             yeq_cursor_update();
             lvgl_unlock();
             return;
@@ -1919,6 +2295,7 @@ void Execute_Token(Token_t t)
             for (int i = 0; i < GRAPH_NUM_EQ; i++)
                 lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
             yeq_update_highlight();
+            yeq_reflow_rows();
             yeq_cursor_update();
             lvgl_unlock();
             return;
@@ -2123,6 +2500,7 @@ void Execute_Token(Token_t t)
             for (int i = 0; i < GRAPH_NUM_EQ; i++)
                 lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
             yeq_update_highlight();
+            yeq_reflow_rows();
             yeq_cursor_update();
             lvgl_unlock();
             return;
@@ -2450,6 +2828,260 @@ void Execute_Token(Token_t t)
         /* Execution reaches here only from default — fall through to main switch */
     }
 
+    /*--- TEST menu handler -------------------------------------------------*/
+    if (current_mode == MODE_TEST_MENU) {
+        switch (t) {
+        case TOKEN_UP:
+            if (test_item_cursor > 0) test_item_cursor--;
+            lvgl_lock(); ui_update_test_display(); lvgl_unlock();
+            return;
+        case TOKEN_DOWN:
+            if (test_item_cursor < TEST_ITEM_COUNT - 1) test_item_cursor++;
+            lvgl_lock(); ui_update_test_display(); lvgl_unlock();
+            return;
+        case TOKEN_ENTER: {
+            const char *ins = test_insert_strings[test_item_cursor];
+            if (ins != NULL) { test_menu_insert(ins); return; }
+            break;
+        }
+        case TOKEN_1 ... TOKEN_6: {
+            int idx = (int)(t - TOKEN_0) - 1;
+            if (idx >= 0 && idx < TEST_ITEM_COUNT) {
+                const char *ins = test_insert_strings[idx];
+                if (ins != NULL) { test_menu_insert(ins); return; }
+            }
+            break;
+        }
+        case TOKEN_CLEAR:
+        case TOKEN_TEST:
+            current_mode      = test_return_mode;
+            test_return_mode  = MODE_NORMAL;
+            test_item_cursor  = 0;
+            lvgl_lock();
+            lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
+            if (current_mode == MODE_GRAPH_YEQ)
+                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+            lvgl_unlock();
+            return;
+        default:
+            current_mode      = test_return_mode;
+            test_return_mode  = MODE_NORMAL;
+            test_item_cursor  = 0;
+            lvgl_lock();
+            lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
+            if (current_mode == MODE_GRAPH_YEQ)
+                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+            lvgl_unlock();
+            if (current_mode == MODE_GRAPH_YEQ)
+                return;
+            break;
+        }
+        /* Fall through to main switch */
+    }
+
+    /*--- MATRIX menu handler -----------------------------------------------*/
+    if (current_mode == MODE_MATRIX_MENU) {
+        switch (t) {
+        case TOKEN_LEFT:
+            if (matrix_tab > 0) { matrix_tab--; matrix_item_cursor = 0; }
+            lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
+            return;
+        case TOKEN_RIGHT:
+            if (matrix_tab < MATRIX_TAB_COUNT - 1) { matrix_tab++; matrix_item_cursor = 0; }
+            lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
+            return;
+        case TOKEN_UP:
+            if (matrix_item_cursor > 0) matrix_item_cursor--;
+            lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
+            return;
+        case TOKEN_DOWN:
+            if (matrix_item_cursor < matrix_tab_item_count[matrix_tab] - 1) matrix_item_cursor++;
+            lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
+            return;
+        case TOKEN_ENTER: {
+            if (matrix_tab == 0) {
+                const char *ins = matrix_op_insert[matrix_item_cursor];
+                if (ins != NULL) { matrix_menu_insert(ins); }
+            } else {
+                matrix_edit_idx = matrix_item_cursor;
+                matrix_edit_row = 0;
+                matrix_edit_col = 0;
+                matrix_edit_len = 0;
+                matrix_edit_buf[0] = '\0';
+                current_mode = MODE_MATRIX_EDIT;
+                lvgl_lock();
+                lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+                ui_update_matrix_edit_display();
+                lvgl_unlock();
+            }
+            return;
+        }
+        case TOKEN_1 ... TOKEN_6: {
+            int idx = (int)(t - TOKEN_0) - 1;
+            if (idx >= 0 && idx < (int)matrix_tab_item_count[matrix_tab]) {
+                matrix_item_cursor = (uint8_t)idx;
+                if (matrix_tab == 0) {
+                    const char *ins = matrix_op_insert[idx];
+                    if (ins != NULL) { matrix_menu_insert(ins); }
+                } else {
+                    matrix_edit_idx = (uint8_t)idx;
+                    matrix_edit_row = 0;
+                    matrix_edit_col = 0;
+                    matrix_edit_len = 0;
+                    matrix_edit_buf[0] = '\0';
+                    current_mode = MODE_MATRIX_EDIT;
+                    lvgl_lock();
+                    lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+                    ui_update_matrix_edit_display();
+                    lvgl_unlock();
+                }
+            }
+            return;
+        }
+        case TOKEN_CLEAR:
+        case TOKEN_MATRX: {
+            CalcMode_t ret = matrix_return_mode;
+            matrix_return_mode = MODE_NORMAL;
+            current_mode = ret;
+            lvgl_lock();
+            lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+            if (ret == MODE_GRAPH_YEQ)
+                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+            lvgl_unlock();
+            return;
+        }
+        default:
+            matrix_return_mode = MODE_NORMAL;
+            current_mode = MODE_NORMAL;
+            lvgl_lock();
+            lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+            lvgl_unlock();
+            break;
+        }
+        /* Fall through to main switch for unhandled keys */
+    }
+
+    /*--- MATRIX EDIT handler -----------------------------------------------*/
+    if (current_mode == MODE_MATRIX_EDIT) {
+        Matrix_t *m = &matrices[matrix_edit_idx];
+        switch (t) {
+        case TOKEN_0 ... TOKEN_9:
+            if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
+                matrix_edit_buf[matrix_edit_len++] = (char)((t - TOKEN_0) + '0');
+                matrix_edit_buf[matrix_edit_len]   = '\0';
+            }
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+            return;
+        case TOKEN_DECIMAL:
+            if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1) &&
+                strchr(matrix_edit_buf, '.') == NULL) {
+                matrix_edit_buf[matrix_edit_len++] = '.';
+                matrix_edit_buf[matrix_edit_len]   = '\0';
+            }
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+            return;
+        case TOKEN_NEG:
+            if (matrix_edit_len > 0 && matrix_edit_buf[0] == '-') {
+                memmove(matrix_edit_buf, matrix_edit_buf + 1, matrix_edit_len);
+                matrix_edit_len--;
+            } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
+                memmove(matrix_edit_buf + 1, matrix_edit_buf, matrix_edit_len + 1);
+                matrix_edit_buf[0] = '-';
+                matrix_edit_len++;
+            }
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+            return;
+        case TOKEN_DEL:
+            if (matrix_edit_len > 0) {
+                matrix_edit_buf[--matrix_edit_len] = '\0';
+                lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+            }
+            return;
+        case TOKEN_ENTER:
+        case TOKEN_RIGHT: {
+            /* Commit cell and advance right, wrapping to next row */
+            if (matrix_edit_len > 0) {
+                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
+                matrix_edit_len = 0;
+                matrix_edit_buf[0] = '\0';
+            }
+            matrix_edit_col++;
+            if (matrix_edit_col >= m->cols) {
+                matrix_edit_col = 0;
+                if (matrix_edit_row < m->rows - 1) matrix_edit_row++;
+            }
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+            return;
+        }
+        case TOKEN_LEFT: {
+            if (matrix_edit_len > 0) {
+                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
+                matrix_edit_len = 0;
+                matrix_edit_buf[0] = '\0';
+            }
+            if (matrix_edit_col > 0) {
+                matrix_edit_col--;
+            } else if (matrix_edit_row > 0) {
+                matrix_edit_row--;
+                matrix_edit_col = m->cols - 1;
+            }
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+            return;
+        }
+        case TOKEN_UP:
+            if (matrix_edit_len > 0) {
+                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
+                matrix_edit_len = 0;
+                matrix_edit_buf[0] = '\0';
+            }
+            if (matrix_edit_row > 0) matrix_edit_row--;
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+            return;
+        case TOKEN_DOWN:
+            if (matrix_edit_len > 0) {
+                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
+                matrix_edit_len = 0;
+                matrix_edit_buf[0] = '\0';
+            }
+            if (matrix_edit_row < m->rows - 1) matrix_edit_row++;
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+            return;
+        case TOKEN_CLEAR:
+            if (matrix_edit_len > 0) {
+                matrix_edit_len = 0;
+                matrix_edit_buf[0] = '\0';
+                lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+            } else {
+                /* Back to MATRIX menu */
+                current_mode = MODE_MATRIX_MENU;
+                lvgl_lock();
+                lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+                lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+                ui_update_matrix_display();
+                lvgl_unlock();
+            }
+            return;
+        case TOKEN_MATRX:
+            /* Commit current cell and return to MATRIX menu */
+            if (matrix_edit_len > 0) {
+                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
+                matrix_edit_len = 0;
+                matrix_edit_buf[0] = '\0';
+            }
+            current_mode = MODE_MATRIX_MENU;
+            lvgl_lock();
+            lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+            ui_update_matrix_display();
+            lvgl_unlock();
+            return;
+        default:
+            return; /* Ignore other keys in matrix editor */
+        }
+    }
+
     /*--- STO pending handler -----------------------------------------------*/
     /* When sto_pending is set, the next alpha key stores ans to that variable */
     if (sto_pending) {
@@ -2524,14 +3156,23 @@ void Execute_Token(Token_t t)
 
     case TOKEN_LEFT:
         if (cursor_pos > 0) {
-            cursor_pos--;
+            /* Step back past all UTF-8 continuation bytes (10xxxxxx) to land
+             * on the start byte of the previous character. */
+            do { cursor_pos--; }
+            while (cursor_pos > 0 &&
+                   ((uint8_t)expression[cursor_pos] & 0xC0) == 0x80);
             Update_Calculator_Display();
         }
         break;
 
     case TOKEN_RIGHT:
         if (cursor_pos < expr_len) {
+            /* Step forward past all continuation bytes to land after the
+             * current character's full UTF-8 sequence. */
             cursor_pos++;
+            while (cursor_pos < expr_len &&
+                   ((uint8_t)expression[cursor_pos] & 0xC0) == 0x80)
+                cursor_pos++;
             Update_Calculator_Display();
         }
         break;
@@ -2652,6 +3293,31 @@ void Execute_Token(Token_t t)
         lvgl_unlock();
         break;
 
+    case TOKEN_TEST:
+        test_return_mode = MODE_NORMAL;
+        test_item_cursor = 0;
+        current_mode = MODE_TEST_MENU;
+        lvgl_lock();
+        lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_test_display();
+        lvgl_unlock();
+        break;
+
+    case TOKEN_MATRX:
+        matrix_return_mode = MODE_NORMAL;
+        matrix_tab         = 0;
+        matrix_item_cursor = 0;
+        current_mode = MODE_MATRIX_MENU;
+        lvgl_lock();
+        lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_matrix_display();
+        lvgl_unlock();
+        break;
+
+    case TOKEN_MTRX_A: expr_insert_str("[A]"); Update_Calculator_Display(); break;
+    case TOKEN_MTRX_B: expr_insert_str("[B]"); Update_Calculator_Display(); break;
+    case TOKEN_MTRX_C: expr_insert_str("[C]"); Update_Calculator_Display(); break;
+
     case TOKEN_SIN:     expr_insert_str("sin(");  Update_Calculator_Display(); break;
     case TOKEN_COS:     expr_insert_str("cos(");  Update_Calculator_Display(); break;
     case TOKEN_TAN:     expr_insert_str("tan(");  Update_Calculator_Display(); break;
@@ -2738,6 +3404,7 @@ void Execute_Token(Token_t t)
         for (int i = 0; i < GRAPH_NUM_EQ; i++)
             lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
         yeq_update_highlight();
+        yeq_reflow_rows();
         yeq_cursor_update();
         lvgl_unlock();
         break;
@@ -2918,10 +3585,15 @@ void StartCalcCoreTask(void const *argument)
     ui_init_graph_screens();
     ui_init_mode_screen();
     ui_init_math_screen();
+    ui_init_test_screen();
+    ui_init_matrix_screen();
     cursor_timer = lv_timer_create(cursor_timer_cb, CURSOR_BLINK_MS, NULL);
     ui_update_zoom_display();   /* populate ZOOM labels with initial scroll=0 */
     ui_update_mode_display();
     ui_update_math_display();
+    ui_update_test_display();
+    ui_update_matrix_display();
+    ui_update_matrix_edit_display();
     ui_refresh_display();
     lvgl_unlock();
 

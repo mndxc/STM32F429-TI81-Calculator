@@ -5,7 +5,7 @@ all key decisions, gotchas, and work-in-progress state for the project.
 
 ---
 
-## Feature Completion Status (~45% of original TI-81, as of 2026-03-13)
+## Feature Completion Status (~48% of original TI-81, as of 2026-03-13)
 
 ### Well-implemented (60–100%)
 
@@ -16,6 +16,7 @@ all key decisions, gotchas, and work-in-progress state for the project.
 | Variables (A–Z, ANS) | ~90% | STO, ANS, X in graph all work; list variables missing |
 | Display / UI / navigation | ~85% | Expression wrap, wrapped history, Fix/Float mode, MATH from Y=, UTF-8 cursor all solid; Sci/Eng notation display not wired |
 | Graphing (function mode) | ~75% | 4 equations, axes, grid (toggle from MODE), trace, ZBox, zoom, RANGE, Xres step, interpolated curves; Connected/Dot mode not wired |
+| TEST operators | ~70% | Menu (2nd+MATH), UP/DOWN/ENTER/number-key selection, inserts =, ≠, >, ≥, <, ≤; all 6 operators fully evaluated (return 1/0); accessible from Y= editor; and/or/not absent |
 
 ### Entirely missing (0%)
 
@@ -25,11 +26,10 @@ all key decisions, gotchas, and work-in-progress state for the project.
 | PRGM | ~15% | Program editor, runner, control flow, I/O — stub only |
 | MATRIX | ~10% | 3 matrices, det, transpose, row ops — stub only |
 | DRAW | ~5% | Line, Horizontal, Vertical, DrawF, Shade — stub only |
-| TEST | ~5% | =, ≠, >, ≥, <, ≤, and, or, not — stub only |
 | Parametric / Polar / Seq graphing | ~5% | Only function mode works |
 | VARS menu | ~3% | Window, Zoom, GDB, Picture, Statistics vars — stub only |
 
-The core calculator (arithmetic + standard functions + function graphing) covers ~70% of day-to-day TI-81 usage. STAT, PRGM, and MATRIX are entirely absent and together account for roughly 40% of the original hardware's capability.
+The core calculator (arithmetic + standard functions + function graphing + TEST comparisons) covers ~72% of day-to-day TI-81 usage. STAT, PRGM, and MATRIX are entirely absent and together account for roughly 40% of the original hardware's capability.
 
 ---
 
@@ -51,19 +51,24 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 ### What was just committed
 
-Building on commit `3649788`, the following are now implemented and committed:
+Building on commit `99a047d`, this commit adds:
 
-1. **NUM tab functions wired** — `round(`, `iPart`, `fPart`, `int(` tokenised and evaluated in `calc_engine.c`. `MATH_FUNC_ROUND/IPART/FPART/INT` added to `MathTokenType_t`. `Calc_SetDecimalMode()` API added.
-2. **Fix decimal mode from MODE screen** — Row 2 of MODE (Float | 0–9) now wired via `Calc_SetDecimalMode()`; `Calc_FormatResult` formats to exactly N decimal places in Fix N mode.
-3. **Grid on/off from MODE screen** — Row 7 of MODE (Grid off | Grid on) wired to `graph_state.grid_on`; `draw_grid()` draws TI-81-style dots at every (x_scl, y_scl) intersection.
-4. **MATH menu accessible from Y= editor** — Pressing MATH while in MODE_GRAPH_YEQ opens the MATH menu. On selection, the string is inserted at `yeq_cursor_pos` and the Y= screen is restored. `math_return_mode` tracks the originating context.
-5. **UTF-8 aware Y= cursor** — LEFT/RIGHT/DEL and overwrite in the Y= editor all handle multi-byte UTF-8 sequences (e.g. √ U+221A). `utf8_char_size()` / `utf8_byte_to_glyph()` helpers added.
-6. **Wrapped history entries** — `ui_refresh_display` rewritten to give each history entry a variable number of expression sub-rows (matches current expression wrap logic). Long committed expressions no longer truncate.
-7. **Graph full height** — `GRAPH_H` changed from 220 → 240. Equation-name label at top removed; canvas now fills the full display. `jetbrains_mono_20` font added for trace readouts.
-8. **Split X=/Y= readouts** — `graph_lbl_eq` / `graph_lbl_xy` replaced by `graph_lbl_x` (bottom-left) and `graph_lbl_y` (bottom-right) with semi-transparent black background. `format_graph_coord()` formats trace/ZBox values concisely.
-9. **x_res interpolation in renderer** — When `x_res > 1`, the renderer steps by that many pixel columns and linearly interpolates between sampled points to keep curves continuous.
-10. **ZOOM ui_update_zoom_display call** — `ui_update_zoom_display()` now called whenever the ZOOM screen is made visible from other graph screens (was missing, causing stale highlight).
-11. **Xres field clamped to 1–8** — `range_commit_field` now validates the Xres field as an integer in [1, 8].
+1. **TEST menu** — Full implementation: `MODE_TEST_MENU` added to `CalcMode_t`. `ui_init_test_screen()` creates the overlay (black panel, yellow "TEST" title, 6 white item labels). `ui_update_test_display()` highlights cursor row in yellow. Opened with 2nd+MATH from normal mode or from Y= editor (`test_return_mode` tracks origin). UP/DOWN navigate, ENTER or keys 1–6 select, CLEAR/TEST exits. Items insert =, ≠ (U+2260), >, ≥ (U+2265), <, ≤ (U+2264).
+
+2. **TEST operator evaluation** — All 6 comparison operators wired through the full engine pipeline:
+   - `MATH_OP_EQ/NEQ/GT/GTE/LT/LTE` added to `MathTokenType_t` in `calc_engine.h`
+   - `is_operator()` updated; `precedence()` returns 0 for all six (below ADD/SUB at 1, so `2+3>4` → `(2+3)>4` = 1)
+   - `Tokenize()` recognises `=`, `>`, `<` as single chars; checks 3-byte UTF-8 sequences for ≠/≥/≤ before the single-char switch
+   - `EvaluateRPN()` evaluates each as a binary op returning 1.0 (true) or 0.0 (false)
+   - Unary `-` after a comparison is correctly treated as negation (`3>-1` works)
+
+3. **UTF-8 cursor integrity fix** — Four locations in `calculator_core.c` were each operating on the main expression buffer one byte at a time, allowing `cursor_pos` to land inside a multi-byte UTF-8 sequence (e.g. ≠/≥/≤ are 3 bytes each). This caused intermittent tokenize errors: LVGL silently skips invalid UTF-8 so the display looked correct, but the tokenizer returned `CALC_ERR_SYNTAX` on the orphaned continuation bytes.
+   - `TOKEN_LEFT` — now skips back past all `10xxxxxx` continuation bytes to the sequence start byte (mirrors the existing Y= cursor logic)
+   - `TOKEN_RIGHT` — now skips forward past the full current character's byte sequence
+   - `expr_delete_at_cursor` — now walks back to the start byte of the preceding character and removes all `N` bytes of it, not just the last byte
+   - `expr_insert_char` (overwrite mode) — now uses `utf8_char_size()` to remove all bytes of the character at cursor before writing the new single byte, keeping `expr_len` correct
+
+4. **Font regeneration** — Both `jetbrains_mono_24.c` and `jetbrains_mono_20.c` regenerated to add ↑↓ (U+2191/U+2193) and ≠/≥/≤ (U+2260/U+2264/U+2265) to the glyph set. The ↑/↓ glyphs are now available in the font; menus still use `v`/`^` as overflow indicators (see Known Issues).
 
 ### Previously completed (earlier sessions, committed)
 - JetBrains Mono font wired into LVGL (`jetbrains_mono_24.c`, `lv_conf.h` updated)
@@ -79,24 +84,25 @@ Building on commit `3649788`, the following are now implemented and committed:
 - RANGE ZOOM bug fix (ZOOM from RANGE opens ZOOM menu, not ZStandard)
 - UP arrow history recall (UP scrolls back through history; DOWN scrolls forward)
 - Input text wrap; MATH HYP items renamed; √ tokeniser; ZOOM Set Factors sub-screen
+- NUM tab functions (round, iPart, fPart, int); Fix decimal mode from MODE; grid toggle from MODE
+- MATH menu from Y= editor; UTF-8 aware Y= cursor; wrapped history entries; full-height graph canvas
+- Split X=/Y= trace readouts; x_res interpolation; Xres clamped to 1–8
 
 ### Known issues
-- **Scroll indicator glyphs** — Menus use literal `v`/`^` as overflow indicators because U+2193/U+2191 availability in JetBrains Mono at the current glyph range was not verified. Confirm glyph coverage and switch to ↓/↑ if present.
+- **Scroll indicator glyphs** — Menus use literal `v`/`^` as overflow indicators. The ↓/↑ (U+2193/U+2191) glyphs are now confirmed in the regenerated font — switch menu overflow indicators to use them.
 - **Red flashing LED** — Irregular-period LED present on board. Decide: remove or set to a regular interval (e.g. 1 Hz heartbeat).
 
 ### Next session priorities (in order)
 
-**1. TEST menu** — New backlog item; spec TBD.
+**1. MATH PRB menu completion** — PRB tab items (rand, nPr, nCr) are displayed but none are functionally wired — factorial, combinations, and permutations evaluation is not yet implemented.
 
-**2. MATRIX menu** — Deferred; start with menu and 3×3 input UI before wiring math.
+**2. Additional math functions** — Factorial (!), combinations (nCr), permutations (nPr).
 
-**3. MATH PRB menu completion** — PRB tab items (rand, nPr, nCr) are displayed but none are functionally wired — factorial, combinations, and permutations evaluation is not yet implemented.
+**3. MATRIX menu** — Start with menu and 3×3 input UI before wiring math.
 
-**4. Additional math functions** — Factorial (!), combinations (nCr), permutations (nPr).
+**4. PRGM** — Program editor and runner.
 
-**5. PRGM** — Program editor and runner.
-
-**6. Battery voltage ADC** — Custom PCB only.
+**5. Battery voltage ADC** — Custom PCB only.
 
 ---
 
@@ -237,6 +243,63 @@ MATRIX EDIT
 3:[C] 6×6
 ```
 
+### TEST menu
+
+No tabs. "TEST" title at top row (yellow), 6 items below.
+
+```
+TEST
+1:=
+2:≠
+3:>
+4:≥
+5:<
+6:≤
+```
+
+Navigation: UP/DOWN cursor; ENTER selects. Number keys 1–6 are direct shortcuts.
+CLEAR or 2nd+MATH exits. Accessible from normal mode (2nd+MATH) and from the Y= editor.
+Selected operator is inserted at the cursor position as a UTF-8 string.
+All 6 operators are fully evaluated by `calc_engine.c` — return 1 (true) or 0 (false).
+and/or/not are not implemented.
+
+
+### STAT menu
+
+**CALC tab:**
+CALC DRAW DATA
+1:1-Var
+2:LinReg
+3:LnReg
+4:ExpReg
+5:PwrReg
+
+**DRAW tab:**
+CALC DRAW DATA
+1:Hist
+2:Scatter
+3:xyLine
+
+**DATA tab:**
+CALC DRAW DATA
+1:Edit
+2:ClrStat
+3:xSort
+4:ySort
+
+## Draw menu
+
+**DRAW tab:**
+DRAW
+1:ClrDraw
+2:Line(
+3:PT-On(
+4:PT-Off(
+5:PT-Chg(
+6:DrawF
+7:Shade(
+
+
 ---
 
 ## Critical Build Settings
@@ -298,8 +361,9 @@ Core/Src/
     graph.c             — graph canvas, renderer, axes, curve plotting
     freertos.c          — FreeRTOS task definitions
 Core/Fonts/
-    jetbrains_mono_20.c — JetBrains Mono 20px LVGL font
-    jetbrains_mono_24.c — JetBrains Mono 24px LVGL font
+    JetBrainsMono-Regular.ttf — source font (Apache 2.0; committed so regeneration is always possible)
+    jetbrains_mono_20.c — JetBrains Mono 20px LVGL font (generated)
+    jetbrains_mono_24.c — JetBrains Mono 24px LVGL font (generated)
 Drivers/Keypad/
     keypad.c/h          — hardware key matrix scanning
     keypad_map.c/h      — Token_t enum, hardware key → token lookup table
@@ -346,7 +410,8 @@ typedef enum {
     MODE_GRAPH_ZBOX,    // ZBox rubber-band zoom active
     MODE_MODE_SCREEN,        // MODE settings screen active
     MODE_MATH_MENU,          // MATH/NUM/HYP/PRB menu active
-    MODE_GRAPH_ZOOM_FACTORS  // ZOOM FACTORS sub-screen (XFact/YFact editing)
+    MODE_GRAPH_ZOOM_FACTORS, // ZOOM FACTORS sub-screen (XFact/YFact editing)
+    MODE_TEST_MENU           // TEST comparison-operator menu active
 } CalcMode_t;
 ```
 
@@ -359,9 +424,10 @@ at the top, followed by a main `switch(t)` for MODE_NORMAL. Handler order:
 5. MODE_GRAPH_ZBOX
 6. MODE_MODE_SCREEN
 7. MODE_MATH_MENU
-8. MODE_GRAPH_TRACE ← exits trace then **falls through** to main switch
-9. STO pending check ← fires if `sto_pending`, then falls through
-10. Main switch (MODE_NORMAL)
+8. MODE_TEST_MENU
+9. MODE_GRAPH_TRACE ← exits trace then **falls through** to main switch
+10. STO pending check ← fires if `sto_pending`, then falls through
+11. Main switch (MODE_NORMAL)
 
 ### Modifier key behaviour
 - Pressing 2ND or ALPHA a second time cancels the mode (toggle)
@@ -558,10 +624,10 @@ shunting-yard from treating it as binary subtraction. `-3^2` still evaluates as 
 ## Planned Features (backlog)
 
 In priority order:
-1. TEST menu (spec TBD)
+1. MATH PRB completion — factorial, nPr, nCr evaluation
 2. MATRIX menu and 3×3 input UI
-3. Additional math functions (factorial, nPr, nCr wiring)
-4. PRGM — program editor and runner
+3. PRGM — program editor and runner
+4. Scroll indicator glyphs — switch `v`/`^` to ↓/↑ (now in font)
 5. Battery voltage ADC (custom PCB only)
 6. Red flashing LED — decide: remove or regularize at 1 Hz heartbeat
 
@@ -627,3 +693,19 @@ Middlewares/ST/
 10. **`2^-3` tokenizer** — `-` after `^` before digit/dot is a negative literal, not subtraction
 11. **strncpy does not null-terminate** — always add `buf[n-1] = '\0'` after strncpy
 12. **MODE_GRAPH_TRACE falls through** — after exiting trace mode, execution continues into the main switch to process the triggering key normally. This is intentional.
+13. **UTF-8 cursor integrity** — `cursor_pos` in the main expression is a byte offset. Any code that moves or edits at `cursor_pos` must account for multi-byte characters (π=2B, √/≠/≥/≤=3B). Stepping by 1 byte can land inside a sequence; LVGL silently skips invalid UTF-8 so the display looks fine but `Tokenize()` returns `CALC_ERR_SYNTAX`. Rules: LEFT steps back past all `10xxxxxx` continuation bytes; RIGHT steps forward past the full sequence; DEL walks back to the start byte and removes all N bytes; overwrite uses `utf8_char_size()` to remove the full char before writing the replacement. The Y= cursor (`yeq_cursor_pos`) was correct already — use it as the reference implementation.
+14. **Font regeneration** — the LVGL `.c` font files are generated from `Core/Fonts/JetBrainsMono-Regular.ttf` using `lv_font_conv` (install: `npm i -g lv_font_conv`). Regenerate both sizes with:
+    ```bash
+    lv_font_conv --font Core/Fonts/JetBrainsMono-Regular.ttf \
+      -r 0x20-0x7E -r 0x00B0,0x00B2,0x00B3,0x00B9 \
+      -r 0x03A3,0x03B8,0x03C0,0x03C3 \
+      -r 0x221A -r 0x25B6 -r 0x2191,0x2193 -r 0x2260,0x2264,0x2265 \
+      --size 24 --format lvgl --bpp 4 -o Core/Fonts/jetbrains_mono_24.c --no-compress
+
+    lv_font_conv --font Core/Fonts/JetBrainsMono-Regular.ttf \
+      -r 0x20-0x7E -r 0x00B0,0x00B2,0x00B3,0x00B9 \
+      -r 0x03A3,0x03B8,0x03C0,0x03C3 \
+      -r 0x221A -r 0x25B6 -r 0x2191,0x2193 -r 0x2260,0x2264,0x2265 \
+      --size 20 --format lvgl --bpp 4 -o Core/Fonts/jetbrains_mono_20.c --no-compress
+    ```
+    Current Unicode ranges included: ASCII (0x20–0x7E), °²³¹ (superscripts/degree), Σθπσ (Greek), √ ▶ ↑↓ (math/UI), ≠≤≥ (TEST operators).

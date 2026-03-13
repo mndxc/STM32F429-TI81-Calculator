@@ -63,6 +63,17 @@ typedef enum {
     MATH_FUNC_INT,          /* int(   — floor (greatest integer) */
     MATH_PAREN_LEFT,
     MATH_PAREN_RIGHT,
+    /* Comparison operators — return 1.0 (true) or 0.0 (false) */
+    MATH_OP_EQ,             /* =  */
+    MATH_OP_NEQ,            /* ≠  U+2260 */
+    MATH_OP_GT,             /* >  */
+    MATH_OP_GTE,            /* ≥  U+2265 */
+    MATH_OP_LT,             /* <  */
+    MATH_OP_LTE,            /* ≤  U+2264 */
+    /* PRB operators */
+    MATH_OP_FACT,           /* !  — factorial (postfix unary) */
+    MATH_OP_NPR,            /* nPr — permutations (binary) */
+    MATH_OP_NCR,            /* nCr — combinations (binary) */
 } MathTokenType_t;
 
 typedef struct {

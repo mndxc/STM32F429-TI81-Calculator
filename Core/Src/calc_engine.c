@@ -43,7 +43,12 @@ static bool is_operator(MathTokenType_t t)
 {
     return (t == MATH_OP_ADD || t == MATH_OP_SUB ||
             t == MATH_OP_MUL || t == MATH_OP_DIV ||
-            t == MATH_OP_POW || t == MATH_OP_NEG);
+            t == MATH_OP_POW || t == MATH_OP_NEG ||
+            t == MATH_OP_EQ  || t == MATH_OP_NEQ ||
+            t == MATH_OP_GT  || t == MATH_OP_GTE ||
+            t == MATH_OP_LT  || t == MATH_OP_LTE ||
+            t == MATH_OP_NPR || t == MATH_OP_NCR);
+    /* Note: MATH_OP_FACT is postfix unary — handled separately, not here */
 }
 
 static bool is_function(MathTokenType_t t)
@@ -61,13 +66,21 @@ static bool is_function(MathTokenType_t t)
 static int precedence(MathTokenType_t t)
 {
     switch (t) {
+    case MATH_OP_EQ:
+    case MATH_OP_NEQ:
+    case MATH_OP_GT:
+    case MATH_OP_GTE:
+    case MATH_OP_LT:
+    case MATH_OP_LTE: return 0; /* lowest — arithmetic fully evaluated first */
     case MATH_OP_ADD:
     case MATH_OP_SUB: return 1;
     case MATH_OP_MUL:
-    case MATH_OP_DIV: return 2;
+    case MATH_OP_DIV:
+    case MATH_OP_NPR:
+    case MATH_OP_NCR: return 2;
     case MATH_OP_NEG: return 3;
     case MATH_OP_POW: return 4;
-    default:          return 0;
+    default:          return -1;
     }
 }
 
@@ -155,7 +168,18 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
             continue;
         }
 
-        /* Named functions */
+        /* rand — zero-argument: evaluate immediately to a random [0, 1) number */
+        if (strncmp(p, "rand", 4) == 0) {
+            if (out->count >= CALC_MAX_TOKENS)
+                return CALC_ERR_OVERFLOW;
+            out->tokens[out->count].type  = MATH_NUMBER;
+            out->tokens[out->count].value = (float)rand() / ((float)RAND_MAX + 1.0f);
+            out->count++;
+            p += 4;
+            continue;
+        }
+
+        /* Named functions and binary-operator keywords */
         struct { const char *name; MathTokenType_t type; } funcs[] = {
             { "sin",   MATH_FUNC_SIN   },
             { "cos",   MATH_FUNC_COS   },
@@ -172,10 +196,12 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
             { "iPart", MATH_FUNC_IPART },
             { "fPart", MATH_FUNC_FPART },
             { "int",   MATH_FUNC_INT   },
+            { "nPr",   MATH_OP_NPR     },
+            { "nCr",   MATH_OP_NCR     },
         };
 
         bool matched = false;
-        for (int i = 0; i < 15; i++) {
+        for (int i = 0; i < (int)(sizeof(funcs)/sizeof(funcs[0])); i++) {
             size_t len = strlen(funcs[i].name);
             if (strncmp(p, funcs[i].name, len) == 0) {
                 if (out->count >= CALC_MAX_TOKENS)
@@ -221,12 +247,38 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
             continue;
         }
 
+        /* UTF-8 multi-byte comparison operators (must be checked before single-char) */
+        {
+            struct { const char *seq; MathTokenType_t type; } cmp3[] = {
+                { "\xE2\x89\xA0", MATH_OP_NEQ }, /* U+2260 ≠ */
+                { "\xE2\x89\xA5", MATH_OP_GTE }, /* U+2265 ≥ */
+                { "\xE2\x89\xA4", MATH_OP_LTE }, /* U+2264 ≤ */
+            };
+            bool cmp_matched = false;
+            for (int i = 0; i < 3; i++) {
+                if (strncmp(p, cmp3[i].seq, 3) == 0) {
+                    if (out->count >= CALC_MAX_TOKENS)
+                        return CALC_ERR_OVERFLOW;
+                    out->tokens[out->count].type  = cmp3[i].type;
+                    out->tokens[out->count].value = 0.0f;
+                    out->count++;
+                    p += 3;
+                    cmp_matched = true;
+                    break;
+                }
+            }
+            if (cmp_matched) continue;
+        }
+
         /* Single character tokens */
         MathTokenType_t op_type;
         bool is_op = true;
 
         switch (*p) {
         case '+': op_type = MATH_OP_ADD;      break;
+        case '=': op_type = MATH_OP_EQ;       break;
+        case '>': op_type = MATH_OP_GT;       break;
+        case '<': op_type = MATH_OP_LT;       break;
         case '-':
             /* Unary negation if at start or after operator/left paren */
             if (out->count == 0 ||
@@ -240,6 +292,7 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
         case '*': op_type = MATH_OP_MUL;      break;
         case '/': op_type = MATH_OP_DIV;      break;
         case '^': op_type = MATH_OP_POW;      break;
+        case '!': op_type = MATH_OP_FACT;     break;
         case '(': op_type = MATH_PAREN_LEFT;  break;
         case ')': op_type = MATH_PAREN_RIGHT; break;
         default:  is_op   = false;             break;
@@ -325,6 +378,12 @@ static CalcError_t ShuntingYard(const TokenList_t *in, TokenList_t *out)
                 return CALC_ERR_OVERFLOW;
             op_stack[++op_top] = tok;
         }
+        else if (tok.type == MATH_OP_FACT) {
+            /* Postfix unary: output immediately — applies to whatever is on top */
+            if (out->count >= CALC_MAX_TOKENS)
+                return CALC_ERR_OVERFLOW;
+            out->tokens[out->count++] = tok;
+        }
         else if (is_operator(tok.type)) {
             while (op_top >= 0 &&
                    (is_function(op_stack[op_top].type) ||
@@ -379,6 +438,41 @@ static CalcError_t ShuntingYard(const TokenList_t *in, TokenList_t *out)
 }
 
 /*---------------------------------------------------------------------------
+ * Stage 2b — PRB math helpers
+ *--------------------------------------------------------------------------*/
+
+static float calc_factorial(int n)
+{
+    if (n < 0)  return NAN;
+    if (n == 0) return 1.0f;
+    float r = 1.0f;
+    for (int i = 2; i <= n; i++)
+        r *= (float)i;
+    return r;
+}
+
+/* P(n, r) = n * (n-1) * ... * (n-r+1) */
+static float calc_npr(int n, int r)
+{
+    if (n < 0 || r < 0 || r > n) return NAN;
+    float result = 1.0f;
+    for (int i = n; i > n - r; i--)
+        result *= (float)i;
+    return result;
+}
+
+/* C(n, r) = P(n, r) / r! */
+static float calc_ncr(int n, int r)
+{
+    if (n < 0 || r < 0 || r > n) return NAN;
+    if (r > n - r) r = n - r;  /* use smaller side */
+    float result = 1.0f;
+    for (int i = 0; i < r; i++)
+        result = result * (float)(n - i) / (float)(i + 1);
+    return result;
+}
+
+/*---------------------------------------------------------------------------
  * Stage 3 — RPN evaluator
  *--------------------------------------------------------------------------*/
 
@@ -405,7 +499,8 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
         }
 
         /* Unary operators and functions — need one operand */
-        if (tok.type == MATH_OP_NEG || is_function(tok.type)) {
+        if (tok.type == MATH_OP_NEG || tok.type == MATH_OP_FACT ||
+            is_function(tok.type)) {
             if (top < 0) {
                 res.error = CALC_ERR_SYNTAX;
                 strncpy(res.error_msg, "Syntax error",
@@ -416,6 +511,17 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
 
             switch (tok.type) {
             case MATH_OP_NEG:      stack[top] = -a;                      break;
+            case MATH_OP_FACT: {
+                int n = (int)roundf(a);
+                if (n < 0) {
+                    res.error = CALC_ERR_DOMAIN;
+                    strncpy(res.error_msg, "Domain error: n!",
+                            sizeof(res.error_msg) - 1);
+                    return res;
+                }
+                stack[top] = calc_factorial(n);
+                break;
+            }
             case MATH_FUNC_SIN:    stack[top] = sinf(a * deg_factor);    break;
             case MATH_FUNC_COS:    stack[top] = cosf(a * deg_factor);    break;
             case MATH_FUNC_TAN:    stack[top] = tanf(a * deg_factor);    break;
@@ -508,6 +614,34 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
         case MATH_OP_POW:
             stack[top] = powf(a, b);
             break;
+        case MATH_OP_EQ:  stack[top] = (a == b) ? 1.0f : 0.0f; break;
+        case MATH_OP_NEQ: stack[top] = (a != b) ? 1.0f : 0.0f; break;
+        case MATH_OP_GT:  stack[top] = (a >  b) ? 1.0f : 0.0f; break;
+        case MATH_OP_GTE: stack[top] = (a >= b) ? 1.0f : 0.0f; break;
+        case MATH_OP_LT:  stack[top] = (a <  b) ? 1.0f : 0.0f; break;
+        case MATH_OP_LTE: stack[top] = (a <= b) ? 1.0f : 0.0f; break;
+        case MATH_OP_NPR: {
+            float v = calc_npr((int)roundf(a), (int)roundf(b));
+            if (isnan(v)) {
+                res.error = CALC_ERR_DOMAIN;
+                strncpy(res.error_msg, "Domain error: nPr",
+                        sizeof(res.error_msg) - 1);
+                return res;
+            }
+            stack[top] = v;
+            break;
+        }
+        case MATH_OP_NCR: {
+            float v = calc_ncr((int)roundf(a), (int)roundf(b));
+            if (isnan(v)) {
+                res.error = CALC_ERR_DOMAIN;
+                strncpy(res.error_msg, "Domain error: nCr",
+                        sizeof(res.error_msg) - 1);
+                return res;
+            }
+            stack[top] = v;
+            break;
+        }
         default:
             break;
         }
