@@ -22,9 +22,9 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 ## Session Stopping Point (2026-03-12)
 
 ### What was just completed
-All changes are in `calculator_core.c` and `keypad.c` — not yet committed.
+Changes in `calculator_core.c` and `keypad.c` — committed.
 
-**Features implemented (ready to test):**
+**Features implemented and working:**
 1. **Arrow key hold-to-repeat** — Hold any arrow key for 400ms then repeats at 80ms. Only arrow keys repeat; all others fire once.
 2. **Y= cursor navigation** — LEFT/RIGHT move insertion point within equations. DEL deletes at cursor. Characters insert at cursor. UP/DOWN move between Y= rows and reset cursor to end-of-equation.
 3. **Free graph screen navigation** — Any graph navigation key (Y=, RANGE, ZOOM, GRAPH, TRACE) works from any graph screen without needing a specific exit first.
@@ -36,6 +36,11 @@ All changes are in `calculator_core.c` and `keypad.c` — not yet committed.
 5. **RANGE ZOOM bug fixed** — ZOOM from RANGE now opens the ZOOM menu (previously reset to ZStandard)
 6. **Code quality cleanup** — Fixed critical null-termination bug in history `strncpy` calls, added explicit null terminators throughout, fixed zoom preset comment, added `(void)argument` casts to FreeRTOS tasks, added default case to `apply_zoom_preset()`.
 
+### Known issues to fix in next session
+- **Missing scroll indicator characters** — Menu items use "down arrow" and "up arrow" symbols to indicate that the list continues beyond the visible window (rows 7↓ and 8↑ in MATH menu). The font must include U+2193 (↓) and U+2191 (↑), or the implementation must substitute ASCII approximations (`v` / `^`) until a suitable font is confirmed. Verify the chosen monospaced font covers these glyphs during the font switch task.
+- **HYP menu inverse trig display** — `sinh^-1(`, `cosh^-1(`, `tanh^-1(` must be rendered as literal text `sinh^-1(` etc. since there is no dedicated superscript-minus-one character available. See HYP menu spec below.
+- **ZOOM cursor navigation** — ZOOM menu must support UP/DOWN arrow keys to move a highlight cursor through options, with ENTER to select. Number key shortcuts (1–8) remain as a secondary method but should not be the only way to select.
+
 ### Next session priorities (in order)
 
 **1. Monospaced font** — Switch the main calculator display from Montserrat 24 (proportional) to a fixed-width font so the cursor block aligns correctly with any character. Options:
@@ -43,28 +48,109 @@ All changes are in `calculator_core.c` and `keypad.c` — not yet committed.
 - Roboto Mono or Courier-style — requires LVGL font converter (`lv_font_conv`) to generate a `.c` font file. Recommended size: 18–20px to fit 8 rows in 240px height.
 - The cursor block is currently 16×26px, sized for Montserrat 24. It will need resizing to match the new font's cell dimensions.
 - All graph screens use Montserrat 24 for content — consider whether to keep those proportional or unify everything.
+- consider JetBrains Mono as a preferred option. verify it has characters for various math needs: squared symbol, cubed symbol, power of negative one symbol, triangle pointing right symbol, degrees symbol, pi symbol, theta symbol, uppercase sigma symbol, lowercase sigma symbol, x bar symbol, y bar symbol, 
 
-**2. MODE screen** — TI-81 MODE options to implement:
+**2. MODE screen** — TI-81 MODE has no title text. The screen is just filled with options to select. The options are not selected by pressing numbers on the key pad. The selection occurs when the arrow keys move the blinking highlighted option. Moving the highlighted blinking right and left change the selection for that line and using up and down change the active row. There are no dividers between row options, just a single whitespace. Pressing enter key moves the 'activated' option to the cursor location and stays in this screen
 - Row 1: Normal | Sci | Eng  (number format)
 - Row 2: Float | 0–9  (decimal places — currently hardcoded to 6)
 - Row 3: Radian | Degree  (currently just toggled with MODE key — no screen)
-- Row 4: Function | Param | Polar | Seq  (graph type — graph only supports Function currently)
+- Row 4: Function | Param  (graph type — graph only supports Function currently)
 - Row 5: Connected | Dot  (graph draw style)
 - Row 6: Sequential | Simul  (equation evaluation order)
+- Row 7:Grid off | Grid on
+- Row 8: Polar | Seq  
 - Mode state persists in a `CalcSettings_t` struct. Only Radian/Degree is currently wired.
 
 **3. UP arrow recalls history** — In MODE_NORMAL with an empty expression, UP should load the previous history entry into the expression buffer (same as ENTRY token / 2nd+ENTER). Subsequent UP presses scroll further back. DOWN scrolls forward. This is a small change to the main TOKEN_UP case.
 
 **4. Overwrite mode by default / INS toggles insert** — Currently always insert mode. Add `insert_mode` bool (default false = overwrite). In overwrite mode, `expr_insert_char/str` replaces the character at cursor_pos instead of shifting right. INS key toggles the flag. Cursor appearance can differ (underscore for overwrite vs. block for insert).
 
-**5. MATH menu** — Key opens a menu screen. TI-81 MATH has two tabs (MATH and NUM):
-- MATH: `►Frac`, `►Dec`, `√(`, `³√(`, `ˣ√(`
-- NUM: `abs(`, `round(`, `iPart(`, `fPart(`, `int(`
-- `►Frac` and `►Dec` are post-processing of the last result (convert to fraction display or decimal). The others insert function strings into the expression.
+**5. MATH menu** — Key opens a menu screen. TI-81 MATH has four tabs (MATH, NUM, HYP and PRB). Menu screens use highlighted text to display which tab is active. Change the active taby using the left and right keys and select which item of the list is active highlighted by up and down arrow keys. Using enter on the key or pressing the noted number key will insert that function into the previously active entry screen.
+
+- MATH:
+- Row 1: MATH NUM HYP PRB (tabs, active one selected by left and right arrows)(MATH highlighted to indicate it is active)
+- Row 2: 1:R>P( (selected by pressing number 1 as indicated)
+- Row 3: 2:P>R(
+- Row 4: 3:3 (cubed symbol)
+- Row 5: 4: (3rd root symbol)
+- Row 6: 5: !
+- Row 7: 6: (degree symbol)
+- Row 8: 7↓r  (↓ replaces colon to signal list continues below; use literal "v" if font lacks U+2193)
+- Row 9: 8: NDeriv(  (visible after scrolling; the overflowed item at top gains ↑ before its number to signal list continues above; use "^" if font lacks U+2191)
+
+- NUM: 
+- Row 1: MATH NUM HYP PRB (NUM highlighted to indicate it is active)
+- Row 2: 1:Round(
+- Row 3: 2:IPart
+- Row 4: 3:FPart
+- Row 5: 4:Int
+
+- HYP:
+- Row 1: MATH NUM HYP PRB (HYP highlighted to indicate it is active)
+- Row 2: 1:sinh
+- Row 3: 2:cosh
+- Row 4: 3:tanh
+- Row 5: 4:sinh^-1(   (rendered as literal text "sinh^-1(" — no special superscript character)
+- Row 6: 5:cosh^-1(   (rendered as literal text "cosh^-1(")
+- Row 7: 6:tanh^-1(   (rendered as literal text "tanh^-1(")
+
+- PRB:
+- Row 1: MATH NUM HYP PRB (PRB highlighted to indicate it is active)
+- Row 2: 1:Rand
+- Row 3: 2: nPr (note intended white space before and after this item. it is inserted into the active screen with that space)
+- Row 4: 3: nCr  (note intended white space before and after this item. it is inserted into the active screen with that space)
 - Implement as a MODE_MATH_MENU state with a screen similar to ZOOM.
 
 **6. MATRIX menu** — Deferred. Start with menu and 3×3 input UI before wiring math.
+- MATRIX:
+- Row 1: MATRIX EDIT (tabs, active one selected by left and right arrows)(MATRIX highlighted to indicate it is active)
+- Row 2: 1:RowSwap(
+- Row 3: 2:Row+(
+- Row 4: 3:*Row(
+- Row 5: 4:*Row+(
+- Row 6: 5:det
+- Row 7: T (superscript T symbol)
 
+- EDIT:
+- Row 1: MATRIX EDIT (tabs, active one selected by left and right arrows)(EDIT highlighted to indicate it is active)
+- Row 2: 1: [A] 6x6
+- Row 3: 2: [B] 6x6
+- Row 4: 3: [C] 6x6
+
+**7. ZOOM menu** — Adjust to better mimic original
+
+- Row 1: ZOOM (appears to be an active tab even though there is no other option)
+- Row 2: 1:Box
+- Row 3: 2:Zoom In
+- Row 4: 3:Zoom Out
+- Row 5: 4:Set Factors (describes how much zoom in and zoom out are scaled)
+- Row 6: 5:Square
+- Row 7: 6:Standard
+- Row 8: 7↓Trig  (the ↓ replaces the colon to indicate the list continues below; use literal "v" if font lacks U+2193)
+- Row 9: 8:Integer  (visible after scrolling down; row 8 header gains ↑ indicator)
+- Navigation: UP/DOWN arrows move the highlight cursor through options; ENTER selects. Number keys 1–8 remain as direct shortcuts but cursor-based navigation is the primary method.
+
+**7.1 ZOOM Set Factors sub menu** - To do.
+- Row 1: ZOOM FACTORS
+- Row 2: XFact= (4 by default)
+- Row 3: YFact= (4 by default)
+
+**8. RANGE menu** — Adjust to better mimic original. The cursor edits the value directly after the equal sign
+- Row 1: RANGE (appears to be an active tab even though there is no other option)
+- Row 2: Xmin=
+- Row 3: Xmax=
+- Row 4: Xscl=
+- Row 5: Ymin=
+- Row 6: Ymax=
+- Row 7: Yscl=
+- Row 8: Xres=
+
+
+Note regarding menus: 
+The menu top bar uses the same font as the items below.
+When a menu scrolls up and down the top 'tab bar' stays active and the options listed below it scroll up and down into the visible window.
+Allow normal cursor entry in menus. For example allow INS to be used to insert and left right arrows to move cursor for overwrite.
+In normal calculator mode cause text input to wrap around to a new line instead of staying on current line and scrolling offscreen.
 ---
 
 ## Critical Build Settings

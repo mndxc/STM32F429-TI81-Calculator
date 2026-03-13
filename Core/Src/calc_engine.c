@@ -133,14 +133,15 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
             continue;
         }
 
-        /* pi constant */
-        if (strncmp(p, "pi", 2) == 0) {
+        /* pi constant — accept both ASCII "pi" and UTF-8 π (0xCF 0x80) */
+        if (strncmp(p, "pi", 2) == 0 ||
+            ((unsigned char)p[0] == 0xCFu && (unsigned char)p[1] == 0x80u)) {
             if (out->count >= CALC_MAX_TOKENS)
                 return CALC_ERR_OVERFLOW;
             out->tokens[out->count].type  = MATH_NUMBER;
             out->tokens[out->count].value = 3.14159265358979f;
             out->count++;
-            p += 2;
+            p += 2;  /* "pi" and UTF-8 π (0xCF 0x80) are both 2 bytes */
             continue;
         }
 

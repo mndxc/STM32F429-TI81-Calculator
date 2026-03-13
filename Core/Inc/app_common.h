@@ -35,7 +35,9 @@ typedef enum {
     MODE_GRAPH_RANGE,   /* RANGE field editor active */
     MODE_GRAPH_ZOOM,    /* ZOOM preset menu active */
     MODE_GRAPH_TRACE,   /* Trace cursor active on graph */
-    MODE_GRAPH_ZBOX     /* ZBox rubber-band zoom active */
+    MODE_GRAPH_ZBOX,    /* ZBox rubber-band zoom active */
+    MODE_MODE_SCREEN,   /* MODE settings screen active */
+    MODE_MATH_MENU      /* MATH/NUM/HYP/PRB menu active */
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------
@@ -57,6 +59,7 @@ typedef struct {
     float   y_max;          /* Top edge of graph window */
     float   x_scl;          /* X axis tick spacing */
     float   y_scl;          /* Y axis tick spacing */
+    float   x_res;          /* Graph resolution (1 = evaluate at every pixel column) */
     bool    active;         /* True when in graph mode */
 } GraphState_t;
 

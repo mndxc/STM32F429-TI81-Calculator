@@ -241,18 +241,22 @@ Pressing GRAPH plots all active Y= equations over the current RANGE window.
 
 ### ZOOM presets
 
-| Key | Preset      | Window                        |
-|-----|-------------|-------------------------------|
-| 1   | ZBox        | Rubber-band selection on graph|
-| 2   | ZStandard   | ±10 on both axes              |
-| 3   | ZTrig       | ±2π / ±4                      |
-| 4   | ZDecimal    | ±4.7 / ±3.1                   |
-| 5   | ZSquare     | Corrects aspect ratio         |
-| 6   | ZInteger    | 1 pixel = 1 unit              |
+Navigate with UP/DOWN arrows and ENTER, or press the number key shortcut directly.
 
-**ZBox:** after selecting ZBox, a yellow crosshair appears on the graph. Press
-ENTER to set the first corner, move with arrow keys, press ENTER again to zoom
-to the selected rectangle. CLEAR exits ZBox and returns to the calculator.
+| Key | Preset       | Window                         |
+|-----|--------------|--------------------------------|
+| 1   | Box          | Rubber-band selection on graph |
+| 2   | Zoom In      | Zoom in by Set Factors amount  |
+| 3   | Zoom Out     | Zoom out by Set Factors amount |
+| 4   | Set Factors  | Configure Zoom In/Out scale    |
+| 5   | Square       | Corrects pixel aspect ratio    |
+| 6   | Standard     | ±10 on both axes               |
+| 7   | Trig         | ±2π / ±4 (scroll to see)       |
+| 8   | Integer      | 1 pixel = 1 unit (scroll to see)|
+
+**Box:** after selecting Box (ZBox), a yellow crosshair appears on the graph.
+Press ENTER to set the first corner, move with arrow keys, press ENTER again to
+zoom to the selected rectangle. CLEAR exits ZBox and returns to the calculator.
 
 ### Angle mode
 
@@ -396,13 +400,17 @@ st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 | Graph rendering                            | ✅ Working     |
 | RANGE window editor                        | ✅ Working     |
 | TRACE cursor with X/Y readout             | ✅ Working     |
-| ZOOM menu (6 presets)                      | ✅ Working     |
+| ZOOM menu (6 presets, number-key select)   | ✅ Working     |
 | ZBox rubber-band zoom                      | ✅ Working     |
 | Context-aware CLEAR on all screens         | ✅ Working     |
+| Free navigation between graph screens      | ✅ Working     |
+| ZOOM cursor-selectable navigation          | 🚧 In progress |
+| Monospaced font                            | 🚧 In progress |
 | MATH menu and functions                    | 🚧 Planned     |
 | MATRIX menu and operations                 | 🚧 Planned     |
 | MODE screen (number format, graph type…)   | 🚧 Planned     |
 | History recall with UP arrow               | 🚧 Planned     |
+| Overwrite / insert cursor mode             | 🚧 Planned     |
 | Persist state across resets                | 🚧 Planned     |
 | PRGM editor and runner                     | 🚧 Planned     |
 

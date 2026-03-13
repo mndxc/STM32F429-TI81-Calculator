@@ -66,6 +66,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/BSP/Components/Fonts/font16.c
     Drivers/BSP/Components/Fonts/font12.c
     Drivers/BSP/Components/Fonts/font8.c
+    Core/Fonts/jetbrains_mono_24.c
 
     # --- KEYPAD SOURCES ---
     Drivers/Keypad/keypad.c
