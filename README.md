@@ -1,6 +1,6 @@
 # STM32F429 TI-81 Calculator
 
-![Calculator running on STM32F429I-DISC1](docs/Image_1.jpeg)
+![Calculator running on STM32F429I-DISC1](docs/Image_1.jpg)
 
 A TI-81 inspired calculator running on the STM32F429I-DISC1 discovery board.
 Built as a learning exercise and prototype for a future custom PCB build.
