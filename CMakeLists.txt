@@ -94,6 +94,7 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     App/LVGL
 
     ${LVGL_ROOT_DIR}
+    ${LVGL_ROOT_DIR}/..     # needed for #include "lvgl/lvgl.h" in generated font files
 )
 
 # Add project symbols (macros)
