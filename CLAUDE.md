@@ -16,7 +16,7 @@ all key decisions, gotchas, and work-in-progress state for the project.
 | Variables (A–Z, ANS) | ~90% | STO, ANS, X in graph all work; list variables missing |
 | Display / UI / navigation | ~85% | Expression wrap, wrapped history, Fix/Float mode, MATH from Y=, UTF-8 cursor all solid; Sci/Eng notation display not wired |
 | Graphing (function mode) | ~75% | 4 equations, axes, grid (toggle from MODE), trace, ZBox, zoom, RANGE, Xres step, interpolated curves; Connected/Dot mode not wired |
-| TEST operators | ~70% | Menu (2nd+MATH), UP/DOWN/ENTER/number-key selection, inserts =, ≠, >, ≥, <, ≤; all 6 operators fully evaluated (return 1/0); accessible from Y= editor; and/or/not absent |
+| TEST operators | ~100% | Menu (2nd+MATH), UP/DOWN/ENTER/number-key selection, inserts =, ≠, >, ≥, <, ≤; all 6 operators fully evaluated (return 1/0); accessible from Y= editor; and/or/not not present on TI-81 hardware — not planned |
 
 ### Entirely missing (0%)
 
@@ -47,9 +47,22 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 ---
 
-## Session Stopping Point (2026-03-13)
+## Session Stopping Point (2026-03-15)
 
-### What was just committed (commit `6a33415`)
+### What was just committed (commit TBD — directory restructure)
+
+Restructured project to separate application code from CubeMX-generated code:
+- All custom application files moved from `Core/` and `Drivers/Keypad/` and `Middlewares/Third_Party/` into a new `App/` top-level directory
+- `App/Src/` — calculator_core.c, calc_engine.c, graph.c
+- `App/Inc/` — app_common.h, calc_engine.h, graph.h
+- `App/Fonts/` — JetBrainsMono-Regular.ttf, jetbrains_mono_24.c, jetbrains_mono_20.c
+- `App/Drivers/Keypad/` — keypad.c/h, keypad_map.c/h
+- `App/LVGL/` — lv_conf.h, lv_port_disp.c/h, lv_port_indev.c/h
+- `Core/` now contains only CubeMX-generated code (safe to regenerate without touching App/)
+- CMakeLists.txt updated with new paths; `cmake/stm32cubemx/CMakeLists.txt` unchanged
+- CLAUDE.md updated throughout (file structure, font regen commands, git workflow)
+
+### Previously committed (commit `6a33415`)
 
 Documentation-only session. Discovered that scroll indicator glyphs (↓/↑) were
 already implemented in `calculator_core.c` using UTF-8 sequences `\xE2\x86\x93` /
@@ -84,18 +97,56 @@ had not been updated. Cleaned up all stale references:
 
 ### Known issues
 - **Red flashing LED** — Irregular-period LED present on board. Decide: remove or set to a regular interval (e.g. 1 Hz heartbeat).
+- **ZBox arrow key lag** — Screen update rate cannot keep up with held arrow keys during ZBox rubber-band zoom selection. `Graph_DrawZBox()` in `graph.c` redraws from `graph_buf_clean` on every arrow key event; at 80ms repeat rate this may be saturating the LVGL render pipeline. Likely fix: throttle redraws in ZBox mode (skip frames if previous draw not yet flushed), or move crosshair/rectangle rendering to a lightweight overlay rather than full frame restore + redraw each keypress.
+- **No persistent storage** — Nothing survives power-off. Variables A–Z, ANS, graph equations, RANGE settings, and MODE settings all reset on boot. No FLASH writes or RTC backup registers are used anywhere. Will need to be addressed before PRGM is useful. Approach: reserve one FLASH sector (STM32F429 has 2MB in 8 sectors; sector 7 at 0x080C0000 is 128 KB and currently unused), write a simple serialised state block via `HAL_FLASH_Program`.
+- **MODE not accessible from menus/screens** — `TOKEN_MODE` is only handled in `MODE_NORMAL`. It should open the MODE screen from any mode (Y=, RANGE, ZOOM, MATH menu, TEST menu, etc.). This is a general rule: MODE is a top-level key like the graph navigation keys and must always work. Fix: add `TOKEN_MODE` handling as an early-exit check at the very top of `Execute_Token()` in `calculator_core.c`, before any mode-specific handler, similar to how graph nav keys could be made universal.
 
 ### Next session priorities (in order)
 
 **1. MATH PRB menu completion** — PRB tab items (rand, nPr, nCr) are displayed but none are functionally wired — factorial, combinations, and permutations evaluation is not yet implemented.
+- Files: `Core/Src/calc_engine.c` (add TOKEN_FACTORIAL, nPr, nCr to `EvaluateRPN`), `Core/Src/calculator_core.c` (PRB item handler in `MODE_MATH_MENU` block), `Drivers/Keypad/keypad_map.h` (check TOKEN_* values for these operators)
+- Gotchas: rand needs `srand` seeded (check if already done in `main.c`); nPr/nCr insert as ` nPr ` / ` nCr ` with surrounding spaces per MATH menu spec
 
 **2. Additional math functions** — Factorial (!), combinations (nCr), permutations (nPr).
+- Files: `Core/Src/calc_engine.c` (evaluation logic), `Core/Src/calculator_core.c` (token insertion from MATH tab items 3–5)
+- Note: items 1 and 2 are closely related — implement together in the same session
 
-**3. MATRIX menu** — Start with menu and 3×3 input UI before wiring math.
+**3. MATRIX menu** — Start with menu and 6×6 input UI before wiring math.
+- Files: `Core/Src/calculator_core.c` (new `MODE_MATRIX_MENU` handler, new screen objects), `Core/Inc/app_common.h` (add `MODE_MATRIX_MENU` to `CalcMode_t`), `Core/Src/calc_engine.c` (det, transpose later)
+- Gotchas: CCMRAM is 0% used — matrix storage can go there (64 KB free) or in RAM (~61 KB free); follow same lvgl_lock/unlock pattern as other menus
 
-**4. PRGM** — Program editor and runner.
+**4. Persistent storage** — Nothing survives power-off; prerequisite for PRGM and useful for variables/settings too.
+- Files: `Core/Src/main.c` (load on boot), new `Core/Src/persist.c` / `Core/Inc/persist.h` (save/load API), `Core/Src/calculator_core.c` (trigger save on `2nd+ON`)
+- Gotchas:
+  - **Wear** — FLASH sector rated ~10,000 erase cycles. Saving on every keypress (STO, MODE change) could exhaust this in under a year of heavy use. Save only once per session, triggered by `2nd+ON` (power-off gesture), matching real TI-81 behaviour.
+  - **Erase granularity** — must erase the full 128 KB sector before any write, even for 1 byte change; reserve sector 7 (0x080C0000, 128 KB, currently unused).
+  - **Single-bank FLASH freeze** — STM32F429 has one FLASH bank; CPU cannot fetch instructions from FLASH during erase/program. Freeze is acceptable at power-off time but the erase/write routine must still run from RAM (`__attribute__((section(".RamFunc")))`) to avoid a hard fault.
+  - **RTC backup registers** — 80 bytes, but VBAT on the discovery board is capacitor-backed only (not a coin cell), so content is lost on power-off anyway. Not useful here.
+  - Save struct should include: variables A–Z, ANS, graph equations, RANGE settings, MODE settings.
 
-**5. Battery voltage ADC** — Custom PCB only.
+**5. PRGM** — Program editor and runner.
+- Files: `Core/Src/calculator_core.c` (new `MODE_PRGM_*` handlers), `Core/Inc/app_common.h` (new CalcMode_t values), likely a new `Core/Src/prgm.c` / `Core/Inc/prgm.h`
+- Gotchas: program text storage goes in FLASH via the persistent storage layer (item 4 above); working buffer during editing can live in CCMRAM (64 KB free); control flow tokens (If/Then/Goto/Lbl) will need new TOKEN_* entries in `keypad_map.h`
+- PDF pages 133 to 150 of the TI81Guidebook.pdf in the /docs folder contains instructions on original TI-81 programming
+ 
+**6. Battery voltage ADC** — Custom PCB only.
+- Files: `Core/Src/main.c` (ADC init and read), `Core/Inc/app_common.h` (add battery voltage to shared state if needed)
+- Note: voltage divider R1=100K / R2=82K gives max 1.89V at 4.2V LiPo — safe for 3.3V VDDA
+
+**7. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
+- Files: `Core/Src/calculator_core.c` (Y= cursor handling for `=` column), `Core/Src/graph.c` (skip disabled equations in renderer)
+
+**8. ENTER on blank line recalculates previous entry** — Pressing ENTER on an empty input line should re-evaluate the last expression (same result as recalling it and pressing ENTER again). Matches common calculator behaviour.
+- Files: `Core/Src/calculator_core.c` (`TOKEN_ENTER` handler in `MODE_NORMAL`)
+
+**9. 2nd+ENTRY recall conflict** — The UP arrow history recall feature inadvertently displaced the original TI-81 behaviour where `2nd+ENTRY` recalled the last entry. Both behaviours should coexist: UP/DOWN scrolls history as now; `2nd+ENTRY` still recalls the last entry directly.
+- Files: `Core/Src/calculator_core.c` (`TOKEN_ENTRY` handler under `MODE_2ND`)
+
+**10. ~~Project directory restructure~~** ✓ Done (2026-03-15) — All application code now lives under `App/`; CubeMX-generated code stays in `Core/`. CMakeLists.txt updated. See File structure section in Architecture.
+
+**11. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. Difficulty is low-to-medium: LVGL supports image objects natively; main question is asset format (RGB565 array in FLASH) and whether to display it before or after LVGL init.
+
+**12. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
 
 ---
 
@@ -236,6 +287,8 @@ MATRIX EDIT
 3:[C] 6×6
 ```
 
+---
+
 ### TEST menu
 
 No tabs. "TEST" title at top row (yellow), 6 items below.
@@ -254,35 +307,44 @@ Navigation: UP/DOWN cursor; ENTER selects. Number keys 1–6 are direct shortcut
 CLEAR or 2nd+MATH exits. Accessible from normal mode (2nd+MATH) and from the Y= editor.
 Selected operator is inserted at the cursor position as a UTF-8 string.
 All 6 operators are fully evaluated by `calc_engine.c` — return 1 (true) or 0 (false).
-and/or/not are not implemented.
+and/or/not are not present on the TI-81 and are not planned.
 
 
 ### STAT menu
 
 **CALC tab:**
+```
 CALC DRAW DATA
 1:1-Var
 2:LinReg
 3:LnReg
 4:ExpReg
 5:PwrReg
+```
 
 **DRAW tab:**
+```
 CALC DRAW DATA
 1:Hist
 2:Scatter
 3:xyLine
+```
 
 **DATA tab:**
+```
 CALC DRAW DATA
 1:Edit
 2:ClrStat
 3:xSort
 4:ySort
+```
 
-## Draw menu
+---
+
+### DRAW menu
 
 **DRAW tab:**
+```
 DRAW
 1:ClrDraw
 2:Line(
@@ -291,7 +353,7 @@ DRAW
 5:PT-Chg(
 6:DrawF
 7:Shade(
-
+```
 
 ---
 
@@ -306,22 +368,22 @@ Without `-u _printf_float`, `%f`, `%g`, and `%e` produce empty strings silently.
 
 ### Memory regions
 ```
-RAM:     192 KB @ 0x20000000   (~57% used)
-CCMRAM:   64 KB @ 0x10000000   (~98% used — graph_buf was here, now moved)
-FLASH:     2 MB @ 0x08000000   (~35% used)
+RAM:     192 KB @ 0x20000000   (~68% used)
+CCMRAM:   64 KB @ 0x10000000   (0% used — graph_buf moved to SDRAM)
+FLASH:     2 MB @ 0x08000000   (~33% used)
 SDRAM:    64 MB @ 0xD0000000   (external, initialised in main.c)
 ```
 
 ### SDRAM layout
 ```
 0xD0000000  LCD framebuffer     320×240×2 = 153,600 bytes
-0xD0025800  graph_buf           320×220×2 = 140,800 bytes
-0xD0047E00  graph_buf_clean     320×220×2 = 140,800 bytes  (trace cache)
+0xD0025800  graph_buf           320×240×2 = 153,600 bytes
+0xD004B000  graph_buf_clean     320×240×2 = 153,600 bytes  (trace cache)
 ```
 `graph_buf` and `graph_buf_clean` are pointers into SDRAM, not static arrays:
 ```c
 static uint16_t * const graph_buf       = (uint16_t *)0xD0025800;
-static uint16_t * const graph_buf_clean = (uint16_t *)0xD0047E00;
+static uint16_t * const graph_buf_clean = (uint16_t *)(0xD0025800 + GRAPH_W * GRAPH_H * 2);  /* = 0xD004B000 */
 ```
 
 ### VSCode extensions
@@ -341,29 +403,33 @@ CubeMX resets these when regenerating — always check after any `.ioc` changes.
 
 ## Architecture
 
-### File structure (application code only)
+### File structure
 ```
-Core/Inc/
+App/Inc/                        ← application headers (custom, not CubeMX)
     app_common.h        — shared types, extern declarations, CalcMode_t enum
     calc_engine.h       — math engine public API
     graph.h             — graphing subsystem public API
-Core/Src/
-    main.c              — HAL init, SDRAM init, LTDC/LCD setup, task creation
+App/Src/                        ← application sources (custom, not CubeMX)
     calculator_core.c   — UI creation, token processing, calculator state
     calc_engine.c       — tokenizer, shunting-yard, RPN evaluator
     graph.c             — graph canvas, renderer, axes, curve plotting
-    freertos.c          — FreeRTOS task definitions
-Core/Fonts/
+App/Fonts/
     JetBrainsMono-Regular.ttf — source font (Apache 2.0; committed so regeneration is always possible)
     jetbrains_mono_20.c — JetBrains Mono 20px LVGL font (generated)
     jetbrains_mono_24.c — JetBrains Mono 24px LVGL font (generated)
-Drivers/Keypad/
+App/Drivers/Keypad/
     keypad.c/h          — hardware key matrix scanning
     keypad_map.c/h      — Token_t enum, hardware key → token lookup table
-Middlewares/Third_Party/
+App/LVGL/
     lv_conf.h           — LVGL configuration
     lv_port_disp.c/h    — LVGL display driver
     lv_port_indev.c/h   — LVGL input driver
+Core/Inc/                       ← CubeMX generated (regenerated from .ioc)
+    main.h, stm32f4xx_hal_conf.h, stm32f4xx_it.h, FreeRTOSConfig.h
+Core/Src/                       ← CubeMX generated (regenerated from .ioc)
+    main.c              — HAL init, SDRAM init, LTDC/LCD setup, task creation
+    freertos.c          — FreeRTOS task definitions
+    stm32f4xx_it.c, stm32f4xx_hal_msp.c, system_stm32f4xx.c, sysmem.c, syscalls.c
 ```
 
 ### Task architecture
@@ -618,7 +684,7 @@ shunting-yard from treating it as binary subtraction. `-3^2` still evaluates as 
 
 In priority order:
 1. MATH PRB completion — factorial, nPr, nCr evaluation
-2. MATRIX menu and 3×3 input UI
+2. MATRIX menu and 6×6 input UI
 3. PRGM — program editor and runner
 4. Battery voltage ADC (custom PCB only)
 5. Red flashing LED — decide: remove or regularize at 1 Hz heartbeat
@@ -632,22 +698,30 @@ All ICs verified available on JLCPCB:
 | IC | Purpose |
 |----|---------|
 | STM32H7B0VBT6 | Main MCU LQFP100 |
+| W25Q128JV | 16MB OctoSPI NOR flash on OCTOSPI1 — firmware XIP (required; H7B0 has only 128KB internal flash, current firmware uses 684KB) |
+| W25Q32JV | 4MB OctoSPI NOR flash on OCTOSPI2 — user data (variables, programs, settings) |
 | RT9526A | LiPo charger |
 | MT2492 | 3.3V main buck (R_upper=100K, R_lower=22.1K 1%) |
 | RT9078 | 3.3V always-on LDO |
 | RT6150 | 5V Pi boost — DNF Rev1 |
 | USBLC6-2SC6 | USB ESD protection |
 
-Battery monitoring: voltage divider R1=100K, R2=82K 1% into STM32 ADC.
-Max ADC voltage at 4.2V LiPo = 1.89V (safe for 3.3V VDDA reference).
+**External flash notes:**
+- H7B0 has two independent OctoSPI peripherals — use both to fully eliminate the write-freeze problem:
+  - **OCTOSPI1 → W25Q128JV**: permanently in memory-mapped (XIP) mode; firmware executes directly from it and it is never written at runtime
+  - **OCTOSPI2 → W25Q32JV**: dedicated to user data; freely erased/written without affecting code execution — no `.RamFunc` workaround needed, no freeze, no mode switching
+- W25Q128JV is single-bank NOR; writing to it while in XIP mode would require switching OctoSPI to indirect mode and running erase from RAM — the two-chip split avoids this entirely
+- Flash wear negligible at this scale — effectively unlimited for calculator use
+- CR2032 coin cell on VBAT pin — plan footprint in Rev1; enables RTC backup registers to survive power-off for timekeeping or fast-boot state
+- Battery monitoring: voltage divider R1=100K / R2=82K 1% into STM32 ADC; max ADC voltage at 4.2V LiPo = 1.89V (safe for 3.3V VDDA reference)
 
 ---
 
 ## Git Workflow
 
 ```bash
-git add Core/Src/calculator_core.c Core/Inc/app_common.h Core/Src/graph.c \
-        Core/Inc/graph.h Drivers/Keypad/keypad.c CLAUDE.md
+git add App/Src/calculator_core.c App/Inc/app_common.h App/Src/graph.c \
+        App/Inc/graph.h App/Drivers/Keypad/keypad.c CLAUDE.md
 git commit -m "description"
 git push
 ```
@@ -677,7 +751,7 @@ Middlewares/ST/
 2. **nano.specs drops float printf** — always include `-u _printf_float`
 3. **LVGL calls outside mutex** — hard faults or display corruption
 4. **Never call lvgl_lock() inside cursor_timer_cb** — deadlock (already holds mutex)
-5. **CCMRAM is nearly full** — do not add more large static buffers there
+5. **CCMRAM is 0% used (64 KB free)** — `graph_buf` was moved to SDRAM; CCMRAM is available for matrix storage or other large working buffers
 6. **SDRAM must be initialised before use** — happens in `main.c` before tasks start
 7. **White screen after flash** — usually stale binary; power cycle the board
 8. **`%.6g` unreliable on ARM newlib-nano** — use `%.6f` with manual trimming
@@ -686,18 +760,18 @@ Middlewares/ST/
 11. **strncpy does not null-terminate** — always add `buf[n-1] = '\0'` after strncpy
 12. **MODE_GRAPH_TRACE falls through** — after exiting trace mode, execution continues into the main switch to process the triggering key normally. This is intentional.
 13. **UTF-8 cursor integrity** — `cursor_pos` in the main expression is a byte offset. Any code that moves or edits at `cursor_pos` must account for multi-byte characters (π=2B, √/≠/≥/≤=3B). Stepping by 1 byte can land inside a sequence; LVGL silently skips invalid UTF-8 so the display looks fine but `Tokenize()` returns `CALC_ERR_SYNTAX`. Rules: LEFT steps back past all `10xxxxxx` continuation bytes; RIGHT steps forward past the full sequence; DEL walks back to the start byte and removes all N bytes; overwrite uses `utf8_char_size()` to remove the full char before writing the replacement. The Y= cursor (`yeq_cursor_pos`) was correct already — use it as the reference implementation.
-14. **Font regeneration** — the LVGL `.c` font files are generated from `Core/Fonts/JetBrainsMono-Regular.ttf` using `lv_font_conv` (install: `npm i -g lv_font_conv`). Regenerate both sizes with:
+14. **Font regeneration** — the LVGL `.c` font files are generated from `App/Fonts/JetBrainsMono-Regular.ttf` using `lv_font_conv` (install: `npm i -g lv_font_conv`). Regenerate both sizes with:
     ```bash
-    lv_font_conv --font Core/Fonts/JetBrainsMono-Regular.ttf \
+    lv_font_conv --font App/Fonts/JetBrainsMono-Regular.ttf \
       -r 0x20-0x7E -r 0x00B0,0x00B2,0x00B3,0x00B9 \
       -r 0x03A3,0x03B8,0x03C0,0x03C3 \
       -r 0x221A -r 0x25B6 -r 0x2191,0x2193 -r 0x2260,0x2264,0x2265 \
-      --size 24 --format lvgl --bpp 4 -o Core/Fonts/jetbrains_mono_24.c --no-compress
+      --size 24 --format lvgl --bpp 4 -o App/Fonts/jetbrains_mono_24.c --no-compress
 
-    lv_font_conv --font Core/Fonts/JetBrainsMono-Regular.ttf \
+    lv_font_conv --font App/Fonts/JetBrainsMono-Regular.ttf \
       -r 0x20-0x7E -r 0x00B0,0x00B2,0x00B3,0x00B9 \
       -r 0x03A3,0x03B8,0x03C0,0x03C3 \
       -r 0x221A -r 0x25B6 -r 0x2191,0x2193 -r 0x2260,0x2264,0x2265 \
-      --size 20 --format lvgl --bpp 4 -o Core/Fonts/jetbrains_mono_20.c --no-compress
+      --size 20 --format lvgl --bpp 4 -o App/Fonts/jetbrains_mono_20.c --no-compress
     ```
     Current Unicode ranges included: ASCII (0x20–0x7E), °²³¹ (superscripts/degree), Σθπσ (Greek), √ ▶ ↑↓ (math/UI), ≠≤≥ (TEST operators).

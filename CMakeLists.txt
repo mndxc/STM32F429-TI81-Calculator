@@ -62,22 +62,22 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     
     # --- FONT SOURCES ---
     Drivers/BSP/Components/Fonts/font24.c   # Required by BSP LCD driver (Font24 symbol)
-    Core/Fonts/jetbrains_mono_24.c
-    Core/Fonts/jetbrains_mono_20.c
+    App/Fonts/jetbrains_mono_24.c
+    App/Fonts/jetbrains_mono_20.c
 
     # --- KEYPAD SOURCES ---
-    Drivers/Keypad/keypad.c
-    Drivers/Keypad/keypad_map.c
+    App/Drivers/Keypad/keypad.c
+    App/Drivers/Keypad/keypad_map.c
 
     # --- LOGIC SOURCES ---
-    Core/Src/calculator_core.c
-    Core/Src/calc_engine.c
-    Core/Src/graph.c
+    App/Src/calculator_core.c
+    App/Src/calc_engine.c
+    App/Src/graph.c
 
-    # Add all LVGL Source files 
+    # Add all LVGL Source files
     ${LVGL_SOURCES}
-    Middlewares/Third_Party/lv_port_disp.c
-    Middlewares/Third_Party/lv_port_indev.c
+    App/LVGL/lv_port_disp.c
+    App/LVGL/lv_port_indev.c
 )
 
 # Add include paths
@@ -89,11 +89,11 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/BSP/Components/Common
     Drivers/BSP/Components/Fonts
 
-    Drivers/Keypad
+    App/Inc
+    App/Drivers/Keypad
+    App/LVGL
 
     ${LVGL_ROOT_DIR}
-
-    Middlewares/Third_Party
 )
 
 # Add project symbols (macros)
