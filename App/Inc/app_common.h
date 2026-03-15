@@ -76,7 +76,13 @@ extern GraphState_t graph_state;
  *---------------------------------------------------------------------------*/
 
 /** Queue for passing keypad tokens from the keypad task to the core task. */
-extern osMessageQId keypadQueueHandle;
+extern osMessageQId      keypadQueueHandle;
+
+/** LVGL mutex — all lv_* calls must be wrapped with lvgl_lock/lvgl_unlock. */
+extern SemaphoreHandle_t xLVGL_Mutex;
+
+/** Binary semaphore signalled by DefaultTask once LVGL is initialised. */
+extern SemaphoreHandle_t xLVGL_Ready;
 
 /*---------------------------------------------------------------------------
  * Function declarations

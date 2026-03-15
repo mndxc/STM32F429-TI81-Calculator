@@ -59,8 +59,6 @@
  * External references
  *---------------------------------------------------------------------------*/
 
-extern SemaphoreHandle_t xLVGL_Mutex;
-extern SemaphoreHandle_t xLVGL_Ready;
 extern const uint32_t TI81_LookupTable_Size;
 
 /*---------------------------------------------------------------------------

@@ -70,6 +70,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Drivers/Keypad/keypad_map.c
 
     # --- LOGIC SOURCES ---
+    App/Src/app_init.c
     App/Src/calculator_core.c
     App/Src/calc_engine.c
     App/Src/graph.c
