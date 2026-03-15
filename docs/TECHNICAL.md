@@ -6,35 +6,59 @@ Full architecture, build configuration, and implementation details.
 
 ## Project Structure
 
+Application code and CubeMX-generated code are in separate top-level directories.
+`App/` contains all custom application code. `Core/` contains only files generated
+or managed by STM32CubeMX (safe to regenerate without touching application code).
+
 ```
-Core/
+App/                            ← Custom application code (never touched by CubeMX)
   Src/
-    main.c                  Application entry, FreeRTOS task setup, hardware init
-    calculator_core.c       Calculator UI, token processing, expression building
-    calc_engine.c           Expression parser and evaluator (shunting-yard + RPN)
-    graph.c                 Graph canvas, axes, tick marks, curve renderer
+    app_init.c                  RTOS object creation, hardware bring-up, LVGL init, render loop
+    calculator_core.c           Calculator UI, token processing, expression building
+    calc_engine.c               Expression parser and evaluator (shunting-yard + RPN)
+    graph.c                     Graph canvas, axes, tick marks, curve renderer
   Inc/
-    main.h
-    app_common.h            Shared types, handles and function declarations
-    calc_engine.h           Math engine interface
-    graph.h                 Graphing subsystem interface
+    app_init.h                  App_RTOS_Init() and App_DefaultTask_Run() declarations
+    app_common.h                Shared types, handles and function declarations
+    calc_engine.h               Math engine interface
+    graph.h                     Graphing subsystem interface
+  Fonts/
+    JetBrainsMono-Regular.ttf   Source font (Apache 2.0)
+    jetbrains_mono_24.c         LVGL bitmap font 24px (generated from TTF)
+    jetbrains_mono_20.c         LVGL bitmap font 20px (generated from TTF)
+  Drivers/
+    Keypad/
+      keypad.c                  Matrix scan driver, FreeRTOS scan task, arrow auto-repeat
+      keypad.h                  Key ID enum and scan function prototype
+      keypad_map.c              Hardware key to token lookup table
+      keypad_map.h              Token_t enum and lookup table declaration
+  LVGL/
+    lv_conf.h                   LVGL configuration
+    lv_port_disp.c/h            LVGL display port — LTDC framebuffer flush with rotation
+    lv_port_indev.c/h           LVGL input device port — keypad registration
+
+Core/                           ← CubeMX-generated code (regenerated from .ioc)
+  Src/
+    main.c                      HAL init, peripheral setup, minimal USER CODE call-throughs
+    freertos.c                  Generated FreeRTOS task stubs
+    stm32f4xx_it.c              Interrupt handlers
+    stm32f4xx_hal_msp.c         Peripheral init callbacks
+    system_stm32f4xx.c          Clock and memory initialisation
+    sysmem.c / syscalls.c       libc stubs
+  Inc/
+    main.h                      Generated declarations
+    FreeRTOSConfig.h            FreeRTOS configuration (check after every CubeMX regen)
+    stm32f4xx_hal_conf.h        HAL middleware configuration
+    stm32f4xx_it.h              Interrupt handler declarations
 
 Drivers/
   BSP/
-    STM32F429I-Discovery/   ST board support package (LCD, SDRAM)
-    Components/             ILI9341 driver and fonts
-  Keypad/
-    keypad.c                Matrix scan driver, FreeRTOS scan task, arrow auto-repeat
-    keypad.h                Key ID enum and scan function prototype
-    keypad_map.c            Hardware key to token lookup table
-    keypad_map.h            Token_t enum and lookup table declaration
+    STM32F429I-Discovery/       ST board support package (LCD, SDRAM)
+    Components/                 ILI9341 driver and fonts
 
 Middlewares/
   Third_Party/
-    lvgl/                   LVGL v9.x source (unmodified)
-    lv_conf.h               LVGL configuration
-    lv_port_disp.c/h        LVGL display port — LTDC framebuffer flush with rotation
-    lv_port_indev.c/h       LVGL input device port — keypad registration
+    lvgl/                       LVGL v9.x source (unmodified, gitignored)
 ```
 
 ---
@@ -262,15 +286,20 @@ CubeMX resets this to 32KB which is insufficient for three tasks.
 #define configTOTAL_HEAP_SIZE    ((size_t)(65536))
 ```
 
-### 2. FreeRTOS stack sizes — `freertos.c`
+### 2. FreeRTOS stack sizes
 CubeMX resets task stack sizes. Required values:
+
+`main.c` (defaultTask — generated, outside USER CODE):
 ```c
 osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 4096 * 2);
-osThreadDef(keypadTask,  StartKeypadTask,  osPriorityNormal, 0, 1024 * 2);
-osThreadDef(calcCore,    StartCalcCoreTask,osPriorityNormal, 0, 1024 * 2);
+```
+`App/Src/app_init.c` — `App_RTOS_Init()` (keypad and calc tasks — application code, not reset by CubeMX):
+```c
+osThreadDef(keypadTask, StartKeypadTask, osPriorityNormal, 0, 1024 * 2);
+osThreadDef(calcCore,   StartCalcCoreTask, osPriorityNormal, 0, 1024 * 2);
 ```
 
-### 3. LVGL OS integration — `Middlewares/Third_Party/lv_conf.h`
+### 3. LVGL OS integration — `App/LVGL/lv_conf.h`
 Must be `LV_OS_NONE`. Setting this to `LV_OS_FREERTOS` causes LVGL to
 attempt creating its own internal task which fails silently and breaks
 the render pipeline.
@@ -349,17 +378,17 @@ st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 ## Memory Layout
 
 ```
-RAM:     192 KB @ 0x20000000   (~57% used)
-CCMRAM:   64 KB @ 0x10000000   (~98% used)
-FLASH:     2 MB @ 0x08000000   (~35% used)
+RAM:     192 KB @ 0x20000000   (~68% used)
+CCMRAM:   64 KB @ 0x10000000   (0% used — available for matrix storage or large buffers)
+FLASH:     2 MB @ 0x08000000   (~33% used)
 SDRAM:    64 MB @ 0xD0000000   (external, IS42S16400J)
 ```
 
 SDRAM layout:
 ```
 0xD0000000  LCD framebuffer     320×240×2 = 153,600 bytes
-0xD0025800  graph_buf           320×220×2 = 140,800 bytes
-0xD0047E00  graph_buf_clean     320×220×2 = 140,800 bytes  (trace cache)
+0xD0025800  graph_buf           320×240×2 = 153,600 bytes
+0xD004B000  graph_buf_clean     320×240×2 = 153,600 bytes  (trace cache)
 ```
 
 ---

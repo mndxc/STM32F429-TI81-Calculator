@@ -49,18 +49,22 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 ## Session Stopping Point (2026-03-15)
 
-### What was just committed (commit TBD — directory restructure)
+### What was just committed (commits `1baf61c`, `05867c2`, `a0e532f`)
 
-Restructured project to separate application code from CubeMX-generated code:
-- All custom application files moved from `Core/` and `Drivers/Keypad/` and `Middlewares/Third_Party/` into a new `App/` top-level directory
-- `App/Src/` — calculator_core.c, calc_engine.c, graph.c
-- `App/Inc/` — app_common.h, calc_engine.h, graph.h
-- `App/Fonts/` — JetBrainsMono-Regular.ttf, jetbrains_mono_24.c, jetbrains_mono_20.c
-- `App/Drivers/Keypad/` — keypad.c/h, keypad_map.c/h
-- `App/LVGL/` — lv_conf.h, lv_port_disp.c/h, lv_port_indev.c/h
-- `Core/` now contains only CubeMX-generated code (safe to regenerate without touching App/)
-- CMakeLists.txt updated with new paths; `cmake/stm32cubemx/CMakeLists.txt` unchanged
-- CLAUDE.md updated throughout (file structure, font regen commands, git workflow)
+Three-commit session restructuring the project for a clean App/Core split.
+
+**`1baf61c` — directory restructure:** All custom application files moved from `Core/`, `Drivers/Keypad/`, and `Middlewares/Third_Party/` into a new `App/` top-level directory. `Core/` now contains only CubeMX-generated code.
+
+**`05867c2` — build fix:** Added `${LVGL_ROOT_DIR}/..` to include paths. Font `.c` files use `#include "lvgl/lvgl.h"` which needs the parent of the `lvgl/` directory, previously provided by `Middlewares/Third_Party` being in the include path.
+
+**`a0e532f` — main.c extraction:** All custom code removed from `main.c` USER CODE sections into `App/Src/app_init.c`:
+- RTOS object definitions (`xLVGL_Mutex`, `xLVGL_Ready`, `keypadQueueHandle`, task handles)
+- `App_RTOS_Init()` — creates semaphores, queue, keypad and calc tasks; called from single USER CODE block in `main()`
+- `App_DefaultTask_Run()` — BSP/LVGL init and UI render loop; called from `StartDefaultTask()` after generated `MX_USB_HOST_Init()`
+- `_write()` — printf retarget to USART1
+- `xLVGL_Mutex` / `xLVGL_Ready` extern declarations moved to `app_common.h` (removed local externs from `calculator_core.c`)
+
+`main.c` now contains only generated boilerplate with two user code touch points: `#include "app_init.h"` and `App_RTOS_Init()`.
 
 ### Previously committed (commit `6a33415`)
 
@@ -406,10 +410,12 @@ CubeMX resets these when regenerating — always check after any `.ioc` changes.
 ### File structure
 ```
 App/Inc/                        ← application headers (custom, not CubeMX)
+    app_init.h          — App_RTOS_Init() and App_DefaultTask_Run() declarations
     app_common.h        — shared types, extern declarations, CalcMode_t enum
     calc_engine.h       — math engine public API
     graph.h             — graphing subsystem public API
 App/Src/                        ← application sources (custom, not CubeMX)
+    app_init.c          — RTOS objects, hardware bring-up, LVGL init, render loop
     calculator_core.c   — UI creation, token processing, calculator state
     calc_engine.c       — tokenizer, shunting-yard, RPN evaluator
     graph.c             — graph canvas, renderer, axes, curve plotting
@@ -720,8 +726,8 @@ All ICs verified available on JLCPCB:
 ## Git Workflow
 
 ```bash
-git add App/Src/calculator_core.c App/Inc/app_common.h App/Src/graph.c \
-        App/Inc/graph.h App/Drivers/Keypad/keypad.c CLAUDE.md
+git add App/Src/calculator_core.c App/Src/app_init.c App/Inc/app_common.h \
+        App/Src/graph.c App/Inc/graph.h App/Drivers/Keypad/keypad.c CLAUDE.md
 git commit -m "description"
 git push
 ```
