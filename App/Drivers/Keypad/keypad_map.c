@@ -39,6 +39,7 @@ const KeyDefinition_t TI81_LookupTable[] = {
     [ID_B8_A1] = { TOKEN_ALPHA,    TOKEN_A_LOCK, TOKEN_NONE  },
     [ID_B8_A2] = { TOKEN_X_T,      TOKEN_NONE,   TOKEN_NONE  },
     [ID_B8_A3] = { TOKEN_MODE,     TOKEN_NONE,   TOKEN_NONE  },
+    [ID_B8_A4] = { TOKEN_ON,       TOKEN_ON,     TOKEN_NONE  }, /* Placeholder ON mapping for Discovery board */
 
     /* --- Menu row --- */
     [ID_B7_A1] = { TOKEN_MATH,     TOKEN_TEST,   TOKEN_A     },

@@ -18,6 +18,7 @@
 #include "stm32f429i_discovery_lcd.h"
 #include "stm32f429i_discovery_sdram.h"
 #include <string.h>
+#include <stdlib.h>
 
 /*---------------------------------------------------------------------------
  * Private defines
@@ -102,6 +103,8 @@ void App_DefaultTask_Run(void)
 
     /* Signal CalcCoreTask that LVGL is ready for UI creation */
     xSemaphoreGive(xLVGL_Ready);
+
+    srand(HAL_GetTick());
 
     /* UI render loop — runs every 5 ms */
     for (;;) {

@@ -11,6 +11,7 @@
 #include "app_common.h"
 #include "calc_engine.h"
 #include "graph.h"
+#include "persist.h"
 #include "cmsis_os.h"
 #include "lvgl.h"
 #include "main.h"
@@ -219,6 +220,50 @@ static const int16_t mode_option_x[MODE_ROW_COUNT][MODE_MAX_COLS] = {
     {4, 165, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 };
 static lv_obj_t *mode_option_labels[MODE_ROW_COUNT][MODE_MAX_COLS];
+
+void Calc_BuildPersistBlock(PersistBlock_t *out)
+{
+    memcpy(out->calc_variables, calc_variables, sizeof(out->calc_variables));
+    out->ans = ans;
+    memcpy(out->mode_committed, mode_committed, sizeof(out->mode_committed));
+
+    out->zoom_x_fact = zoom_x_fact;
+    out->zoom_y_fact = zoom_y_fact;
+
+    memcpy(out->equations, graph_state.equations, sizeof(out->equations));
+    out->x_min   = graph_state.x_min;
+    out->x_max   = graph_state.x_max;
+    out->y_min   = graph_state.y_min;
+    out->y_max   = graph_state.y_max;
+    out->x_scl   = graph_state.x_scl;
+    out->y_scl   = graph_state.y_scl;
+    out->x_res   = graph_state.x_res;
+    out->grid_on = graph_state.grid_on ? 1U : 0U;
+}
+
+void Calc_ApplyPersistBlock(const PersistBlock_t *in)
+{
+    memcpy(calc_variables, in->calc_variables, sizeof(in->calc_variables));
+    ans = in->ans;
+    memcpy(mode_committed, in->mode_committed, sizeof(in->mode_committed));
+
+    angle_degrees = (mode_committed[2] == 1);
+    Calc_SetDecimalMode(mode_committed[1]);
+
+    zoom_x_fact = in->zoom_x_fact;
+    zoom_y_fact = in->zoom_y_fact;
+
+    memcpy(graph_state.equations, in->equations, sizeof(graph_state.equations));
+    graph_state.x_min   = in->x_min;
+    graph_state.x_max   = in->x_max;
+    graph_state.y_min   = in->y_min;
+    graph_state.y_max   = in->y_max;
+    graph_state.x_scl   = in->x_scl;
+    graph_state.y_scl   = in->y_scl;
+    graph_state.x_res   = in->x_res;
+    graph_state.grid_on = (in->grid_on != 0U);
+    graph_state.active  = false;
+}
 
 /* MATH menu state */
 static lv_obj_t *ui_math_screen                    = NULL;
@@ -1776,6 +1821,13 @@ static void matrix_menu_insert(const char *ins)
  */
 void Execute_Token(Token_t t)
 {
+    if (t == TOKEN_ON) {
+        PersistBlock_t block;
+        Calc_BuildPersistBlock(&block);
+        (void)Persist_Save(&block);
+        return;
+    }
+
     /*--- Y= equation editor mode handler -----------------------------------*/
     if (current_mode == MODE_GRAPH_YEQ) {
         char *eq  = graph_state.equations[yeq_selected];
@@ -3593,6 +3645,19 @@ void StartCalcCoreTask(void const *argument)
     ui_update_matrix_display();
     ui_update_matrix_edit_display();
     ui_refresh_display();
+
+    PersistBlock_t saved;
+    if (Persist_Load(&saved)) {
+        Calc_ApplyPersistBlock(&saved);
+        ui_refresh_display();
+
+        for (int i = 0; i < GRAPH_NUM_EQ; i++) {
+            lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+        }
+
+        ui_update_mode_display();
+    }
+
     lvgl_unlock();
 
     if (keypadQueueHandle == NULL) {
