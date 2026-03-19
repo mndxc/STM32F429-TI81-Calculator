@@ -1012,7 +1012,9 @@ static void ui_refresh_display(void)
     for (int d = 0; d < num_entries; d++) {
         int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
         int elen = (int)strlen(history[idx].expression);
-        int erows = (elen == 0) ? 1 : (elen + cpr - 1) / cpr;
+        /* erows=0 for blank-expression entries (re-run results): only a result
+         * row is shown, no empty expression row above it. */
+        int erows = (elen == 0) ? 0 : (elen + cpr - 1) / cpr;
         total_history_lines += erows + 1; /* expression sub-rows + result row */
     }
 
@@ -1037,7 +1039,7 @@ static void ui_refresh_display(void)
             for (int d = 0; d < num_entries; d++) {
                 int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
                 int elen = (int)strlen(history[idx].expression);
-                int erows = (elen == 0) ? 1 : (elen + cpr - 1) / cpr;
+                int erows = (elen == 0) ? 0 : (elen + cpr - 1) / cpr;
 
                 if (li < line + erows) {
                     /* Expression sub-row er of this history entry */
@@ -3335,6 +3337,45 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_ENTER:
+        /* ENTER on blank input re-evaluates the last expression and appends
+         * only a result row (blank expression string = result-only history
+         * entry, rendered without an expression line above it).
+         * Walk backwards past any result-only entries to find the last real
+         * expression — pressing ENTER repeatedly keeps re-running the same one. */
+        if (expr_len == 0 && history_count > 0) {
+            uint8_t last_idx = 0;
+            bool found = false;
+            for (uint8_t i = 1; i <= history_count && i <= HISTORY_LINE_COUNT; i++) {
+                uint8_t candidate = (history_count - i) % HISTORY_LINE_COUNT;
+                if (history[candidate].expression[0] != '\0') {
+                    last_idx = candidate;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) break;
+            CalcResult_t result = Calc_Evaluate(history[last_idx].expression,
+                                                ans, angle_degrees);
+            char result_str[MAX_RESULT_LEN];
+            memset(result_str, 0, MAX_RESULT_LEN);
+            if (result.error != CALC_OK) {
+                strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
+                result_str[MAX_RESULT_LEN - 1] = '\0';
+            } else {
+                Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
+                ans = result.value;
+            }
+            uint8_t idx = history_count % HISTORY_LINE_COUNT;
+            history[idx].expression[0] = '\0';
+            strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
+            history[idx].result[MAX_RESULT_LEN - 1] = '\0';
+            history_count++;
+            history_recall_offset = 0;
+            lvgl_lock();
+            ui_update_history();
+            lvgl_unlock();
+            break;
+        }
         if (expr_len > 0) {
             CalcResult_t result = Calc_Evaluate(expression, ans,
                                                 angle_degrees);
@@ -3486,6 +3527,7 @@ void Execute_Token(Token_t t)
 
     case TOKEN_ENTRY:
         if (history_count > 0) {
+            history_recall_offset = 1;
             uint8_t idx = (history_count - 1) % HISTORY_LINE_COUNT;
             strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
             expression[MAX_EXPR_LEN - 1] = '\0';
