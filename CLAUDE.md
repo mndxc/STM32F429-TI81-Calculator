@@ -1,11 +1,12 @@
-# CLAUDE.md — STM32F429 TI-81 Calculator Project Context
+# CLAUDE.md
 
-This file provides continuity for AI-assisted development sessions. It summarises
-all key decisions, gotchas, and work-in-progress state for the project.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+It also provides continuity for AI-assisted development sessions, summarising all key decisions, gotchas, and work-in-progress state.
 
 ---
 
-## Feature Completion Status (~48% of original TI-81, as of 2026-03-13)
+## Feature Completion Status (~50% of original TI-81, as of 2026-03-18)
 
 ### Well-implemented (60–100%)
 
@@ -47,6 +48,33 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 ---
 
+## Build & Flash
+
+### Configure and build (command line)
+```bash
+cmake -B build/Debug \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake \
+      -G Ninja
+cmake --build build/Debug
+```
+Output: `build/Debug/STM32F429-TI81-Calculator.elf` (and `.map`, `.bin` via objcopy).
+
+Incremental rebuild only:
+```bash
+cmake --build build/Debug
+```
+
+### Flash & debug
+Flashing is done through the **VSCode stm32-cube-clangd extension** (ST-Link GDB server). Use `F5` / the Run and Debug panel with the `STM32Cube: STM32 Launch ST-Link GDB Server` configuration defined in `.vscode/launch.json`. There is no standalone CLI flash command configured in this project.
+
+**After flashing:** always do a full USB power cycle (unplug/replug) before testing — the ILI9341 display does not always initialise correctly after a SWD reset alone (white screen symptom).
+
+### No tests
+There is no test suite. All validation is done on hardware.
+
+---
+
 ## Current Project State (as of 2026-03-18)
 
 All custom application code lives under `App/`. `Core/` contains only CubeMX-generated files. The `main.c` touch points are `#include "app_init.h"` and `App_RTOS_Init()`.
@@ -72,53 +100,46 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - UTF-8 cursor integrity fix — LEFT/RIGHT/DEL/overwrite all handle multi-byte sequences correctly
 - Font regeneration — ↑↓ (U+2191/U+2193) and ≠/≥/≤ (U+2260/U+2264/U+2265) added to both font sizes
 - Scroll indicator glyphs — ZOOM and MATH menus use ↓/↑ (U+2193/U+2191) amber overlays
+- Heartbeat LED fixed to 1 Hz (100 × 5 ms in DefaultTask render loop)
+- **Persistent storage** — `App/Inc/persist.h`, `App/Src/persist.c`. Saves A–Z, ANS, MODE, graph equations, RANGE, zoom factors to FLASH sector 10 (0x080C0000). `Calc_BuildPersistBlock` / `Calc_ApplyPersistBlock` in `calculator_core.c`. Load on boot, save on plain ON and 2nd+ON. On boot-load, all screens are synced: Y= labels, MODE highlight, RANGE field labels, and ZOOM FACTORS labels all reflect the restored state.
+- **ON button EXTI** — PE6 (`MatrixA0`) reconfigured from push-pull output to EXTI falling-edge with pull-up in `on_button_init()` (called from `App_RTOS_Init`). `EXTI9_5_IRQHandler` and `HAL_GPIO_EXTI_Callback` defined in `app_init.c` — no changes to any CubeMX-generated file.
+- **Power management / Stop mode** — `Power_EnterStop()` in `app_init.c`. `2nd+ON` saves state then enters STM32 Stop mode. Wake on ON button press restores PLL, PLLSAI, SDRAM, LTDC, and resumes DefaultTask. `App_SystemClock_Reinit()` wrapper in `main.c` USER CODE BEGIN 4. `g_sleeping` flag guards ISR from posting spurious TOKEN_ON during wake.
 
 ### Known issues
-- **Red flashing LED** — Irregular-period LED present on board. Decide: remove or set to a regular interval (e.g. 1 Hz heartbeat).
+- **Display fade on power-off** — After `2nd+ON` the screen slowly fades to white instead of going black cleanly. Root cause: ILI9341 in RGB interface mode has no internal frame buffer; when LTDC pixel clock stops, panel capacitors discharge to white. Current mitigation: framebuffer zeroed to black + 20 ms delay before LTDC disable. `BSP_LCD_DisplayOff()` (SPI DISPOFF command 0x28) does not reliably blank the panel fast enough in RGB mode. Fix still needed: reliable panel blanking before LTDC stops.
 - **ZBox arrow key lag** — Screen update rate cannot keep up with held arrow keys during ZBox rubber-band zoom selection. `Graph_DrawZBox()` in `graph.c` redraws from `graph_buf_clean` on every arrow key event; at 80ms repeat rate this may be saturating the LVGL render pipeline. Likely fix: throttle redraws in ZBox mode (skip frames if previous draw not yet flushed), or move crosshair/rectangle rendering to a lightweight overlay rather than full frame restore + redraw each keypress.
-- **No persistent storage** — Nothing survives power-off. Variables A–Z, ANS, graph equations, RANGE settings, and MODE settings all reset on boot. No FLASH writes or RTC backup registers are used anywhere. Will need to be addressed before PRGM is useful. Approach: reserve one FLASH sector (STM32F429 has 2MB in 8 sectors; sector 7 at 0x080C0000 is 128 KB and currently unused), write a simple serialised state block via `HAL_FLASH_Program`.
 - **MODE not accessible from menus/screens** — `TOKEN_MODE` is only handled in `MODE_NORMAL`. It should open the MODE screen from any mode (Y=, RANGE, ZOOM, MATH menu, TEST menu, etc.). This is a general rule: MODE is a top-level key like the graph navigation keys and must always work. Fix: add `TOKEN_MODE` handling as an early-exit check at the very top of `Execute_Token()` in `calculator_core.c`, before any mode-specific handler, similar to how graph nav keys could be made universal.
 
 ### Next session priorities (in order)
 
-**1. MATH PRB menu completion** — PRB tab items (rand, nPr, nCr) are displayed but evaluation is not yet confirmed working end-to-end. Verify on hardware; the main known gap is that `srand()` is never seeded so `rand` returns the same sequence every boot.
-- Files: `App/Src/calc_engine.c`, `App/Src/calculator_core.c`, `App/Drivers/Keypad/keypad_map.h`
-- Gotchas: add `srand(HAL_GetTick())` in `app_init.c` after `xSemaphoreGive(xLVGL_Ready)`; nPr/nCr insert as ` nPr ` / ` nCr ` with surrounding spaces per MATH menu spec
+**1. Display off on power-down** — ILI9341 in RGB mode fades to white when LTDC pixel clock stops. Current mitigation (black framebuffer + 20 ms) reduces but doesn't eliminate the fade. Fix approaches: (a) set LTDC layer alpha to 0 before disabling so the background colour (black) is output for one frame, then disable; (b) investigate whether `BSP_LCD_DisplayOff()` reliably triggers the ILI9341 DISPOFF in the BSP's SPI transaction sequence; (c) toggle the display enable GPIO if one is wired on the DISC1.
+- Files: `App/Src/app_init.c` (`Power_EnterStop()`)
 
-**2. MATRIX menu** — Start with menu and 6×6 input UI before wiring math.
+**2. MATH PRB menu completion** — PRB tab items (rand, nPr, nCr) are displayed but evaluation is not yet confirmed working end-to-end. Verify on hardware.
+- Files: `App/Src/calc_engine.c`, `App/Src/calculator_core.c`, `App/Drivers/Keypad/keypad_map.h`
+- Gotchas: `srand(HAL_GetTick())` already added in `app_init.c` after `xSemaphoreGive(xLVGL_Ready)`; nPr/nCr insert as ` nPr ` / ` nCr ` with surrounding spaces per MATH menu spec
+
+**3. MATRIX menu** — Start with menu and 6×6 input UI before wiring math.
 - Files: `App/Src/calculator_core.c` (new `MODE_MATRIX_MENU` handler, new screen objects), `App/Inc/app_common.h` (add `MODE_MATRIX_MENU` to `CalcMode_t`), `App/Src/calc_engine.c` (det, transpose later)
 - Gotchas: CCMRAM is 0% used — matrix storage can go there (64 KB free) or in RAM (~61 KB free); follow same lvgl_lock/unlock pattern as other menus
 
-**3. Persistent storage** — Nothing survives power-off; prerequisite for PRGM and useful for variables/settings too. Implementation plan saved to `.claude/plans/`.
-- Files: `App/Inc/persist.h` (new), `App/Src/persist.c` (new), `App/Src/calculator_core.c`, `App/Src/app_init.c`, `App/Drivers/Keypad/keypad_map.c`
-- Gotchas:
-  - **Wear** — Save only on `2nd+ON` (power-off gesture), not on every keypress. FLASH sector rated ~10,000 erase cycles.
-  - **Erase granularity** — must erase full 128 KB sector 7 (0x080C0000) before any write.
-  - **Single-bank FLASH freeze** — erase/write routine must run from RAM (`__attribute__((section(".RamFunc")))`); `.RamFunc` section already defined in linker script.
-  - **RTC backup registers** — capacitor-backed only on discovery board; lost on power-off. Not useful here.
-  - Save struct: variables A–Z, ANS, graph equations, RANGE settings, MODE settings.
-
-**4. PRGM** — Program editor and runner (depends on persistent storage).
+**4. PRGM** — Program editor and runner (persistent storage prerequisite now complete).
 - Files: `App/Src/calculator_core.c` (new `MODE_PRGM_*` handlers), `App/Inc/app_common.h` (new CalcMode_t values), `App/Src/prgm.c` (new), `App/Inc/prgm.h` (new)
-- Gotchas: program text storage goes in FLASH via the persistent storage layer (item 3 above); working buffer during editing can live in CCMRAM (64 KB free); control flow tokens (If/Then/Goto/Lbl) will need new TOKEN_* entries in `App/Drivers/Keypad/keypad_map.h`
+- Gotchas: program text storage goes in FLASH via the persistent storage layer; working buffer during editing can live in CCMRAM (64 KB free); control flow tokens (If/Then/Goto/Lbl) will need new TOKEN_* entries in `App/Drivers/Keypad/keypad_map.h`
 - PDF pages 133–150 of `docs/TI81Guidebook.pdf` contain original TI-81 programming instructions
 
-**5. Power management / ON button** — The ON button (PE6, labelled `MatrixA0` in CubeMX) is a softkey connected directly to GND — it is not part of the 7×8 keypad matrix. Currently unused. Wire as EXTI interrupt on PE6 (falling edge, pull-up) to wake from Stop mode for battery power savings on the custom PCB.
-- Files: `Core/Src/main.c` or `App/Src/app_init.c` (EXTI config, stop-mode entry), `App/Src/calculator_core.c` (save state before entering stop, trigger `Persist_Save` via `2nd+ON` flow)
-- Gotchas: on wake from Stop mode, clocks must be re-initialised (`SystemClock_Config()`); LTDC and SDRAM re-init may also be needed; test on discovery board by shorting PE6 to GND manually before custom PCB is built
-
-**6. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
+**5. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
 - Files: `App/Src/calculator_core.c` (Y= cursor handling for `=` column), `App/Src/graph.c` (skip disabled equations in renderer)
 
-**7. ENTER on blank line recalculates previous entry** — Pressing ENTER on an empty input line should re-evaluate the last expression (same result as recalling it and pressing ENTER again). Matches common calculator behaviour.
+**6. ENTER on blank line recalculates previous entry** — Pressing ENTER on an empty input line should re-evaluate the last expression (same result as recalling it and pressing ENTER again). Matches common calculator behaviour.
 - Files: `App/Src/calculator_core.c` (`TOKEN_ENTER` handler in `MODE_NORMAL`)
 
-**8. 2nd+ENTRY recall conflict** — The UP arrow history recall feature inadvertently displaced the original TI-81 behaviour where `2nd+ENTRY` recalled the last entry. Both behaviours should coexist: UP/DOWN scrolls history as now; `2nd+ENTRY` still recalls the last entry directly.
+**7. 2nd+ENTRY recall conflict** — The UP arrow history recall feature inadvertently displaced the original TI-81 behaviour where `2nd+ENTRY` recalled the last entry. Both behaviours should coexist: UP/DOWN scrolls history as now; `2nd+ENTRY` still recalls the last entry directly.
 - Files: `App/Src/calculator_core.c` (`TOKEN_ENTRY` handler under `MODE_2ND`)
 
-**9. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. Difficulty is low-to-medium: LVGL supports image objects natively; main question is asset format (RGB565 array in FLASH) and whether to display it before or after LVGL init.
+**8. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
 
-**10. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
+**9. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
 
 ---
 
@@ -384,10 +405,11 @@ App/Inc/                        ← application headers (custom, not CubeMX)
     calc_engine.h       — math engine public API
     graph.h             — graphing subsystem public API
 App/Src/                        ← application sources (custom, not CubeMX)
-    app_init.c          — RTOS objects, hardware bring-up, LVGL init, render loop
+    app_init.c          — RTOS objects, hardware bring-up, LVGL init, render loop, Power_EnterStop
     calculator_core.c   — UI creation, token processing, calculator state
     calc_engine.c       — tokenizer, shunting-yard, RPN evaluator
     graph.c             — graph canvas, renderer, axes, curve plotting
+    persist.c           — FLASH erase/write/load for persistent state (.RamFunc routines)
 App/Fonts/
     JetBrainsMono-Regular.ttf — source font (Apache 2.0; committed so regeneration is always possible)
     jetbrains_mono_20.c — JetBrains Mono 20px LVGL font (generated)
@@ -771,3 +793,7 @@ Middlewares/ST/
       --size 20 --format lvgl --bpp 4 -o App/Fonts/jetbrains_mono_20.c --no-compress
     ```
     Current Unicode ranges included: ASCII (0x20–0x7E), °²³¹ (superscripts/degree), Σθπσ (Greek), √ ▶ ↑↓ (math/UI), ≠≤≥ (TEST operators).
+15. **FLASH sector map — FLASH_SECTOR_7 is NOT 0x080C0000** — On STM32F429ZIT6 (2MB, 12 sectors per bank), the sector layout is: sectors 0–3 = 16 KB, sector 4 = 64 KB, sectors 5–11 = 128 KB. `FLASH_SECTOR_7` is at **0x08060000** (inside the firmware for a ~684 KB image). The persist sector is `FLASH_SECTOR_10` at **0x080C0000**. Never use `FLASH_SECTOR_7` for user data — it will erase firmware code, causing a HardFault loop and a board that fails to boot until reflashed.
+16. **Never call lv_timer_handler() from CalcCoreTask while holding xLVGL_Mutex** — `xLVGL_Mutex` is a standard (non-recursive) FreeRTOS mutex. Calling `lv_timer_handler()` inside `lvgl_lock()` from CalcCoreTask will deadlock: LVGL's internal flush handshake waits for `lv_disp_flush_ready()` which only fires when DefaultTask runs — but DefaultTask is blocked on the same mutex. Pattern to show UI feedback before a long operation: `lvgl_lock(); /* create label */; lvgl_unlock(); osDelay(20); /* DefaultTask renders */; /* long operation */`.
+17. **ON button EXTI is on EXTI9_5_IRQn** — `EXTI9_5_IRQHandler` is defined in `app_init.c`, not in the CubeMX-generated `stm32f4xx_it.c`. If CubeMX ever regenerates `stm32f4xx_it.c` and adds a duplicate `EXTI9_5_IRQHandler`, there will be a linker error. Keep the handler in `app_init.c` and ensure `stm32f4xx_it.c` does not define it.
+18. **Power_EnterStop LTDC/SDRAM order** — LTDC must be disabled BEFORE SDRAM enters self-refresh. In RGB interface mode LTDC continuously reads from the SDRAM framebuffer; if SDRAM enters self-refresh while LTDC is still active, LTDC receives bus errors and drives random pixels to the display. Correct order: zero framebuffer → delay 20 ms → disable LTDC → BSP_LCD_DisplayOff → SDRAM self-refresh → HAL_SuspendTick → WFI.

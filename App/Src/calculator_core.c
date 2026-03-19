@@ -9,8 +9,10 @@
  */
 
 #include "app_common.h"
+#include "app_init.h"
 #include "calc_engine.h"
 #include "graph.h"
+#include "persist.h"
 #include "cmsis_os.h"
 #include "lvgl.h"
 #include "main.h"
@@ -326,6 +328,74 @@ static void zoom_factors_reset(void);
 static void ui_update_zoom_factors_display(void);
 static void zoom_factors_update_highlight(void);
 static void zoom_factors_cursor_update(void);
+
+/*---------------------------------------------------------------------------
+ * Persistent storage helpers
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief  Snapshot all saveable calculator state into @p out.
+ *
+ * Reads static-local variables directly (same translation unit).
+ * graph_state.active is intentionally excluded — always boot with graph
+ * hidden.
+ */
+void Calc_BuildPersistBlock(PersistBlock_t *out)
+{
+    memcpy(out->calc_variables, calc_variables, sizeof(calc_variables));
+    out->ans = ans;
+    memcpy(out->mode_committed, mode_committed, sizeof(mode_committed));
+    out->zoom_x_fact = zoom_x_fact;
+    out->zoom_y_fact = zoom_y_fact;
+
+    /* Graph state — copy fields individually (skip active) */
+    for (int i = 0; i < GRAPH_NUM_EQ; i++) {
+        memcpy(out->equations[i], graph_state.equations[i],
+               sizeof(graph_state.equations[i]));
+    }
+    out->x_min   = graph_state.x_min;
+    out->x_max   = graph_state.x_max;
+    out->y_min   = graph_state.y_min;
+    out->y_max   = graph_state.y_max;
+    out->x_scl   = graph_state.x_scl;
+    out->y_scl   = graph_state.y_scl;
+    out->x_res   = graph_state.x_res;
+    out->grid_on = graph_state.grid_on ? 1u : 0u;
+}
+
+/**
+ * @brief  Restore calculator state from a previously loaded block.
+ *
+ * Re-derives calc_decimal_mode and angle_degrees from mode_committed via
+ * their existing setters so behaviour is consistent with ENTER on MODE.
+ */
+void Calc_ApplyPersistBlock(const PersistBlock_t *in)
+{
+    memcpy(calc_variables, in->calc_variables, sizeof(calc_variables));
+    ans = in->ans;
+    memcpy(mode_committed, in->mode_committed, sizeof(mode_committed));
+
+    /* Re-derive state that is computed from mode_committed */
+    angle_degrees = (in->mode_committed[2] == 1);
+    Calc_SetDecimalMode(in->mode_committed[1]);
+
+    zoom_x_fact = in->zoom_x_fact;
+    zoom_y_fact = in->zoom_y_fact;
+
+    /* Restore graph state — leave active = false */
+    for (int i = 0; i < GRAPH_NUM_EQ; i++) {
+        memcpy(graph_state.equations[i], in->equations[i],
+               sizeof(graph_state.equations[i]));
+    }
+    graph_state.x_min   = in->x_min;
+    graph_state.x_max   = in->x_max;
+    graph_state.y_min   = in->y_min;
+    graph_state.y_max   = in->y_max;
+    graph_state.x_scl   = in->x_scl;
+    graph_state.y_scl   = in->y_scl;
+    graph_state.x_res   = in->x_res;
+    graph_state.grid_on = (in->grid_on != 0);
+}
 
 /*---------------------------------------------------------------------------
  * LVGL thread safety helpers
@@ -1776,6 +1846,50 @@ static void matrix_menu_insert(const char *ins)
  */
 void Execute_Token(Token_t t)
 {
+    /*--- TOKEN_ON: save state (plain ON) or save + sleep (2nd+ON) ----------*/
+    if (t == TOKEN_ON) {
+        bool power_down = (current_mode == MODE_2ND);
+
+        /* Show "Saving..." overlay before the flash erase begins.
+         * Release the mutex immediately so DefaultTask can render one frame
+         * (its 5 ms loop runs; lv_timer_handler flushes the label to the SDRAM
+         * framebuffer).  Then delay 20 ms to ensure at least one full render
+         * pass completes before we call Persist_Save.
+         * LTDC reads directly from SDRAM so the label stays visible for the
+         * entire ~1-2 s FLASH stall even though all CPU execution is frozen. */
+        lvgl_lock();
+        lv_obj_t *saving_lbl = lv_label_create(lv_scr_act());
+        lv_label_set_text(saving_lbl, "Saving...");
+        lv_obj_set_style_text_color(saving_lbl, lv_color_hex(0xFFAA00), 0);
+        lv_obj_align(saving_lbl, LV_ALIGN_BOTTOM_MID, 0, -6);
+        lvgl_unlock();
+        osDelay(20);  /* let DefaultTask flush the label to the framebuffer */
+
+        PersistBlock_t block;
+        Calc_BuildPersistBlock(&block);
+        Persist_Save(&block);   /* ← FLASH stalls here for ~1-2 s */
+
+        /* Remove indicator and reset modifier state */
+        current_mode = MODE_NORMAL;
+        return_mode  = MODE_NORMAL;
+        sto_pending  = false;
+        lvgl_lock();
+        lv_obj_del(saving_lbl);
+        ui_update_status_bar();
+        lvgl_unlock();
+
+        if (power_down) {
+            /* 2nd+ON — enter Stop mode; returns after ON button wakes the CPU */
+            Power_EnterStop();
+            /* Force a full LVGL redraw on wake (SDRAM content survives
+             * self-refresh but LVGL dirty-region state may need a nudge) */
+            lvgl_lock();
+            lv_obj_invalidate(lv_scr_act());
+            lvgl_unlock();
+        }
+        return;
+    }
+
     /*--- Y= equation editor mode handler -----------------------------------*/
     if (current_mode == MODE_GRAPH_YEQ) {
         char *eq  = graph_state.equations[yeq_selected];
@@ -3593,6 +3707,26 @@ void StartCalcCoreTask(void const *argument)
     ui_update_matrix_display();
     ui_update_matrix_edit_display();
     ui_refresh_display();
+
+    /* Restore saved state from FLASH sector 10 if present and valid */
+    {
+        PersistBlock_t saved;
+        if (Persist_Load(&saved)) {
+            Calc_ApplyPersistBlock(&saved);
+            ui_refresh_display();   /* show loaded ANS in expression display */
+            /* Sync Y= labels with loaded equations */
+            for (int i = 0; i < GRAPH_NUM_EQ; i++) {
+                lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+            }
+            /* Sync MODE screen cursor/highlight with loaded mode_committed */
+            ui_update_mode_display();
+            /* Sync RANGE field labels with loaded graph_state values */
+            ui_update_range_display();
+            /* Sync ZOOM FACTORS labels with loaded zoom_x_fact / zoom_y_fact */
+            ui_update_zoom_factors_display();
+        }
+    }
+
     lvgl_unlock();
 
     if (keypadQueueHandle == NULL) {

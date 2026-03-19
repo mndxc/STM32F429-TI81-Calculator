@@ -9,6 +9,7 @@
  */
 
 #include "main.h"
+#include "app_init.h"
 #include "cmsis_os.h"
 #include "usb_host.h"
 #include "app_common.h"
@@ -17,7 +18,9 @@
 #include "lvgl.h"
 #include "stm32f429i_discovery_lcd.h"
 #include "stm32f429i_discovery_sdram.h"
+#include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 
 /*---------------------------------------------------------------------------
  * Private defines
@@ -39,9 +42,41 @@ osMessageQId      keypadQueueHandle;
 SemaphoreHandle_t xLVGL_Mutex;
 SemaphoreHandle_t xLVGL_Ready;
 
+/* defaultTaskHandle is created in main.c — extern here for vTaskSuspend/Resume */
+extern osThreadId defaultTaskHandle;
+
+/* Set true while entering/sleeping in Stop mode.
+ * Volatile: read from ISR (HAL_GPIO_EXTI_Callback), written from CalcCoreTask. */
+volatile bool g_sleeping = false;
+
 /*---------------------------------------------------------------------------
  * Public functions
  *---------------------------------------------------------------------------*/
+
+/**
+ * @brief  Reconfigures PE6 (MatrixA0) as the ON button EXTI input.
+ *
+ * CubeMX generates PE6 as a push-pull output (leftover MatrixA0 label).
+ * The keypad scanner only drives MatrixA1–MatrixA7, so PE6 is completely
+ * idle in the generated config. This override runs after MX_GPIO_Init()
+ * and reconfigures PE6 as a pull-up input with a falling-edge EXTI.
+ *
+ * Called from App_RTOS_Init() so it lives entirely in App code with no
+ * changes required to any CubeMX-generated file.
+ */
+static void on_button_init(void)
+{
+    GPIO_InitTypeDef gpio = {0};
+    gpio.Pin  = MatrixA0_Pin;         /* PE6 */
+    gpio.Mode = GPIO_MODE_IT_FALLING; /* button shorts to GND on press */
+    gpio.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(MatrixA0_GPIO_Port, &gpio);
+
+    /* Priority 5 — at or below configMAX_SYSCALL_INTERRUPT_PRIORITY on F4,
+     * required for xQueueSendFromISR to be safe */
+    HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+}
 
 /**
  * @brief  Creates all application RTOS objects and tasks.
@@ -60,6 +95,136 @@ void App_RTOS_Init(void)
 
     osThreadDef(calcCore, StartCalcCoreTask, osPriorityNormal, 0, 1024 * 2);
     calcTaskHandle = osThreadCreate(osThread(calcCore), NULL);
+
+    on_button_init();
+}
+
+/**
+ * @brief  EXTI line[9:5] IRQ — shared handler for pins 5–9 on any port.
+ *         Only PE6 (ON button) is configured on this line.
+ *         Defined here rather than in the generated stm32f4xx_it.c so that
+ *         no generated file needs modification.
+ */
+void EXTI9_5_IRQHandler(void)
+{
+    HAL_GPIO_EXTI_IRQHandler(MatrixA0_Pin);
+}
+
+/**
+ * @brief  EXTI callback — fires on PE6 falling edge (ON button pressed).
+ *
+ * Two cases:
+ *  - Normal (awake): posts TOKEN_ON to the keypad queue so Execute_Token
+ *    handles the save on the CalcCore task.
+ *  - Wake from Stop mode (g_sleeping == true): the CPU has already exited
+ *    WFI; Power_EnterStop() will continue executing.  Do NOT post TOKEN_ON —
+ *    that would trigger a spurious save immediately after wake.
+ */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin != MatrixA0_Pin) { return; }
+    if (g_sleeping) { return; }          /* waking from Stop — nothing to queue */
+    if (keypadQueueHandle == NULL) { return; }
+
+    Token_t token = TOKEN_ON;
+    BaseType_t woken = pdFALSE;
+    xQueueSendFromISR(keypadQueueHandle, &token, &woken);
+    portYIELD_FROM_ISR(woken);
+}
+
+/**
+ * @brief  Enters STM32 Stop mode (ultra-low power sleep) and returns after
+ *         the ON button (PE6 EXTI) wakes the CPU.
+ *
+ * Called from Execute_Token() on the CalcCoreTask after 2nd+ON is pressed.
+ * The caller must have already saved state via Persist_Save() before calling.
+ *
+ * Wake sequence (inline after HAL_PWR_EnterSTOPMode returns):
+ *   1. Restore system PLL (SystemClock_Config)
+ *   2. Restore PLLSAI for LTDC pixel clock
+ *   3. Exit SDRAM self-refresh + restore refresh rate
+ *   4. Re-enable LTDC output
+ *   5. Turn display on, resume DefaultTask, clear flag
+ */
+void Power_EnterStop(void)
+{
+    extern SDRAM_HandleTypeDef hsdram1;
+    FMC_SDRAM_CommandTypeDef cmd = {0};
+
+    /* 1. Signal ISR to skip TOKEN_ON on wake */
+    g_sleeping = true;
+
+    /* 2. Suspend DefaultTask to stop the LVGL render loop */
+    vTaskSuspend(defaultTaskHandle);
+
+    /* 3. Fill the LTDC framebuffer with black so LTDC actively drives black pixels.
+     *    In RGB interface mode the ILI9341 has no internal frame buffer — when the
+     *    pixel clock stops the panel capacitors bleed off to white.  Writing black
+     *    here means the panel shows black for the osDelay window, so by the time
+     *    LTDC is disabled the display is already dark rather than fading. */
+    memset((void *)LCD_FRAMEBUFFER_ADDR, 0,
+           LCD_WIDTH * LCD_HEIGHT * LCD_BYTES_PER_PIXEL);
+    osDelay(20);  /* hold black for at least one full frame scan (~17 ms at 60 Hz) */
+
+    /* 4. Disable LTDC — display is already showing black, no capacitor bleed */
+    LTDC->GCR &= ~LTDC_GCR_LTDCEN;
+
+    /* 5a. Tell ILI9341 to power off its output stage (belt-and-suspenders) */
+    BSP_LCD_DisplayOff();
+
+    /* 5b. Put SDRAM into self-refresh — chip refreshes itself; data is preserved.
+     *     LTDC is now stopped so it cannot generate AHB reads against SDRAM while
+     *     the SDRAM is in self-refresh (which caused the random pixel output). */
+    cmd.CommandMode            = FMC_SDRAM_CMD_SELFREFRESH_MODE;
+    cmd.CommandTarget          = FMC_SDRAM_CMD_TARGET_BANK2;
+    cmd.AutoRefreshNumber      = 1;
+    cmd.ModeRegisterDefinition = 0;
+    HAL_SDRAM_SendCommand(&hsdram1, &cmd, HAL_MAX_DELAY);
+
+    /* 6. Suspend HAL SysTick (prevents spurious tick IRQs from waking the core) */
+    HAL_SuspendTick();
+
+    /* 7. Enter Stop mode — CPU halts here until PE6 EXTI fires (ON button) */
+    HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+
+    /* ===== CPU WAKES HERE — execution resumes on HSI at reduced speed ===== */
+
+    /* 8. Restore system PLL (Stop mode stops HSE + PLL; HSI is the wake clock).
+     *    FLASH is accessible from HSI so this call from FLASH is safe. */
+    App_SystemClock_Reinit();
+
+    /* 9. Resume HAL SysTick */
+    HAL_ResumeTick();
+
+    /* 10. Restore PLLSAI for LTDC pixel clock.
+     *     SystemClock_Config only restores the main PLL; PLLSAI must be
+     *     re-enabled explicitly with the values from HAL_LTDC_MspInit()
+     *     (stm32f4xx_hal_msp.c: PLLSAIN=100, PLLSAIR=3, PLLSAIDivR=2). */
+    RCC_PeriphCLKInitTypeDef periphClk = {0};
+    periphClk.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    periphClk.PLLSAI.PLLSAIN       = 100;
+    periphClk.PLLSAI.PLLSAIR       = 3;
+    periphClk.PLLSAIDivR            = RCC_PLLSAIDIVR_2;
+    HAL_RCCEx_PeriphCLKConfig(&periphClk);
+
+    /* 11. Exit SDRAM self-refresh — FMC clock restored above, data intact */
+    cmd.CommandMode = FMC_SDRAM_CMD_NORMAL_MODE;
+    HAL_SDRAM_SendCommand(&hsdram1, &cmd, HAL_MAX_DELAY);
+    /* Restore refresh rate: IS42S16400J, 4096 rows, 64 ms cycle.
+     * At 84 MHz FMC SDRAM clock: (15625 ns / 11.9 ns) - 20 = 1273 counts. */
+    HAL_SDRAM_ProgramRefreshRate(&hsdram1, 1272);
+
+    /* 12. Re-enable LTDC output */
+    LTDC->GCR |= LTDC_GCR_LTDCEN;
+
+    /* 13. Turn display back on */
+    BSP_LCD_DisplayOn();
+
+    /* 14. Resume DefaultTask — LVGL render loop resumes */
+    vTaskResume(defaultTaskHandle);
+
+    /* 15. Clear flag — subsequent ON presses post TOKEN_ON normally */
+    g_sleeping = false;
 }
 
 /**
@@ -103,13 +268,20 @@ void App_DefaultTask_Run(void)
     /* Signal CalcCoreTask that LVGL is ready for UI creation */
     xSemaphoreGive(xLVGL_Ready);
 
+    /* Seed the RNG — tick varies with OS/USB init duration, giving entropy */
+    srand(HAL_GetTick());
+
     /* UI render loop — runs every 5 ms */
     for (;;) {
         if (xSemaphoreTake(xLVGL_Mutex, portMAX_DELAY) == pdTRUE) {
             lv_timer_handler();
             xSemaphoreGive(xLVGL_Mutex);
         }
-        HAL_GPIO_TogglePin(HEARTBEAT_PORT, HEARTBEAT_PIN);
+        static uint32_t blink_count = 0;
+        if (++blink_count >= 100) {   /* 100 × 5 ms = 500 ms half-period → 1 Hz */
+            blink_count = 0;
+            HAL_GPIO_TogglePin(HEARTBEAT_PORT, HEARTBEAT_PIN);
+        }
         osDelay(5);
     }
 }

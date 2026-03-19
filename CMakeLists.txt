@@ -74,6 +74,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/calculator_core.c
     App/Src/calc_engine.c
     App/Src/graph.c
+    App/Src/persist.c
 
     # Add all LVGL Source files
     ${LVGL_SOURCES}

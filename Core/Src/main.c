@@ -649,6 +649,14 @@ static void MX_GPIO_Init(void) {
 }
 
 /* USER CODE BEGIN 4 */
+/**
+ * @brief  Non-static wrapper so App code can call SystemClock_Config() after
+ *         waking from Stop mode (the generated function is static).
+ */
+void App_SystemClock_Reinit(void)
+{
+    SystemClock_Config();
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */

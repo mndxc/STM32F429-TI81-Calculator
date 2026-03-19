@@ -87,6 +87,7 @@ const KeyDefinition_t TI81_LookupTable[] = {
     [ID_B1_A3] = { TOKEN_DECIMAL,  TOKEN_LIST_Y, TOKEN_COMMA },
     [ID_B1_A4] = { TOKEN_NEG,      TOKEN_ANS,    TOKEN_QSTN_M},
     [ID_B1_A5] = { TOKEN_ENTER,    TOKEN_ENTRY,  TOKEN_NONE  },
+
 };
 
 
