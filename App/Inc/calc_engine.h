@@ -25,9 +25,20 @@
 #define CALC_MAX_STACK      32
 #define CALC_EXPR_MAX_LEN   64
 
+/* Matrix dimensions */
+#define CALC_MATRIX_DIM    3    /* Fixed 3×3 */
+#define CALC_MATRIX_COUNT  4    /* [A]=0 [B]=1 [C]=2 ANS=3 */
+
 /*---------------------------------------------------------------------------
  * Types
  *--------------------------------------------------------------------------*/
+
+/** 3×3 float matrix — shared between calc_engine and calculator_core. */
+typedef struct {
+    float   data[CALC_MATRIX_DIM][CALC_MATRIX_DIM];
+    uint8_t rows;
+    uint8_t cols;
+} CalcMatrix_t;
 
 typedef enum {
     CALC_OK = 0,
@@ -74,6 +85,16 @@ typedef enum {
     MATH_OP_FACT,           /* !  — factorial (postfix unary) */
     MATH_OP_NPR,            /* nPr — permutations (binary) */
     MATH_OP_NCR,            /* nCr — combinations (binary) */
+    /* Matrix value reference — value field holds matrix index (0=A, 1=B, 2=C, 3=ANS) */
+    MATH_MATRIX_VAL,
+    /* Matrix operations */
+    MATH_FUNC_DET,          /* det( — 1 arg: matrix → scalar */
+    MATH_OP_TRANSPOSE,      /* T   — postfix unary: matrix → matrix */
+    MATH_FUNC_ROWSWAP,      /* rowSwap( — 3 args: matrix, r1, r2 → matrix */
+    MATH_FUNC_ROWPLUS,      /* row+( — 3 args: matrix, r1, r2 → matrix (row[r1]+=row[r2]) */
+    MATH_FUNC_MROW,         /* *row( — 3 args: k, matrix, r → matrix (row[r]*=k) */
+    MATH_FUNC_MROWPLUS,     /* *row+( — 4 args: k, matrix, r1, r2 → matrix (row[r1]+=k*row[r2]) */
+    MATH_COMMA,             /* , — argument separator (consumed by ShuntingYard, never in RPN) */
 } MathTokenType_t;
 
 typedef struct {
@@ -82,9 +103,11 @@ typedef struct {
 } MathToken_t;
 
 typedef struct {
-    float       value;          /* Computed result */
+    float       value;          /* Computed scalar result */
     CalcError_t error;          /* Error code, CALC_OK if successful */
     char        error_msg[24];  /* Human readable error string */
+    bool        has_matrix;     /* True if result is a matrix, not a scalar */
+    uint8_t     matrix_idx;     /* Index into calc_matrices[] when has_matrix is true */
 } CalcResult_t;
 
 /*---------------------------------------------------------------------------
@@ -93,6 +116,9 @@ typedef struct {
 
 /** User variable storage — A through Z, indexed by (ch - 'A'). */
 extern float calc_variables[26];
+
+/** Matrix storage — [A]=0, [B]=1, [C]=2, ANS=3. */
+extern CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT];
 
 /*---------------------------------------------------------------------------
  * Function declarations

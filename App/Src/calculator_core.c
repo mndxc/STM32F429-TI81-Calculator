@@ -33,7 +33,7 @@
 
 #define HISTORY_LINE_COUNT  32          /* Expression+result pairs stored in history */
 #define MAX_EXPR_LEN        96          /* Supports up to 4 wrapped display rows */
-#define MAX_RESULT_LEN      32
+#define MAX_RESULT_LEN      96   /* 32 for scalars; up to ~80 for 3×3 matrix rows */
 
 /* Scrollable menu geometry */
 #define ZOOM_ITEM_COUNT     8           /* Total ZOOM items */
@@ -44,7 +44,7 @@
 #define TEST_ITEM_COUNT     6           /* TEST menu items: = ≠ > ≥ < ≤ */
 
 #define MATRIX_COUNT        3           /* Number of matrices: [A], [B], [C] */
-#define MATRIX_MAX_DIM      3           /* Fixed 3x3 for now */
+#define MATRIX_MAX_DIM      CALC_MATRIX_DIM  /* alias — actual size in calc_engine.h */
 #define MATRIX_TAB_COUNT    2           /* MATRX and EDIT tabs */
 #define MATRIX_MATRX_ITEMS  6           /* Items in the MATRX operations tab */
 #define MATRIX_EDIT_ITEMS   3           /* Items in the EDIT tab */
@@ -71,12 +71,6 @@ typedef struct {
     char expression[MAX_EXPR_LEN];
     char result[MAX_RESULT_LEN];
 } HistoryEntry_t;
-
-typedef struct {
-    float   data[MATRIX_MAX_DIM][MATRIX_MAX_DIM];
-    uint8_t rows;
-    uint8_t cols;
-} Matrix_t;
 
 typedef struct {
     const char *display;
@@ -293,12 +287,7 @@ static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
     {"\xE2\x89\xA4",  "\xE2\x89\xA4"},   /* U+2264 ≤ */
 };
 
-/* Matrix data — rows/cols initialised to MATRIX_MAX_DIM, values zero */
-static Matrix_t matrices[MATRIX_COUNT] = {
-    { .rows = MATRIX_MAX_DIM, .cols = MATRIX_MAX_DIM },
-    { .rows = MATRIX_MAX_DIM, .cols = MATRIX_MAX_DIM },
-    { .rows = MATRIX_MAX_DIM, .cols = MATRIX_MAX_DIM },
-};
+/* Matrix data lives in calc_matrices[] (calc_engine.c) — accessed via extern. */
 
 /* MATRIX menu state */
 static lv_obj_t    *ui_matrix_screen       = NULL;
@@ -376,6 +365,11 @@ void Calc_BuildPersistBlock(PersistBlock_t *out)
     out->y_scl   = graph_state.y_scl;
     out->x_res   = graph_state.x_res;
     out->grid_on = graph_state.grid_on ? 1u : 0u;
+
+    /* Matrices [A], [B], [C] — flatten each 3×3 array into the persist block */
+    for (int m = 0; m < 3; m++)
+        memcpy(out->matrix_data[m], calc_matrices[m].data,
+               CALC_MATRIX_DIM * CALC_MATRIX_DIM * sizeof(float));
 }
 
 /**
@@ -410,6 +404,14 @@ void Calc_ApplyPersistBlock(const PersistBlock_t *in)
     graph_state.y_scl   = in->y_scl;
     graph_state.x_res   = in->x_res;
     graph_state.grid_on = (in->grid_on != 0);
+
+    /* Restore matrices [A], [B], [C] */
+    for (int m = 0; m < 3; m++) {
+        memcpy(calc_matrices[m].data, in->matrix_data[m],
+               CALC_MATRIX_DIM * CALC_MATRIX_DIM * sizeof(float));
+        calc_matrices[m].rows = CALC_MATRIX_DIM;
+        calc_matrices[m].cols = CALC_MATRIX_DIM;
+    }
 }
 
 /*---------------------------------------------------------------------------
@@ -998,6 +1000,78 @@ static void range_cursor_update(void)
  * row, so long committed expressions wrap just as the active expression does.
  * Current expression sub-rows follow immediately after all history rows.
  */
+/**
+ * @brief Format a CalcResult_t into a displayable string.
+ *
+ * For scalar results: delegates to Calc_FormatResult.
+ * For matrix results: produces a newline-separated grid "[a b c]\n[d e f]\n[g h i]".
+ * Updates *ans_out only on successful scalar results.
+ */
+static void format_calc_result(const CalcResult_t *r, char *buf, int buf_size,
+                                float *ans_out)
+{
+    memset(buf, 0, (size_t)buf_size);
+    if (r->error != CALC_OK) {
+        strncpy(buf, r->error_msg, (size_t)(buf_size - 1));
+        buf[buf_size - 1] = '\0';
+        return;
+    }
+    if (r->has_matrix) {
+        const CalcMatrix_t *m = &calc_matrices[r->matrix_idx];
+        int pos = 0;
+        for (int row = 0; row < CALC_MATRIX_DIM && pos < buf_size - 2; row++) {
+            if (row > 0 && pos < buf_size - 1) buf[pos++] = '\n';
+            if (pos < buf_size - 1) buf[pos++] = '[';
+            for (int col = 0; col < CALC_MATRIX_DIM; col++) {
+                char cell[12];
+                Calc_FormatResult(m->data[row][col], cell, sizeof(cell));
+                /* Limit cell width to 8 chars to keep lines short */
+                cell[8] = '\0';
+                if (col > 0 && pos < buf_size - 1) buf[pos++] = ' ';
+                int cl = (int)strlen(cell);
+                if (pos + cl < buf_size - 1) {
+                    memcpy(&buf[pos], cell, (size_t)cl);
+                    pos += cl;
+                }
+            }
+            if (pos < buf_size - 1) buf[pos++] = ']';
+        }
+        buf[pos] = '\0';
+    } else {
+        Calc_FormatResult(r->value, buf, (uint8_t)buf_size);
+        if (ans_out) *ans_out = r->value;
+    }
+}
+
+/** Returns the number of display lines a result string occupies (newline-separated). */
+static int count_result_lines(const char *result)
+{
+    int n = 1;
+    for (; *result; result++)
+        if (*result == '\n') n++;
+    return n;
+}
+
+/**
+ * @brief Copy line @p line_idx (0-based) from a newline-separated string into buf.
+ *
+ * Returns false if line_idx exceeds the number of lines in src.
+ */
+static bool get_result_line(const char *src, int line_idx, char *buf, int buf_size)
+{
+    const char *p = src;
+    for (int k = 0; k < line_idx; k++) {
+        while (*p && *p != '\n') p++;
+        if (*p == '\n') p++;
+        else return false;  /* line_idx out of range */
+    }
+    int len = 0;
+    while (p[len] && p[len] != '\n' && len < buf_size - 1) len++;
+    memcpy(buf, p, (size_t)len);
+    buf[len] = '\0';
+    return true;
+}
+
 static void ui_refresh_display(void)
 {
     if (disp_rows[0] == NULL) return;
@@ -1009,13 +1083,15 @@ static void ui_refresh_display(void)
     int num_entries = ((int)history_count < HISTORY_LINE_COUNT)
                       ? (int)history_count : HISTORY_LINE_COUNT;
 
-    /* Total display lines consumed by history (variable per entry) */
+    /* Total display lines consumed by history (variable per entry).
+       Matrix results occupy multiple result lines (one per matrix row). */
     int total_history_lines = 0;
     for (int d = 0; d < num_entries; d++) {
         int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
         int elen = (int)strlen(history[idx].expression);
         int erows = (elen + cpr - 1) / cpr;
-        total_history_lines += erows + 1; /* expression sub-rows + result row */
+        int rlines = count_result_lines(history[idx].result);
+        total_history_lines += erows + rlines;
     }
 
     int total = total_history_lines + expr_rows;
@@ -1038,11 +1114,12 @@ static void ui_refresh_display(void)
             int line = 0;
             for (int d = 0; d < num_entries; d++) {
                 int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
-                int elen = (int)strlen(history[idx].expression);
+                int elen  = (int)strlen(history[idx].expression);
                 int erows = (elen + cpr - 1) / cpr;
+                int rlines = count_result_lines(history[idx].result);
 
                 if (li < line + erows) {
-                    /* Expression sub-row er of this history entry */
+                    /* Expression sub-row */
                     int er = li - line;
                     int char_start = er * cpr;
                     int char_end = char_start + cpr;
@@ -1060,15 +1137,18 @@ static void ui_refresh_display(void)
                 }
                 line += erows;
 
-                if (li == line) {
-                    /* Result row for this history entry */
+                if (li < line + rlines) {
+                    /* Result line for this history entry (may be multi-line for matrices) */
+                    int result_line = li - line;
+                    char rbuf[MAX_RESULT_LEN];
+                    get_result_line(history[idx].result, result_line, rbuf, sizeof(rbuf));
                     lv_obj_set_style_text_color(disp_rows[row],
                                                 lv_color_hex(COLOR_HISTORY_RES), 0);
                     lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_RIGHT, 0);
-                    lv_label_set_text(disp_rows[row], history[idx].result);
+                    lv_label_set_text(disp_rows[row], rbuf);
                     break;
                 }
-                line += 1;
+                line += rlines;
             }
         } else {
             /* Current expression sub-row */
@@ -1592,7 +1672,7 @@ static void ui_update_matrix_display(void)
             } else {
                 snprintf(buf, sizeof(buf), "%d:%s %dx%d",
                          i + 1, matrix_edit_item_names[i],
-                         matrices[i].rows, matrices[i].cols);
+                         calc_matrices[i].rows, calc_matrices[i].cols);
             }
             lv_obj_set_style_text_color(matrix_item_labels[i],
                 (i == (int)matrix_item_cursor) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
@@ -1606,7 +1686,7 @@ static void ui_update_matrix_display(void)
 /* Redraws the MATRIX EDIT sub-screen: title, all cells, cursor highlight. */
 static void ui_update_matrix_edit_display(void)
 {
-    Matrix_t *m = &matrices[matrix_edit_idx];
+    CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
     char title_buf[20];
     snprintf(title_buf, sizeof(title_buf), "%s %dx%d",
              matrix_edit_item_names[matrix_edit_idx], m->rows, m->cols);
@@ -1858,6 +1938,7 @@ static void hide_all_screens(void)
     lv_obj_add_flag(ui_math_screen,               LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_test_screen,               LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_matrix_screen,             LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_matrix_edit_screen,        LV_OBJ_FLAG_HIDDEN);
     Graph_SetVisible(false);
 }
 
@@ -3182,7 +3263,7 @@ void Execute_Token(Token_t t)
 
     /*--- MATRIX EDIT handler -----------------------------------------------*/
     if (current_mode == MODE_MATRIX_EDIT) {
-        Matrix_t *m = &matrices[matrix_edit_idx];
+        CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
         switch (t) {
         case TOKEN_0 ... TOKEN_9:
             if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
@@ -3437,14 +3518,7 @@ void Execute_Token(Token_t t)
             CalcResult_t result = Calc_Evaluate(history[last_idx].expression,
                                                 ans, angle_degrees);
             char result_str[MAX_RESULT_LEN];
-            memset(result_str, 0, MAX_RESULT_LEN);
-            if (result.error != CALC_OK) {
-                strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
-                result_str[MAX_RESULT_LEN - 1] = '\0';
-            } else {
-                Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
-                ans = result.value;
-            }
+            format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
             uint8_t idx = history_count % HISTORY_LINE_COUNT;
             strncpy(history[idx].expression, history[last_idx].expression, MAX_EXPR_LEN - 1);
             history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
@@ -3458,20 +3532,9 @@ void Execute_Token(Token_t t)
             break;
         }
         if (expr_len > 0) {
-            CalcResult_t result = Calc_Evaluate(expression, ans,
-                                                angle_degrees);
-
+            CalcResult_t result = Calc_Evaluate(expression, ans, angle_degrees);
             char result_str[MAX_RESULT_LEN];
-            memset(result_str, 0, MAX_RESULT_LEN);
-
-            if (result.error != CALC_OK) {
-                strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
-                result_str[MAX_RESULT_LEN - 1] = '\0';
-            } else {
-                Calc_FormatResult(result.value, result_str,
-                                  MAX_RESULT_LEN);
-                ans = result.value;
-            }
+            format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
 
             /* Store in history */
             uint8_t idx = history_count % HISTORY_LINE_COUNT;
