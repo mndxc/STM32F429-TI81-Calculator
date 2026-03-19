@@ -44,7 +44,8 @@
 #define TEST_ITEM_COUNT     6           /* TEST menu items: = ≠ > ≥ < ≤ */
 
 #define MATRIX_COUNT        3           /* Number of matrices: [A], [B], [C] */
-#define MATRIX_MAX_DIM      CALC_MATRIX_DIM  /* alias — actual size in calc_engine.h */
+#define MATRIX_MAX_DIM      CALC_MATRIX_MAX_DIM  /* alias — actual size in calc_engine.h */
+#define MATRIX_LIST_VISIBLE 7                    /* visible cell rows in the list editor */
 #define MATRIX_TAB_COUNT    2           /* MATRX and EDIT tabs */
 #define MATRIX_MATRX_ITEMS  6           /* Items in the MATRX operations tab */
 #define MATRIX_EDIT_ITEMS   3           /* Items in the EDIT tab */
@@ -124,6 +125,7 @@ static bool         insert_mode    = false; /* false=overwrite (default), true=i
 static CalcMode_t   current_mode   = MODE_NORMAL;
 static bool         angle_degrees  = true;
 static float        ans            = 0.0f;
+static bool         ans_is_matrix  = false; /* true when ans holds a matrix slot index */
 static bool         sto_pending    = false;  /* True after STO — next alpha stores ans */
 
 static HistoryEntry_t history[HISTORY_LINE_COUNT];
@@ -174,6 +176,8 @@ static lv_obj_t *ui_graph_zoom_factors_screen = NULL;
 static lv_obj_t *ui_lbl_zoom_factors_rows[2];
 static lv_obj_t *zoom_factors_cursor_box   = NULL;
 static lv_obj_t *zoom_factors_cursor_inner = NULL;
+static lv_obj_t *matrix_edit_cursor_box    = NULL;
+static lv_obj_t *matrix_edit_cursor_inner  = NULL;
 static float     zoom_x_fact          = 4.0f;  /* XFact default */
 static float     zoom_y_fact          = 4.0f;  /* YFact default */
 static uint8_t   zoom_factors_field   = 0;     /* 0=XFact, 1=YFact */
@@ -300,12 +304,16 @@ static lv_obj_t    *matrix_item_labels[MENU_VISIBLE_ROWS];
 /* MATRIX EDIT sub-screen state */
 static lv_obj_t    *ui_matrix_edit_screen  = NULL;
 static uint8_t      matrix_edit_idx        = 0;   /* 0=[A], 1=[B], 2=[C] */
-static uint8_t      matrix_edit_row        = 0;
-static uint8_t      matrix_edit_col        = 0;
+static int16_t      matrix_edit_cursor     = 0;   /* flat cell index 0..rows*cols-1; -1 = dim mode */
+static int16_t      matrix_edit_scroll     = 0;   /* first visible flat cell index */
+static uint8_t      matrix_edit_dim_field  = 0;   /* 0=rows, 1=cols (in dim mode only) */
 static char         matrix_edit_buf[16]    = {0};
 static uint8_t      matrix_edit_len        = 0;
+static uint8_t      matrix_edit_val_cursor = 0;   /* char position within matrix_edit_buf */
 static lv_obj_t    *matrix_edit_title_lbl  = NULL;
-static lv_obj_t    *matrix_cell_labels[MATRIX_MAX_DIM][MATRIX_MAX_DIM];
+static lv_obj_t    *matrix_list_labels[MATRIX_LIST_VISIBLE];
+static lv_obj_t    *matrix_edit_up_lbl;
+static lv_obj_t    *matrix_edit_down_lbl;
 
 /* MATRIX menu data */
 static const char * const matrix_tab_names[MATRIX_TAB_COUNT]     = {"MATRX", "EDIT"};
@@ -329,9 +337,26 @@ static void ui_update_test_display(void);
 static void ui_update_matrix_display(void);
 static void ui_update_matrix_edit_display(void);
 static void zoom_factors_reset(void);
+static void zoom_factors_load_field(void);
 static void ui_update_zoom_factors_display(void);
 static void zoom_factors_update_highlight(void);
 static void zoom_factors_cursor_update(void);
+static void matrix_edit_cursor_update(void);
+
+/* Per-mode token handler forward declarations */
+static bool handle_yeq_mode(Token_t t);
+static bool handle_range_mode(Token_t t);
+static bool handle_zoom_mode(Token_t t);
+static bool handle_zoom_factors_mode(Token_t t);
+static bool handle_zbox_mode(Token_t t);
+static bool handle_trace_mode(Token_t t);
+static bool handle_mode_screen(Token_t t);
+static bool handle_math_menu(Token_t t);
+static bool handle_test_menu(Token_t t);
+static bool handle_matrix_menu(Token_t t);
+static void handle_matrix_edit(Token_t t);
+static bool handle_sto_pending(Token_t t);
+static void handle_normal_mode(Token_t t);
 
 /*---------------------------------------------------------------------------
  * Persistent storage helpers
@@ -366,10 +391,13 @@ void Calc_BuildPersistBlock(PersistBlock_t *out)
     out->x_res   = graph_state.x_res;
     out->grid_on = graph_state.grid_on ? 1u : 0u;
 
-    /* Matrices [A], [B], [C] — flatten each 3×3 array into the persist block */
-    for (int m = 0; m < 3; m++)
+    /* Matrices [A], [B], [C] — save dimensions and flatten 6×6 data arrays */
+    for (int m = 0; m < 3; m++) {
+        out->matrix_rows[m] = calc_matrices[m].rows;
+        out->matrix_cols[m] = calc_matrices[m].cols;
         memcpy(out->matrix_data[m], calc_matrices[m].data,
-               CALC_MATRIX_DIM * CALC_MATRIX_DIM * sizeof(float));
+               CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM * sizeof(float));
+    }
 }
 
 /**
@@ -405,12 +433,15 @@ void Calc_ApplyPersistBlock(const PersistBlock_t *in)
     graph_state.x_res   = in->x_res;
     graph_state.grid_on = (in->grid_on != 0);
 
-    /* Restore matrices [A], [B], [C] */
+    /* Restore matrices [A], [B], [C] — dimensions and 6×6 data */
     for (int m = 0; m < 3; m++) {
+        uint8_t rows = in->matrix_rows[m];
+        uint8_t cols = in->matrix_cols[m];
+        /* Clamp to valid range in case of corrupt data */
+        calc_matrices[m].rows = (rows >= 1 && rows <= CALC_MATRIX_MAX_DIM) ? rows : 3;
+        calc_matrices[m].cols = (cols >= 1 && cols <= CALC_MATRIX_MAX_DIM) ? cols : 3;
         memcpy(calc_matrices[m].data, in->matrix_data[m],
-               CALC_MATRIX_DIM * CALC_MATRIX_DIM * sizeof(float));
-        calc_matrices[m].rows = CALC_MATRIX_DIM;
-        calc_matrices[m].cols = CALC_MATRIX_DIM;
+               CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM * sizeof(float));
     }
 }
 
@@ -813,21 +844,34 @@ static void ui_init_matrix_screen(void)
     lv_obj_set_style_text_color(matrix_edit_title_lbl, lv_color_hex(0xFFFFFF), 0);
     lv_label_set_text(matrix_edit_title_lbl, "[A] 3x3");
 
-    /* Cell labels — 3x3 grid.
-     * 3 equal columns across 320px: col 0 at x=4, col 1 at x=110, col 2 at x=216.
-     * Each row 30px tall starting at y=34 (below title row). */
-    static const int16_t cell_col_x[MATRIX_MAX_DIM] = {4, 110, 216};
-    for (int r = 0; r < MATRIX_MAX_DIM; r++) {
-        for (int c = 0; c < MATRIX_MAX_DIM; c++) {
-            matrix_cell_labels[r][c] = lv_label_create(ui_matrix_edit_screen);
-            lv_obj_set_pos(matrix_cell_labels[r][c], cell_col_x[c], 34 + r * 30);
-            lv_obj_set_width(matrix_cell_labels[r][c], 100);
-            lv_obj_set_style_text_font(matrix_cell_labels[r][c], &jetbrains_mono_24, 0);
-            lv_obj_set_style_text_color(matrix_cell_labels[r][c], lv_color_hex(0xFFFFFF), 0);
-            lv_label_set_long_mode(matrix_cell_labels[r][c], LV_LABEL_LONG_CLIP);
-            lv_label_set_text(matrix_cell_labels[r][c], "0");
-        }
+    /* Scrolling list labels — 7 rows below the title, each 30px tall */
+    for (int i = 0; i < MATRIX_LIST_VISIBLE; i++) {
+        matrix_list_labels[i] = lv_label_create(ui_matrix_edit_screen);
+        lv_obj_set_pos(matrix_list_labels[i], 4, 34 + i * 30);
+        lv_obj_set_style_text_font(matrix_list_labels[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(matrix_list_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_label_set_text(matrix_list_labels[i], "");
     }
+
+    /* Scroll indicators — amber overlay at the '=' character position (x=46).
+     * x=46 = label margin(4) + 3 chars × glyph width(14) — sits over the '=' slot.
+     * Mirrors the ZOOM/MATH pattern: row text uses space instead of '=' when shown. */
+    matrix_edit_down_lbl = lv_label_create(ui_matrix_edit_screen);
+    lv_obj_set_pos(matrix_edit_down_lbl, 46, 34 + (MATRIX_LIST_VISIBLE - 1) * 30);
+    lv_obj_set_style_text_font(matrix_edit_down_lbl, &jetbrains_mono_24, 0);
+    lv_obj_set_style_text_color(matrix_edit_down_lbl, lv_color_hex(0xFFAA00), 0);
+    lv_label_set_text(matrix_edit_down_lbl, "\xE2\x86\x93");
+    lv_obj_add_flag(matrix_edit_down_lbl, LV_OBJ_FLAG_HIDDEN);
+
+    matrix_edit_up_lbl = lv_label_create(ui_matrix_edit_screen);
+    lv_obj_set_pos(matrix_edit_up_lbl, 46, 34);
+    lv_obj_set_style_text_font(matrix_edit_up_lbl, &jetbrains_mono_24, 0);
+    lv_obj_set_style_text_color(matrix_edit_up_lbl, lv_color_hex(0xFFAA00), 0);
+    lv_label_set_text(matrix_edit_up_lbl, "\xE2\x86\x91");
+    lv_obj_add_flag(matrix_edit_up_lbl, LV_OBJ_FLAG_HIDDEN);
+
+    cursor_box_create(ui_matrix_edit_screen, true,
+                      &matrix_edit_cursor_box, &matrix_edit_cursor_inner);
 }
 
 /*---------------------------------------------------------------------------
@@ -917,6 +961,32 @@ static void cursor_update(lv_obj_t *row_label, uint32_t char_pos)
  *        Returns 1 for ASCII or any invalid/continuation byte so iteration
  *        never gets stuck.  Returns 0 only at the null terminator.
  */
+/**
+ * @brief Returns 3 if the 3 bytes immediately before pos in buf form "[A]",
+ *        "[B]", or "[C]" (a matrix token); otherwise returns 0.
+ */
+static uint8_t matrix_token_size_before(const char *buf, uint8_t pos)
+{
+    if (pos < 3) return 0;
+    if (buf[pos - 3] == '[' && buf[pos - 1] == ']' &&
+        (buf[pos - 2] == 'A' || buf[pos - 2] == 'B' || buf[pos - 2] == 'C'))
+        return 3;
+    return 0;
+}
+
+/**
+ * @brief Returns 3 if the 3 bytes at pos in buf form "[A]", "[B]", or "[C]"
+ *        (a matrix token); otherwise returns 0.
+ */
+static uint8_t matrix_token_size_at(const char *buf, uint8_t pos, uint8_t len)
+{
+    if (pos + 3 > len) return 0;
+    if (buf[pos] == '[' && buf[pos + 2] == ']' &&
+        (buf[pos + 1] == 'A' || buf[pos + 1] == 'B' || buf[pos + 1] == 'C'))
+        return 3;
+    return 0;
+}
+
 static uint8_t utf8_char_size(const char *s)
 {
     uint8_t c = (uint8_t)s[0];
@@ -1019,10 +1089,10 @@ static void format_calc_result(const CalcResult_t *r, char *buf, int buf_size,
     if (r->has_matrix) {
         const CalcMatrix_t *m = &calc_matrices[r->matrix_idx];
         int pos = 0;
-        for (int row = 0; row < CALC_MATRIX_DIM && pos < buf_size - 2; row++) {
+        for (int row = 0; row < (int)m->rows && pos < buf_size - 2; row++) {
             if (row > 0 && pos < buf_size - 1) buf[pos++] = '\n';
             if (pos < buf_size - 1) buf[pos++] = '[';
-            for (int col = 0; col < CALC_MATRIX_DIM; col++) {
+            for (int col = 0; col < (int)m->cols; col++) {
                 char cell[12];
                 Calc_FormatResult(m->data[row][col], cell, sizeof(cell));
                 /* Limit cell width to 8 chars to keep lines short */
@@ -1037,8 +1107,11 @@ static void format_calc_result(const CalcResult_t *r, char *buf, int buf_size,
             if (pos < buf_size - 1) buf[pos++] = ']';
         }
         buf[pos] = '\0';
+        ans_is_matrix = true;
+        if (ans_out) *ans_out = (float)r->matrix_idx;
     } else {
         Calc_FormatResult(r->value, buf, (uint8_t)buf_size);
+        ans_is_matrix = false;
         if (ans_out) *ans_out = r->value;
     }
 }
@@ -1203,6 +1276,9 @@ static void cursor_timer_cb(lv_timer_t *timer)
     else if (ui_graph_zoom_factors_screen != NULL &&
              !lv_obj_has_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN))
         zoom_factors_cursor_update();
+    else if (ui_matrix_edit_screen != NULL &&
+             !lv_obj_has_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN))
+        matrix_edit_cursor_update();
 }
 
 /**
@@ -1224,6 +1300,9 @@ static void ui_update_status_bar(void)
     else if (ui_graph_zoom_factors_screen != NULL &&
              !lv_obj_has_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN))
         zoom_factors_cursor_update();
+    else if (ui_matrix_edit_screen != NULL &&
+             !lv_obj_has_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN))
+        matrix_edit_cursor_update();
 }
 
 /**
@@ -1264,10 +1343,11 @@ static void expr_prepend_ans_if_empty(void)
 static void expr_insert_char(char c)
 {
     if (!insert_mode && cursor_pos < expr_len) {
-        /* Overwrite: remove all bytes of the current UTF-8 char, then write c.
-         * Without this, overwriting a 3-byte sequence (e.g. ≥) with one ASCII
-         * byte leaves two orphaned continuation bytes that corrupt the string. */
-        uint8_t cur_size = utf8_char_size(&expression[cursor_pos]);
+        /* Overwrite: remove all bytes of the current char, then write c.
+         * Treat [A]/[B]/[C] as atomic (3 bytes); also handle multi-byte UTF-8
+         * (e.g. ≥) to avoid orphaned continuation bytes. */
+        uint8_t cur_size = matrix_token_size_at(expression, cursor_pos, expr_len);
+        if (!cur_size) cur_size = utf8_char_size(&expression[cursor_pos]);
         memmove(&expression[cursor_pos + 1],
                 &expression[cursor_pos + cur_size],
                 expr_len - cursor_pos - cur_size + 1);
@@ -1305,6 +1385,16 @@ static void expr_insert_str(const char *s)
 static void expr_delete_at_cursor(void)
 {
     if (cursor_pos == 0) return;
+    /* Treat [A]/[B]/[C] as atomic — delete all 3 bytes at once. */
+    uint8_t mat = matrix_token_size_before(expression, cursor_pos);
+    if (mat) {
+        uint8_t start = cursor_pos - mat;
+        memmove(&expression[start], &expression[cursor_pos],
+                expr_len - cursor_pos + 1);
+        expr_len  -= mat;
+        cursor_pos = start;
+        return;
+    }
     /* Find the start byte of the UTF-8 character that ends just before cursor.
      * Without this, deleting a 3-byte sequence (e.g. ≥) would only remove the
      * last byte, leaving two orphaned continuation bytes in the expression. */
@@ -1455,6 +1545,20 @@ static void range_field_reset(void)
     range_field_cursor_pos = 0;
 }
 
+/* Pre-populates range_field_buf from the stored graph_state value for the
+ * currently selected field so LEFT/RIGHT can edit the existing value. */
+static void range_load_field(void)
+{
+    float vals[7] = {
+        graph_state.x_min, graph_state.x_max, graph_state.x_scl,
+        graph_state.y_min, graph_state.y_max, graph_state.y_scl,
+        graph_state.x_res
+    };
+    snprintf(range_field_buf, sizeof(range_field_buf), "%.4g", vals[range_field_selected]);
+    range_field_len        = (uint8_t)strlen(range_field_buf);
+    range_field_cursor_pos = 0;
+}
+
 /* Resets the ZOOM menu scroll and cursor position to defaults. */
 static void zoom_menu_reset(void)
 {
@@ -1515,6 +1619,7 @@ static void zoom_execute_item(uint8_t item_num)
         break;
     case 4: /* Set Factors — open ZOOM FACTORS sub-screen */
         zoom_factors_reset();
+        zoom_factors_load_field();
         current_mode = MODE_GRAPH_ZOOM_FACTORS;
         lvgl_lock();
         lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1683,29 +1788,80 @@ static void ui_update_matrix_display(void)
     }
 }
 
-/* Redraws the MATRIX EDIT sub-screen: title, all cells, cursor highlight. */
+/* Redraws the MATRIX EDIT sub-screen: title, scrolling cell list, cursor highlight. */
 static void ui_update_matrix_edit_display(void)
 {
     CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
-    char title_buf[20];
+    int total_cells = (int)m->rows * (int)m->cols;
+
+    /* Title: name + dimensions. Yellow in dim mode so the row stands out. */
+    char title_buf[24];
     snprintf(title_buf, sizeof(title_buf), "%s %dx%d",
              matrix_edit_item_names[matrix_edit_idx], m->rows, m->cols);
+    lv_obj_set_style_text_color(matrix_edit_title_lbl,
+        (matrix_edit_cursor == -1) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
     lv_label_set_text(matrix_edit_title_lbl, title_buf);
 
-    char cell_buf[16];
-    for (int r = 0; r < MATRIX_MAX_DIM; r++) {
-        for (int c = 0; c < MATRIX_MAX_DIM; c++) {
-            bool is_cursor = (r == (int)matrix_edit_row && c == (int)matrix_edit_col);
-            if (is_cursor && matrix_edit_len > 0) {
-                snprintf(cell_buf, sizeof(cell_buf), "%s", matrix_edit_buf);
-            } else {
-                Calc_FormatResult(m->data[r][c], cell_buf, sizeof(cell_buf));
-            }
-            lv_obj_set_style_text_color(matrix_cell_labels[r][c],
-                is_cursor ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
-            lv_label_set_text(matrix_cell_labels[r][c], cell_buf);
+    /* Hide both scroll indicators; re-shown below if needed */
+    lv_obj_add_flag(matrix_edit_up_lbl,   LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(matrix_edit_down_lbl, LV_OBJ_FLAG_HIDDEN);
+
+    bool more_above = (matrix_edit_cursor >= 0 && matrix_edit_scroll > 0);
+    bool more_below = ((int)matrix_edit_scroll + MATRIX_LIST_VISIBLE < total_cells);
+
+    /* Populate the 7 visible list rows */
+    for (int i = 0; i < MATRIX_LIST_VISIBLE; i++) {
+        int cell_idx = (int)matrix_edit_scroll + i;
+        if (cell_idx >= total_cells) {
+            lv_label_set_text(matrix_list_labels[i], "");
+            lv_obj_set_style_text_color(matrix_list_labels[i], lv_color_hex(0xFFFFFF), 0);
+            continue;
         }
+        int row_1b = cell_idx / (int)m->cols + 1;  /* 1-based */
+        int col_1b = cell_idx % (int)m->cols + 1;
+        bool is_cursor = (matrix_edit_cursor >= 0 && cell_idx == (int)matrix_edit_cursor);
+        char val_str[16];
+        if (is_cursor && matrix_edit_len > 0) {
+            snprintf(val_str, sizeof(val_str), "%s", matrix_edit_buf);
+        } else {
+            Calc_FormatResult(m->data[row_1b - 1][col_1b - 1], val_str, sizeof(val_str));
+        }
+
+        /* Use a space instead of '=' when an amber arrow overlay covers that slot */
+        bool show_down = (more_below && i == MATRIX_LIST_VISIBLE - 1);
+        bool show_up   = (more_above && i == 0);
+        char sep = (show_down || show_up) ? ' ' : '=';
+
+        char row_buf[32];
+        snprintf(row_buf, sizeof(row_buf), "%d,%d%c%s", row_1b, col_1b, sep, val_str);
+        lv_label_set_text(matrix_list_labels[i], row_buf);
+        lv_obj_set_style_text_color(matrix_list_labels[i],
+            is_cursor ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
+
+        if (show_down) lv_obj_clear_flag(matrix_edit_down_lbl, LV_OBJ_FLAG_HIDDEN);
+        if (show_up)   lv_obj_clear_flag(matrix_edit_up_lbl,   LV_OBJ_FLAG_HIDDEN);
     }
+
+    matrix_edit_cursor_update();
+}
+
+/**
+ * @brief Loads the stored value of the current cell into matrix_edit_buf.
+ *
+ * Called whenever the cursor lands on a new cell (navigation or open).
+ * Populates the edit buffer from the stored float so that LEFT/RIGHT can
+ * immediately move through the existing value without the user having to
+ * retype it. val_cursor is placed at the end of the loaded string.
+ */
+static void matrix_edit_load_cell(void)
+{
+    if (matrix_edit_cursor < 0) return;
+    CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
+    int r = (int)matrix_edit_cursor / (int)m->cols;
+    int c = (int)matrix_edit_cursor % (int)m->cols;
+    Calc_FormatResult(m->data[r][c], matrix_edit_buf, sizeof(matrix_edit_buf));
+    matrix_edit_len        = (uint8_t)strlen(matrix_edit_buf);
+    matrix_edit_val_cursor = 0;  /* cursor at start — overwrite mode replaces from first char */
 }
 
 /*---------------------------------------------------------------------------
@@ -1754,6 +1910,16 @@ static void zoom_factors_reset(void)
     zoom_factors_field  = 0;
     zoom_factors_len    = 0;
     zoom_factors_buf[0] = '\0';
+    zoom_factors_cursor = 0;
+}
+
+/* Pre-populates zoom_factors_buf from the stored zoom_x_fact / zoom_y_fact
+ * for the currently selected field. */
+static void zoom_factors_load_field(void)
+{
+    float val = (zoom_factors_field == 0) ? zoom_x_fact : zoom_y_fact;
+    snprintf(zoom_factors_buf, sizeof(zoom_factors_buf), "%.4g", val);
+    zoom_factors_len    = (uint8_t)strlen(zoom_factors_buf);
     zoom_factors_cursor = 0;
 }
 
@@ -1808,6 +1974,39 @@ static void zoom_factors_cursor_update(void)
                       + zoom_factors_cursor;
     cursor_place(zoom_factors_cursor_box, zoom_factors_cursor_inner,
                  ui_lbl_zoom_factors_rows[zoom_factors_field], char_pos);
+}
+
+/**
+ * @brief Positions the flashing cursor in the MATRIX EDIT screen.
+ *
+ * Dim mode (cursor == -1): cursor sits on the rows digit (dim_field 0) or
+ *   cols digit (dim_field 1) within the title label "[X] RxC".
+ *   Character positions: [=0, X=1, ]=2, ' '=3, R=4, x=5, C=6.
+ *
+ * Cell mode (cursor >= 0): cursor sits after the '=' in the active list row
+ *   label "r,c=VALUE", advancing as the user types.
+ */
+static void matrix_edit_cursor_update(void)
+{
+    if (matrix_edit_cursor_box == NULL) return;
+
+    if (matrix_edit_cursor == -1) {
+        /* Dim mode — cursor on rows digit (char 4) or cols digit (char 6) */
+        uint32_t char_pos = (matrix_edit_dim_field == 0) ? 4u : 6u;
+        cursor_place(matrix_edit_cursor_box, matrix_edit_cursor_inner,
+                     matrix_edit_title_lbl, char_pos);
+    } else {
+        /* Cell mode — cursor after the '=' in the active list row */
+        int vis_idx = (int)matrix_edit_cursor - (int)matrix_edit_scroll;
+        if (vis_idx < 0 || vis_idx >= MATRIX_LIST_VISIBLE) {
+            lv_obj_add_flag(matrix_edit_cursor_box, LV_OBJ_FLAG_HIDDEN);
+            return;
+        }
+        /* "r,c=" prefix is always 4 chars for rows/cols 1–6 */
+        uint32_t char_pos = 4u + (uint32_t)matrix_edit_val_cursor;
+        cursor_place(matrix_edit_cursor_box, matrix_edit_cursor_inner,
+                     matrix_list_labels[vis_idx], char_pos);
+    }
 }
 
 /*---------------------------------------------------------------------------
@@ -1968,6 +2167,7 @@ static void nav_to(CalcMode_t target)
     case MODE_GRAPH_RANGE:
         graph_state.active = false;
         range_field_reset();
+        range_load_field();
         lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_range_display();
         range_update_highlight();
@@ -2090,281 +2290,246 @@ static void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
     lvgl_lock(); update(); lvgl_unlock();
 }
 
-/**
- * @brief Processes a single calculator token from the keypad queue.
- * @param t  Token to execute.
- */
-void Execute_Token(Token_t t)
+/*---------------------------------------------------------------------------
+ * Per-mode token handlers
+ * Each returns true if the token was fully handled (Execute_Token should
+ * return), false if execution should fall through to the next handler.
+ *---------------------------------------------------------------------------*/
+
+static bool handle_yeq_mode(Token_t t)
 {
-    /*--- TOKEN_ON: save state (plain ON) or save + sleep (2nd+ON) ----------*/
-    if (t == TOKEN_ON) {
-        bool power_down = (current_mode == MODE_2ND);
+    char *eq  = graph_state.equations[yeq_selected];
+    uint8_t eq_len = strlen(eq);
+    const char *append = NULL;
+    char num_buf[2] = {0, 0};
 
-        /* Show "Saving..." overlay before the flash erase begins.
-         * Release the mutex immediately so DefaultTask can render one frame
-         * (its 5 ms loop runs; lv_timer_handler flushes the label to the SDRAM
-         * framebuffer).  Then delay 20 ms to ensure at least one full render
-         * pass completes before we call Persist_Save.
-         * LTDC reads directly from SDRAM so the label stays visible for the
-         * entire ~1-2 s FLASH stall even though all CPU execution is frozen. */
-        lvgl_lock();
-        lv_obj_t *saving_lbl = lv_label_create(lv_scr_act());
-        lv_label_set_text(saving_lbl, "Saving...");
-        lv_obj_set_style_text_color(saving_lbl, lv_color_hex(0xFFAA00), 0);
-        lv_obj_align(saving_lbl, LV_ALIGN_BOTTOM_MID, 0, -6);
-        lvgl_unlock();
-        osDelay(20);  /* let DefaultTask flush the label to the framebuffer */
+    /* Clamp cursor to current equation length */
+    if (yeq_cursor_pos > eq_len) yeq_cursor_pos = eq_len;
 
-        PersistBlock_t block;
-        Calc_BuildPersistBlock(&block);
-        Persist_Save(&block);   /* ← FLASH stalls here for ~1-2 s */
-
-        /* Remove indicator and reset modifier state */
+    switch (t) {
+    case TOKEN_GRAPH:
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_Y_EQUALS:
         current_mode = MODE_NORMAL;
-        return_mode  = MODE_NORMAL;
-        sto_pending  = false;
         lvgl_lock();
-        lv_obj_del(saving_lbl);
         hide_all_screens();
-        ui_update_status_bar();
         lvgl_unlock();
-
-        if (power_down) {
-            /* 2nd+ON — show "Powered off" screen and block until ON is pressed.
-             * Power_DisplayBlankAndMessage() is the prototype stand-in for
-             * Power_EnterStop(); it handles the LVGL invalidate internally. */
-            Power_DisplayBlankAndMessage();
+        return true;
+    case TOKEN_CLEAR:
+        eq[0]          = '\0';
+        yeq_cursor_pos = 0;
+        lvgl_lock();
+        lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_LEFT:
+        if (yeq_cursor_pos > 0) {
+            if (matrix_token_size_before(eq, yeq_cursor_pos) == 3) {
+                yeq_cursor_pos -= 3;
+            } else {
+                do { yeq_cursor_pos--; }
+                while (yeq_cursor_pos > 0 &&
+                       ((uint8_t)eq[yeq_cursor_pos] & 0xC0) == 0x80);
+            }
         }
-        return;
-    }
-
-    /*--- TOKEN_MODE: always opens MODE screen from any mode ----------------*/
-    if (t == TOKEN_MODE) {
-        memcpy(mode_cursor, mode_committed, sizeof(mode_cursor));
-        mode_row_selected = 0;
-        current_mode = MODE_MODE_SCREEN;
         lvgl_lock();
-        hide_all_screens();
-        lv_obj_clear_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_mode_display();
+        yeq_cursor_update();
         lvgl_unlock();
-        return;
-    }
-
-    /*--- Y= equation editor mode handler -----------------------------------*/
-    if (current_mode == MODE_GRAPH_YEQ) {
-        char *eq  = graph_state.equations[yeq_selected];
-        uint8_t eq_len = strlen(eq);
-        const char *append = NULL;
-        char num_buf[2] = {0, 0};
-
-        /* Clamp cursor to current equation length */
-        if (yeq_cursor_pos > eq_len) yeq_cursor_pos = eq_len;
-
-        switch (t) {
-        case TOKEN_GRAPH:
-            nav_to(MODE_NORMAL);
-            return;
-        case TOKEN_Y_EQUALS:
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            hide_all_screens();
-            lvgl_unlock();
-            return;
-        case TOKEN_CLEAR:
-            /* Clear the current equation */
-            eq[0]          = '\0';
-            yeq_cursor_pos = 0;
+        return true;
+    case TOKEN_RIGHT:
+        if (yeq_cursor_pos < eq_len) {
+            uint8_t mat = matrix_token_size_at(eq, yeq_cursor_pos, (uint8_t)eq_len);
+            if (mat) {
+                yeq_cursor_pos += mat;
+            } else {
+                uint8_t step = utf8_char_size(&eq[yeq_cursor_pos]);
+                yeq_cursor_pos += step ? step : 1;
+            }
+            if (yeq_cursor_pos > (uint8_t)eq_len) yeq_cursor_pos = (uint8_t)eq_len;
+        }
+        lvgl_lock();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_INS:
+        insert_mode = !insert_mode;
+        lvgl_lock();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_RANGE:
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_ZOOM:
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    case TOKEN_TRACE:
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    case TOKEN_DEL:
+        if (yeq_cursor_pos > 0) {
+            uint8_t prev;
+            uint8_t mat = matrix_token_size_before(eq, yeq_cursor_pos);
+            if (mat) {
+                prev = yeq_cursor_pos - mat;
+            } else {
+                prev = yeq_cursor_pos;
+                do { prev--; }
+                while (prev > 0 && ((uint8_t)eq[prev] & 0xC0) == 0x80);
+            }
+            memmove(&eq[prev], &eq[yeq_cursor_pos],
+                    eq_len - yeq_cursor_pos + 1);
+            yeq_cursor_pos = prev;
             lvgl_lock();
             lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
             yeq_reflow_rows();
             yeq_cursor_update();
             lvgl_unlock();
-            return;
-        case TOKEN_LEFT:
-            if (yeq_cursor_pos > 0) {
-                /* Step back past all UTF-8 continuation bytes (10xxxxxx) to
-                 * land on the start byte of the previous character. */
-                do { yeq_cursor_pos--; }
-                while (yeq_cursor_pos > 0 &&
-                       ((uint8_t)eq[yeq_cursor_pos] & 0xC0) == 0x80);
-            }
-            lvgl_lock();
-            yeq_cursor_update();
-            lvgl_unlock();
-            return;
-        case TOKEN_RIGHT:
-            if (yeq_cursor_pos < eq_len) {
-                uint8_t step = utf8_char_size(&eq[yeq_cursor_pos]);
-                yeq_cursor_pos += step ? step : 1;
-                if (yeq_cursor_pos > (uint8_t)eq_len) yeq_cursor_pos = (uint8_t)eq_len;
-            }
-            lvgl_lock();
-            yeq_cursor_update();
-            lvgl_unlock();
-            return;
-        case TOKEN_INS:
-            insert_mode = !insert_mode;
-            lvgl_lock();
-            yeq_cursor_update();
-            lvgl_unlock();
-            return;
-        case TOKEN_RANGE:
-            nav_to(MODE_GRAPH_RANGE);
-            return;
-        case TOKEN_ZOOM:
-            zoom_menu_reset();
-            nav_to(MODE_GRAPH_ZOOM);
-            return;
-        case TOKEN_TRACE:
-            nav_to(MODE_GRAPH_TRACE);
-            return;
-        case TOKEN_DEL:
-            if (yeq_cursor_pos > 0) {
-                /* Find the start byte of the previous UTF-8 character by
-                 * stepping back past any continuation bytes (10xxxxxx). */
-                uint8_t prev = yeq_cursor_pos;
-                do { prev--; }
-                while (prev > 0 && ((uint8_t)eq[prev] & 0xC0) == 0x80);
-                memmove(&eq[prev], &eq[yeq_cursor_pos],
-                        eq_len - yeq_cursor_pos + 1);
-                yeq_cursor_pos = prev;
-                lvgl_lock();
-                lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
-                yeq_reflow_rows();
-                yeq_cursor_update();
-                lvgl_unlock();
-            }
-            return;
-        case TOKEN_UP:
-            if (yeq_selected > 0) yeq_selected--;
-            yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
-            lvgl_lock();
-            yeq_update_highlight();
-            yeq_reflow_rows();
-            yeq_cursor_update();
-            lvgl_unlock();
-            return;
-        case TOKEN_ENTER:
-        case TOKEN_DOWN:
-            if (yeq_selected < GRAPH_NUM_EQ - 1) yeq_selected++;
-            yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
-            lvgl_lock();
-            yeq_update_highlight();
-            yeq_reflow_rows();
-            yeq_cursor_update();
-            lvgl_unlock();
-            return;
-        case TOKEN_X_T:   append = "x";     break;
-        case TOKEN_0 ... TOKEN_9:
-            num_buf[0] = (char)((t - TOKEN_0) + '0');
-            append = num_buf;
-            break;
-        case TOKEN_DECIMAL: append = ".";     break;
-        case TOKEN_EE:      append = "*10^";  break;
-        case TOKEN_E_X:     append = "exp(";  break;
-        case TOKEN_TEN_X:   append = "10^(";  break;
-        case TOKEN_ADD:     append = "+";     break;
-        case TOKEN_SUB:     append = "-";     break;
-        case TOKEN_MULT:    append = "*";     break;
-        case TOKEN_DIV:     append = "/";     break;
-        case TOKEN_POWER:   append = "^";     break;
-        case TOKEN_L_PAR:   append = "(";     break;
-        case TOKEN_R_PAR:   append = ")";     break;
-        case TOKEN_SIN:     append = "sin(";  break;
-        case TOKEN_COS:     append = "cos(";  break;
-        case TOKEN_TAN:     append = "tan(";  break;
-        case TOKEN_ASIN:    append = "asin("; break;
-        case TOKEN_ACOS:    append = "acos("; break;
-        case TOKEN_ATAN:    append = "atan("; break;
-        case TOKEN_LN:      append = "ln(";   break;
-        case TOKEN_LOG:     append = "log(";  break;
-        case TOKEN_SQRT:    append = "\xE2\x88\x9A("; break;
-        case TOKEN_ABS:     append = "abs(";  break;
-        case TOKEN_SQUARE:  append = "^2";    break;
-        case TOKEN_PI:      append = "π";     break;
-        case TOKEN_NEG:     append = "-";     break;
-        case TOKEN_X_INV:   append = "^-1";   break;
-        case TOKEN_ANS:     append = "ANS";   break;
-        case TOKEN_MATH:
-            menu_open(TOKEN_MATH, MODE_GRAPH_YEQ);
-            return;
-        case TOKEN_TEST:
-            menu_open(TOKEN_TEST, MODE_GRAPH_YEQ);
-            return;
-        case TOKEN_MATRX:
-            menu_open(TOKEN_MATRX, MODE_GRAPH_YEQ);
-            return;
-        case TOKEN_MTRX_A: append = "[A]"; break;
-        case TOKEN_MTRX_B: append = "[B]"; break;
-        case TOKEN_MTRX_C: append = "[C]"; break;
-        case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
-        case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
-        case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
-        case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
-        case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
-        case TOKEN_Z: {
-            static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            num_buf[0] = alpha_chars[t - TOKEN_A];
-            append = num_buf;
-            break;
         }
-        default:            break;
-        }
-
-        if (append != NULL) {
-            size_t len = strlen(append);
-            if (!insert_mode && len == 1 && yeq_cursor_pos < eq_len) {
-                /* Overwrite the character at cursor position.  If it is a
-                 * multi-byte UTF-8 sequence (e.g. √, π) remove all its bytes
-                 * before placing the single incoming ASCII character. */
-                uint8_t cur_size = utf8_char_size(&eq[yeq_cursor_pos]);
-                if (cur_size <= 1) {
-                    eq[yeq_cursor_pos++] = append[0];
-                } else {
-                    /* Shrink: replace cur_size bytes with 1 ASCII byte */
-                    memmove(&eq[yeq_cursor_pos + 1],
-                            &eq[yeq_cursor_pos + cur_size],
-                            eq_len - yeq_cursor_pos - cur_size + 1);
-                    eq[yeq_cursor_pos++] = append[0];
-                }
-                lvgl_lock();
-                lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
-                yeq_reflow_rows();
-                yeq_cursor_update();
-                lvgl_unlock();
-            } else if (eq_len + len < 63) {
-                /* Insert: shift tail right, then copy */
-                memmove(&eq[yeq_cursor_pos + len], &eq[yeq_cursor_pos],
-                        eq_len - yeq_cursor_pos + 1);
-                memcpy(&eq[yeq_cursor_pos], append, len);
-                yeq_cursor_pos += (uint8_t)len;
-                lvgl_lock();
-                lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
-                yeq_reflow_rows();
-                yeq_cursor_update();
-                lvgl_unlock();
-            }
-        }
-        /* Clear any stale 2nd/ALPHA indicator (modifier was consumed by
-         * Process_Hardware_Key before this token was queued) */
+        return true;
+    case TOKEN_UP:
+        if (yeq_selected > 0) yeq_selected--;
+        yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
         lvgl_lock();
-        ui_update_status_bar();
+        yeq_update_highlight();
+        yeq_reflow_rows();
         yeq_cursor_update();
         lvgl_unlock();
-        return;
+        return true;
+    case TOKEN_ENTER:
+    case TOKEN_DOWN:
+        if (yeq_selected < GRAPH_NUM_EQ - 1) yeq_selected++;
+        yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
+        lvgl_lock();
+        yeq_update_highlight();
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_X_T:   append = "x";     break;
+    case TOKEN_0 ... TOKEN_9:
+        num_buf[0] = (char)((t - TOKEN_0) + '0');
+        append = num_buf;
+        break;
+    case TOKEN_DECIMAL: append = ".";     break;
+    case TOKEN_EE:      append = "*10^";  break;
+    case TOKEN_E_X:     append = "exp(";  break;
+    case TOKEN_TEN_X:   append = "10^(";  break;
+    case TOKEN_ADD:     append = "+";     break;
+    case TOKEN_SUB:     append = "-";     break;
+    case TOKEN_MULT:    append = "*";     break;
+    case TOKEN_DIV:     append = "/";     break;
+    case TOKEN_POWER:   append = "^";     break;
+    case TOKEN_L_PAR:   append = "(";     break;
+    case TOKEN_R_PAR:   append = ")";     break;
+    case TOKEN_SIN:     append = "sin(";  break;
+    case TOKEN_COS:     append = "cos(";  break;
+    case TOKEN_TAN:     append = "tan(";  break;
+    case TOKEN_ASIN:    append = "asin("; break;
+    case TOKEN_ACOS:    append = "acos("; break;
+    case TOKEN_ATAN:    append = "atan("; break;
+    case TOKEN_LN:      append = "ln(";   break;
+    case TOKEN_LOG:     append = "log(";  break;
+    case TOKEN_SQRT:    append = "\xE2\x88\x9A("; break;
+    case TOKEN_ABS:     append = "abs(";  break;
+    case TOKEN_SQUARE:  append = "^2";    break;
+    case TOKEN_PI:      append = "π";     break;
+    case TOKEN_NEG:     append = "-";     break;
+    case TOKEN_X_INV:   append = "^-1";   break;
+    case TOKEN_ANS:     append = "ANS";   break;
+    case TOKEN_MATH:
+        menu_open(TOKEN_MATH, MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_TEST:
+        menu_open(TOKEN_TEST, MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_MATRX:
+    case TOKEN_MTRX_A:
+    case TOKEN_MTRX_B:
+    case TOKEN_MTRX_C:
+        return true;
+    case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
+    case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
+    case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
+    case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
+    case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
+    case TOKEN_Z: {
+        static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        num_buf[0] = alpha_chars[t - TOKEN_A];
+        append = num_buf;
+        break;
+    }
+    default:            break;
     }
 
-    /*--- RANGE field editor mode handler -----------------------------------*/
-    if (current_mode == MODE_GRAPH_RANGE) {
-        switch (t) {
-        case TOKEN_0 ... TOKEN_9: {
-            char ch = (char)((t - TOKEN_0) + '0');
+    if (append != NULL) {
+        size_t len = strlen(append);
+        if (!insert_mode && len == 1 && yeq_cursor_pos < eq_len) {
+            uint8_t cur_size = matrix_token_size_at(eq, yeq_cursor_pos, (uint8_t)eq_len);
+            if (!cur_size) cur_size = utf8_char_size(&eq[yeq_cursor_pos]);
+            if (cur_size <= 1) {
+                eq[yeq_cursor_pos++] = append[0];
+            } else {
+                memmove(&eq[yeq_cursor_pos + 1],
+                        &eq[yeq_cursor_pos + cur_size],
+                        eq_len - yeq_cursor_pos - cur_size + 1);
+                eq[yeq_cursor_pos++] = append[0];
+            }
+            lvgl_lock();
+            lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+            yeq_reflow_rows();
+            yeq_cursor_update();
+            lvgl_unlock();
+        } else if (eq_len + len < 63) {
+            memmove(&eq[yeq_cursor_pos + len], &eq[yeq_cursor_pos],
+                    eq_len - yeq_cursor_pos + 1);
+            memcpy(&eq[yeq_cursor_pos], append, len);
+            yeq_cursor_pos += (uint8_t)len;
+            lvgl_lock();
+            lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+            yeq_reflow_rows();
+            yeq_cursor_update();
+            lvgl_unlock();
+        }
+    }
+    lvgl_lock();
+    ui_update_status_bar();
+    yeq_cursor_update();
+    lvgl_unlock();
+    return true;
+}
+
+static bool handle_range_mode(Token_t t)
+{
+    switch (t) {
+    case TOKEN_0 ... TOKEN_9: {
+        char ch = (char)((t - TOKEN_0) + '0');
+        if (!insert_mode && range_field_cursor_pos < range_field_len) {
+            range_field_buf[range_field_cursor_pos++] = ch;
+        } else if (range_field_len < sizeof(range_field_buf) - 1) {
+            memmove(&range_field_buf[range_field_cursor_pos + 1],
+                    &range_field_buf[range_field_cursor_pos],
+                    range_field_len - range_field_cursor_pos + 1);
+            range_field_buf[range_field_cursor_pos++] = ch;
+            range_field_len++;
+        }
+        lvgl_lock();
+        ui_update_range_display();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+    }
+
+    case TOKEN_DECIMAL:
+        if (strchr(range_field_buf, '.') == NULL) {
+            char ch = '.';
             if (!insert_mode && range_field_cursor_pos < range_field_len) {
-                /* Overwrite the character at cursor position */
                 range_field_buf[range_field_cursor_pos++] = ch;
             } else if (range_field_len < sizeof(range_field_buf) - 1) {
-                /* Insert: shift tail right */
                 memmove(&range_field_buf[range_field_cursor_pos + 1],
                         &range_field_buf[range_field_cursor_pos],
                         range_field_len - range_field_cursor_pos + 1);
@@ -2375,236 +2540,229 @@ void Execute_Token(Token_t t)
             ui_update_range_display();
             range_cursor_update();
             lvgl_unlock();
-            return;
         }
+        return true;
 
-        case TOKEN_DECIMAL:
-            if (strchr(range_field_buf, '.') == NULL) {
-                char ch = '.';
-                if (!insert_mode && range_field_cursor_pos < range_field_len) {
-                    range_field_buf[range_field_cursor_pos++] = ch;
-                } else if (range_field_len < sizeof(range_field_buf) - 1) {
-                    memmove(&range_field_buf[range_field_cursor_pos + 1],
-                            &range_field_buf[range_field_cursor_pos],
-                            range_field_len - range_field_cursor_pos + 1);
-                    range_field_buf[range_field_cursor_pos++] = ch;
-                    range_field_len++;
-                }
-                lvgl_lock();
-                ui_update_range_display();
-                range_cursor_update();
-                lvgl_unlock();
-            }
-            return;
+    case TOKEN_NEG:
+        if (range_field_len > 0 && range_field_buf[0] == '-') {
+            memmove(range_field_buf, range_field_buf + 1, range_field_len);
+            range_field_len--;
+        } else if (range_field_len < sizeof(range_field_buf) - 1) {
+            memmove(range_field_buf + 1, range_field_buf, range_field_len + 1);
+            range_field_buf[0] = '-';
+            range_field_len++;
+        }
+        range_field_cursor_pos = range_field_len;
+        lvgl_lock();
+        ui_update_range_display();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
 
-        case TOKEN_NEG:
-            /* Toggle leading '-' sign; move cursor to end of modified buffer */
-            if (range_field_len > 0 && range_field_buf[0] == '-') {
-                memmove(range_field_buf, range_field_buf + 1, range_field_len);
-                range_field_len--;
-            } else if (range_field_len < sizeof(range_field_buf) - 1) {
-                memmove(range_field_buf + 1, range_field_buf, range_field_len + 1);
-                range_field_buf[0] = '-';
-                range_field_len++;
-            }
-            range_field_cursor_pos = range_field_len;
+    case TOKEN_DEL:
+        if (range_field_cursor_pos > 0) {
+            memmove(&range_field_buf[range_field_cursor_pos - 1],
+                    &range_field_buf[range_field_cursor_pos],
+                    range_field_len - range_field_cursor_pos + 1);
+            range_field_len--;
+            range_field_cursor_pos--;
             lvgl_lock();
             ui_update_range_display();
             range_cursor_update();
             lvgl_unlock();
-            return;
+        }
+        return true;
 
-        case TOKEN_DEL:
-            if (range_field_cursor_pos > 0) {
-                memmove(&range_field_buf[range_field_cursor_pos - 1],
-                        &range_field_buf[range_field_cursor_pos],
-                        range_field_len - range_field_cursor_pos + 1);
-                range_field_len--;
-                range_field_cursor_pos--;
-                lvgl_lock();
-                ui_update_range_display();
-                range_cursor_update();
-                lvgl_unlock();
-            }
-            return;
+    case TOKEN_LEFT:
+        if (range_field_cursor_pos > 0) range_field_cursor_pos--;
+        lvgl_lock();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
 
-        case TOKEN_LEFT:
-            if (range_field_cursor_pos > 0) range_field_cursor_pos--;
-            lvgl_lock();
-            range_cursor_update();
-            lvgl_unlock();
-            return;
+    case TOKEN_RIGHT:
+        if (range_field_cursor_pos < range_field_len) range_field_cursor_pos++;
+        lvgl_lock();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
 
-        case TOKEN_RIGHT:
-            if (range_field_cursor_pos < range_field_len) range_field_cursor_pos++;
-            lvgl_lock();
-            range_cursor_update();
-            lvgl_unlock();
-            return;
+    case TOKEN_INS:
+        insert_mode = !insert_mode;
+        lvgl_lock();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
 
-        case TOKEN_INS:
-            insert_mode = !insert_mode;
-            lvgl_lock();
-            range_cursor_update();
-            lvgl_unlock();
-            return;
+    case TOKEN_ENTER:
+    case TOKEN_DOWN:
+        range_commit_field();
+        if (range_field_selected < 6) range_field_selected++;
+        range_load_field();
+        lvgl_lock();
+        ui_update_range_display();
+        range_update_highlight();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
 
-        case TOKEN_ENTER:
-        case TOKEN_DOWN:
-            range_commit_field();
+    case TOKEN_UP:
+        range_commit_field();
+        if (range_field_selected > 0) range_field_selected--;
+        range_load_field();
+        lvgl_lock();
+        ui_update_range_display();
+        range_update_highlight();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_ZOOM:
+        range_commit_field();
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+
+    case TOKEN_GRAPH:
+        range_commit_field();
+        nav_to(MODE_NORMAL);
+        return true;
+
+    case TOKEN_RANGE:
+        current_mode = MODE_NORMAL;
+        range_field_reset();
+        lvgl_lock();
+        hide_all_screens();
+        ui_update_range_display();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_CLEAR:
+        if (range_field_len > 0) {
             range_field_len        = 0;
             range_field_buf[0]     = '\0';
             range_field_cursor_pos = 0;
-            if (range_field_selected < 6) range_field_selected++;
             lvgl_lock();
             ui_update_range_display();
-            range_update_highlight();
             range_cursor_update();
             lvgl_unlock();
-            return;
-
-        case TOKEN_UP:
-            range_commit_field();
-            range_field_len        = 0;
-            range_field_buf[0]     = '\0';
-            range_field_cursor_pos = 0;
-            if (range_field_selected > 0) range_field_selected--;
-            lvgl_lock();
-            ui_update_range_display();
-            range_update_highlight();
-            range_cursor_update();
-            lvgl_unlock();
-            return;
-
-        case TOKEN_ZOOM:
-            range_commit_field();
-            zoom_menu_reset();
-            nav_to(MODE_GRAPH_ZOOM);
-            return;
-
-        case TOKEN_GRAPH:
-            range_commit_field();
-            nav_to(MODE_NORMAL);
-            return;
-
-        case TOKEN_RANGE:
+        } else {
             current_mode = MODE_NORMAL;
             range_field_reset();
             lvgl_lock();
-            hide_all_screens();
             ui_update_range_display();
+            lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
             lvgl_unlock();
-            return;
-
-        case TOKEN_CLEAR:
-            if (range_field_len > 0) {
-                /* Clear in-progress edit, show stored value */
-                range_field_len        = 0;
-                range_field_buf[0]     = '\0';
-                range_field_cursor_pos = 0;
-                lvgl_lock();
-                ui_update_range_display();
-                range_cursor_update();
-                lvgl_unlock();
-            } else {
-                /* Field already empty — exit RANGE screen to calculator */
-                current_mode = MODE_NORMAL;
-                range_field_reset();
-                lvgl_lock();
-                ui_update_range_display();
-                lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-                lvgl_unlock();
-            }
-            return;
-
-        case TOKEN_Y_EQUALS:
-            range_commit_field();
-            nav_to(MODE_GRAPH_YEQ);
-            return;
-
-        case TOKEN_TRACE:
-            range_commit_field();
-            nav_to(MODE_GRAPH_TRACE);
-            return;
-
-        default:
-            lvgl_lock();
-            ui_update_status_bar();
-            range_cursor_update();
-            lvgl_unlock();
-            return;
         }
+        return true;
+
+    case TOKEN_Y_EQUALS:
+        range_commit_field();
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+
+    case TOKEN_TRACE:
+        range_commit_field();
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+
+    default:
+        lvgl_lock();
+        ui_update_status_bar();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+    }
+}
+
+static bool handle_zoom_mode(Token_t t)
+{
+    switch (t) {
+    case TOKEN_UP:
+        if (zoom_item_cursor > 0) {
+            zoom_item_cursor--;
+        } else if (zoom_scroll_offset > 0) {
+            zoom_scroll_offset--;
+        }
+        lvgl_lock();
+        ui_update_zoom_display();
+        lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if ((int)(zoom_scroll_offset + zoom_item_cursor) + 1 < ZOOM_ITEM_COUNT) {
+            if (zoom_item_cursor < MENU_VISIBLE_ROWS - 1)
+                zoom_item_cursor++;
+            else if (zoom_scroll_offset + MENU_VISIBLE_ROWS < ZOOM_ITEM_COUNT)
+                zoom_scroll_offset++;
+        }
+        lvgl_lock();
+        ui_update_zoom_display();
+        lvgl_unlock();
+        return true;
+    case TOKEN_ENTER:
+        zoom_execute_item((uint8_t)(zoom_scroll_offset + zoom_item_cursor + 1));
+        return true;
+    case TOKEN_CLEAR:
+    case TOKEN_ZOOM:
+        zoom_menu_reset();
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return true;
+    case TOKEN_Y_EQUALS:
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_GRAPH:
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_TRACE:
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    case TOKEN_1 ... TOKEN_9: {
+        uint8_t item = (uint8_t)(t - TOKEN_0);
+        if (item <= ZOOM_ITEM_COUNT)
+            zoom_execute_item(item);
+        return true;
+    }
+    default:
+        /* Any unrecognized key exits the ZOOM menu and is processed normally */
+        zoom_menu_reset();
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return false; /* fall through to main switch */
+    }
+}
+
+static bool handle_zoom_factors_mode(Token_t t)
+{
+    switch (t) {
+    case TOKEN_0 ... TOKEN_9: {
+        char ch = (char)((t - TOKEN_0) + '0');
+        if (!insert_mode && zoom_factors_cursor < zoom_factors_len) {
+            zoom_factors_buf[zoom_factors_cursor++] = ch;
+        } else if (zoom_factors_len < sizeof(zoom_factors_buf) - 1) {
+            memmove(&zoom_factors_buf[zoom_factors_cursor + 1],
+                    &zoom_factors_buf[zoom_factors_cursor],
+                    zoom_factors_len - zoom_factors_cursor + 1);
+            zoom_factors_buf[zoom_factors_cursor++] = ch;
+            zoom_factors_len++;
+        }
+        lvgl_lock();
+        ui_update_zoom_factors_display();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
     }
 
-    /*--- ZOOM menu mode handler --------------------------------------------*/
-    if (current_mode == MODE_GRAPH_ZOOM) {
-        switch (t) {
-        case TOKEN_UP:
-            if (zoom_item_cursor > 0) {
-                zoom_item_cursor--;
-            } else if (zoom_scroll_offset > 0) {
-                zoom_scroll_offset--;
-            }
-            lvgl_lock();
-            ui_update_zoom_display();
-            lvgl_unlock();
-            return;
-        case TOKEN_DOWN:
-            if ((int)(zoom_scroll_offset + zoom_item_cursor) + 1 < ZOOM_ITEM_COUNT) {
-                if (zoom_item_cursor < MENU_VISIBLE_ROWS - 1)
-                    zoom_item_cursor++;
-                else if (zoom_scroll_offset + MENU_VISIBLE_ROWS < ZOOM_ITEM_COUNT)
-                    zoom_scroll_offset++;
-            }
-            lvgl_lock();
-            ui_update_zoom_display();
-            lvgl_unlock();
-            return;
-        case TOKEN_ENTER:
-            zoom_execute_item((uint8_t)(zoom_scroll_offset + zoom_item_cursor + 1));
-            return;
-        case TOKEN_CLEAR:
-        case TOKEN_ZOOM:
-            zoom_menu_reset();
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            hide_all_screens();
-            lvgl_unlock();
-            return;
-        case TOKEN_Y_EQUALS:
-            nav_to(MODE_GRAPH_YEQ);
-            return;
-        case TOKEN_RANGE:
-            nav_to(MODE_GRAPH_RANGE);
-            return;
-        case TOKEN_GRAPH:
-            nav_to(MODE_NORMAL);
-            return;
-        case TOKEN_TRACE:
-            nav_to(MODE_GRAPH_TRACE);
-            return;
-        case TOKEN_1 ... TOKEN_9: {
-            uint8_t item = (uint8_t)(t - TOKEN_0); /* 1–9 */
-            if (item <= ZOOM_ITEM_COUNT)
-                zoom_execute_item(item);
-            return;
-        }
-        default:
-            /* Any unrecognized key exits the ZOOM menu and is processed normally */
-            zoom_menu_reset();
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            hide_all_screens();
-            lvgl_unlock();
-            break; /* fall through to main switch */
-        }
-    }
-
-    /*--- ZOOM FACTORS sub-screen handler -----------------------------------*/
-    if (current_mode == MODE_GRAPH_ZOOM_FACTORS) {
-        switch (t) {
-        case TOKEN_0 ... TOKEN_9: {
-            char ch = (char)((t - TOKEN_0) + '0');
+    case TOKEN_DECIMAL:
+        if (strchr(zoom_factors_buf, '.') == NULL) {
+            char ch = '.';
             if (!insert_mode && zoom_factors_cursor < zoom_factors_len) {
                 zoom_factors_buf[zoom_factors_cursor++] = ch;
             } else if (zoom_factors_len < sizeof(zoom_factors_buf) - 1) {
@@ -2618,570 +2776,551 @@ void Execute_Token(Token_t t)
             ui_update_zoom_factors_display();
             zoom_factors_cursor_update();
             lvgl_unlock();
-            return;
         }
+        return true;
 
-        case TOKEN_DECIMAL:
-            if (strchr(zoom_factors_buf, '.') == NULL) {
-                char ch = '.';
-                if (!insert_mode && zoom_factors_cursor < zoom_factors_len) {
-                    zoom_factors_buf[zoom_factors_cursor++] = ch;
-                } else if (zoom_factors_len < sizeof(zoom_factors_buf) - 1) {
-                    memmove(&zoom_factors_buf[zoom_factors_cursor + 1],
-                            &zoom_factors_buf[zoom_factors_cursor],
-                            zoom_factors_len - zoom_factors_cursor + 1);
-                    zoom_factors_buf[zoom_factors_cursor++] = ch;
-                    zoom_factors_len++;
-                }
-                lvgl_lock();
-                ui_update_zoom_factors_display();
-                zoom_factors_cursor_update();
-                lvgl_unlock();
-            }
-            return;
-
-        case TOKEN_DEL:
-            if (zoom_factors_cursor > 0) {
-                memmove(&zoom_factors_buf[zoom_factors_cursor - 1],
-                        &zoom_factors_buf[zoom_factors_cursor],
-                        zoom_factors_len - zoom_factors_cursor + 1);
-                zoom_factors_len--;
-                zoom_factors_cursor--;
-                lvgl_lock();
-                ui_update_zoom_factors_display();
-                zoom_factors_cursor_update();
-                lvgl_unlock();
-            }
-            return;
-
-        case TOKEN_LEFT:
-            if (zoom_factors_cursor > 0) zoom_factors_cursor--;
+    case TOKEN_DEL:
+        if (zoom_factors_cursor > 0) {
+            memmove(&zoom_factors_buf[zoom_factors_cursor - 1],
+                    &zoom_factors_buf[zoom_factors_cursor],
+                    zoom_factors_len - zoom_factors_cursor + 1);
+            zoom_factors_len--;
+            zoom_factors_cursor--;
             lvgl_lock();
+            ui_update_zoom_factors_display();
             zoom_factors_cursor_update();
             lvgl_unlock();
-            return;
+        }
+        return true;
 
-        case TOKEN_RIGHT:
-            if (zoom_factors_cursor < zoom_factors_len) zoom_factors_cursor++;
-            lvgl_lock();
-            zoom_factors_cursor_update();
-            lvgl_unlock();
-            return;
+    case TOKEN_LEFT:
+        if (zoom_factors_cursor > 0) zoom_factors_cursor--;
+        lvgl_lock();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
 
-        case TOKEN_INS:
-            insert_mode = !insert_mode;
-            lvgl_lock();
-            zoom_factors_cursor_update();
-            lvgl_unlock();
-            return;
+    case TOKEN_RIGHT:
+        if (zoom_factors_cursor < zoom_factors_len) zoom_factors_cursor++;
+        lvgl_lock();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
 
-        case TOKEN_ENTER:
-        case TOKEN_DOWN:
-            zoom_factors_commit_field();
+    case TOKEN_INS:
+        insert_mode = !insert_mode;
+        lvgl_lock();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_ENTER:
+    case TOKEN_DOWN:
+        zoom_factors_commit_field();
+        if (zoom_factors_field < 1) zoom_factors_field++;
+        zoom_factors_load_field();
+        lvgl_lock();
+        ui_update_zoom_factors_display();
+        zoom_factors_update_highlight();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_UP:
+        zoom_factors_commit_field();
+        if (zoom_factors_field > 0) zoom_factors_field--;
+        zoom_factors_load_field();
+        lvgl_lock();
+        ui_update_zoom_factors_display();
+        zoom_factors_update_highlight();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_ZOOM:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        zoom_menu_reset();
+        current_mode = MODE_GRAPH_ZOOM;
+        lvgl_lock();
+        hide_all_screens();
+        lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_zoom_display();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_CLEAR:
+        if (zoom_factors_len > 0) {
             zoom_factors_len        = 0;
             zoom_factors_buf[0]     = '\0';
             zoom_factors_cursor     = 0;
-            if (zoom_factors_field < 1) zoom_factors_field++;
             lvgl_lock();
             ui_update_zoom_factors_display();
-            zoom_factors_update_highlight();
             zoom_factors_cursor_update();
             lvgl_unlock();
-            return;
-
-        case TOKEN_UP:
-            zoom_factors_commit_field();
-            zoom_factors_len        = 0;
-            zoom_factors_buf[0]     = '\0';
-            zoom_factors_cursor     = 0;
-            if (zoom_factors_field > 0) zoom_factors_field--;
-            lvgl_lock();
-            ui_update_zoom_factors_display();
-            zoom_factors_update_highlight();
-            zoom_factors_cursor_update();
-            lvgl_unlock();
-            return;
-
-        case TOKEN_ZOOM:
-            /* Commit and return to ZOOM menu */
-            zoom_factors_commit_field();
+        } else {
             zoom_factors_reset();
-            zoom_menu_reset();
             current_mode = MODE_GRAPH_ZOOM;
+            zoom_menu_reset();
             lvgl_lock();
-            hide_all_screens();
+            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
             ui_update_zoom_display();
             lvgl_unlock();
-            return;
-
-        case TOKEN_CLEAR:
-            if (zoom_factors_len > 0) {
-                zoom_factors_len        = 0;
-                zoom_factors_buf[0]     = '\0';
-                zoom_factors_cursor     = 0;
-                lvgl_lock();
-                ui_update_zoom_factors_display();
-                zoom_factors_cursor_update();
-                lvgl_unlock();
-            } else {
-                /* Field already empty — return to ZOOM menu */
-                zoom_factors_reset();
-                current_mode = MODE_GRAPH_ZOOM;
-                zoom_menu_reset();
-                lvgl_lock();
-                lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-                ui_update_zoom_display();
-                lvgl_unlock();
-            }
-            return;
-
-        case TOKEN_Y_EQUALS:
-            zoom_factors_commit_field();
-            zoom_factors_reset();
-            nav_to(MODE_GRAPH_YEQ);
-            return;
-
-        case TOKEN_RANGE:
-            zoom_factors_commit_field();
-            zoom_factors_reset();
-            nav_to(MODE_GRAPH_RANGE);
-            return;
-
-        case TOKEN_GRAPH:
-            zoom_factors_commit_field();
-            zoom_factors_reset();
-            nav_to(MODE_NORMAL);
-            return;
-
-        case TOKEN_TRACE:
-            zoom_factors_commit_field();
-            zoom_factors_reset();
-            nav_to(MODE_GRAPH_TRACE);
-            return;
-
-        default:
-            lvgl_lock();
-            zoom_factors_cursor_update();
-            lvgl_unlock();
-            return;
         }
-    }
+        return true;
 
-    /*--- ZBOX rubber-band zoom handler -------------------------------------*/
-    if (current_mode == MODE_GRAPH_ZBOX) {
-        switch (t) {
-        case TOKEN_LEFT:
-            if (zbox_px > 0) zbox_px--;
-            lvgl_lock();
-            Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
-            lvgl_unlock();
-            return;
-        case TOKEN_RIGHT:
-            if (zbox_px < GRAPH_W - 1) zbox_px++;
-            lvgl_lock();
-            Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
-            lvgl_unlock();
-            return;
-        case TOKEN_UP:
-            if (zbox_py > 0) zbox_py--;
-            lvgl_lock();
-            Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
-            lvgl_unlock();
-            return;
-        case TOKEN_DOWN:
-            if (zbox_py < GRAPH_H - 1) zbox_py++;
-            lvgl_lock();
-            Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
-            lvgl_unlock();
-            return;
-        case TOKEN_ENTER:
-            if (!zbox_corner1_set) {
-                /* Lock the first corner and start drawing the rectangle */
-                zbox_px1         = zbox_px;
-                zbox_py1         = zbox_py;
-                zbox_corner1_set = true;
-                lvgl_lock();
-                Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
-                lvgl_unlock();
-            } else {
-                /* Commit: map pixel box corners to math window coordinates */
-                int32_t x_lo = zbox_px1 < zbox_px ? zbox_px1 : zbox_px;
-                int32_t x_hi = zbox_px1 < zbox_px ? zbox_px  : zbox_px1;
-                int32_t y_lo = zbox_py1 < zbox_py ? zbox_py1 : zbox_py;  /* smaller py = larger y_math */
-                int32_t y_hi = zbox_py1 < zbox_py ? zbox_py  : zbox_py1;
-                /* Only zoom if the box has non-zero area */
-                if (x_hi > x_lo && y_hi > y_lo) {
-                    float x_range    = graph_state.x_max - graph_state.x_min;
-                    float y_range    = graph_state.y_max - graph_state.y_min;
-                    float new_x_min  = graph_state.x_min + (float)x_lo / (float)(GRAPH_W - 1) * x_range;
-                    float new_x_max  = graph_state.x_min + (float)x_hi / (float)(GRAPH_W - 1) * x_range;
-                    float new_y_max  = graph_state.y_max - (float)y_lo / (float)(GRAPH_H - 1) * y_range;
-                    float new_y_min  = graph_state.y_max - (float)y_hi / (float)(GRAPH_H - 1) * y_range;
-                    graph_state.x_min = new_x_min;
-                    graph_state.x_max = new_x_max;
-                    graph_state.y_min = new_y_min;
-                    graph_state.y_max = new_y_max;
-                }
-                current_mode     = MODE_NORMAL;
-                zbox_corner1_set = false;
-                lvgl_lock();
-                Graph_ClearTrace();
-                Graph_Render(angle_degrees);
-                lvgl_unlock();
-            }
-            return;
-        case TOKEN_CLEAR:
-            /* Exit to calculator */
-            zbox_corner1_set = false;
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            hide_all_screens();
-            lvgl_unlock();
-            return;
-        case TOKEN_ZOOM:
-            /* Cancel ZBox rubber-band and stay on graph */
-            zbox_corner1_set = false;
-            nav_to(MODE_NORMAL);
-            return;
-        case TOKEN_GRAPH:
-            zbox_corner1_set = false;
-            nav_to(MODE_NORMAL);
-            return;
-        case TOKEN_Y_EQUALS:
-            zbox_corner1_set = false;
-            nav_to(MODE_GRAPH_YEQ);
-            return;
-        case TOKEN_RANGE:
-            zbox_corner1_set = false;
-            nav_to(MODE_GRAPH_RANGE);
-            return;
-        case TOKEN_TRACE:
-            zbox_corner1_set = false;
-            nav_to(MODE_GRAPH_TRACE);
-            return;
-        default:
-            /* Any other key cancels ZBox and falls through to normal handling */
-            zbox_corner1_set = false;
-            nav_to(MODE_NORMAL);
-            break;
-        }
-    }
+    case TOKEN_Y_EQUALS:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
 
-    /*--- TRACE cursor mode handler -----------------------------------------*/
-    if (current_mode == MODE_GRAPH_TRACE) {
-        float step = (graph_state.x_max - graph_state.x_min) / (float)(GRAPH_W - 1);
-        switch (t) {
-        case TOKEN_LEFT:
-            if (trace_x > graph_state.x_min) trace_x -= step;
+    case TOKEN_RANGE:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+
+    case TOKEN_GRAPH:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        nav_to(MODE_NORMAL);
+        return true;
+
+    case TOKEN_TRACE:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+
+    default:
+        lvgl_lock();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+    }
+}
+
+static bool handle_zbox_mode(Token_t t)
+{
+    switch (t) {
+    case TOKEN_LEFT:
+        if (zbox_px > 0) zbox_px--;
+        lvgl_lock();
+        Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_RIGHT:
+        if (zbox_px < GRAPH_W - 1) zbox_px++;
+        lvgl_lock();
+        Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_UP:
+        if (zbox_py > 0) zbox_py--;
+        lvgl_lock();
+        Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if (zbox_py < GRAPH_H - 1) zbox_py++;
+        lvgl_lock();
+        Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_ENTER:
+        if (!zbox_corner1_set) {
+            zbox_px1         = zbox_px;
+            zbox_py1         = zbox_py;
+            zbox_corner1_set = true;
             lvgl_lock();
-            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+            Graph_DrawZBox(zbox_px, zbox_py, zbox_px1, zbox_py1, zbox_corner1_set, angle_degrees);
             lvgl_unlock();
-            return;
-        case TOKEN_RIGHT:
-            if (trace_x < graph_state.x_max) trace_x += step;
-            lvgl_lock();
-            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
-            lvgl_unlock();
-            return;
-        case TOKEN_UP:
-            /* Cycle to the previous active equation */
-            for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
-                uint8_t idx = (trace_eq_idx + GRAPH_NUM_EQ - i) % GRAPH_NUM_EQ;
-                if (strlen(graph_state.equations[idx]) > 0) {
-                    trace_eq_idx = idx;
-                    break;
-                }
+        } else {
+            int32_t x_lo = zbox_px1 < zbox_px ? zbox_px1 : zbox_px;
+            int32_t x_hi = zbox_px1 < zbox_px ? zbox_px  : zbox_px1;
+            int32_t y_lo = zbox_py1 < zbox_py ? zbox_py1 : zbox_py;
+            int32_t y_hi = zbox_py1 < zbox_py ? zbox_py  : zbox_py1;
+            if (x_hi > x_lo && y_hi > y_lo) {
+                float x_range    = graph_state.x_max - graph_state.x_min;
+                float y_range    = graph_state.y_max - graph_state.y_min;
+                float new_x_min  = graph_state.x_min + (float)x_lo / (float)(GRAPH_W - 1) * x_range;
+                float new_x_max  = graph_state.x_min + (float)x_hi / (float)(GRAPH_W - 1) * x_range;
+                float new_y_max  = graph_state.y_max - (float)y_lo / (float)(GRAPH_H - 1) * y_range;
+                float new_y_min  = graph_state.y_max - (float)y_hi / (float)(GRAPH_H - 1) * y_range;
+                graph_state.x_min = new_x_min;
+                graph_state.x_max = new_x_max;
+                graph_state.y_min = new_y_min;
+                graph_state.y_max = new_y_max;
             }
-            lvgl_lock();
-            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
-            lvgl_unlock();
-            return;
-        case TOKEN_DOWN:
-            /* Cycle to the next active equation */
-            for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
-                uint8_t idx = (trace_eq_idx + i) % GRAPH_NUM_EQ;
-                if (strlen(graph_state.equations[idx]) > 0) {
-                    trace_eq_idx = idx;
-                    break;
-                }
-            }
-            lvgl_lock();
-            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
-            lvgl_unlock();
-            return;
-        case TOKEN_TRACE:
-            /* Pressing TRACE again exits trace — return to plain graph view */
-            current_mode = MODE_NORMAL;
+            current_mode     = MODE_NORMAL;
+            zbox_corner1_set = false;
             lvgl_lock();
             Graph_ClearTrace();
             Graph_Render(angle_degrees);
             lvgl_unlock();
-            return;
-        case TOKEN_Y_EQUALS:
-            Graph_ClearTrace();
-            nav_to(MODE_GRAPH_YEQ);
-            return;
-        case TOKEN_RANGE:
-            Graph_ClearTrace();
-            nav_to(MODE_GRAPH_RANGE);
-            return;
-        case TOKEN_ZOOM:
-            Graph_ClearTrace();
-            zoom_menu_reset();
-            nav_to(MODE_GRAPH_ZOOM);
-            return;
-        case TOKEN_GRAPH:
-            Graph_ClearTrace();
-            nav_to(MODE_NORMAL);
-            return;
-        default:
-            /* Any other key exits trace to the calculator — hide the graph
-             * canvas without re-rendering, then fall through to the main switch
-             * to process the key normally. */
-            current_mode = MODE_NORMAL;
+        }
+        return true;
+    case TOKEN_CLEAR:
+        zbox_corner1_set = false;
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return true;
+    case TOKEN_ZOOM:
+        zbox_corner1_set = false;
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_GRAPH:
+        zbox_corner1_set = false;
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_Y_EQUALS:
+        zbox_corner1_set = false;
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        zbox_corner1_set = false;
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_TRACE:
+        zbox_corner1_set = false;
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    default:
+        zbox_corner1_set = false;
+        nav_to(MODE_NORMAL);
+        return false; /* fall through to main switch */
+    }
+}
+
+static bool handle_trace_mode(Token_t t)
+{
+    float step = (graph_state.x_max - graph_state.x_min) / (float)(GRAPH_W - 1);
+    switch (t) {
+    case TOKEN_LEFT:
+        if (trace_x > graph_state.x_min) trace_x -= step;
+        lvgl_lock();
+        Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_RIGHT:
+        if (trace_x < graph_state.x_max) trace_x += step;
+        lvgl_lock();
+        Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_UP:
+        for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
+            uint8_t idx = (trace_eq_idx + GRAPH_NUM_EQ - i) % GRAPH_NUM_EQ;
+            if (strlen(graph_state.equations[idx]) > 0) {
+                trace_eq_idx = idx;
+                break;
+            }
+        }
+        lvgl_lock();
+        Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
+            uint8_t idx = (trace_eq_idx + i) % GRAPH_NUM_EQ;
+            if (strlen(graph_state.equations[idx]) > 0) {
+                trace_eq_idx = idx;
+                break;
+            }
+        }
+        lvgl_lock();
+        Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_TRACE:
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        Graph_ClearTrace();
+        Graph_Render(angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_Y_EQUALS:
+        Graph_ClearTrace();
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        Graph_ClearTrace();
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_ZOOM:
+        Graph_ClearTrace();
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    case TOKEN_GRAPH:
+        Graph_ClearTrace();
+        nav_to(MODE_NORMAL);
+        return true;
+    default:
+        /* Any other key exits trace immediately — hide canvas then fall through
+         * to the main switch so the key is processed normally. */
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return false; /* fall through to main switch */
+    }
+}
+
+static bool handle_mode_screen(Token_t t)
+{
+    switch (t) {
+    case TOKEN_UP:
+        if (mode_row_selected > 0) mode_row_selected--;
+        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if (mode_row_selected < MODE_ROW_COUNT - 1) mode_row_selected++;
+        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
+        return true;
+    case TOKEN_LEFT:
+        if (mode_cursor[mode_row_selected] > 0)
+            mode_cursor[mode_row_selected]--;
+        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
+        return true;
+    case TOKEN_RIGHT:
+        if (mode_cursor[mode_row_selected] < mode_option_count[mode_row_selected] - 1)
+            mode_cursor[mode_row_selected]++;
+        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
+        return true;
+    case TOKEN_ENTER:
+        mode_committed[mode_row_selected] = mode_cursor[mode_row_selected];
+        if (mode_row_selected == 1)
+            Calc_SetDecimalMode(mode_committed[1]);
+        if (mode_row_selected == 2)
+            angle_degrees = (mode_committed[2] == 1);
+        if (mode_row_selected == 6)
+            graph_state.grid_on = (mode_committed[6] == 1);
+        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
+        return true;
+    case TOKEN_CLEAR:
+    case TOKEN_MODE:
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
+        lvgl_unlock();
+        return true;
+    default:
+        /* Any other key exits MODE screen and is processed normally */
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
+        lvgl_unlock();
+        return false; /* fall through to main switch */
+    }
+}
+
+static bool handle_math_menu(Token_t t)
+{
+    int total = (int)math_tab_item_count[math_tab];
+    switch (t) {
+    case TOKEN_LEFT:
+        tab_move(&math_tab, &math_item_cursor, &math_scroll_offset, MATH_TAB_COUNT, true, ui_update_math_display);
+        return true;
+    case TOKEN_RIGHT:
+        tab_move(&math_tab, &math_item_cursor, &math_scroll_offset, MATH_TAB_COUNT, false, ui_update_math_display);
+        return true;
+    case TOKEN_UP:
+        if (math_item_cursor > 0) {
+            math_item_cursor--;
+        } else if (math_scroll_offset > 0) {
+            math_scroll_offset--;
+        }
+        lvgl_lock(); ui_update_math_display(); lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if ((int)(math_scroll_offset + math_item_cursor) + 1 < total) {
+            if (math_item_cursor < MENU_VISIBLE_ROWS - 1)
+                math_item_cursor++;
+            else if ((int)(math_scroll_offset + MENU_VISIBLE_ROWS) < total)
+                math_scroll_offset++;
+        }
+        lvgl_lock(); ui_update_math_display(); lvgl_unlock();
+        return true;
+    case TOKEN_ENTER: {
+        int idx = (int)math_scroll_offset + (int)math_item_cursor;
+        if (idx < total) {
+            const char *ins = math_menu_items[math_tab][idx].insert;
+            if (ins != NULL) { math_menu_insert(ins); return true; }
+        }
+        break;
+    }
+    case TOKEN_1 ... TOKEN_9: {
+        int idx = (int)(t - TOKEN_0) - 1;
+        if (idx < total) {
+            const char *ins = math_menu_items[math_tab][idx].insert;
+            if (ins != NULL) { math_menu_insert(ins); return true; }
+        }
+        break;
+    }
+    case TOKEN_CLEAR:
+    case TOKEN_MATH:
+        menu_close(TOKEN_MATH);
+        return true;
+    case TOKEN_Y_EQUALS:
+        math_return_mode   = MODE_NORMAL;
+        math_item_cursor   = 0;
+        math_scroll_offset = 0;
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        math_return_mode   = MODE_NORMAL;
+        math_item_cursor   = 0;
+        math_scroll_offset = 0;
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_ZOOM:
+        math_return_mode   = MODE_NORMAL;
+        math_item_cursor   = 0;
+        math_scroll_offset = 0;
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    case TOKEN_GRAPH:
+        math_return_mode   = MODE_NORMAL;
+        math_item_cursor   = 0;
+        math_scroll_offset = 0;
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_TRACE:
+        math_return_mode   = MODE_NORMAL;
+        math_item_cursor   = 0;
+        math_scroll_offset = 0;
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    default: {
+        CalcMode_t ret = menu_close(TOKEN_MATH);
+        if (ret == MODE_GRAPH_YEQ)
+            return true;
+        return false; /* fall through to main switch */
+    }
+    }
+    /* Execution reaches here only from ENTER/number when item not found */
+    return true;
+}
+
+static bool handle_test_menu(Token_t t)
+{
+    switch (t) {
+    case TOKEN_UP:
+        if (test_item_cursor > 0) test_item_cursor--;
+        lvgl_lock(); ui_update_test_display(); lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if (test_item_cursor < TEST_ITEM_COUNT - 1) test_item_cursor++;
+        lvgl_lock(); ui_update_test_display(); lvgl_unlock();
+        return true;
+    case TOKEN_ENTER: {
+        const char *ins = test_menu_items[test_item_cursor].insert;
+        if (ins != NULL) { test_menu_insert(ins); return true; }
+        break;
+    }
+    case TOKEN_1 ... TOKEN_6: {
+        int idx = (int)(t - TOKEN_0) - 1;
+        if (idx >= 0 && idx < TEST_ITEM_COUNT) {
+            const char *ins = test_menu_items[idx].insert;
+            if (ins != NULL) { test_menu_insert(ins); return true; }
+        }
+        break;
+    }
+    case TOKEN_CLEAR:
+    case TOKEN_TEST:
+        menu_close(TOKEN_TEST);
+        return true;
+    case TOKEN_Y_EQUALS:
+        test_return_mode = MODE_NORMAL;
+        test_item_cursor = 0;
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        test_return_mode = MODE_NORMAL;
+        test_item_cursor = 0;
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_ZOOM:
+        test_return_mode = MODE_NORMAL;
+        test_item_cursor = 0;
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    case TOKEN_GRAPH:
+        test_return_mode = MODE_NORMAL;
+        test_item_cursor = 0;
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_TRACE:
+        test_return_mode = MODE_NORMAL;
+        test_item_cursor = 0;
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    default: {
+        CalcMode_t ret = menu_close(TOKEN_TEST);
+        if (ret == MODE_GRAPH_YEQ)
+            return true;
+        return false; /* fall through to main switch */
+    }
+    }
+    return true;
+}
+
+static bool handle_matrix_menu(Token_t t)
+{
+    switch (t) {
+    case TOKEN_LEFT:
+        tab_move(&matrix_tab, &matrix_item_cursor, NULL, MATRIX_TAB_COUNT, true, ui_update_matrix_display);
+        return true;
+    case TOKEN_RIGHT:
+        tab_move(&matrix_tab, &matrix_item_cursor, NULL, MATRIX_TAB_COUNT, false, ui_update_matrix_display);
+        return true;
+    case TOKEN_UP:
+        if (matrix_item_cursor > 0) matrix_item_cursor--;
+        lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if (matrix_item_cursor < matrix_tab_item_count[matrix_tab] - 1) matrix_item_cursor++;
+        lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
+        return true;
+    case TOKEN_ENTER: {
+        if (matrix_tab == 0) {
+            const char *ins = matrix_op_insert[matrix_item_cursor];
+            if (ins != NULL) { matrix_menu_insert(ins); }
+        } else {
+            matrix_edit_idx    = matrix_item_cursor;
+            matrix_edit_cursor     = 0;
+            matrix_edit_scroll     = 0;
+            matrix_edit_dim_field  = 0;
+            current_mode = MODE_MATRIX_EDIT;
+            matrix_edit_load_cell();
             lvgl_lock();
-            hide_all_screens();
+            lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+            ui_update_matrix_edit_display();
             lvgl_unlock();
-            break;
         }
+        return true;
     }
-
-    /*--- MODE settings screen handler --------------------------------------*/
-    if (current_mode == MODE_MODE_SCREEN) {
-        switch (t) {
-        case TOKEN_UP:
-            if (mode_row_selected > 0) mode_row_selected--;
-            lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-            return;
-        case TOKEN_DOWN:
-            if (mode_row_selected < MODE_ROW_COUNT - 1) mode_row_selected++;
-            lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-            return;
-        case TOKEN_LEFT:
-            if (mode_cursor[mode_row_selected] > 0)
-                mode_cursor[mode_row_selected]--;
-            lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-            return;
-        case TOKEN_RIGHT:
-            if (mode_cursor[mode_row_selected] < mode_option_count[mode_row_selected] - 1)
-                mode_cursor[mode_row_selected]++;
-            lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-            return;
-        case TOKEN_ENTER:
-            mode_committed[mode_row_selected] = mode_cursor[mode_row_selected];
-            /* Apply settings that are currently wired */
-            if (mode_row_selected == 1)
-                Calc_SetDecimalMode(mode_committed[1]); /* 0=Float, 1-10=Fix0-9 */
-            if (mode_row_selected == 2)
-                angle_degrees = (mode_committed[2] == 1); /* 0=Radian, 1=Degree */
-            if (mode_row_selected == 6)
-                graph_state.grid_on = (mode_committed[6] == 1); /* 0=Grid off, 1=Grid on */
-            lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-            return;
-        case TOKEN_CLEAR:
-        case TOKEN_MODE:
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
-            return;
-        default:
-            /* Any other key exits the MODE screen and is processed normally */
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
-            break;
-        }
-        /* Execution reaches here only from default — fall through to main switch */
-    }
-
-    /*--- MATH/NUM/HYP/PRB menu handler -------------------------------------*/
-    if (current_mode == MODE_MATH_MENU) {
-        int total = (int)math_tab_item_count[math_tab];
-        switch (t) {
-        case TOKEN_LEFT:
-            tab_move(&math_tab, &math_item_cursor, &math_scroll_offset, MATH_TAB_COUNT, true, ui_update_math_display);
-            return;
-        case TOKEN_RIGHT:
-            tab_move(&math_tab, &math_item_cursor, &math_scroll_offset, MATH_TAB_COUNT, false, ui_update_math_display);
-            return;
-        case TOKEN_UP:
-            if (math_item_cursor > 0) {
-                math_item_cursor--;
-            } else if (math_scroll_offset > 0) {
-                math_scroll_offset--;
-            }
-            lvgl_lock(); ui_update_math_display(); lvgl_unlock();
-            return;
-        case TOKEN_DOWN:
-            if ((int)(math_scroll_offset + math_item_cursor) + 1 < total) {
-                if (math_item_cursor < MENU_VISIBLE_ROWS - 1)
-                    math_item_cursor++;
-                else if ((int)(math_scroll_offset + MENU_VISIBLE_ROWS) < total)
-                    math_scroll_offset++;
-            }
-            lvgl_lock(); ui_update_math_display(); lvgl_unlock();
-            return;
-        case TOKEN_ENTER: {
-            int idx = (int)math_scroll_offset + (int)math_item_cursor;
-            if (idx < total) {
-                const char *ins = math_menu_items[math_tab][idx].insert;
-                if (ins != NULL) { math_menu_insert(ins); return; }
-            }
-            break;
-        }
-        case TOKEN_1 ... TOKEN_9: {
-            int idx = (int)(t - TOKEN_0) - 1; /* 0-indexed */
-            if (idx < total) {
-                const char *ins = math_menu_items[math_tab][idx].insert;
-                if (ins != NULL) { math_menu_insert(ins); return; }
-            }
-            break;
-        }
-        case TOKEN_CLEAR:
-        case TOKEN_MATH:
-            menu_close(TOKEN_MATH);
-            return;
-        /* Graph nav keys always work — navigate directly to the target screen */
-        case TOKEN_Y_EQUALS:
-            math_return_mode   = MODE_NORMAL;
-            math_item_cursor   = 0;
-            math_scroll_offset = 0;
-            nav_to(MODE_GRAPH_YEQ);
-            return;
-        case TOKEN_RANGE:
-            math_return_mode   = MODE_NORMAL;
-            math_item_cursor   = 0;
-            math_scroll_offset = 0;
-            nav_to(MODE_GRAPH_RANGE);
-            return;
-        case TOKEN_ZOOM:
-            math_return_mode   = MODE_NORMAL;
-            math_item_cursor   = 0;
-            math_scroll_offset = 0;
-            zoom_menu_reset();
-            nav_to(MODE_GRAPH_ZOOM);
-            return;
-        case TOKEN_GRAPH:
-            math_return_mode   = MODE_NORMAL;
-            math_item_cursor   = 0;
-            math_scroll_offset = 0;
-            nav_to(MODE_NORMAL);
-            return;
-        case TOKEN_TRACE:
-            math_return_mode   = MODE_NORMAL;
-            math_item_cursor   = 0;
-            math_scroll_offset = 0;
-            nav_to(MODE_GRAPH_TRACE);
-            return;
-        default: {
-            /* Any other key: restore the calling screen and drop the key.
-             * Matches original TI-81 — non-nav keys do nothing inside a menu. */
-            CalcMode_t ret = menu_close(TOKEN_MATH);
-            if (ret == MODE_GRAPH_YEQ)
-                return;
-            break;
-        }
-        }
-        /* Execution reaches here only from default when return_mode != Y= */
-    }
-
-    /*--- TEST menu handler -------------------------------------------------*/
-    if (current_mode == MODE_TEST_MENU) {
-        switch (t) {
-        case TOKEN_UP:
-            if (test_item_cursor > 0) test_item_cursor--;
-            lvgl_lock(); ui_update_test_display(); lvgl_unlock();
-            return;
-        case TOKEN_DOWN:
-            if (test_item_cursor < TEST_ITEM_COUNT - 1) test_item_cursor++;
-            lvgl_lock(); ui_update_test_display(); lvgl_unlock();
-            return;
-        case TOKEN_ENTER: {
-            const char *ins = test_menu_items[test_item_cursor].insert;
-            if (ins != NULL) { test_menu_insert(ins); return; }
-            break;
-        }
-        case TOKEN_1 ... TOKEN_6: {
-            int idx = (int)(t - TOKEN_0) - 1;
-            if (idx >= 0 && idx < TEST_ITEM_COUNT) {
-                const char *ins = test_menu_items[idx].insert;
-                if (ins != NULL) { test_menu_insert(ins); return; }
-            }
-            break;
-        }
-        case TOKEN_CLEAR:
-        case TOKEN_TEST:
-            menu_close(TOKEN_TEST);
-            return;
-        /* Graph nav keys always work — navigate directly to the target screen */
-        case TOKEN_Y_EQUALS:
-            test_return_mode = MODE_NORMAL;
-            test_item_cursor = 0;
-            nav_to(MODE_GRAPH_YEQ);
-            return;
-        case TOKEN_RANGE:
-            test_return_mode = MODE_NORMAL;
-            test_item_cursor = 0;
-            nav_to(MODE_GRAPH_RANGE);
-            return;
-        case TOKEN_ZOOM:
-            test_return_mode = MODE_NORMAL;
-            test_item_cursor = 0;
-            zoom_menu_reset();
-            nav_to(MODE_GRAPH_ZOOM);
-            return;
-        case TOKEN_GRAPH:
-            test_return_mode = MODE_NORMAL;
-            test_item_cursor = 0;
-            nav_to(MODE_NORMAL);
-            return;
-        case TOKEN_TRACE:
-            test_return_mode = MODE_NORMAL;
-            test_item_cursor = 0;
-            nav_to(MODE_GRAPH_TRACE);
-            return;
-        default: {
-            /* Any other key: restore the calling screen and drop the key.
-             * Matches original TI-81 — non-nav keys do nothing inside a menu. */
-            CalcMode_t ret = menu_close(TOKEN_TEST);
-            if (ret == MODE_GRAPH_YEQ)
-                return;
-            break;
-        }
-        }
-        /* Execution reaches here only from default when return_mode != Y= */
-    }
-
-    /*--- MATRIX menu handler -----------------------------------------------*/
-    if (current_mode == MODE_MATRIX_MENU) {
-        switch (t) {
-        case TOKEN_LEFT:
-            tab_move(&matrix_tab, &matrix_item_cursor, NULL, MATRIX_TAB_COUNT, true, ui_update_matrix_display);
-            return;
-        case TOKEN_RIGHT:
-            tab_move(&matrix_tab, &matrix_item_cursor, NULL, MATRIX_TAB_COUNT, false, ui_update_matrix_display);
-            return;
-        case TOKEN_UP:
-            if (matrix_item_cursor > 0) matrix_item_cursor--;
-            lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
-            return;
-        case TOKEN_DOWN:
-            if (matrix_item_cursor < matrix_tab_item_count[matrix_tab] - 1) matrix_item_cursor++;
-            lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
-            return;
-        case TOKEN_ENTER: {
+    case TOKEN_1 ... TOKEN_6: {
+        int idx = (int)(t - TOKEN_0) - 1;
+        if (idx >= 0 && idx < (int)matrix_tab_item_count[matrix_tab]) {
+            matrix_item_cursor = (uint8_t)idx;
             if (matrix_tab == 0) {
-                const char *ins = matrix_op_insert[matrix_item_cursor];
+                const char *ins = matrix_op_insert[idx];
                 if (ins != NULL) { matrix_menu_insert(ins); }
             } else {
-                matrix_edit_idx = matrix_item_cursor;
-                matrix_edit_row = 0;
-                matrix_edit_col = 0;
-                matrix_edit_len = 0;
+                matrix_edit_idx    = (uint8_t)idx;
+                matrix_edit_cursor = 0;
+                matrix_edit_scroll = 0;
+                matrix_edit_dim_field = 0;
+                matrix_edit_len    = 0;
                 matrix_edit_buf[0] = '\0';
                 current_mode = MODE_MATRIX_EDIT;
                 lvgl_lock();
@@ -3190,184 +3329,113 @@ void Execute_Token(Token_t t)
                 ui_update_matrix_edit_display();
                 lvgl_unlock();
             }
-            return;
         }
-        case TOKEN_1 ... TOKEN_6: {
-            int idx = (int)(t - TOKEN_0) - 1;
-            if (idx >= 0 && idx < (int)matrix_tab_item_count[matrix_tab]) {
-                matrix_item_cursor = (uint8_t)idx;
-                if (matrix_tab == 0) {
-                    const char *ins = matrix_op_insert[idx];
-                    if (ins != NULL) { matrix_menu_insert(ins); }
-                } else {
-                    matrix_edit_idx = (uint8_t)idx;
-                    matrix_edit_row = 0;
-                    matrix_edit_col = 0;
-                    matrix_edit_len = 0;
-                    matrix_edit_buf[0] = '\0';
-                    current_mode = MODE_MATRIX_EDIT;
-                    lvgl_lock();
-                    lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-                    lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-                    ui_update_matrix_edit_display();
-                    lvgl_unlock();
-                }
-            }
-            return;
-        }
-        case TOKEN_CLEAR:
-        case TOKEN_MATRX:
-            menu_close(TOKEN_MATRX);
-            return;
-        /* Graph nav keys always work — navigate directly to the target screen */
-        case TOKEN_Y_EQUALS:
-            matrix_return_mode = MODE_NORMAL;
-            matrix_tab         = 0;
-            matrix_item_cursor = 0;
-            nav_to(MODE_GRAPH_YEQ);
-            return;
-        case TOKEN_RANGE:
-            matrix_return_mode = MODE_NORMAL;
-            matrix_tab         = 0;
-            matrix_item_cursor = 0;
-            nav_to(MODE_GRAPH_RANGE);
-            return;
-        case TOKEN_ZOOM:
-            matrix_return_mode = MODE_NORMAL;
-            matrix_tab         = 0;
-            matrix_item_cursor = 0;
-            zoom_menu_reset();
-            nav_to(MODE_GRAPH_ZOOM);
-            return;
-        case TOKEN_GRAPH:
-            matrix_return_mode = MODE_NORMAL;
-            matrix_tab         = 0;
-            matrix_item_cursor = 0;
-            nav_to(MODE_NORMAL);
-            return;
-        case TOKEN_TRACE:
-            matrix_return_mode = MODE_NORMAL;
-            matrix_tab         = 0;
-            matrix_item_cursor = 0;
-            nav_to(MODE_GRAPH_TRACE);
-            return;
-        default: {
-            CalcMode_t ret = menu_close(TOKEN_MATRX);
-            if (ret == MODE_GRAPH_YEQ)
-                return;
-            break;
-        }
-        }
-        /* Fall through to main switch for unhandled keys */
+        return true;
     }
+    case TOKEN_CLEAR:
+    case TOKEN_MATRX:
+        menu_close(TOKEN_MATRX);
+        return true;
+    case TOKEN_Y_EQUALS:
+        matrix_return_mode = MODE_NORMAL;
+        matrix_tab         = 0;
+        matrix_item_cursor = 0;
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        matrix_return_mode = MODE_NORMAL;
+        matrix_tab         = 0;
+        matrix_item_cursor = 0;
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_ZOOM:
+        matrix_return_mode = MODE_NORMAL;
+        matrix_tab         = 0;
+        matrix_item_cursor = 0;
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    case TOKEN_GRAPH:
+        matrix_return_mode = MODE_NORMAL;
+        matrix_tab         = 0;
+        matrix_item_cursor = 0;
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_TRACE:
+        matrix_return_mode = MODE_NORMAL;
+        matrix_tab         = 0;
+        matrix_item_cursor = 0;
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    default: {
+        CalcMode_t ret = menu_close(TOKEN_MATRX);
+        if (ret == MODE_GRAPH_YEQ)
+            return true;
+        return false; /* fall through to main switch */
+    }
+    }
+    return true;
+}
 
-    /*--- MATRIX EDIT handler -----------------------------------------------*/
-    if (current_mode == MODE_MATRIX_EDIT) {
-        CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
+static void handle_matrix_edit(Token_t t)
+{
+    CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
+
+/* Commit the in-progress edit buffer to the current cell (cell mode only). */
+#define MXEDIT_COMMIT() do { \
+    if (matrix_edit_cursor >= 0) { \
+        int _r = matrix_edit_cursor / (int)m->cols; \
+        int _c = matrix_edit_cursor % (int)m->cols; \
+        if (matrix_edit_len > 0) \
+            m->data[_r][_c] = strtof(matrix_edit_buf, NULL); \
+        matrix_edit_len = 0; matrix_edit_val_cursor = 0; matrix_edit_buf[0] = '\0'; \
+    } \
+} while(0)
+
+/* Scroll so matrix_edit_cursor is within the visible window. */
+#define MXEDIT_SCROLL() do { \
+    if (matrix_edit_cursor >= 0) { \
+        if (matrix_edit_cursor < (int)matrix_edit_scroll) \
+            matrix_edit_scroll = (int16_t)matrix_edit_cursor; \
+        if (matrix_edit_cursor >= (int)matrix_edit_scroll + MATRIX_LIST_VISIBLE) \
+            matrix_edit_scroll = (int16_t)(matrix_edit_cursor - MATRIX_LIST_VISIBLE + 1); \
+    } else { \
+        matrix_edit_scroll = 0; \
+    } \
+} while(0)
+
+    int total_cells = (int)m->rows * (int)m->cols;
+
+    /* ---- DIMENSION MODE (cursor == -1) ---- */
+    if (matrix_edit_cursor == -1) {
         switch (t) {
-        case TOKEN_0 ... TOKEN_9:
-            if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
-                matrix_edit_buf[matrix_edit_len++] = (char)((t - TOKEN_0) + '0');
-                matrix_edit_buf[matrix_edit_len]   = '\0';
+        case TOKEN_1 ... TOKEN_6: {
+            int new_dim = (int)(t - TOKEN_0);
+            if (matrix_edit_dim_field == 0) {
+                m->rows = (uint8_t)new_dim;
+            } else {
+                m->cols = (uint8_t)new_dim;
             }
             lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
             return;
-        case TOKEN_DECIMAL:
-            if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1) &&
-                strchr(matrix_edit_buf, '.') == NULL) {
-                matrix_edit_buf[matrix_edit_len++] = '.';
-                matrix_edit_buf[matrix_edit_len]   = '\0';
-            }
+        }
+        case TOKEN_LEFT:
+            matrix_edit_dim_field = 0;
             lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
             return;
-        case TOKEN_NEG:
-            if (matrix_edit_len > 0 && matrix_edit_buf[0] == '-') {
-                memmove(matrix_edit_buf, matrix_edit_buf + 1, matrix_edit_len);
-                matrix_edit_len--;
-            } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
-                memmove(matrix_edit_buf + 1, matrix_edit_buf, matrix_edit_len + 1);
-                matrix_edit_buf[0] = '-';
-                matrix_edit_len++;
-            }
+        case TOKEN_RIGHT:
+            matrix_edit_dim_field = 1;
             lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            return;
-        case TOKEN_DEL:
-            if (matrix_edit_len > 0) {
-                matrix_edit_buf[--matrix_edit_len] = '\0';
-                lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            }
             return;
         case TOKEN_ENTER:
-        case TOKEN_RIGHT: {
-            /* Commit cell and advance right, wrapping to next row */
-            if (matrix_edit_len > 0) {
-                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
-                matrix_edit_len = 0;
-                matrix_edit_buf[0] = '\0';
-            }
-            matrix_edit_col++;
-            if (matrix_edit_col >= m->cols) {
-                matrix_edit_col = 0;
-                if (matrix_edit_row < m->rows - 1) matrix_edit_row++;
-            }
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            return;
-        }
-        case TOKEN_LEFT: {
-            if (matrix_edit_len > 0) {
-                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
-                matrix_edit_len = 0;
-                matrix_edit_buf[0] = '\0';
-            }
-            if (matrix_edit_col > 0) {
-                matrix_edit_col--;
-            } else if (matrix_edit_row > 0) {
-                matrix_edit_row--;
-                matrix_edit_col = m->cols - 1;
-            }
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            return;
-        }
-        case TOKEN_UP:
-            if (matrix_edit_len > 0) {
-                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
-                matrix_edit_len = 0;
-                matrix_edit_buf[0] = '\0';
-            }
-            if (matrix_edit_row > 0) matrix_edit_row--;
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            return;
         case TOKEN_DOWN:
-            if (matrix_edit_len > 0) {
-                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
-                matrix_edit_len = 0;
-                matrix_edit_buf[0] = '\0';
-            }
-            if (matrix_edit_row < m->rows - 1) matrix_edit_row++;
+            matrix_edit_cursor = 0;
+            matrix_edit_scroll = 0;
+            matrix_edit_load_cell();
             lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
             return;
         case TOKEN_CLEAR:
-            if (matrix_edit_len > 0) {
-                matrix_edit_len = 0;
-                matrix_edit_buf[0] = '\0';
-                lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            } else {
-                /* Back to MATRIX menu */
-                current_mode = MODE_MATRIX_MENU;
-                lvgl_lock();
-                lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-                ui_update_matrix_display();
-                lvgl_unlock();
-            }
-            return;
         case TOKEN_MATRX:
-            /* Commit current cell and return to MATRIX menu */
-            if (matrix_edit_len > 0) {
-                m->data[matrix_edit_row][matrix_edit_col] = strtof(matrix_edit_buf, NULL);
-                matrix_edit_len = 0;
-                matrix_edit_buf[0] = '\0';
-            }
             current_mode = MODE_MATRIX_MENU;
             lvgl_lock();
             lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
@@ -3376,46 +3444,170 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         default:
-            return; /* Ignore other keys in matrix editor */
+            return;
         }
     }
 
-    /*--- STO pending handler -----------------------------------------------*/
-    /* When sto_pending is set, the next alpha key stores ans to that variable */
-    if (sto_pending) {
-        if (t >= TOKEN_A && t <= TOKEN_Z) {
-            calc_variables[t - TOKEN_A] = ans;
-            sto_pending = false;
-            /* Show assignment as a history entry */
-            static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            char val_buf[16];
-            Calc_FormatResult(ans, val_buf, sizeof(val_buf));
-            uint8_t idx = history_count % HISTORY_LINE_COUNT;
-            char var_str[3] = { var_names[t - TOKEN_A], '\0', '\0' };
-            strncpy(history[idx].expression, var_str, MAX_EXPR_LEN - 1);
-            history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
-            strncpy(history[idx].result, val_buf, MAX_RESULT_LEN - 1);
-            history[idx].result[MAX_RESULT_LEN - 1] = '\0';
-            history_count++;
-            lvgl_lock();
-            ui_update_status_bar();
-            lvgl_unlock();
-            return;
-        } else if (t == TOKEN_CLEAR || t == TOKEN_2ND || t == TOKEN_ALPHA) {
-            /* Cancel STO with CLEAR, 2nd, or ALPHA */
-            sto_pending = false;
-            lvgl_lock();
-            ui_update_status_bar();
-            lvgl_unlock();
-            return;
+    /* ---- CELL MODE (cursor >= 0) ---- */
+    switch (t) {
+    case TOKEN_0 ... TOKEN_9: {
+        char ch = (char)((t - TOKEN_0) + '0');
+        if (!insert_mode && matrix_edit_val_cursor < matrix_edit_len) {
+            matrix_edit_buf[matrix_edit_val_cursor++] = ch;
+        } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
+            memmove(&matrix_edit_buf[matrix_edit_val_cursor + 1],
+                    &matrix_edit_buf[matrix_edit_val_cursor],
+                    matrix_edit_len - matrix_edit_val_cursor + 1);
+            matrix_edit_buf[matrix_edit_val_cursor++] = ch;
+            matrix_edit_len++;
         }
-        /* Any other key cancels STO silently and falls through */
+        lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+        return;
+    }
+    case TOKEN_DECIMAL: {
+        if (strchr(matrix_edit_buf, '.') == NULL) {
+            char ch = '.';
+            if (!insert_mode && matrix_edit_val_cursor < matrix_edit_len) {
+                matrix_edit_buf[matrix_edit_val_cursor++] = ch;
+            } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
+                memmove(&matrix_edit_buf[matrix_edit_val_cursor + 1],
+                        &matrix_edit_buf[matrix_edit_val_cursor],
+                        matrix_edit_len - matrix_edit_val_cursor + 1);
+                matrix_edit_buf[matrix_edit_val_cursor++] = ch;
+                matrix_edit_len++;
+            }
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+        }
+        return;
+    }
+    case TOKEN_NEG:
+        if (matrix_edit_len > 0 && matrix_edit_buf[0] == '-') {
+            memmove(matrix_edit_buf, matrix_edit_buf + 1, matrix_edit_len);
+            matrix_edit_len--;
+            if (matrix_edit_val_cursor > 0) matrix_edit_val_cursor--;
+        } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
+            memmove(matrix_edit_buf + 1, matrix_edit_buf, matrix_edit_len + 1);
+            matrix_edit_buf[0] = '-';
+            matrix_edit_len++;
+            matrix_edit_val_cursor++;
+        }
+        lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+        return;
+    case TOKEN_DEL:
+        if (matrix_edit_val_cursor > 0) {
+            memmove(&matrix_edit_buf[matrix_edit_val_cursor - 1],
+                    &matrix_edit_buf[matrix_edit_val_cursor],
+                    matrix_edit_len - matrix_edit_val_cursor + 1);
+            matrix_edit_len--;
+            matrix_edit_val_cursor--;
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+        }
+        return;
+    case TOKEN_ENTER:
+    case TOKEN_DOWN: {
+        MXEDIT_COMMIT();
+        if (matrix_edit_cursor < total_cells - 1)
+            matrix_edit_cursor++;
+        MXEDIT_SCROLL();
+        matrix_edit_load_cell();
+        lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+        return;
+    }
+    case TOKEN_UP: {
+        MXEDIT_COMMIT();
+        if (matrix_edit_cursor > 0) {
+            matrix_edit_cursor--;
+            MXEDIT_SCROLL();
+            matrix_edit_load_cell();
+        } else {
+            matrix_edit_cursor     = -1;
+            matrix_edit_dim_field  = 0;
+            matrix_edit_scroll     = 0;
+            matrix_edit_len        = 0;
+            matrix_edit_val_cursor = 0;
+            matrix_edit_buf[0]     = '\0';
+        }
+        lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+        return;
+    }
+    case TOKEN_RIGHT:
+        if (matrix_edit_val_cursor < matrix_edit_len)
+            matrix_edit_val_cursor++;
+        lvgl_lock(); matrix_edit_cursor_update(); lvgl_unlock();
+        return;
+    case TOKEN_LEFT:
+        if (matrix_edit_val_cursor > 0)
+            matrix_edit_val_cursor--;
+        lvgl_lock(); matrix_edit_cursor_update(); lvgl_unlock();
+        return;
+    case TOKEN_CLEAR:
+        if (matrix_edit_len > 0) {
+            matrix_edit_len        = 0;
+            matrix_edit_val_cursor = 0;
+            matrix_edit_buf[0]     = '\0';
+            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
+        } else {
+            current_mode = MODE_MATRIX_MENU;
+            lvgl_lock();
+            lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+            ui_update_matrix_display();
+            lvgl_unlock();
+        }
+        return;
+    case TOKEN_MATRX:
+        MXEDIT_COMMIT();
+        current_mode = MODE_MATRIX_MENU;
+        lvgl_lock();
+        lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_matrix_display();
+        lvgl_unlock();
+        return;
+    default:
+        return;
+    }
+
+#undef MXEDIT_COMMIT
+#undef MXEDIT_SCROLL
+}
+
+static bool handle_sto_pending(Token_t t)
+{
+    if (t >= TOKEN_A && t <= TOKEN_Z) {
+        calc_variables[t - TOKEN_A] = ans;
+        sto_pending = false;
+        static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        char val_buf[16];
+        Calc_FormatResult(ans, val_buf, sizeof(val_buf));
+        uint8_t idx = history_count % HISTORY_LINE_COUNT;
+        char var_str[3] = { var_names[t - TOKEN_A], '\0', '\0' };
+        strncpy(history[idx].expression, var_str, MAX_EXPR_LEN - 1);
+        history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
+        strncpy(history[idx].result, val_buf, MAX_RESULT_LEN - 1);
+        history[idx].result[MAX_RESULT_LEN - 1] = '\0';
+        history_count++;
+        lvgl_lock();
+        ui_update_status_bar();
+        lvgl_unlock();
+        return true;
+    } else if (t == TOKEN_CLEAR || t == TOKEN_2ND || t == TOKEN_ALPHA) {
         sto_pending = false;
         lvgl_lock();
         ui_update_status_bar();
         lvgl_unlock();
+        return true;
     }
+    /* Any other key cancels STO silently and falls through */
+    sto_pending = false;
+    lvgl_lock();
+    ui_update_status_bar();
+    lvgl_unlock();
+    return false;
+}
 
+static void handle_normal_mode(Token_t t)
+{
     switch (t) {
 
     case TOKEN_0 ... TOKEN_9:
@@ -3454,29 +3646,33 @@ void Execute_Token(Token_t t)
 
     case TOKEN_LEFT:
         if (cursor_pos > 0) {
-            /* Step back past all UTF-8 continuation bytes (10xxxxxx) to land
-             * on the start byte of the previous character. */
-            do { cursor_pos--; }
-            while (cursor_pos > 0 &&
-                   ((uint8_t)expression[cursor_pos] & 0xC0) == 0x80);
+            if (matrix_token_size_before(expression, cursor_pos) == 3) {
+                cursor_pos -= 3;
+            } else {
+                do { cursor_pos--; }
+                while (cursor_pos > 0 &&
+                       ((uint8_t)expression[cursor_pos] & 0xC0) == 0x80);
+            }
             Update_Calculator_Display();
         }
         break;
 
     case TOKEN_RIGHT:
         if (cursor_pos < expr_len) {
-            /* Step forward past all continuation bytes to land after the
-             * current character's full UTF-8 sequence. */
-            cursor_pos++;
-            while (cursor_pos < expr_len &&
-                   ((uint8_t)expression[cursor_pos] & 0xC0) == 0x80)
+            uint8_t mat = matrix_token_size_at(expression, cursor_pos, expr_len);
+            if (mat) {
+                cursor_pos += mat;
+            } else {
                 cursor_pos++;
+                while (cursor_pos < expr_len &&
+                       ((uint8_t)expression[cursor_pos] & 0xC0) == 0x80)
+                    cursor_pos++;
+            }
             Update_Calculator_Display();
         }
         break;
 
     case TOKEN_UP:
-        /* History recall — UP scrolls back through previous expressions */
         if (expr_len == 0 || history_recall_offset > 0) {
             if (history_recall_offset < history_count) {
                 history_recall_offset++;
@@ -3491,7 +3687,6 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_DOWN:
-        /* History recall — DOWN scrolls forward; clears expression at newest */
         if (history_recall_offset > 0) {
             history_recall_offset--;
             if (history_recall_offset == 0) {
@@ -3510,13 +3705,10 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_ENTER:
-        /* ENTER on blank input re-evaluates the most recent expression and
-         * appends a full entry (expression + result) identical to a normal
-         * evaluation — no sentinel values, no special rendering path. */
         if (expr_len == 0 && history_count > 0) {
             uint8_t last_idx = (history_count - 1) % HISTORY_LINE_COUNT;
             CalcResult_t result = Calc_Evaluate(history[last_idx].expression,
-                                                ans, angle_degrees);
+                                                ans, ans_is_matrix, angle_degrees);
             char result_str[MAX_RESULT_LEN];
             format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
             uint8_t idx = history_count % HISTORY_LINE_COUNT;
@@ -3532,11 +3724,11 @@ void Execute_Token(Token_t t)
             break;
         }
         if (expr_len > 0) {
-            CalcResult_t result = Calc_Evaluate(expression, ans, angle_degrees);
+            CalcResult_t result = Calc_Evaluate(expression, ans, ans_is_matrix,
+                                                angle_degrees);
             char result_str[MAX_RESULT_LEN];
             format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
 
-            /* Store in history */
             uint8_t idx = history_count % HISTORY_LINE_COUNT;
             strncpy(history[idx].expression, expression, MAX_EXPR_LEN - 1);
             history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
@@ -3579,7 +3771,6 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_MODE:
-        /* Sync cursor to current committed value before opening */
         memcpy(mode_cursor, mode_committed, sizeof(mode_cursor));
         mode_row_selected = 0;
         current_mode = MODE_MODE_SCREEN;
@@ -3660,7 +3851,6 @@ void Execute_Token(Token_t t)
         }
         break;
 
-    /* Alpha characters A–Z */
     case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
     case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
     case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
@@ -3702,10 +3892,76 @@ void Execute_Token(Token_t t)
         nav_to(MODE_GRAPH_TRACE);
         break;
 
-
     default:
         break;
     }
+}
+
+/**
+ * @brief Processes a single calculator token from the keypad queue.
+ * @param t  Token to execute.
+ */
+void Execute_Token(Token_t t)
+{
+    /*--- TOKEN_ON: save state (plain ON) or save + sleep (2nd+ON) ----------*/
+    if (t == TOKEN_ON) {
+        bool power_down = (current_mode == MODE_2ND);
+
+        lvgl_lock();
+        lv_obj_t *saving_lbl = lv_label_create(lv_scr_act());
+        lv_label_set_text(saving_lbl, "Saving...");
+        lv_obj_set_style_text_color(saving_lbl, lv_color_hex(0xFFAA00), 0);
+        lv_obj_align(saving_lbl, LV_ALIGN_BOTTOM_MID, 0, -6);
+        lvgl_unlock();
+        osDelay(20);
+
+        PersistBlock_t block;
+        Calc_BuildPersistBlock(&block);
+        Persist_Save(&block);
+
+        current_mode = MODE_NORMAL;
+        return_mode  = MODE_NORMAL;
+        sto_pending  = false;
+        lvgl_lock();
+        lv_obj_del(saving_lbl);
+        hide_all_screens();
+        ui_update_status_bar();
+        lvgl_unlock();
+
+        if (power_down) {
+            Power_DisplayBlankAndMessage();
+        }
+        return;
+    }
+
+    /*--- TOKEN_MODE: always opens MODE screen from any mode ----------------*/
+    if (t == TOKEN_MODE) {
+        memcpy(mode_cursor, mode_committed, sizeof(mode_cursor));
+        mode_row_selected = 0;
+        current_mode = MODE_MODE_SCREEN;
+        lvgl_lock();
+        hide_all_screens();
+        lv_obj_clear_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_mode_display();
+        lvgl_unlock();
+        return;
+    }
+
+    if (current_mode == MODE_GRAPH_YEQ)          { if (handle_yeq_mode(t))          return; }
+    if (current_mode == MODE_GRAPH_RANGE)         { if (handle_range_mode(t))         return; }
+    if (current_mode == MODE_GRAPH_ZOOM)          { if (handle_zoom_mode(t))          return; }
+    if (current_mode == MODE_GRAPH_ZOOM_FACTORS)  { if (handle_zoom_factors_mode(t))  return; }
+    if (current_mode == MODE_GRAPH_ZBOX)          { if (handle_zbox_mode(t))          return; }
+    if (current_mode == MODE_GRAPH_TRACE)         { if (handle_trace_mode(t))         return; }
+    if (current_mode == MODE_MODE_SCREEN)         { if (handle_mode_screen(t))        return; }
+    if (current_mode == MODE_MATH_MENU)           { if (handle_math_menu(t))          return; }
+    if (current_mode == MODE_TEST_MENU)           { if (handle_test_menu(t))          return; }
+    if (current_mode == MODE_MATRIX_MENU)         { if (handle_matrix_menu(t))        return; }
+    if (current_mode == MODE_MATRIX_EDIT)         { handle_matrix_edit(t); return; }
+
+    if (sto_pending) { if (handle_sto_pending(t)) return; }
+
+    handle_normal_mode(t);
 }
 
 /*---------------------------------------------------------------------------

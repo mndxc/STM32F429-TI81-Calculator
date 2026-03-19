@@ -26,16 +26,16 @@
 #define CALC_EXPR_MAX_LEN   64
 
 /* Matrix dimensions */
-#define CALC_MATRIX_DIM    3    /* Fixed 3×3 */
-#define CALC_MATRIX_COUNT  4    /* [A]=0 [B]=1 [C]=2 ANS=3 */
+#define CALC_MATRIX_MAX_DIM  6  /* Maximum 6×6; actual size stored in rows/cols */
+#define CALC_MATRIX_COUNT    4  /* [A]=0 [B]=1 [C]=2 ANS=3 */
 
 /*---------------------------------------------------------------------------
  * Types
  *--------------------------------------------------------------------------*/
 
-/** 3×3 float matrix — shared between calc_engine and calculator_core. */
+/** Up-to-6×6 float matrix — shared between calc_engine and calculator_core. */
 typedef struct {
-    float   data[CALC_MATRIX_DIM][CALC_MATRIX_DIM];
+    float   data[CALC_MATRIX_MAX_DIM][CALC_MATRIX_MAX_DIM];
     uint8_t rows;
     uint8_t cols;
 } CalcMatrix_t;
@@ -120,6 +120,7 @@ extern float calc_variables[26];
 /** Matrix storage — [A]=0, [B]=1, [C]=2, ANS=3. */
 extern CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT];
 
+
 /*---------------------------------------------------------------------------
  * Function declarations
  *--------------------------------------------------------------------------*/
@@ -127,12 +128,17 @@ extern CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT];
 /**
  * @brief Evaluates an infix expression string.
  *
- * @param expr          Null-terminated infix expression e.g. "3+sin(45)*2"
- * @param ans           Current ANS value substituted for "ANS" in expression
- * @param angle_degrees True for degrees, false for radians
- * @return              CalcResult_t containing value or error
+ * @param expr           Null-terminated infix expression e.g. "3+sin(45)*2"
+ * @param ans            Current ANS value. Holds a scalar result normally, or a
+ *                       matrix slot index (cast to float) when ans_is_matrix is true.
+ * @param ans_is_matrix  True when the previous result was a matrix stored in
+ *                       calc_matrices[3]. Causes "ANS" to tokenize as MATH_MATRIX_VAL
+ *                       rather than MATH_NUMBER.
+ * @param angle_degrees  True for degrees, false for radians
+ * @return               CalcResult_t containing value or error
  */
-CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees);
+CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
+                            bool angle_degrees);
 
 /**
  * @brief Formats a float result into a clean display string.

@@ -20,14 +20,15 @@ float calc_variables[26] = {0};
 
 /* Matrix storage — [A]=0, [B]=1, [C]=2, ANS=3 (result of last matrix op) */
 CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT] = {
-    { .rows = CALC_MATRIX_DIM, .cols = CALC_MATRIX_DIM },
-    { .rows = CALC_MATRIX_DIM, .cols = CALC_MATRIX_DIM },
-    { .rows = CALC_MATRIX_DIM, .cols = CALC_MATRIX_DIM },
-    { .rows = CALC_MATRIX_DIM, .cols = CALC_MATRIX_DIM },
+    { .rows = 3, .cols = 3 },
+    { .rows = 3, .cols = 3 },
+    { .rows = 3, .cols = 3 },
+    { .rows = 3, .cols = 3 },
 };
 
 /* Decimal display mode: 0=Float, 1=Fix0 … 10=Fix9 (mirrors MODE screen row 2) */
 static uint8_t calc_decimal_mode = 0;
+
 
 void Calc_SetDecimalMode(uint8_t mode)
 {
@@ -106,8 +107,8 @@ static bool is_right_assoc(MathTokenType_t t)
  * Stage 1 — Tokenizer
  *--------------------------------------------------------------------------*/
 
-static CalcError_t Tokenize(const char *expr, float ans, float x_val,
-                             TokenList_t *out)
+static CalcError_t Tokenize(const char *expr, float ans, bool ans_is_matrix,
+                             float x_val, TokenList_t *out)
 {
     out->count = 0;
     const char *p = expr;
@@ -139,8 +140,13 @@ static CalcError_t Tokenize(const char *expr, float ans, float x_val,
         if (strncmp(p, "ANS", 3) == 0) {
             if (out->count >= CALC_MAX_TOKENS)
                 return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = MATH_NUMBER;
-            out->tokens[out->count].value = ans;
+            if (ans_is_matrix) {
+                out->tokens[out->count].type  = MATH_MATRIX_VAL;
+                out->tokens[out->count].value = 3.0f; /* ANS matrix slot */
+            } else {
+                out->tokens[out->count].type  = MATH_NUMBER;
+                out->tokens[out->count].value = ans;
+            }
             out->count++;
             p += 3;
             continue;
@@ -539,13 +545,41 @@ static float calc_ncr(int n, int r)
  * Stage 2c — Matrix math helpers
  *--------------------------------------------------------------------------*/
 
-/** 3×3 determinant using Sarrus rule. */
-static float mat_det3(const CalcMatrix_t *m)
+/** Determinant for any square matrix (1×1 through 6×6) via Gaussian elimination. */
+static float mat_det(const CalcMatrix_t *m)
 {
-    const float (*d)[CALC_MATRIX_DIM] = m->data;
-    return d[0][0]*(d[1][1]*d[2][2] - d[1][2]*d[2][1])
-         - d[0][1]*(d[1][0]*d[2][2] - d[1][2]*d[2][0])
-         + d[0][2]*(d[1][0]*d[2][1] - d[1][1]*d[2][0]);
+    int n = m->rows;
+    float a[CALC_MATRIX_MAX_DIM][CALC_MATRIX_MAX_DIM];
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++)
+            a[i][j] = m->data[i][j];
+
+    float det = 1.0f;
+    for (int col = 0; col < n; col++) {
+        /* Partial pivoting */
+        int pivot = col;
+        float max_val = fabsf(a[col][col]);
+        for (int row = col + 1; row < n; row++) {
+            if (fabsf(a[row][col]) > max_val) {
+                max_val = fabsf(a[row][col]);
+                pivot = row;
+            }
+        }
+        if (max_val < 1e-10f) return 0.0f; /* singular */
+        if (pivot != col) {
+            for (int j = 0; j < n; j++) {
+                float tmp = a[col][j]; a[col][j] = a[pivot][j]; a[pivot][j] = tmp;
+            }
+            det = -det;
+        }
+        det *= a[col][col];
+        for (int row = col + 1; row < n; row++) {
+            float factor = a[row][col] / a[col][col];
+            for (int j = col; j < n; j++)
+                a[row][j] -= factor * a[col][j];
+        }
+    }
+    return det;
 }
 
 /** Transpose src into dst (dst may be the ANS slot, src must differ). */
@@ -553,8 +587,8 @@ static void mat_transpose(const CalcMatrix_t *src, CalcMatrix_t *dst)
 {
     dst->rows = src->cols;
     dst->cols = src->rows;
-    for (int r = 0; r < CALC_MATRIX_DIM; r++)
-        for (int c = 0; c < CALC_MATRIX_DIM; c++)
+    for (int r = 0; r < src->rows; r++)
+        for (int c = 0; c < src->cols; c++)
             dst->data[c][r] = src->data[r][c];
 }
 
@@ -562,8 +596,8 @@ static void mat_transpose(const CalcMatrix_t *src, CalcMatrix_t *dst)
 static void mat_rowswap(const CalcMatrix_t *src, int r1, int r2, CalcMatrix_t *dst)
 {
     *dst = *src;
-    for (int c = 0; c < CALC_MATRIX_DIM; c++) {
-        float tmp      = dst->data[r1][c];
+    for (int c = 0; c < src->cols; c++) {
+        float tmp        = dst->data[r1][c];
         dst->data[r1][c] = dst->data[r2][c];
         dst->data[r2][c] = tmp;
     }
@@ -573,7 +607,7 @@ static void mat_rowswap(const CalcMatrix_t *src, int r1, int r2, CalcMatrix_t *d
 static void mat_rowplus(const CalcMatrix_t *src, int r1, int r2, CalcMatrix_t *dst)
 {
     *dst = *src;
-    for (int c = 0; c < CALC_MATRIX_DIM; c++)
+    for (int c = 0; c < src->cols; c++)
         dst->data[r1][c] += dst->data[r2][c];
 }
 
@@ -581,7 +615,7 @@ static void mat_rowplus(const CalcMatrix_t *src, int r1, int r2, CalcMatrix_t *d
 static void mat_mrow(float k, const CalcMatrix_t *src, int r, CalcMatrix_t *dst)
 {
     *dst = *src;
-    for (int c = 0; c < CALC_MATRIX_DIM; c++)
+    for (int c = 0; c < src->cols; c++)
         dst->data[r][c] *= k;
 }
 
@@ -590,8 +624,54 @@ static void mat_mrowplus(float k, const CalcMatrix_t *src, int r1, int r2,
                           CalcMatrix_t *dst)
 {
     *dst = *src;
-    for (int c = 0; c < CALC_MATRIX_DIM; c++)
+    for (int c = 0; c < src->cols; c++)
         dst->data[r1][c] += k * src->data[r2][c];
+}
+
+/** Element-wise add: A + B → dst.  Requires identical dimensions. */
+static bool mat_add(const CalcMatrix_t *a, const CalcMatrix_t *b, CalcMatrix_t *dst)
+{
+    if (a->rows != b->rows || a->cols != b->cols) return false;
+    dst->rows = a->rows; dst->cols = a->cols;
+    for (int r = 0; r < a->rows; r++)
+        for (int c = 0; c < a->cols; c++)
+            dst->data[r][c] = a->data[r][c] + b->data[r][c];
+    return true;
+}
+
+/** Element-wise subtract: A - B → dst.  Requires identical dimensions. */
+static bool mat_sub(const CalcMatrix_t *a, const CalcMatrix_t *b, CalcMatrix_t *dst)
+{
+    if (a->rows != b->rows || a->cols != b->cols) return false;
+    dst->rows = a->rows; dst->cols = a->cols;
+    for (int r = 0; r < a->rows; r++)
+        for (int c = 0; c < a->cols; c++)
+            dst->data[r][c] = a->data[r][c] - b->data[r][c];
+    return true;
+}
+
+/** Matrix multiply: A × B → dst.  Requires A.cols == B.rows. */
+static bool mat_mul(const CalcMatrix_t *a, const CalcMatrix_t *b, CalcMatrix_t *dst)
+{
+    if (a->cols != b->rows) return false;
+    dst->rows = a->rows; dst->cols = b->cols;
+    for (int r = 0; r < a->rows; r++)
+        for (int c = 0; c < b->cols; c++) {
+            float sum = 0.0f;
+            for (int k = 0; k < a->cols; k++)
+                sum += a->data[r][k] * b->data[k][c];
+            dst->data[r][c] = sum;
+        }
+    return true;
+}
+
+/** Scalar × matrix: k * M → dst. */
+static void mat_scale(float k, const CalcMatrix_t *m, CalcMatrix_t *dst)
+{
+    dst->rows = m->rows; dst->cols = m->cols;
+    for (int r = 0; r < m->rows; r++)
+        for (int c = 0; c < m->cols; c++)
+            dst->data[r][c] = k * m->data[r][c];
 }
 
 /*---------------------------------------------------------------------------
@@ -648,7 +728,10 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
             int idx = (int)roundf(stack[top]);
             if (idx < 0 || idx >= CALC_MATRIX_COUNT)
                 RPNERR(CALC_ERR_DOMAIN, "Bad matrix index");
-            stack[top] = mat_det3(&calc_matrices[idx]);
+            const CalcMatrix_t *dm = &calc_matrices[idx];
+            if (dm->rows != dm->cols)
+                RPNERR(CALC_ERR_DOMAIN, "det: need square");
+            stack[top] = mat_det(dm);
             is_matrix[top] = false;
             continue;
         }
@@ -660,8 +743,8 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
             int r1  = (int)roundf(stack[top--]) - 1;
             int idx = (int)roundf(stack[top]);
             if (!is_matrix[top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-                r1 < 0 || r1 >= CALC_MATRIX_DIM ||
-                r2 < 0 || r2 >= CALC_MATRIX_DIM)
+                r1 < 0 || r1 >= calc_matrices[idx].rows ||
+                r2 < 0 || r2 >= calc_matrices[idx].rows)
                 RPNERR(CALC_ERR_DOMAIN, "Bad row index");
             mat_rowswap(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
             stack[top] = 3.0f;
@@ -676,8 +759,8 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
             int r1  = (int)roundf(stack[top--]) - 1;
             int idx = (int)roundf(stack[top]);
             if (!is_matrix[top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-                r1 < 0 || r1 >= CALC_MATRIX_DIM ||
-                r2 < 0 || r2 >= CALC_MATRIX_DIM)
+                r1 < 0 || r1 >= calc_matrices[idx].rows ||
+                r2 < 0 || r2 >= calc_matrices[idx].rows)
                 RPNERR(CALC_ERR_DOMAIN, "Bad row index");
             mat_rowplus(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
             stack[top] = 3.0f;
@@ -692,7 +775,7 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
             int   idx = (int)roundf(stack[top--]);
             float k   = stack[top];
             if (is_matrix[top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-                r < 0 || r >= CALC_MATRIX_DIM)
+                r < 0 || r >= calc_matrices[idx].rows)
                 RPNERR(CALC_ERR_DOMAIN, "Bad row index");
             mat_mrow(k, &calc_matrices[idx], r, &calc_matrices[3]);
             stack[top] = 3.0f;
@@ -708,12 +791,37 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
             int   idx = (int)roundf(stack[top--]);
             float k   = stack[top];
             if (is_matrix[top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-                r1 < 0 || r1 >= CALC_MATRIX_DIM ||
-                r2 < 0 || r2 >= CALC_MATRIX_DIM)
+                r1 < 0 || r1 >= calc_matrices[idx].rows ||
+                r2 < 0 || r2 >= calc_matrices[idx].rows)
                 RPNERR(CALC_ERR_DOMAIN, "Bad row index");
             mat_mrowplus(k, &calc_matrices[idx], r1, r2, &calc_matrices[3]);
             stack[top] = 3.0f;
             is_matrix[top] = true;
+            continue;
+        }
+
+        /* round(value, #decimals): 2-argument function; value may be a matrix */
+        if (tok.type == MATH_FUNC_ROUND) {
+            if (top < 1) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
+            float decimals = stack[top--];
+            float factor   = powf(10.0f, decimals);
+            if (is_matrix[top]) {
+                int idx = (int)roundf(stack[top]);
+                if (idx < 0 || idx >= CALC_MATRIX_COUNT)
+                    RPNERR(CALC_ERR_DOMAIN, "Bad matrix index");
+                const CalcMatrix_t *src = &calc_matrices[idx];
+                CalcMatrix_t       *dst = &calc_matrices[3];
+                dst->rows = src->rows;
+                dst->cols = src->cols;
+                for (int r = 0; r < src->rows; r++)
+                    for (int c = 0; c < src->cols; c++)
+                        dst->data[r][c] = roundf(src->data[r][c] * factor) / factor;
+                stack[top] = 3.0f;
+                /* is_matrix[top] stays true */
+            } else {
+                stack[top] = roundf(stack[top] * factor) / factor;
+                is_matrix[top] = false;
+            }
             continue;
         }
 
@@ -757,7 +865,6 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
                 break;
             case MATH_FUNC_ABS:    stack[top] = fabsf(a);               break;
             case MATH_FUNC_EXP:    stack[top] = expf(a);                break;
-            case MATH_FUNC_ROUND:  stack[top] = roundf(a);              break;
             case MATH_FUNC_IPART:  stack[top] = truncf(a);              break;
             case MATH_FUNC_FPART:  stack[top] = a - truncf(a);          break;
             case MATH_FUNC_INT:    stack[top] = floorf(a);              break;
@@ -765,6 +872,45 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
             }
             is_matrix[top] = false; /* all scalar functions return scalar */
             continue;
+        }
+
+        /* ---- Matrix binary operators (+, -, *) ----------------------------- */
+        if (tok.type == MATH_OP_ADD || tok.type == MATH_OP_SUB ||
+            tok.type == MATH_OP_MUL) {
+            if (top < 1) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
+            bool b_mat = is_matrix[top];
+            bool a_mat = is_matrix[top - 1];
+            if (a_mat || b_mat) {
+                float bv = stack[top--];
+                float av = stack[top];
+                CalcMatrix_t *dst = &calc_matrices[3];
+                if (a_mat && b_mat) {
+                    int ia = (int)roundf(av), ib = (int)roundf(bv);
+                    if (ia < 0 || ia >= CALC_MATRIX_COUNT ||
+                        ib < 0 || ib >= CALC_MATRIX_COUNT)
+                        RPNERR(CALC_ERR_DOMAIN, "Bad matrix index");
+                    bool ok;
+                    if (tok.type == MATH_OP_ADD)
+                        ok = mat_add(&calc_matrices[ia], &calc_matrices[ib], dst);
+                    else if (tok.type == MATH_OP_SUB)
+                        ok = mat_sub(&calc_matrices[ia], &calc_matrices[ib], dst);
+                    else
+                        ok = mat_mul(&calc_matrices[ia], &calc_matrices[ib], dst);
+                    if (!ok) RPNERR(CALC_ERR_DOMAIN, "Dimension mismatch");
+                } else if (tok.type == MATH_OP_MUL) {
+                    /* scalar * [M] or [M] * scalar */
+                    float k   = a_mat ? bv : av;
+                    int   idx = (int)roundf(a_mat ? av : bv);
+                    if (idx < 0 || idx >= CALC_MATRIX_COUNT)
+                        RPNERR(CALC_ERR_DOMAIN, "Bad matrix index");
+                    mat_scale(k, &calc_matrices[idx], dst);
+                } else {
+                    RPNERR(CALC_ERR_DOMAIN, "Matrix op error");
+                }
+                stack[top] = 3.0f;
+                is_matrix[top] = true;
+                continue;
+            }
         }
 
         /* ---- Scalar binary operators ------------------------------------ */
@@ -838,7 +984,8 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
  * @param angle_degrees True for degrees, false for radians
  * @return              CalcResult_t containing value or error
  */
-CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees)
+CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
+                           bool angle_degrees)
 {
     CalcResult_t res = { 0.0f, CALC_OK, "" };
 
@@ -852,7 +999,8 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees)
     TokenList_t infix  = { .count = 0 };
     TokenList_t postfix = { .count = 0 };
 
-    CalcError_t err = Tokenize(expr, ans, calc_variables['X' - 'A'], &infix);
+    CalcError_t err = Tokenize(expr, ans, ans_is_matrix,
+                               calc_variables['X' - 'A'], &infix);
     if (err != CALC_OK) {
         res.error = err;
         strncpy(res.error_msg, "Tokenize error",
@@ -903,7 +1051,8 @@ CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
     }
     TokenList_t infix   = { .count = 0 };
     TokenList_t postfix = { .count = 0 };
-    CalcError_t err = Tokenize(expr, ans, x_val, &infix);
+    /* Graph context is always scalar — ANS cannot be a matrix in Y= equations */
+    CalcError_t err = Tokenize(expr, ans, false, x_val, &infix);
     if (err != CALC_OK) {
         res.error = err;
         strncpy(res.error_msg, "Tokenize error",

@@ -16,14 +16,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "stm32f4xx_hal.h"
-#include "calc_engine.h"   /* CalcMatrix_t, CALC_MATRIX_DIM */
+#include "calc_engine.h"   /* CalcMatrix_t, CALC_MATRIX_MAX_DIM */
 
 /*---------------------------------------------------------------------------
  * Flash target
  *---------------------------------------------------------------------------*/
 
 #define PERSIST_MAGIC       0xCA1CC0DEU   /* Marker — "calc code" */
-#define PERSIST_VERSION     2U            /* Bumped when matrices[] added to block */
+#define PERSIST_VERSION     3U            /* Bumped when matrix storage expanded to 6×6 */
 #define PERSIST_FLASH_ADDR  0x080C0000U   /* Sector 10, 128 KB, unused by firmware */
 #define PERSIST_SECTOR      FLASH_SECTOR_10
 /* STM32F429 sector map (12 sectors per bank):
@@ -49,6 +49,7 @@
  *   equations        — Y1–Y4 equation strings
  *   x_min … x_res    — RANGE parameters
  *   grid_on          — grid display toggle (MODE row 7)
+ *   matrix_rows/cols — row and column counts for [A][B][C] (1–6 each)
  *   _pad             — alignment padding (do not use)
  *   checksum         — 32-bit XOR of all preceding words; computed last
  *
@@ -72,12 +73,14 @@ typedef struct {
     float    y_scl;               /*   4 B */
     float    x_res;               /*   4 B */
     uint8_t  grid_on;             /*   1 B */
-    uint8_t  _pad[3];             /*   3 B — word alignment */
-    /* Matrices [A], [B], [C] — 3 × 3×3 floats each (108 B total).
+    uint8_t  matrix_rows[3];      /*   3 B — row counts for [A][B][C] */
+    uint8_t  matrix_cols[3];      /*   3 B — col counts for [A][B][C] */
+    uint8_t  _pad[1];             /*   1 B — word alignment */
+    /* Matrices [A], [B], [C] — 3 × 6×6 floats each (432 B total).
        Only the 3 user matrices are saved; the ANS matrix (index 3) is transient. */
-    float    matrix_data[3][CALC_MATRIX_DIM * CALC_MATRIX_DIM]; /* 108 B */
+    float    matrix_data[3][CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM]; /* 432 B */
     uint32_t checksum;            /*   4 B — XOR of all preceding words */
-} PersistBlock_t;                 /* Total: 532 B */
+} PersistBlock_t;                 /* Total: 856 B */
 
 _Static_assert(sizeof(PersistBlock_t) % 4 == 0,
                "PersistBlock_t must be a multiple of 4 bytes");

@@ -6,7 +6,7 @@ It also provides continuity for AI-assisted development sessions, summarising al
 
 ---
 
-## Feature Completion Status (~50% of original TI-81, as of 2026-03-19)
+## Feature Completion Status (~50% of original TI-81, as of 2026-03-19; matrix updated 2026-03-19)
 
 ### Well-implemented (60–100%)
 
@@ -19,18 +19,23 @@ It also provides continuity for AI-assisted development sessions, summarising al
 | Graphing (function mode) | ~75% | 4 equations, axes, grid (toggle from MODE), trace, ZBox, zoom, RANGE, Xres step, interpolated curves; Connected/Dot mode not wired |
 | TEST operators | ~100% | Menu (2nd+MATH), UP/DOWN/ENTER/number-key selection, inserts =, ≠, >, ≥, <, ≤; all 6 operators fully evaluated (return 1/0); accessible from Y= editor; and/or/not not present on TI-81 hardware — not planned |
 
+### Partially implemented
+
+| Area | Est. Done | Notes |
+|---|---|---|
+| MATRIX | ~95% | Variable dimensions 1–6×6 per matrix; scrolling cell editor with dim mode; all 6 explicit ops + arithmetic (+, −, ×, scalar×matrix) fully evaluated; `det(ANS)` / `[A]+ANS` chains work; persist across power-off; `[A]`/`[B]`/`[C]` cursor/DEL atomicity fixed; matrix tokens blocked in Y= editor |
+
 ### Entirely missing (0%)
 
 | Area | TI-81 weight | Notes |
 |---|---|---|
 | STAT | ~15% | 1-Var/2-Var stats, regression, stat plots — nothing implemented |
 | PRGM | ~15% | Program editor, runner, control flow, I/O — stub only |
-| MATRIX | ~85% | Menu UI, 3×3 cell editor, and all 6 math operations fully implemented and evaluated: det, T (transpose), rowSwap, row+, \*row, \*row+; results display as 3-row matrix in history; persist across power-off |
 | DRAW | ~5% | Line, Horizontal, Vertical, DrawF, Shade — stub only |
 | Parametric / Polar / Seq graphing | ~5% | Only function mode works |
 | VARS menu | ~3% | Window, Zoom, GDB, Picture, Statistics vars — stub only |
 
-The core calculator (arithmetic + standard functions + function graphing + TEST comparisons + matrix math) covers ~75% of day-to-day TI-81 usage. STAT and PRGM are entirely absent.
+The core calculator (arithmetic + standard functions + function graphing + TEST comparisons + matrix math) covers ~80% of day-to-day TI-81 usage. STAT and PRGM are entirely absent. Matrix is ~95% complete.
 
 ---
 
@@ -167,10 +172,14 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - **2nd+ENTRY** — recalls most recent expression and sets `history_recall_offset = 1` so UP/DOWN continue scrolling from there without requiring a CLEAR first.
 - **ENTER on blank line re-run** — pressing ENTER with empty input re-evaluates the most recent history expression and appends a full history entry (expression + result), identical to a normal evaluation. Repeated ENTER presses each add a copy, so UP/DOWN and 2nd+ENTRY always land on a real expression with no special-case handling needed. Implemented in `TOKEN_ENTER` handler (`calculator_core.c`).
 - **MATH PRB** — rand, nPr, nCr fully implemented. `rand` evaluated at tokenize time using `srand(HAL_GetTick())`; nPr/nCr in `EvaluateRPN()` in `calc_engine.c` with domain checking.
-- **MATRIX math fully evaluated** — All 6 operations fully wired end-to-end: `det([A])` → scalar; `[A]T` → transpose; `rowSwap([A],r1,r2)`, `row+([A],r1,r2)`, `*row(k,[A],r)`, `*row+(k,[A],r1,r2)` → matrix result. Row indices are 1-based (matching TI-81). Results stored in `calc_matrices[3]` (ANS slot); source matrix unchanged. Matrix results display as 3 newline-separated rows in history. `CalcMatrix_t` and `calc_matrices[4]` moved to `calc_engine.c`/`calc_engine.h` (previously private `Matrix_t matrices[3]` in `calculator_core.c`). Comma tokenized as `MATH_COMMA`; ShuntingYard handles argument separation. Parallel `is_matrix[]` stack in `EvaluateRPN` tracks which stack slots hold matrix indices vs scalars. `MAX_RESULT_LEN` bumped 32→96 to hold 3-row matrix strings. `PERSIST_VERSION` bumped to 2; matrices [A]/[B]/[C] saved to FLASH. `hide_all_screens()` extended to include `ui_matrix_edit_screen` (fix: pressing MODE from cell editor previously froze UI).
+- **MATRIX math fully evaluated** — All 6 operations fully wired end-to-end: `det([A])` → scalar; `[A]T` → transpose; `rowSwap([A],r1,r2)`, `row+([A],r1,r2)`, `*row(k,[A],r)`, `*row+(k,[A],r1,r2)` → matrix result. Row indices are 1-based (matching TI-81). Results stored in `calc_matrices[3]` (ANS slot); source matrix unchanged. Matrix results display as newline-separated rows in history. `CalcMatrix_t` and `calc_matrices[4]` in `calc_engine.c`/`calc_engine.h`. Comma tokenized as `MATH_COMMA`; ShuntingYard handles argument separation. Parallel `is_matrix[]` stack in `EvaluateRPN` tracks which stack slots hold matrix indices vs scalars. `MAX_RESULT_LEN` bumped 32→96.
+- **Variable matrix dimensions (1–6×6)** — `CALC_MATRIX_DIM` (fixed 3) replaced by `CALC_MATRIX_MAX_DIM = 6`; each `CalcMatrix_t` carries its own `rows`/`cols`. Default is 3×3. `det()` now uses Gaussian elimination with partial pivoting (handles 1×1–6×6; previously Sarrus 3×3 only). All row ops (`rowSwap`, `row+`, `*row`, `*row+`, transpose) iterate over actual dimensions. Row index bounds checked against actual matrix size. `round()` now works element-wise on matrix operands (e.g. `round([A],2)` rounds every element to 2 decimal places).
+- **Matrix cell editor — scrolling + dim mode** — Editor shows 7 visible cell rows with ↑/↓ amber scroll indicators when the matrix is larger than the viewport. Navigating UP past the first cell enters dim mode: cursor lands on the title label (`[A] RxC`); LEFT/RIGHT switches between the rows digit and cols digit; digit keys resize the matrix live. Dim-mode title renders in yellow; normal cell mode in white. `PERSIST_VERSION` bumped to 3; persist block now stores `matrix_rows[3]`/`matrix_cols[3]` and full 6×6 data arrays (432 B vs 108 B previously). `PersistBlock_t` size: 532 B → 856 B.
 - **Screen navigation refactor** — five helpers centralise all cross-screen transitions in `calculator_core.c`: `hide_all_screens()`, `nav_to(target)`, `menu_open(token, return_to)`, `menu_close(token)`, `tab_move()`. Every graph-nav key (Y=, RANGE, ZOOM, GRAPH, TRACE) now works from every screen including MATH/TEST/MATRIX menus and ZBox/Trace modes. Unhandled keys in menus close the menu and fall through to the main switch (or drop the key if the return context is Y=, matching original TI-81 behaviour).
 - **ENTER in Y= editor** — moves cursor to next equation, same as DOWN.
 - **TRACE exit speed** — pressing any non-navigation key from TRACE now hides the graph canvas immediately without re-rendering before processing the key.
+- **Matrix arithmetic (+, −, ×, scalar×matrix)** — `[A]+[B]`, `[A]-[B]`, `[A]*[B]`, `scalar*[M]`, `[M]*scalar` fully evaluated. `mat_add`, `mat_sub`, `mat_mul`, `mat_scale` helpers in `calc_engine.c`; matrix dispatch block runs before the scalar binary-op block in `EvaluateRPN`. Result always written to `calc_matrices[3]` (ANS slot). Chaining works: `det(ANS)` after a matrix result correctly resolves ANS as a matrix reference via `ans_is_matrix` (see Variables section).
+- **Execute_Token refactor** — the 1,724-line monolithic function was mechanically split into 13 named static handler functions (`handle_yeq_mode`, `handle_range_mode`, `handle_zoom_mode`, `handle_zoom_factors_mode`, `handle_zbox_mode`, `handle_trace_mode`, `handle_mode_screen`, `handle_math_menu`, `handle_test_menu`, `handle_matrix_menu`, `handle_matrix_edit`, `handle_sto_pending`, `handle_normal_mode`). `Execute_Token` itself reduced to ~60 lines (TOKEN_ON and TOKEN_MODE inline + dispatcher chain). Zero logic changes.
 
 ### Known issues
 - **Display fade on power-off (hardware limitation — prototype substitute implemented)** — The ILI9341 in RGB interface mode has no internal frame buffer. When LTDC stops clocking pixels, the panel's liquid crystal capacitors discharge to their resting state, which the panel renders as white. There is no hardware path to hold the display black after LTDC is halted. **Current prototype behaviour:** `2nd+ON` calls `Power_DisplayBlankAndMessage()` (`app_init.c`) instead of `Power_EnterStop()`. It shows a full-screen black LVGL overlay with a centred "Powered off" label in dim grey (`0x444444`) and blocks the CalcCoreTask on `xQueueReceive` until the ON button is pressed again — no actual Stop mode is entered, no display fade occurs. **Custom PCB migration (one-line change):** in `Execute_Token()` in `calculator_core.c`, in the `TOKEN_ON` / `power_down` branch, replace the `Power_DisplayBlankAndMessage()` call with `Power_EnterStop()`. Both functions are defined in `app_init.c` and declared in `app_init.h`; no other files need to change.
@@ -183,26 +192,27 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - Gotchas: program text storage goes in FLASH via the persistent storage layer; working buffer during editing can live in CCMRAM (64 KB free); control flow tokens (If/Then/Goto/Lbl) will need new TOKEN_* entries in `App/Drivers/Keypad/keypad_map.h`
 - PDF pages 133–150 of `docs/TI81Guidebook.pdf` contain original TI-81 programming instructions
 
-**3. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
+**2. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
 - Files: `App/Src/calculator_core.c` (Y= cursor handling for `=` column), `App/Src/graph.c` (skip disabled equations in renderer)
 
-**4. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
+**3. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
 
-**5. Trace crosshair behaviour differs from original TI-81** — On the original hardware, pressing any non-arrow key while in trace exits trace and processes that key (e.g. GRAPH re-renders, CLEAR exits to calculator). Currently TRACE is a toggle (press again to exit), which is not original behaviour. Additionally, on the original TI-81 there is a free-roaming crosshair cursor visible on the plain graph screen (before pressing TRACE); pressing TRACE snaps the crosshair to the nearest curve. This free-roaming crosshair is not implemented — the graph canvas currently shows no cursor at all until TRACE is pressed. Investigate original behaviour and decide which deviations to correct.
+**4. Trace crosshair behaviour differs from original TI-81** — On the original hardware, pressing any non-arrow key while in trace exits trace and processes that key (e.g. GRAPH re-renders, CLEAR exits to calculator). Currently TRACE is a toggle (press again to exit), which is not original behaviour. Additionally, on the original TI-81 there is a free-roaming crosshair cursor visible on the plain graph screen (before pressing TRACE); pressing TRACE snaps the crosshair to the nearest curve. This free-roaming crosshair is not implemented — the graph canvas currently shows no cursor at all until TRACE is pressed. Investigate original behaviour and decide which deviations to correct.
 - Files: `App/Src/calculator_core.c` (trace mode handler `TOKEN_TRACE` case, `default` fallthrough behaviour)
 
-**6. Graph render speed** — The graph canvas renders too slowly for interactive use. The renderer evaluates the expression once per x_res pixel columns, which at x_res=1 means 320 evaluations per frame, each going through the full tokenize → shunting-yard → RPN pipeline. Likely improvements: (a) cache the tokenized/postfix form of each equation and only re-tokenize on equation change; (b) profile whether the bottleneck is in expression parsing or floating-point evaluation; (c) consider rendering progressively (draw as columns complete rather than waiting for full frame). ZBox rubber-band lag (item 10 below) is a symptom of the same underlying speed problem.
+**5. Graph render speed** — The graph canvas renders too slowly for interactive use. The renderer evaluates the expression once per x_res pixel columns, which at x_res=1 means 320 evaluations per frame, each going through the full tokenize → shunting-yard → RPN pipeline. Likely improvements: (a) cache the tokenized/postfix form of each equation and only re-tokenize on equation change; (b) profile whether the bottleneck is in expression parsing or floating-point evaluation; (c) consider rendering progressively (draw as columns complete rather than waiting for full frame). ZBox rubber-band lag (item below) is a symptom of the same underlying speed problem.
 - Files: `App/Src/graph.c` (`Graph_Render`), `App/Src/calc_engine.c` (`Tokenize`, `ShuntingYard`, `EvaluateRPN`)
 
-**7. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
+**6. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
 
-**8. Matrix token atomicity in expression editor** — When a matrix name (`[A]`, `[B]`, `[C]`) appears in the main expression, all three characters should behave as a single atomic token: LEFT/RIGHT cursor movement should jump over the entire `[X]` sequence in one step (landing before the `[` or after the `]`), and DEL should remove all three characters at once. Currently each character is treated independently, so the cursor can land inside `[A]` and DEL removes only one character, leaving a malformed expression.
-- Files: `App/Src/calculator_core.c` (LEFT/RIGHT and DEL handling in the main expression cursor movement code; also apply to the Y= editor `yeq_cursor_pos` movement)
-- Gotchas: similar to the existing UTF-8 multi-byte handling — extend the existing `utf8_char_size()` / step-back logic to also detect the `[X]` pattern (open bracket, uppercase letter, close bracket) as a 3-byte atomic unit; overwrite mode should also replace the full `[X]` when the cursor is at the `[`
-
-**9. QUIT / back button (2nd+CLEAR)** — `2nd+CLEAR` should act as a universal back button: close the current menu or screen and return to the previous one (e.g. MATH menu → main calculator, Y= → main calculator, RANGE → graph screen, ZOOM → graph screen, MODE → main calculator). Currently `2nd+CLEAR` produces `TOKEN_QUIT` but it is not handled — add handling in each mode block of `Execute_Token()` in `calculator_core.c` that calls the same teardown path as CLEAR-when-empty or the existing exit paths for each screen.
+**7. QUIT / back button (2nd+CLEAR)** — `2nd+CLEAR` should act as a universal back button: close the current menu or screen and return to the previous one (e.g. MATH menu → main calculator, Y= → main calculator, RANGE → graph screen, ZOOM → graph screen, MODE → main calculator). Currently `2nd+CLEAR` produces `TOKEN_QUIT` but it is not handled — add handling in each mode block of `Execute_Token()` in `calculator_core.c` that calls the same teardown path as CLEAR-when-empty or the existing exit paths for each screen.
 - Files: `App/Src/calculator_core.c` (add `TOKEN_QUIT` handling in each mode handler), `App/Drivers/Keypad/keypad_map.h` (verify `TOKEN_QUIT` exists or add it)
 - Gotchas: ensure the back-destination is consistent with the free graph-screen navigation model — e.g. back from a graph editing screen (Y=, RANGE, ZOOM) should return to the graph canvas, not the main calculator
+
+**8. Matrix result display — left-aligned columns with horizontal scroll** — When a matrix result is shown in history, columns should be left-aligned (all cells in a column share the same left-edge x position, determined by the widest cell in that column) for easy visual parsing. For wide matrices that exceed the display width, the result should be horizontally scrollable: LEFT/RIGHT arrow keys pan the view, with an ellipsis (`…`) shown at the right edge when content is clipped to the right, and at the left edge when content is clipped to the left. Scrolling is active only while the matrix result row has focus; any input other than LEFT/RIGHT (digit, operator, function key, etc.) exits scroll mode and is processed normally.
+- Files: `App/Src/calculator_core.c` (history entry rendering; LEFT/RIGHT handler when a matrix result row is focused), `App/Src/calc_engine.c` (`Calc_FormatResult` or a new `Calc_FormatMatrix` that pre-formats column-aligned rows into a buffer)
+- Approach: pre-format the matrix into a fixed-width-per-column string at evaluation time and store it alongside the history entry; display a 320px-wide window into that string; track a `matrix_scroll_offset` (in characters or pixels) per history entry; reset offset to 0 on any non-scroll input
+- Gotchas: `MAX_RESULT_LEN` is currently 96 — a 6×6 matrix with 8-char cells needs up to ~300 chars per display row; either increase the buffer or format on-the-fly from the `CalcMatrix_t` stored in `calc_matrices[3]`; consider whether the ANS matrix slot survives enough history entries before being overwritten
 
 ---
 
@@ -325,6 +335,8 @@ Cursor edits value directly after the `=` sign. ENTER/UP/DOWN commit and move be
 
 ### MATRIX menu (deferred)
 
+**Navigation model — important:** The MATRIX menu does **not** work like MATH or TEST. Selecting an item from the MATRIX tab inserts a function token (e.g. `det(`, `rowSwap(`) into the calling expression and closes the menu. But selecting a matrix from the EDIT tab **never** inserts a `[A]`/`[B]`/`[C]` token anywhere — it always drills down into that matrix's cell editor (`MODE_MATRIX_EDIT`), regardless of what screen was active before the menu was opened. There is no "insert matrix name into previous screen" flow; matrix names reach the expression only via the dedicated MTRX_A/B/C key tokens (2nd layer on keypad).
+
 **MATRIX tab:**
 ```
 MATRIX EDIT
@@ -343,6 +355,7 @@ MATRIX EDIT
 2:[B] 3×3
 3:[C] 3×3
 ```
+Pressing ENTER on any EDIT item opens the cell editor for that matrix (`MODE_MATRIX_EDIT`). It does not insert `[A]`, `[B]`, or `[C]` into any expression.
 
 ---
 
@@ -717,13 +730,13 @@ string → Tokenize() → infix TokenList_t
 
 ### Public API
 ```c
-CalcResult_t Calc_Evaluate(const char *expr, float ans, bool angle_degrees);
+CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix, bool angle_degrees);
 CalcResult_t Calc_EvaluateAt(const char *expr, float x_val, float ans, bool angle_degrees);
 void         Calc_FormatResult(float value, char *buf, uint8_t buf_len);
 ```
 
 ### Variables
-- `ANS` — last result
+- `ANS` — last result. When the last evaluation produced a matrix, `ans` holds the matrix slot index (3.0f) and `ans_is_matrix = true`; `Tokenize` then emits `MATH_MATRIX_VAL` instead of `MATH_NUMBER` for the `ANS` token. This lets expressions like `det(ANS)` or `[A]+ANS` chain correctly after matrix arithmetic. `ans_is_matrix` is a static local in `calculator_core.c`, passed explicitly to `Calc_Evaluate` — there is no shared global for this state. `Calc_EvaluateAt` (graphing) always passes `false` since Y= equations cannot reference a matrix ANS.
 - `x` / `X` — graph variable; `Calc_EvaluateAt` passes x_val; `Calc_Evaluate` uses `calc_variables['X'-'A']`
 - `A`–`Z` — user variables in `calc_variables[26]` in `calc_engine.c`; stored via STO→
 
