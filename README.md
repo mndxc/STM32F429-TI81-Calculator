@@ -1,4 +1,4 @@
-# Neo-81 — bringing new life to the classic. 
+# Neo-81: bringing new life to the classic. 
 
 ![Calculator running on STM32F429I-DISC1](docs/Image_2.jpg)
 
@@ -9,54 +9,17 @@ Built as a learning exercise and prototype for a future custom PCB build.
 
 ## Hardware
 
-| | |
-|---|---|
-| MCU | STM32F429ZIT6 — Cortex-M4, 180 MHz |
-| Board | STM32F429I-DISC1 |
-| Display | 2.4" ILI9341 TFT, 240×320, landscape via LTDC |
-| Keypad | TI-81 key matrix, 7 columns × 8 rows |
-| SDRAM | IS42S16400J, 8 MB @ 0xD0000000 |
+STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a salvaged TI-81 key matrix wired to the GPIO header.
 
-**Software stack:** LVGL v9 · FreeRTOS · GCC ARM · CMake
+**Software:** LVGL v9 · FreeRTOS · GCC ARM · CMake
 
 ---
 
-## What works
+## Status
 
-| Area | Status |
-|---|---|
-| Arithmetic `+ - × ÷ ^ x² x⁻¹` | ✅ |
-| Trig, hyperbolic, log, `√` | ✅ |
-| Variables A–Z, ANS, auto-ANS | ✅ |
-| TEST operators `= ≠ > ≥ < ≤` | ✅ |
-| NUM functions `round iPart fPart int` | ✅ |
-| Expression wrap, scrolling history, history recall | ✅ |
-| Insert / overwrite mode, UTF-8 cursor | ✅ |
-| MODE screen (angle, decimal places, grid) | ✅ |
-| MATH menu (MATH / NUM / HYP / PRB tabs) | ✅ |
-| Y= editor — up to 4 equations | ✅ |
-| Function graphing with axes, grid, tick marks | ✅ |
-| RANGE editor (Xmin/Xmax/Yscl/Xres…) | ✅ |
-| ZOOM menu — 8 presets, ZBox, Set Factors | ✅ |
-| TRACE with X= / Y= readout | ✅ |
-| Persistent storage — A–Z, ANS, MODE, graph, RANGE, ZOOM survive power-off | ✅ |
-| Stop mode sleep (`2nd+ON`) with full wake restore | ✅ |
-| STAT, PRGM, MATRIX | 🚧 Planned |
+Core arithmetic, standard math functions (trig, hyperbolic, log, √), variables A–Z / ANS, TEST operators, and the MATH/MODE menus all work. Function graphing is fully implemented — Y= editor, RANGE, ZOOM (8 presets, ZBox, Set Factors), and TRACE. State persists across power cycles; `2nd+ON` enters Stop mode with full wake restore.
 
----
-
-## Build
-
-**Requirements:** STM32CubeMX · arm-none-eabi-gcc · CMake 3.22+ · ST-LINK
-
-```bash
-# 1. Open STM32F429-TI81-Calculator.ioc in CubeMX and generate code once
-# 2. Build
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-# 3. Flash
-st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
-```
+STAT, PRGM, and MATRIX are not yet implemented.
 
 ---
 
@@ -81,9 +44,10 @@ st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
 
 ---
 
-## Planned hardware
+## Why
 
-The final target is a custom PCB — STM32H7B0VBT6, 16-bit 8080 parallel display
-(eliminates the LTDC pixel-clock artifact), LiPo charging, 3.3V buck. The
-software — LVGL, FreeRTOS tasks, math engine, keypad driver — transfers
-unchanged. Only the display port layer needs rewriting.
+The TI-81 was the first graphing calculator that was genuinely accessible for learning — affordable, approachable, and in the hands of a generation of students. It also has a look that hasn't aged: boxy, purposeful, built to last.
+
+The problem is that the originals are now 30+ years old and the displays are failing. Rather than let them become landfill, this project replaces the internals while keeping everything that made the hardware iconic. A fresh screen, a modern MCU, and the same keypad you already know.
+
+The end goal is a calculator you can actually use — not a shelf piece. That means completing the feature set, finishing the custom PCB, and ending up with something better than the original: same form factor, same feel, working display, and no artificial limits on what it can do.
