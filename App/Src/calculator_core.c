@@ -78,6 +78,11 @@ typedef struct {
     uint8_t cols;
 } Matrix_t;
 
+typedef struct {
+    const char *display;
+    const char *insert;
+} MenuItem_t;
+
 /*---------------------------------------------------------------------------
  * Private variables
  *---------------------------------------------------------------------------*/
@@ -235,22 +240,40 @@ static lv_obj_t *math_scroll_ind[2];   /* [0]=top(↑), [1]=bottom(↓) — ambe
 /* MATH menu data */
 static const char * const math_tab_names[MATH_TAB_COUNT] = {"MATH", "NUM", "HYP", "PRB"};
 static const uint8_t math_tab_item_count[MATH_TAB_COUNT] = {8, 4, 6, 3};
-/* Display name shown in menu (number prefix added dynamically) */
-static const char * const math_display_names[MATH_TAB_COUNT][8] = {
-    {"R>P(",   "P>R(",   "^3",       "^(1/3)",
-     "!",      "deg",    "rad",      "nDeriv("},
-    {"Round(", "IPart(", "FPart(",   "Int(",    NULL, NULL, NULL, NULL},
-    {"sinh(",  "cosh(",  "tanh(",    "asinh(",
-     "acosh(", "atanh(", NULL, NULL},
-    {"Rand",   "nPr",    "nCr",      NULL, NULL, NULL, NULL, NULL},
-};
-/* String inserted into expression when item is selected */
-static const char * const math_insert_strings[MATH_TAB_COUNT][8] = {
-    {"R>P(",   "P>R(",   "^3",       "^(1/3)",
-     "!",      "\xC2\xB0", "r",     "nDeriv("},
-    {"round(", "iPart(", "fPart(",   "int(",    NULL, NULL, NULL, NULL},
-    {"sinh(",  "cosh(",  "tanh(",    "asinh(",  "acosh(", "atanh(", NULL, NULL},
-    {"rand",   " nPr ",  " nCr ",    NULL, NULL, NULL, NULL, NULL},
+/* Merged display+insert data for each MATH menu item */
+static const MenuItem_t math_menu_items[MATH_TAB_COUNT][8] = {
+    { /* MATH tab */
+        {"R>P(",    "R>P("},
+        {"P>R(",    "P>R("},
+        {"^3",      "^3"},
+        {"^(1/3)",  "^(1/3)"},
+        {"!",       "!"},
+        {"deg",     "\xC2\xB0"},
+        {"rad",     "r"},
+        {"nDeriv(", "nDeriv("},
+    },
+    { /* NUM tab */
+        {"Round(",  "round("},
+        {"IPart(",  "iPart("},
+        {"FPart(",  "fPart("},
+        {"Int(",    "int("},
+        {NULL, NULL}, {NULL, NULL}, {NULL, NULL}, {NULL, NULL},
+    },
+    { /* HYP tab */
+        {"sinh(",   "sinh("},
+        {"cosh(",   "cosh("},
+        {"tanh(",   "tanh("},
+        {"asinh(",  "asinh("},
+        {"acosh(",  "acosh("},
+        {"atanh(",  "atanh("},
+        {NULL, NULL}, {NULL, NULL},
+    },
+    { /* PRB tab */
+        {"Rand",    "rand"},
+        {"nPr",     " nPr "},
+        {"nCr",     " nCr "},
+        {NULL, NULL}, {NULL, NULL}, {NULL, NULL}, {NULL, NULL}, {NULL, NULL},
+    },
 };
 
 /* TEST menu state */
@@ -261,21 +284,13 @@ static lv_obj_t  *test_title_label                  = NULL;
 static lv_obj_t  *test_item_labels[TEST_ITEM_COUNT];
 
 /* TEST menu data */
-static const char * const test_display_names[TEST_ITEM_COUNT] = {
-    "=",
-    "\xE2\x89\xA0",   /* U+2260 ≠ */
-    ">",
-    "\xE2\x89\xA5",   /* U+2265 ≥ */
-    "<",
-    "\xE2\x89\xA4",   /* U+2264 ≤ */
-};
-static const char * const test_insert_strings[TEST_ITEM_COUNT] = {
-    "=",
-    "\xE2\x89\xA0",
-    ">",
-    "\xE2\x89\xA5",
-    "<",
-    "\xE2\x89\xA4",
+static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
+    {"=",             "="},
+    {"\xE2\x89\xA0",  "\xE2\x89\xA0"},   /* U+2260 ≠ */
+    {">",             ">"},
+    {"\xE2\x89\xA5",  "\xE2\x89\xA5"},   /* U+2265 ≥ */
+    {"<",             "<"},
+    {"\xE2\x89\xA4",  "\xE2\x89\xA4"},   /* U+2264 ≤ */
 };
 
 /* Matrix data — rows/cols initialised to MATRIX_MAX_DIM, values zero */
@@ -515,6 +530,21 @@ static void ui_update_range_display(void)
     }
 }
 
+/* Creates a full-screen opaque black LVGL panel, hidden by default.
+ * Used as the base for all overlay screens (MODE, MATH, TEST, MATRIX). */
+static lv_obj_t *screen_create(lv_obj_t *parent)
+{
+    lv_obj_t *scr = lv_obj_create(parent);
+    lv_obj_set_size(scr, LV_HOR_RES, LV_VER_RES);
+    lv_obj_set_pos(scr, 0, 0);
+    lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_border_width(scr, 0, 0);
+    lv_obj_set_style_pad_all(scr, 0, 0);
+    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(scr, LV_OBJ_FLAG_HIDDEN);
+    return scr;
+}
+
 /* Creates the Y=, RANGE, ZOOM, and graph canvas screens (all hidden at startup). */
 static void ui_init_graph_screens(void)
 {
@@ -660,14 +690,7 @@ static void ui_init_graph_screens(void)
 static void ui_init_mode_screen(void)
 {
     lv_obj_t *scr = lv_scr_act();
-    ui_mode_screen = lv_obj_create(scr);
-    lv_obj_set_size(ui_mode_screen, DISPLAY_W, DISPLAY_H);
-    lv_obj_set_pos(ui_mode_screen, 0, 0);
-    lv_obj_set_style_bg_color(ui_mode_screen, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_border_width(ui_mode_screen, 0, 0);
-    lv_obj_set_style_pad_all(ui_mode_screen, 0, 0);
-    lv_obj_clear_flag(ui_mode_screen, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_mode_screen = screen_create(scr);
 
     memset(mode_option_labels, 0, sizeof(mode_option_labels));
 
@@ -688,14 +711,7 @@ static void ui_init_mode_screen(void)
 static void ui_init_math_screen(void)
 {
     lv_obj_t *scr = lv_scr_act();
-    ui_math_screen = lv_obj_create(scr);
-    lv_obj_set_size(ui_math_screen, DISPLAY_W, DISPLAY_H);
-    lv_obj_set_pos(ui_math_screen, 0, 0);
-    lv_obj_set_style_bg_color(ui_math_screen, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_border_width(ui_math_screen, 0, 0);
-    lv_obj_set_style_pad_all(ui_math_screen, 0, 0);
-    lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_math_screen = screen_create(scr);
 
     /* Tab bar: 4 tab names at fixed x positions */
     static const int16_t tab_x[MATH_TAB_COUNT] = {4, 80, 140, 205};
@@ -732,14 +748,7 @@ static void ui_init_math_screen(void)
 static void ui_init_test_screen(void)
 {
     lv_obj_t *scr = lv_scr_act();
-    ui_test_screen = lv_obj_create(scr);
-    lv_obj_set_size(ui_test_screen, DISPLAY_W, DISPLAY_H);
-    lv_obj_set_pos(ui_test_screen, 0, 0);
-    lv_obj_set_style_bg_color(ui_test_screen, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_border_width(ui_test_screen, 0, 0);
-    lv_obj_set_style_pad_all(ui_test_screen, 0, 0);
-    lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_test_screen = screen_create(scr);
 
     /* "TEST" title at the top row */
     test_title_label = lv_label_create(ui_test_screen);
@@ -764,14 +773,7 @@ static void ui_init_matrix_screen(void)
     lv_obj_t *scr = lv_scr_act();
 
     /* --- MATRIX menu screen --- */
-    ui_matrix_screen = lv_obj_create(scr);
-    lv_obj_set_size(ui_matrix_screen, DISPLAY_W, DISPLAY_H);
-    lv_obj_set_pos(ui_matrix_screen, 0, 0);
-    lv_obj_set_style_bg_color(ui_matrix_screen, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_border_width(ui_matrix_screen, 0, 0);
-    lv_obj_set_style_pad_all(ui_matrix_screen, 0, 0);
-    lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_matrix_screen = screen_create(scr);
 
     /* Tab bar: MATRX  EDIT */
     static const int16_t matrix_tab_x[MATRIX_TAB_COUNT] = {4, 100};
@@ -1012,9 +1014,7 @@ static void ui_refresh_display(void)
     for (int d = 0; d < num_entries; d++) {
         int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
         int elen = (int)strlen(history[idx].expression);
-        /* erows=0 for blank-expression entries (re-run results): only a result
-         * row is shown, no empty expression row above it. */
-        int erows = (elen == 0) ? 0 : (elen + cpr - 1) / cpr;
+        int erows = (elen + cpr - 1) / cpr;
         total_history_lines += erows + 1; /* expression sub-rows + result row */
     }
 
@@ -1039,7 +1039,7 @@ static void ui_refresh_display(void)
             for (int d = 0; d < num_entries; d++) {
                 int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
                 int elen = (int)strlen(history[idx].expression);
-                int erows = (elen == 0) ? 0 : (elen + cpr - 1) / cpr;
+                int erows = (elen + cpr - 1) / cpr;
 
                 if (li < line + erows) {
                     /* Expression sub-row er of this history entry */
@@ -1543,7 +1543,7 @@ static void ui_update_math_display(void)
                           && (i == MENU_VISIBLE_ROWS - 1);
         bool more_above = (math_scroll_offset > 0) && (i == 0);
         char buf[40];
-        const char *name = math_display_names[math_tab][idx];
+        const char *name = math_menu_items[math_tab][idx].display;
         if (more_below) {
             /* Space holds the arrow's slot; amber ↓ overlay drawn on top */
             snprintf(buf, sizeof(buf), "%d %s", idx + 1, name);
@@ -1568,7 +1568,7 @@ static void ui_update_test_display(void)
 {
     for (int i = 0; i < TEST_ITEM_COUNT; i++) {
         char buf[16];
-        snprintf(buf, sizeof(buf), "%d:%s", i + 1, test_display_names[i]);
+        snprintf(buf, sizeof(buf), "%d:%s", i + 1, test_menu_items[i].display);
         lv_obj_set_style_text_color(test_item_labels[i],
             (i == (int)test_item_cursor) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
         lv_label_set_text(test_item_labels[i], buf);
@@ -1842,6 +1842,173 @@ static void matrix_menu_insert(const char *ins)
     matrix_return_mode = MODE_NORMAL;
 }
 
+/*---------------------------------------------------------------------------
+ * Navigation helper functions
+ *---------------------------------------------------------------------------*/
+
+/* Hides every graph editor, menu overlay, and the graph canvas.
+ * Must be called inside lvgl_lock(). */
+static void hide_all_screens(void)
+{
+    lv_obj_add_flag(ui_graph_yeq_screen,         LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_graph_range_screen,        LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_graph_zoom_screen,         LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_mode_screen,               LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_math_screen,               LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_test_screen,               LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_matrix_screen,             LV_OBJ_FLAG_HIDDEN);
+    Graph_SetVisible(false);
+}
+
+/* Navigates to a graph-related screen from any current mode.
+ * Handles all hide/show/state-reset logic in one place.
+ * Caller must do any FROM-state cleanup before calling
+ * (e.g. range_commit_field, zoom_menu_reset, zbox_corner1_set=false).
+ * Pass MODE_NORMAL to press GRAPH: renders the graph canvas. */
+static void nav_to(CalcMode_t target)
+{
+    lvgl_lock();
+    hide_all_screens();
+    current_mode = target;
+
+    switch (target) {
+    case MODE_GRAPH_YEQ:
+        graph_state.active = false;
+        yeq_cursor_pos = (uint8_t)strlen(graph_state.equations[yeq_selected]);
+        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+        for (int i = 0; i < GRAPH_NUM_EQ; i++)
+            lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+        yeq_update_highlight();
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        break;
+
+    case MODE_GRAPH_RANGE:
+        graph_state.active = false;
+        range_field_reset();
+        lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_range_display();
+        range_update_highlight();
+        range_cursor_update();
+        break;
+
+    case MODE_GRAPH_ZOOM:
+        graph_state.active = false;
+        lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_zoom_display();
+        break;
+
+    case MODE_NORMAL:  /* TOKEN_GRAPH — show graph canvas and render */
+        graph_state.active = true;
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        break;
+
+    case MODE_GRAPH_TRACE:
+        graph_state.active = true;
+        trace_eq_idx = find_first_active_eq();
+        trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
+        Graph_SetVisible(true);
+        Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
+        break;
+
+    default:
+        break;
+    }
+    lvgl_unlock();
+}
+
+/* Opens a menu (MATH, TEST, or MATRIX) from any screen.
+ * return_to: the mode to restore when the menu is closed.
+ * Hides all screens first so no overlay leaks through. */
+static void menu_open(Token_t menu_token, CalcMode_t return_to)
+{
+    lvgl_lock();
+    hide_all_screens();
+    switch (menu_token) {
+    case TOKEN_MATH:
+        math_return_mode   = return_to;
+        math_tab           = 0;
+        math_item_cursor   = 0;
+        math_scroll_offset = 0;
+        current_mode       = MODE_MATH_MENU;
+        lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_math_display();
+        break;
+    case TOKEN_TEST:
+        test_return_mode  = return_to;
+        test_item_cursor  = 0;
+        current_mode      = MODE_TEST_MENU;
+        lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_test_display();
+        break;
+    case TOKEN_MATRX:
+        matrix_return_mode = return_to;
+        matrix_tab         = 0;
+        matrix_item_cursor = 0;
+        current_mode       = MODE_MATRIX_MENU;
+        lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_matrix_display();
+        break;
+    default:
+        break;
+    }
+    lvgl_unlock();
+}
+
+/* Closes a menu and restores the calling screen.
+ * Returns the restored CalcMode_t (MODE_NORMAL or MODE_GRAPH_YEQ).
+ * Does NOT fall through; callers decide whether to return or break. */
+static CalcMode_t menu_close(Token_t menu_token)
+{
+    CalcMode_t ret;
+    switch (menu_token) {
+    case TOKEN_MATH:
+        ret                = math_return_mode;
+        math_return_mode   = MODE_NORMAL;
+        math_item_cursor   = 0;
+        math_scroll_offset = 0;
+        break;
+    case TOKEN_TEST:
+        ret              = test_return_mode;
+        test_return_mode = MODE_NORMAL;
+        test_item_cursor = 0;
+        break;
+    case TOKEN_MATRX:
+        ret                = matrix_return_mode;
+        matrix_return_mode = MODE_NORMAL;
+        matrix_tab         = 0;
+        matrix_item_cursor = 0;
+        break;
+    default:
+        ret = MODE_NORMAL;
+        break;
+    }
+    current_mode = ret;
+    lvgl_lock();
+    lv_obj_add_flag(ui_math_screen,   LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_test_screen,   LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+    if (ret == MODE_GRAPH_YEQ)
+        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+    lvgl_unlock();
+    return ret;
+}
+
+/* Moves the active tab in a multi-tab menu left or right.
+ * Resets item cursor and scroll offset on tab change. */
+static void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
+                     uint8_t tab_count, bool left, void (*update)(void))
+{
+    if (left) {
+        if (*tab > 0) { (*tab)--; *cursor = 0; if (scroll) *scroll = 0; }
+    } else {
+        if (*tab < tab_count - 1) { (*tab)++; *cursor = 0; if (scroll) *scroll = 0; }
+    }
+    lvgl_lock(); update(); lvgl_unlock();
+}
+
 /**
  * @brief Processes a single calculator token from the keypad queue.
  * @param t  Token to execute.
@@ -1877,15 +2044,7 @@ void Execute_Token(Token_t t)
         sto_pending  = false;
         lvgl_lock();
         lv_obj_del(saving_lbl);
-        /* ON always lands on the calculator screen — hide every graph screen.
-         * Without this, pressing ON while viewing the graph or a graph editor
-         * leaves current_mode=NORMAL with the graph still visible, and CLEAR
-         * (which operates on the expression in NORMAL mode) cannot dismiss it. */
-        Graph_SetVisible(false);
-        lv_obj_add_flag(ui_graph_yeq_screen,         LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(ui_graph_range_screen,        LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(ui_graph_zoom_screen,         LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+        hide_all_screens();
         ui_update_status_bar();
         lvgl_unlock();
 
@@ -1895,6 +2054,19 @@ void Execute_Token(Token_t t)
              * Power_EnterStop(); it handles the LVGL invalidate internally. */
             Power_DisplayBlankAndMessage();
         }
+        return;
+    }
+
+    /*--- TOKEN_MODE: always opens MODE screen from any mode ----------------*/
+    if (t == TOKEN_MODE) {
+        memcpy(mode_cursor, mode_committed, sizeof(mode_cursor));
+        mode_row_selected = 0;
+        current_mode = MODE_MODE_SCREEN;
+        lvgl_lock();
+        hide_all_screens();
+        lv_obj_clear_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_mode_display();
+        lvgl_unlock();
         return;
     }
 
@@ -1910,17 +2082,12 @@ void Execute_Token(Token_t t)
 
         switch (t) {
         case TOKEN_GRAPH:
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(true);
-            Graph_Render(angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_NORMAL);
             return;
         case TOKEN_Y_EQUALS:
             current_mode = MODE_NORMAL;
             lvgl_lock();
-            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+            hide_all_screens();
             lvgl_unlock();
             return;
         case TOKEN_CLEAR:
@@ -1962,37 +2129,14 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_RANGE:
-            current_mode = MODE_GRAPH_RANGE;
-            range_field_reset();
-            graph_state.active = false;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(false);
-            lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_range_display();
-            range_update_highlight();
-            range_cursor_update();
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_RANGE);
             return;
         case TOKEN_ZOOM:
-            current_mode = MODE_GRAPH_ZOOM;
             zoom_menu_reset();
-            graph_state.active = false;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(false);
-            lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_ZOOM);
             return;
         case TOKEN_TRACE:
-            trace_eq_idx = find_first_active_eq();
-            trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
-            current_mode = MODE_GRAPH_TRACE;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(true);
-            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_TRACE);
             return;
         case TOKEN_DEL:
             if (yeq_cursor_pos > 0) {
@@ -2020,6 +2164,7 @@ void Execute_Token(Token_t t)
             yeq_cursor_update();
             lvgl_unlock();
             return;
+        case TOKEN_ENTER:
         case TOKEN_DOWN:
             if (yeq_selected < GRAPH_NUM_EQ - 1) yeq_selected++;
             yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
@@ -2061,37 +2206,13 @@ void Execute_Token(Token_t t)
         case TOKEN_X_INV:   append = "^-1";   break;
         case TOKEN_ANS:     append = "ANS";   break;
         case TOKEN_MATH:
-            math_return_mode   = MODE_GRAPH_YEQ;
-            math_tab           = 0;
-            math_item_cursor   = 0;
-            math_scroll_offset = 0;
-            current_mode       = MODE_MATH_MENU;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_math_display();
-            lvgl_unlock();
+            menu_open(TOKEN_MATH, MODE_GRAPH_YEQ);
             return;
         case TOKEN_TEST:
-            test_return_mode  = MODE_GRAPH_YEQ;
-            test_item_cursor  = 0;
-            current_mode      = MODE_TEST_MENU;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_test_display();
-            lvgl_unlock();
+            menu_open(TOKEN_TEST, MODE_GRAPH_YEQ);
             return;
         case TOKEN_MATRX:
-            matrix_return_mode = MODE_GRAPH_YEQ;
-            matrix_tab         = 0;
-            matrix_item_cursor = 0;
-            current_mode       = MODE_MATRIX_MENU;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_matrix_display();
-            lvgl_unlock();
+            menu_open(TOKEN_MATRX, MODE_GRAPH_YEQ);
             return;
         case TOKEN_MTRX_A: append = "[A]"; break;
         case TOKEN_MTRX_B: append = "[B]"; break;
@@ -2276,34 +2397,21 @@ void Execute_Token(Token_t t)
 
         case TOKEN_ZOOM:
             range_commit_field();
-            range_field_reset();
-            current_mode       = MODE_GRAPH_ZOOM;
             zoom_menu_reset();
-            graph_state.active = false;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(false);
-            lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_ZOOM);
             return;
 
         case TOKEN_GRAPH:
             range_commit_field();
-            current_mode = MODE_NORMAL;
-            range_field_reset();
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(true);
-            Graph_Render(angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_NORMAL);
             return;
 
         case TOKEN_RANGE:
             current_mode = MODE_NORMAL;
             range_field_reset();
             lvgl_lock();
+            hide_all_screens();
             ui_update_range_display();
-            lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
             lvgl_unlock();
             return;
 
@@ -2330,33 +2438,12 @@ void Execute_Token(Token_t t)
 
         case TOKEN_Y_EQUALS:
             range_commit_field();
-            range_field_reset();
-            current_mode = MODE_GRAPH_YEQ;
-            graph_state.active     = false;
-            yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(false);
-            lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            for (int i = 0; i < GRAPH_NUM_EQ; i++)
-                lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
-            yeq_update_highlight();
-            yeq_reflow_rows();
-            yeq_cursor_update();
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_YEQ);
             return;
 
         case TOKEN_TRACE:
             range_commit_field();
-            range_field_reset();
-            trace_eq_idx = find_first_active_eq();
-            trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
-            current_mode = MODE_GRAPH_TRACE;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(true);
-            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_TRACE);
             return;
 
         default:
@@ -2397,61 +2484,23 @@ void Execute_Token(Token_t t)
             return;
         case TOKEN_CLEAR:
         case TOKEN_ZOOM:
-            current_mode = MODE_NORMAL;
             zoom_menu_reset();
+            current_mode = MODE_NORMAL;
             lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+            hide_all_screens();
             lvgl_unlock();
             return;
         case TOKEN_Y_EQUALS:
-            current_mode = MODE_GRAPH_YEQ;
-            graph_state.active = false;
-            zoom_menu_reset();
-            yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(false);
-            lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            for (int i = 0; i < GRAPH_NUM_EQ; i++)
-                lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
-            yeq_update_highlight();
-            yeq_reflow_rows();
-            yeq_cursor_update();
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_YEQ);
             return;
         case TOKEN_RANGE:
-            current_mode = MODE_GRAPH_RANGE;
-            range_field_reset();
-            zoom_menu_reset();
-            graph_state.active = false;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(false);
-            lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_range_display();
-            range_update_highlight();
-            range_cursor_update();
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_RANGE);
             return;
         case TOKEN_GRAPH:
-            zoom_menu_reset();
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(true);
-            Graph_Render(angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_NORMAL);
             return;
         case TOKEN_TRACE:
-            trace_eq_idx = find_first_active_eq();
-            trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
-            current_mode = MODE_GRAPH_TRACE;
-            zoom_menu_reset();
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(true);
-            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_TRACE);
             return;
         case TOKEN_1 ... TOKEN_9: {
             uint8_t item = (uint8_t)(t - TOKEN_0); /* 1–9 */
@@ -2460,13 +2509,13 @@ void Execute_Token(Token_t t)
             return;
         }
         default:
-            /* Any unrecognized key exits the ZOOM menu */
-            current_mode = MODE_NORMAL;
+            /* Any unrecognized key exits the ZOOM menu and is processed normally */
             zoom_menu_reset();
+            current_mode = MODE_NORMAL;
             lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+            hide_all_screens();
             lvgl_unlock();
-            return;
+            break; /* fall through to main switch */
         }
     }
 
@@ -2576,10 +2625,10 @@ void Execute_Token(Token_t t)
             /* Commit and return to ZOOM menu */
             zoom_factors_commit_field();
             zoom_factors_reset();
-            current_mode = MODE_GRAPH_ZOOM;
             zoom_menu_reset();
+            current_mode = MODE_GRAPH_ZOOM;
             lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+            hide_all_screens();
             lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
             ui_update_zoom_display();
             lvgl_unlock();
@@ -2610,59 +2659,25 @@ void Execute_Token(Token_t t)
         case TOKEN_Y_EQUALS:
             zoom_factors_commit_field();
             zoom_factors_reset();
-            current_mode   = MODE_GRAPH_YEQ;
-            graph_state.active = false;
-            yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(false);
-            lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            for (int i = 0; i < GRAPH_NUM_EQ; i++)
-                lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
-            yeq_update_highlight();
-            yeq_reflow_rows();
-            yeq_cursor_update();
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_YEQ);
             return;
 
         case TOKEN_RANGE:
             zoom_factors_commit_field();
             zoom_factors_reset();
-            current_mode = MODE_GRAPH_RANGE;
-            range_field_reset();
-            graph_state.active = false;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(false);
-            lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_range_display();
-            range_update_highlight();
-            range_cursor_update();
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_RANGE);
             return;
 
         case TOKEN_GRAPH:
             zoom_factors_commit_field();
             zoom_factors_reset();
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(true);
-            Graph_Render(angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_NORMAL);
             return;
 
         case TOKEN_TRACE:
             zoom_factors_commit_field();
             zoom_factors_reset();
-            trace_eq_idx = find_first_active_eq();
-            trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
-            current_mode = MODE_GRAPH_TRACE;
-            lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
-            Graph_SetVisible(true);
-            Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_GRAPH_TRACE);
             return;
 
         default:
@@ -2738,29 +2753,37 @@ void Execute_Token(Token_t t)
             return;
         case TOKEN_CLEAR:
             /* Exit to calculator */
-            current_mode     = MODE_NORMAL;
             zbox_corner1_set = false;
+            current_mode = MODE_NORMAL;
             lvgl_lock();
-            Graph_SetVisible(false);
+            hide_all_screens();
             lvgl_unlock();
             return;
         case TOKEN_ZOOM:
             /* Cancel ZBox rubber-band and stay on graph */
-            current_mode     = MODE_NORMAL;
             zbox_corner1_set = false;
-            lvgl_lock();
-            Graph_ClearTrace();
-            Graph_Render(angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_NORMAL);
+            return;
+        case TOKEN_GRAPH:
+            zbox_corner1_set = false;
+            nav_to(MODE_NORMAL);
+            return;
+        case TOKEN_Y_EQUALS:
+            zbox_corner1_set = false;
+            nav_to(MODE_GRAPH_YEQ);
+            return;
+        case TOKEN_RANGE:
+            zbox_corner1_set = false;
+            nav_to(MODE_GRAPH_RANGE);
+            return;
+        case TOKEN_TRACE:
+            zbox_corner1_set = false;
+            nav_to(MODE_GRAPH_TRACE);
             return;
         default:
             /* Any other key cancels ZBox and falls through to normal handling */
-            current_mode     = MODE_NORMAL;
             zbox_corner1_set = false;
-            lvgl_lock();
-            Graph_ClearTrace();
-            Graph_Render(angle_degrees);
-            lvgl_unlock();
+            nav_to(MODE_NORMAL);
             break;
         }
     }
@@ -2815,13 +2838,30 @@ void Execute_Token(Token_t t)
             Graph_Render(angle_degrees);
             lvgl_unlock();
             return;
+        case TOKEN_Y_EQUALS:
+            Graph_ClearTrace();
+            nav_to(MODE_GRAPH_YEQ);
+            return;
+        case TOKEN_RANGE:
+            Graph_ClearTrace();
+            nav_to(MODE_GRAPH_RANGE);
+            return;
+        case TOKEN_ZOOM:
+            Graph_ClearTrace();
+            zoom_menu_reset();
+            nav_to(MODE_GRAPH_ZOOM);
+            return;
+        case TOKEN_GRAPH:
+            Graph_ClearTrace();
+            nav_to(MODE_NORMAL);
+            return;
         default:
-            /* Any other key exits trace — clear cursor, re-render clean graph,
-             * then fall through to the main switch to process the key normally */
+            /* Any other key exits trace to the calculator — hide the graph
+             * canvas without re-rendering, then fall through to the main switch
+             * to process the key normally. */
             current_mode = MODE_NORMAL;
             lvgl_lock();
-            Graph_ClearTrace();
-            Graph_Render(angle_degrees);
+            hide_all_screens();
             lvgl_unlock();
             break;
         }
@@ -2882,12 +2922,10 @@ void Execute_Token(Token_t t)
         int total = (int)math_tab_item_count[math_tab];
         switch (t) {
         case TOKEN_LEFT:
-            if (math_tab > 0) { math_tab--; math_item_cursor = 0; math_scroll_offset = 0; }
-            lvgl_lock(); ui_update_math_display(); lvgl_unlock();
+            tab_move(&math_tab, &math_item_cursor, &math_scroll_offset, MATH_TAB_COUNT, true, ui_update_math_display);
             return;
         case TOKEN_RIGHT:
-            if (math_tab < MATH_TAB_COUNT - 1) { math_tab++; math_item_cursor = 0; math_scroll_offset = 0; }
-            lvgl_lock(); ui_update_math_display(); lvgl_unlock();
+            tab_move(&math_tab, &math_item_cursor, &math_scroll_offset, MATH_TAB_COUNT, false, ui_update_math_display);
             return;
         case TOKEN_UP:
             if (math_item_cursor > 0) {
@@ -2909,7 +2947,7 @@ void Execute_Token(Token_t t)
         case TOKEN_ENTER: {
             int idx = (int)math_scroll_offset + (int)math_item_cursor;
             if (idx < total) {
-                const char *ins = math_insert_strings[math_tab][idx];
+                const char *ins = math_menu_items[math_tab][idx].insert;
                 if (ins != NULL) { math_menu_insert(ins); return; }
             }
             break;
@@ -2917,40 +2955,57 @@ void Execute_Token(Token_t t)
         case TOKEN_1 ... TOKEN_9: {
             int idx = (int)(t - TOKEN_0) - 1; /* 0-indexed */
             if (idx < total) {
-                const char *ins = math_insert_strings[math_tab][idx];
+                const char *ins = math_menu_items[math_tab][idx].insert;
                 if (ins != NULL) { math_menu_insert(ins); return; }
             }
             break;
         }
         case TOKEN_CLEAR:
         case TOKEN_MATH:
-            current_mode        = math_return_mode;
-            math_return_mode    = MODE_NORMAL;
-            math_item_cursor    = 0;
-            math_scroll_offset  = 0;
-            lvgl_lock();
-            lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
-            if (current_mode == MODE_GRAPH_YEQ)
-                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
+            menu_close(TOKEN_MATH);
             return;
-        default:
-            /* Any other key exits the MATH menu and is processed normally */
-            current_mode        = math_return_mode;
-            math_return_mode    = MODE_NORMAL;
-            math_item_cursor    = 0;
-            math_scroll_offset  = 0;
-            lvgl_lock();
-            lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
-            if (current_mode == MODE_GRAPH_YEQ)
-                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
-            /* If returning to Y=, don't fall through to the main switch */
-            if (current_mode == MODE_GRAPH_YEQ)
+        /* Graph nav keys always work — navigate directly to the target screen */
+        case TOKEN_Y_EQUALS:
+            math_return_mode   = MODE_NORMAL;
+            math_item_cursor   = 0;
+            math_scroll_offset = 0;
+            nav_to(MODE_GRAPH_YEQ);
+            return;
+        case TOKEN_RANGE:
+            math_return_mode   = MODE_NORMAL;
+            math_item_cursor   = 0;
+            math_scroll_offset = 0;
+            nav_to(MODE_GRAPH_RANGE);
+            return;
+        case TOKEN_ZOOM:
+            math_return_mode   = MODE_NORMAL;
+            math_item_cursor   = 0;
+            math_scroll_offset = 0;
+            zoom_menu_reset();
+            nav_to(MODE_GRAPH_ZOOM);
+            return;
+        case TOKEN_GRAPH:
+            math_return_mode   = MODE_NORMAL;
+            math_item_cursor   = 0;
+            math_scroll_offset = 0;
+            nav_to(MODE_NORMAL);
+            return;
+        case TOKEN_TRACE:
+            math_return_mode   = MODE_NORMAL;
+            math_item_cursor   = 0;
+            math_scroll_offset = 0;
+            nav_to(MODE_GRAPH_TRACE);
+            return;
+        default: {
+            /* Any other key: restore the calling screen and drop the key.
+             * Matches original TI-81 — non-nav keys do nothing inside a menu. */
+            CalcMode_t ret = menu_close(TOKEN_MATH);
+            if (ret == MODE_GRAPH_YEQ)
                 return;
             break;
         }
-        /* Execution reaches here only from default — fall through to main switch */
+        }
+        /* Execution reaches here only from default when return_mode != Y= */
     }
 
     /*--- TEST menu handler -------------------------------------------------*/
@@ -2965,55 +3020,69 @@ void Execute_Token(Token_t t)
             lvgl_lock(); ui_update_test_display(); lvgl_unlock();
             return;
         case TOKEN_ENTER: {
-            const char *ins = test_insert_strings[test_item_cursor];
+            const char *ins = test_menu_items[test_item_cursor].insert;
             if (ins != NULL) { test_menu_insert(ins); return; }
             break;
         }
         case TOKEN_1 ... TOKEN_6: {
             int idx = (int)(t - TOKEN_0) - 1;
             if (idx >= 0 && idx < TEST_ITEM_COUNT) {
-                const char *ins = test_insert_strings[idx];
+                const char *ins = test_menu_items[idx].insert;
                 if (ins != NULL) { test_menu_insert(ins); return; }
             }
             break;
         }
         case TOKEN_CLEAR:
         case TOKEN_TEST:
-            current_mode      = test_return_mode;
-            test_return_mode  = MODE_NORMAL;
-            test_item_cursor  = 0;
-            lvgl_lock();
-            lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
-            if (current_mode == MODE_GRAPH_YEQ)
-                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
+            menu_close(TOKEN_TEST);
             return;
-        default:
-            current_mode      = test_return_mode;
-            test_return_mode  = MODE_NORMAL;
-            test_item_cursor  = 0;
-            lvgl_lock();
-            lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
-            if (current_mode == MODE_GRAPH_YEQ)
-                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
-            if (current_mode == MODE_GRAPH_YEQ)
+        /* Graph nav keys always work — navigate directly to the target screen */
+        case TOKEN_Y_EQUALS:
+            test_return_mode = MODE_NORMAL;
+            test_item_cursor = 0;
+            nav_to(MODE_GRAPH_YEQ);
+            return;
+        case TOKEN_RANGE:
+            test_return_mode = MODE_NORMAL;
+            test_item_cursor = 0;
+            nav_to(MODE_GRAPH_RANGE);
+            return;
+        case TOKEN_ZOOM:
+            test_return_mode = MODE_NORMAL;
+            test_item_cursor = 0;
+            zoom_menu_reset();
+            nav_to(MODE_GRAPH_ZOOM);
+            return;
+        case TOKEN_GRAPH:
+            test_return_mode = MODE_NORMAL;
+            test_item_cursor = 0;
+            nav_to(MODE_NORMAL);
+            return;
+        case TOKEN_TRACE:
+            test_return_mode = MODE_NORMAL;
+            test_item_cursor = 0;
+            nav_to(MODE_GRAPH_TRACE);
+            return;
+        default: {
+            /* Any other key: restore the calling screen and drop the key.
+             * Matches original TI-81 — non-nav keys do nothing inside a menu. */
+            CalcMode_t ret = menu_close(TOKEN_TEST);
+            if (ret == MODE_GRAPH_YEQ)
                 return;
             break;
         }
-        /* Fall through to main switch */
+        }
+        /* Execution reaches here only from default when return_mode != Y= */
     }
 
     /*--- MATRIX menu handler -----------------------------------------------*/
     if (current_mode == MODE_MATRIX_MENU) {
         switch (t) {
         case TOKEN_LEFT:
-            if (matrix_tab > 0) { matrix_tab--; matrix_item_cursor = 0; }
-            lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
+            tab_move(&matrix_tab, &matrix_item_cursor, NULL, MATRIX_TAB_COUNT, true, ui_update_matrix_display);
             return;
         case TOKEN_RIGHT:
-            if (matrix_tab < MATRIX_TAB_COUNT - 1) { matrix_tab++; matrix_item_cursor = 0; }
-            lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
+            tab_move(&matrix_tab, &matrix_item_cursor, NULL, MATRIX_TAB_COUNT, false, ui_update_matrix_display);
             return;
         case TOKEN_UP:
             if (matrix_item_cursor > 0) matrix_item_cursor--;
@@ -3066,24 +3135,47 @@ void Execute_Token(Token_t t)
             return;
         }
         case TOKEN_CLEAR:
-        case TOKEN_MATRX: {
-            CalcMode_t ret = matrix_return_mode;
-            matrix_return_mode = MODE_NORMAL;
-            current_mode = ret;
-            lvgl_lock();
-            lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-            if (ret == MODE_GRAPH_YEQ)
-                lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
+        case TOKEN_MATRX:
+            menu_close(TOKEN_MATRX);
             return;
-        }
-        default:
+        /* Graph nav keys always work — navigate directly to the target screen */
+        case TOKEN_Y_EQUALS:
             matrix_return_mode = MODE_NORMAL;
-            current_mode = MODE_NORMAL;
-            lvgl_lock();
-            lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
+            matrix_tab         = 0;
+            matrix_item_cursor = 0;
+            nav_to(MODE_GRAPH_YEQ);
+            return;
+        case TOKEN_RANGE:
+            matrix_return_mode = MODE_NORMAL;
+            matrix_tab         = 0;
+            matrix_item_cursor = 0;
+            nav_to(MODE_GRAPH_RANGE);
+            return;
+        case TOKEN_ZOOM:
+            matrix_return_mode = MODE_NORMAL;
+            matrix_tab         = 0;
+            matrix_item_cursor = 0;
+            zoom_menu_reset();
+            nav_to(MODE_GRAPH_ZOOM);
+            return;
+        case TOKEN_GRAPH:
+            matrix_return_mode = MODE_NORMAL;
+            matrix_tab         = 0;
+            matrix_item_cursor = 0;
+            nav_to(MODE_NORMAL);
+            return;
+        case TOKEN_TRACE:
+            matrix_return_mode = MODE_NORMAL;
+            matrix_tab         = 0;
+            matrix_item_cursor = 0;
+            nav_to(MODE_GRAPH_TRACE);
+            return;
+        default: {
+            CalcMode_t ret = menu_close(TOKEN_MATRX);
+            if (ret == MODE_GRAPH_YEQ)
+                return;
             break;
+        }
         }
         /* Fall through to main switch for unhandled keys */
     }
@@ -3337,23 +3429,11 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_ENTER:
-        /* ENTER on blank input re-evaluates the last expression and appends
-         * only a result row (blank expression string = result-only history
-         * entry, rendered without an expression line above it).
-         * Walk backwards past any result-only entries to find the last real
-         * expression — pressing ENTER repeatedly keeps re-running the same one. */
+        /* ENTER on blank input re-evaluates the most recent expression and
+         * appends a full entry (expression + result) identical to a normal
+         * evaluation — no sentinel values, no special rendering path. */
         if (expr_len == 0 && history_count > 0) {
-            uint8_t last_idx = 0;
-            bool found = false;
-            for (uint8_t i = 1; i <= history_count && i <= HISTORY_LINE_COUNT; i++) {
-                uint8_t candidate = (history_count - i) % HISTORY_LINE_COUNT;
-                if (history[candidate].expression[0] != '\0') {
-                    last_idx = candidate;
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) break;
+            uint8_t last_idx = (history_count - 1) % HISTORY_LINE_COUNT;
             CalcResult_t result = Calc_Evaluate(history[last_idx].expression,
                                                 ans, angle_degrees);
             char result_str[MAX_RESULT_LEN];
@@ -3366,7 +3446,8 @@ void Execute_Token(Token_t t)
                 ans = result.value;
             }
             uint8_t idx = history_count % HISTORY_LINE_COUNT;
-            history[idx].expression[0] = '\0';
+            strncpy(history[idx].expression, history[last_idx].expression, MAX_EXPR_LEN - 1);
+            history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
             strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
             history[idx].result[MAX_RESULT_LEN - 1] = '\0';
             history_count++;
@@ -3446,36 +3527,15 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_MATH:
-        math_return_mode   = MODE_NORMAL;
-        math_tab           = 0;
-        math_item_cursor   = 0;
-        math_scroll_offset = 0;
-        current_mode = MODE_MATH_MENU;
-        lvgl_lock();
-        lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_math_display();
-        lvgl_unlock();
+        menu_open(TOKEN_MATH, MODE_NORMAL);
         break;
 
     case TOKEN_TEST:
-        test_return_mode = MODE_NORMAL;
-        test_item_cursor = 0;
-        current_mode = MODE_TEST_MENU;
-        lvgl_lock();
-        lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_test_display();
-        lvgl_unlock();
+        menu_open(TOKEN_TEST, MODE_NORMAL);
         break;
 
     case TOKEN_MATRX:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
-        current_mode = MODE_MATRIX_MENU;
-        lvgl_lock();
-        lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_matrix_display();
-        lvgl_unlock();
+        menu_open(TOKEN_MATRX, MODE_NORMAL);
         break;
 
     case TOKEN_MTRX_A: expr_insert_str("[A]"); Update_Calculator_Display(); break;
@@ -3559,69 +3619,24 @@ void Execute_Token(Token_t t)
         break;
 
     case TOKEN_Y_EQUALS:
-        current_mode   = MODE_GRAPH_YEQ;
-        graph_state.active = false;
-        yeq_cursor_pos = strlen(graph_state.equations[yeq_selected]);
-        /* Switch to Y= editor — show equation entry screen */
-        lvgl_lock();
-        Graph_SetVisible(false);
-        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-        for (int i = 0; i < GRAPH_NUM_EQ; i++)
-            lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
-        yeq_update_highlight();
-        yeq_reflow_rows();
-        yeq_cursor_update();
-        lvgl_unlock();
+        nav_to(MODE_GRAPH_YEQ);
         break;
 
     case TOKEN_RANGE:
-        /* Switch to RANGE editor */
-        current_mode = MODE_GRAPH_RANGE;
-        range_field_reset();
-        graph_state.active = false;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(false);
-        lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_range_display();
-        range_update_highlight();
-        range_cursor_update();
-        lvgl_unlock();
+        nav_to(MODE_GRAPH_RANGE);
         break;
 
     case TOKEN_ZOOM:
-        /* Show ZOOM preset menu */
-        current_mode = MODE_GRAPH_ZOOM;
         zoom_menu_reset();
-        graph_state.active = false;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(false);
-        lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_zoom_display();
-        lvgl_unlock();
+        nav_to(MODE_GRAPH_ZOOM);
         break;
 
     case TOKEN_GRAPH:
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(true);
-        Graph_Render(angle_degrees);
-        lvgl_unlock();
+        nav_to(MODE_NORMAL);
         break;
 
     case TOKEN_TRACE:
-        trace_eq_idx = find_first_active_eq();
-        trace_x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
-        current_mode = MODE_GRAPH_TRACE;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_yeq_screen,   LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(ui_graph_range_screen,  LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(true);
-        Graph_DrawTrace(trace_x, trace_eq_idx, angle_degrees);
-        lvgl_unlock();
+        nav_to(MODE_GRAPH_TRACE);
         break;
 
 
