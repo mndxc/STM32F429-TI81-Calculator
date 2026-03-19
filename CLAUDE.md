@@ -13,7 +13,7 @@ It also provides continuity for AI-assisted development sessions, summarising al
 | Area | Est. Done | Notes |
 |---|---|---|
 | Basic arithmetic | ~95% | +, −, ×, ÷, ^, parentheses, precedence all solid |
-| Standard math functions | ~75% | sin/cos/tan, asin/acos/atan, ln, log, √, abs, round, iPart, fPart, int work; factorial, nCr, nPr, cube root, ∛, nDeriv NOT evaluated |
+| Standard math functions | ~80% | sin/cos/tan, asin/acos/atan, ln, log, √, abs, round, iPart, fPart, int, rand, nPr, nCr work; factorial, cube root, ∛, nDeriv NOT evaluated |
 | Variables (A–Z, ANS) | ~90% | STO, ANS, X in graph all work; list variables missing |
 | Display / UI / navigation | ~90% | Expression wrap, wrapped history, Fix/Float mode, MATH from Y=, UTF-8 cursor, history scroll, ENTER re-run all solid; Sci/Eng notation display not wired |
 | Graphing (function mode) | ~75% | 4 equations, axes, grid (toggle from MODE), trace, ZBox, zoom, RANGE, Xres step, interpolated curves; Connected/Dot mode not wired |
@@ -25,12 +25,12 @@ It also provides continuity for AI-assisted development sessions, summarising al
 |---|---|---|
 | STAT | ~15% | 1-Var/2-Var stats, regression, stat plots — nothing implemented |
 | PRGM | ~15% | Program editor, runner, control flow, I/O — stub only |
-| MATRIX | ~10% | 3 matrices, det, transpose, row ops — stub only |
+| MATRIX | ~40% | Menu UI + 6×6 cell editor for [A]/[B]/[C] implemented; matrix math (det, transpose, row ops) inserts tokens but not yet evaluated by calc_engine |
 | DRAW | ~5% | Line, Horizontal, Vertical, DrawF, Shade — stub only |
 | Parametric / Polar / Seq graphing | ~5% | Only function mode works |
 | VARS menu | ~3% | Window, Zoom, GDB, Picture, Statistics vars — stub only |
 
-The core calculator (arithmetic + standard functions + function graphing + TEST comparisons) covers ~72% of day-to-day TI-81 usage. STAT, PRGM, and MATRIX are entirely absent and together account for roughly 40% of the original hardware's capability.
+The core calculator (arithmetic + standard functions + function graphing + TEST comparisons) covers ~72% of day-to-day TI-81 usage. STAT and PRGM are entirely absent. MATRIX has a UI but no math evaluation.
 
 ---
 
@@ -166,6 +166,11 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - **History scroll** — UP/DOWN arrow keys scroll backward/forward through previous expressions. `history_recall_offset` tracks position; 0 = live input. Replaces original `2nd+ENTRY`-only recall with a richer scroll model (see Deliberate Deviations).
 - **2nd+ENTRY** — recalls most recent expression and sets `history_recall_offset = 1` so UP/DOWN continue scrolling from there without requiring a CLEAR first.
 - **ENTER on blank line re-run** — pressing ENTER with empty input re-evaluates the most recent history expression and appends a full history entry (expression + result), identical to a normal evaluation. Repeated ENTER presses each add a copy, so UP/DOWN and 2nd+ENTRY always land on a real expression with no special-case handling needed. Implemented in `TOKEN_ENTER` handler (`calculator_core.c`).
+- **MATH PRB** — rand, nPr, nCr fully implemented. `rand` evaluated at tokenize time using `srand(HAL_GetTick())`; nPr/nCr in `EvaluateRPN()` in `calc_engine.c` with domain checking.
+- **MATRIX menu + editor** — `MODE_MATRIX_MENU` (two tabs: MATRX operations, EDIT for selecting a matrix) and `MODE_MATRIX_EDIT` (6×6 cell editor for [A]/[B]/[C]) fully implemented in `calculator_core.c`. Matrix data stored in `matrices[3]` (`Matrix_t` type, `app_common.h`). Matrix math tokens (rowSwap, row+, \*row, \*row+, det, T) insert into the expression but are not yet evaluated by `calc_engine.c`.
+- **Screen navigation refactor** — five helpers centralise all cross-screen transitions in `calculator_core.c`: `hide_all_screens()`, `nav_to(target)`, `menu_open(token, return_to)`, `menu_close(token)`, `tab_move()`. Every graph-nav key (Y=, RANGE, ZOOM, GRAPH, TRACE) now works from every screen including MATH/TEST/MATRIX menus and ZBox/Trace modes. Unhandled keys in menus close the menu and fall through to the main switch (or drop the key if the return context is Y=, matching original TI-81 behaviour).
+- **ENTER in Y= editor** — moves cursor to next equation, same as DOWN.
+- **TRACE exit speed** — pressing any non-navigation key from TRACE now hides the graph canvas immediately without re-rendering before processing the key.
 
 ### Known issues
 - **Display fade on power-off (hardware limitation — prototype substitute implemented)** — The ILI9341 in RGB interface mode has no internal frame buffer. When LTDC stops clocking pixels, the panel's liquid crystal capacitors discharge to their resting state, which the panel renders as white. There is no hardware path to hold the display black after LTDC is halted. **Current prototype behaviour:** `2nd+ON` calls `Power_DisplayBlankAndMessage()` (`app_init.c`) instead of `Power_EnterStop()`. It shows a full-screen black LVGL overlay with a centred "Powered off" label in dim grey (`0x444444`) and blocks the CalcCoreTask on `xQueueReceive` until the ON button is pressed again — no actual Stop mode is entered, no display fade occurs. **Custom PCB migration (one-line change):** in `Execute_Token()` in `calculator_core.c`, in the `TOKEN_ON` / `power_down` branch, replace the `Power_DisplayBlankAndMessage()` call with `Power_EnterStop()`. Both functions are defined in `app_init.c` and declared in `app_init.h`; no other files need to change.
@@ -173,31 +178,27 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 ### Next session priorities (in order)
 
-**1. MATH PRB menu completion** — PRB tab items (rand, nPr, nCr) are displayed but evaluation is not yet confirmed working end-to-end. Verify on hardware.
-- Files: `App/Src/calc_engine.c`, `App/Src/calculator_core.c`, `App/Drivers/Keypad/keypad_map.h`
-- Gotchas: `srand(HAL_GetTick())` already added in `app_init.c` after `xSemaphoreGive(xLVGL_Ready)`; nPr/nCr insert as ` nPr ` / ` nCr ` with surrounding spaces per MATH menu spec
+**1. Matrix math evaluation** — The MATRIX menu and editor are implemented but the math operations (rowSwap, row+, \*row, \*row+, det, transpose) insert tokens that `calc_engine.c` does not yet evaluate.
+- Files: `App/Src/calc_engine.c` (add evaluation cases), `App/Drivers/Keypad/keypad_map.h` (TOKEN_DET etc. may be needed)
+- Gotchas: matrix data lives in `matrices[3]` (static in `calculator_core.c`); `calc_engine.c` needs access via a getter or `extern`
 
-**2. MATRIX menu** — Start with menu and 6×6 input UI before wiring math.
-- Files: `App/Src/calculator_core.c` (new `MODE_MATRIX_MENU` handler, new screen objects), `App/Inc/app_common.h` (add `MODE_MATRIX_MENU` to `CalcMode_t`), `App/Src/calc_engine.c` (det, transpose later)
-- Gotchas: CCMRAM is 0% used — matrix storage can go there (64 KB free) or in RAM (~61 KB free); follow same lvgl_lock/unlock pattern as other menus
-
-**3. PRGM** — Program editor and runner (persistent storage prerequisite now complete).
+**2. PRGM** — Program editor and runner (persistent storage prerequisite now complete).
 - Files: `App/Src/calculator_core.c` (new `MODE_PRGM_*` handlers), `App/Inc/app_common.h` (new CalcMode_t values), `App/Src/prgm.c` (new), `App/Inc/prgm.h` (new)
 - Gotchas: program text storage goes in FLASH via the persistent storage layer; working buffer during editing can live in CCMRAM (64 KB free); control flow tokens (If/Then/Goto/Lbl) will need new TOKEN_* entries in `App/Drivers/Keypad/keypad_map.h`
 - PDF pages 133–150 of `docs/TI81Guidebook.pdf` contain original TI-81 programming instructions
 
-**4. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
+**3. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
 - Files: `App/Src/calculator_core.c` (Y= cursor handling for `=` column), `App/Src/graph.c` (skip disabled equations in renderer)
 
-**5. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
+**4. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
 
-**6. Trace crosshair behaviour differs from original TI-81** — On the original hardware, pressing any non-arrow key while in trace exits trace and processes that key (e.g. GRAPH re-renders, CLEAR exits to calculator). Currently TRACE is a toggle (press again to exit), which is not original behaviour. Additionally, on the original TI-81 there is a free-roaming crosshair cursor visible on the plain graph screen (before pressing TRACE); pressing TRACE snaps the crosshair to the nearest curve. This free-roaming crosshair is not implemented — the graph canvas currently shows no cursor at all until TRACE is pressed. Investigate original behaviour and decide which deviations to correct.
+**5. Trace crosshair behaviour differs from original TI-81** — On the original hardware, pressing any non-arrow key while in trace exits trace and processes that key (e.g. GRAPH re-renders, CLEAR exits to calculator). Currently TRACE is a toggle (press again to exit), which is not original behaviour. Additionally, on the original TI-81 there is a free-roaming crosshair cursor visible on the plain graph screen (before pressing TRACE); pressing TRACE snaps the crosshair to the nearest curve. This free-roaming crosshair is not implemented — the graph canvas currently shows no cursor at all until TRACE is pressed. Investigate original behaviour and decide which deviations to correct.
 - Files: `App/Src/calculator_core.c` (trace mode handler `TOKEN_TRACE` case, `default` fallthrough behaviour)
 
-**7. Graph render speed** — The graph canvas renders too slowly for interactive use. The renderer evaluates the expression once per x_res pixel columns, which at x_res=1 means 320 evaluations per frame, each going through the full tokenize → shunting-yard → RPN pipeline. Likely improvements: (a) cache the tokenized/postfix form of each equation and only re-tokenize on equation change; (b) profile whether the bottleneck is in expression parsing or floating-point evaluation; (c) consider rendering progressively (draw as columns complete rather than waiting for full frame). ZBox rubber-band lag (item 10 below) is a symptom of the same underlying speed problem.
+**6. Graph render speed** — The graph canvas renders too slowly for interactive use. The renderer evaluates the expression once per x_res pixel columns, which at x_res=1 means 320 evaluations per frame, each going through the full tokenize → shunting-yard → RPN pipeline. Likely improvements: (a) cache the tokenized/postfix form of each equation and only re-tokenize on equation change; (b) profile whether the bottleneck is in expression parsing or floating-point evaluation; (c) consider rendering progressively (draw as columns complete rather than waiting for full frame). ZBox rubber-band lag (item 10 below) is a symptom of the same underlying speed problem.
 - Files: `App/Src/graph.c` (`Graph_Render`), `App/Src/calc_engine.c` (`Tokenize`, `ShuntingYard`, `EvaluateRPN`)
 
-**8. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
+**7. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
 
 ---
 
@@ -230,7 +231,7 @@ No title text. Screen filled with option rows; arrow keys navigate.
 - LEFT/RIGHT moves selection within a row. UP/DOWN changes active row.
 - ENTER commits the highlighted selection; stays in MODE screen.
 - Active selections stored in `mode_committed[8]`; wired rows take effect immediately on ENTER.
-- 2ND key should open MODE from any screen (currently only works from `MODE_NORMAL` — see Known Issues).
+- MODE key opens the MODE screen from any screen (handled as an early-return check before all mode handlers in `Execute_Token`).
 
 ---
 
@@ -525,23 +526,36 @@ typedef enum {
     MODE_MODE_SCREEN,        // MODE settings screen active
     MODE_MATH_MENU,          // MATH/NUM/HYP/PRB menu active
     MODE_GRAPH_ZOOM_FACTORS, // ZOOM FACTORS sub-screen (XFact/YFact editing)
-    MODE_TEST_MENU           // TEST comparison-operator menu active
+    MODE_TEST_MENU,          // TEST comparison-operator menu active
+    MODE_MATRIX_MENU,        // MATRIX menu active (MATRX/EDIT tabs)
+    MODE_MATRIX_EDIT         // MATRIX cell editor active ([A]/[B]/[C])
 } CalcMode_t;
 ```
 
-`Execute_Token()` in `calculator_core.c` is structured as early-return mode handlers
-at the top, followed by a main `switch(t)` for MODE_NORMAL. Handler order:
-1. MODE_GRAPH_YEQ
-2. MODE_GRAPH_RANGE
-3. MODE_GRAPH_ZOOM
-4. MODE_GRAPH_ZOOM_FACTORS
-5. MODE_GRAPH_ZBOX
-6. MODE_MODE_SCREEN
-7. MODE_MATH_MENU
-8. MODE_TEST_MENU
-9. MODE_GRAPH_TRACE ← exits trace then **falls through** to main switch
-10. STO pending check ← fires if `sto_pending`, then falls through
-11. Main switch (MODE_NORMAL)
+`Execute_Token()` in `calculator_core.c` is structured as early-return checks at the top,
+followed by mode-specific handlers, then the main `switch(t)`. Handler order:
+1. TOKEN_ON ← always fires first; saves state, handles power-down
+2. TOKEN_MODE ← always fires second; hides everything, opens MODE screen
+3. MODE_GRAPH_YEQ
+4. MODE_GRAPH_RANGE
+5. MODE_GRAPH_ZOOM
+6. MODE_GRAPH_ZOOM_FACTORS
+7. MODE_GRAPH_ZBOX
+8. MODE_GRAPH_TRACE ← exits trace then **falls through** to main switch
+9. MODE_MODE_SCREEN
+10. MODE_MATH_MENU
+11. MODE_TEST_MENU
+12. MODE_MATRIX_MENU
+13. MODE_MATRIX_EDIT
+14. STO pending check ← fires if `sto_pending`, then falls through
+15. Main switch (MODE_NORMAL)
+
+Navigation helpers (all static in `calculator_core.c`):
+- `hide_all_screens()` — hides all overlays and graph canvas; call inside `lvgl_lock()`
+- `nav_to(target)` — single entry point for all graph screen transitions; acquires lock internally
+- `menu_open(token, return_to)` — opens MATH/TEST/MATRIX with correct return mode
+- `menu_close(token)` — closes a menu, restores calling screen, returns the restored mode
+- `tab_move(tab, cursor, scroll, count, left, update)` — shared tab-switching for MATH and MATRIX
 
 ### Modifier key behaviour
 - Pressing 2ND or ALPHA a second time cancels the mode (toggle)
@@ -738,10 +752,9 @@ shunting-yard from treating it as binary subtraction. `-3^2` still evaluates as 
 ## Planned Features (backlog)
 
 In priority order:
-1. MATH PRB completion — factorial, nPr, nCr evaluation
-2. MATRIX menu and 6×6 input UI
-3. PRGM — program editor and runner
-4. Battery voltage ADC (custom PCB only)
+1. Matrix math evaluation (det, transpose, row ops) — UI done, engine not wired
+2. PRGM — program editor and runner
+3. Battery voltage ADC (custom PCB only)
 5. Red flashing LED — decide: remove or regularize at 1 Hz heartbeat
 
 ---

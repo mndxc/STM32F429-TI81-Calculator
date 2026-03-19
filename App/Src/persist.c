@@ -25,11 +25,11 @@ static uint32_t persist_checksum(const PersistBlock_t *b)
 {
     const uint32_t *w = (const uint32_t *)b;
     uint32_t n = sizeof(PersistBlock_t) / 4 - 1; /* all words except checksum */
-    uint32_t crc = 0;
+    uint32_t checksum = 0;
     for (uint32_t i = 0; i < n; i++) {
-        crc ^= w[i];
+        checksum ^= w[i];
     }
-    return crc;
+    return checksum;
 }
 
 /**
@@ -74,7 +74,7 @@ static void persist_write_block(const PersistBlock_t *block)
  *---------------------------------------------------------------------------*/
 
 /**
- * @brief  Erase sector 7 and write the supplied block to FLASH.
+ * @brief  Erase sector 10 and write the supplied block to FLASH.
  *
  * Copies *in to a local stack buffer first so the source pointer remains
  * valid in RAM throughout the write (caller's data may be in .bss).
