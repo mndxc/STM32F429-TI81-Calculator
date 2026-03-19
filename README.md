@@ -1,4 +1,4 @@
-# STM32F429 TI-81 Calculator
+# Neo-81 - bringing new life to the classic. A STM32F429 based TI-81 Calculator
 
 ![Calculator running on STM32F429I-DISC1](docs/Image_2.jpg)
 

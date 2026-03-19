@@ -47,37 +47,11 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 ---
 
-## Session Stopping Point (2026-03-15)
+## Current Project State (as of 2026-03-18)
 
-### What was just committed (commits `1baf61c`, `05867c2`, `a0e532f`)
+All custom application code lives under `App/`. `Core/` contains only CubeMX-generated files. The `main.c` touch points are `#include "app_init.h"` and `App_RTOS_Init()`.
 
-Three-commit session restructuring the project for a clean App/Core split.
-
-**`1baf61c` — directory restructure:** All custom application files moved from `Core/`, `Drivers/Keypad/`, and `Middlewares/Third_Party/` into a new `App/` top-level directory. `Core/` now contains only CubeMX-generated code.
-
-**`05867c2` — build fix:** Added `${LVGL_ROOT_DIR}/..` to include paths. Font `.c` files use `#include "lvgl/lvgl.h"` which needs the parent of the `lvgl/` directory, previously provided by `Middlewares/Third_Party` being in the include path.
-
-**`a0e532f` — main.c extraction:** All custom code removed from `main.c` USER CODE sections into `App/Src/app_init.c`:
-- RTOS object definitions (`xLVGL_Mutex`, `xLVGL_Ready`, `keypadQueueHandle`, task handles)
-- `App_RTOS_Init()` — creates semaphores, queue, keypad and calc tasks; called from single USER CODE block in `main()`
-- `App_DefaultTask_Run()` — BSP/LVGL init and UI render loop; called from `StartDefaultTask()` after generated `MX_USB_HOST_Init()`
-- `_write()` — printf retarget to USART1
-- `xLVGL_Mutex` / `xLVGL_Ready` extern declarations moved to `app_common.h` (removed local externs from `calculator_core.c`)
-
-`main.c` now contains only generated boilerplate with two user code touch points: `#include "app_init.h"` and `App_RTOS_Init()`.
-
-### Previously committed (commit `6a33415`)
-
-Documentation-only session. Discovered that scroll indicator glyphs (↓/↑) were
-already implemented in `calculator_core.c` using UTF-8 sequences `\xE2\x86\x93` /
-`\xE2\x86\x91` for both ZOOM and MATH menus — the code was correct but CLAUDE.md
-had not been updated. Cleaned up all stale references:
-- Removed "Scroll indicator glyphs" from Known Issues
-- Removed "Scroll indicator glyphs" from Planned Features backlog
-- Updated General menu rules to describe ↓/↑ as the implemented standard
-- Corrected ZOOM and MATH menu spec examples from `v`/`^` to ↓/↑
-
-### Previously completed (all committed, as of `6a33415`)
+### Completed features (all committed)
 - JetBrains Mono font wired into LVGL (`jetbrains_mono_24.c`, `lv_conf.h` updated)
 - MODE screen — arrow-key navigation, row highlight, ENTER commits
 - MATH menu — four tabs (MATH/NUM/HYP/PRB), scrollable item list, overflow indicators
@@ -107,50 +81,44 @@ had not been updated. Cleaned up all stale references:
 
 ### Next session priorities (in order)
 
-**1. MATH PRB menu completion** — PRB tab items (rand, nPr, nCr) are displayed but none are functionally wired — factorial, combinations, and permutations evaluation is not yet implemented.
-- Files: `Core/Src/calc_engine.c` (add TOKEN_FACTORIAL, nPr, nCr to `EvaluateRPN`), `Core/Src/calculator_core.c` (PRB item handler in `MODE_MATH_MENU` block), `Drivers/Keypad/keypad_map.h` (check TOKEN_* values for these operators)
-- Gotchas: rand needs `srand` seeded (check if already done in `main.c`); nPr/nCr insert as ` nPr ` / ` nCr ` with surrounding spaces per MATH menu spec
+**1. MATH PRB menu completion** — PRB tab items (rand, nPr, nCr) are displayed but evaluation is not yet confirmed working end-to-end. Verify on hardware; the main known gap is that `srand()` is never seeded so `rand` returns the same sequence every boot.
+- Files: `App/Src/calc_engine.c`, `App/Src/calculator_core.c`, `App/Drivers/Keypad/keypad_map.h`
+- Gotchas: add `srand(HAL_GetTick())` in `app_init.c` after `xSemaphoreGive(xLVGL_Ready)`; nPr/nCr insert as ` nPr ` / ` nCr ` with surrounding spaces per MATH menu spec
 
-**2. Additional math functions** — Factorial (!), combinations (nCr), permutations (nPr).
-- Files: `Core/Src/calc_engine.c` (evaluation logic), `Core/Src/calculator_core.c` (token insertion from MATH tab items 3–5)
-- Note: items 1 and 2 are closely related — implement together in the same session
-
-**3. MATRIX menu** — Start with menu and 6×6 input UI before wiring math.
-- Files: `Core/Src/calculator_core.c` (new `MODE_MATRIX_MENU` handler, new screen objects), `Core/Inc/app_common.h` (add `MODE_MATRIX_MENU` to `CalcMode_t`), `Core/Src/calc_engine.c` (det, transpose later)
+**2. MATRIX menu** — Start with menu and 6×6 input UI before wiring math.
+- Files: `App/Src/calculator_core.c` (new `MODE_MATRIX_MENU` handler, new screen objects), `App/Inc/app_common.h` (add `MODE_MATRIX_MENU` to `CalcMode_t`), `App/Src/calc_engine.c` (det, transpose later)
 - Gotchas: CCMRAM is 0% used — matrix storage can go there (64 KB free) or in RAM (~61 KB free); follow same lvgl_lock/unlock pattern as other menus
 
-**4. Persistent storage** — Nothing survives power-off; prerequisite for PRGM and useful for variables/settings too.
-- Files: `Core/Src/main.c` (load on boot), new `Core/Src/persist.c` / `Core/Inc/persist.h` (save/load API), `Core/Src/calculator_core.c` (trigger save on `2nd+ON`)
+**3. Persistent storage** — Nothing survives power-off; prerequisite for PRGM and useful for variables/settings too. Implementation plan saved to `.claude/plans/`.
+- Files: `App/Inc/persist.h` (new), `App/Src/persist.c` (new), `App/Src/calculator_core.c`, `App/Src/app_init.c`, `App/Drivers/Keypad/keypad_map.c`
 - Gotchas:
-  - **Wear** — FLASH sector rated ~10,000 erase cycles. Saving on every keypress (STO, MODE change) could exhaust this in under a year of heavy use. Save only once per session, triggered by `2nd+ON` (power-off gesture), matching real TI-81 behaviour.
-  - **Erase granularity** — must erase the full 128 KB sector before any write, even for 1 byte change; reserve sector 7 (0x080C0000, 128 KB, currently unused).
-  - **Single-bank FLASH freeze** — STM32F429 has one FLASH bank; CPU cannot fetch instructions from FLASH during erase/program. Freeze is acceptable at power-off time but the erase/write routine must still run from RAM (`__attribute__((section(".RamFunc")))`) to avoid a hard fault.
-  - **RTC backup registers** — 80 bytes, but VBAT on the discovery board is capacitor-backed only (not a coin cell), so content is lost on power-off anyway. Not useful here.
-  - Save struct should include: variables A–Z, ANS, graph equations, RANGE settings, MODE settings.
+  - **Wear** — Save only on `2nd+ON` (power-off gesture), not on every keypress. FLASH sector rated ~10,000 erase cycles.
+  - **Erase granularity** — must erase full 128 KB sector 7 (0x080C0000) before any write.
+  - **Single-bank FLASH freeze** — erase/write routine must run from RAM (`__attribute__((section(".RamFunc")))`); `.RamFunc` section already defined in linker script.
+  - **RTC backup registers** — capacitor-backed only on discovery board; lost on power-off. Not useful here.
+  - Save struct: variables A–Z, ANS, graph equations, RANGE settings, MODE settings.
 
-**5. PRGM** — Program editor and runner.
-- Files: `Core/Src/calculator_core.c` (new `MODE_PRGM_*` handlers), `Core/Inc/app_common.h` (new CalcMode_t values), likely a new `Core/Src/prgm.c` / `Core/Inc/prgm.h`
-- Gotchas: program text storage goes in FLASH via the persistent storage layer (item 4 above); working buffer during editing can live in CCMRAM (64 KB free); control flow tokens (If/Then/Goto/Lbl) will need new TOKEN_* entries in `keypad_map.h`
-- PDF pages 133 to 150 of the TI81Guidebook.pdf in the /docs folder contains instructions on original TI-81 programming
- 
-**6. Battery voltage ADC** — Custom PCB only.
-- Files: `Core/Src/main.c` (ADC init and read), `Core/Inc/app_common.h` (add battery voltage to shared state if needed)
-- Note: voltage divider R1=100K / R2=82K gives max 1.89V at 4.2V LiPo — safe for 3.3V VDDA
+**4. PRGM** — Program editor and runner (depends on persistent storage).
+- Files: `App/Src/calculator_core.c` (new `MODE_PRGM_*` handlers), `App/Inc/app_common.h` (new CalcMode_t values), `App/Src/prgm.c` (new), `App/Inc/prgm.h` (new)
+- Gotchas: program text storage goes in FLASH via the persistent storage layer (item 3 above); working buffer during editing can live in CCMRAM (64 KB free); control flow tokens (If/Then/Goto/Lbl) will need new TOKEN_* entries in `App/Drivers/Keypad/keypad_map.h`
+- PDF pages 133–150 of `docs/TI81Guidebook.pdf` contain original TI-81 programming instructions
 
-**7. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
-- Files: `Core/Src/calculator_core.c` (Y= cursor handling for `=` column), `Core/Src/graph.c` (skip disabled equations in renderer)
+**5. Power management / ON button** — The ON button (PE6, labelled `MatrixA0` in CubeMX) is a softkey connected directly to GND — it is not part of the 7×8 keypad matrix. Currently unused. Wire as EXTI interrupt on PE6 (falling edge, pull-up) to wake from Stop mode for battery power savings on the custom PCB.
+- Files: `Core/Src/main.c` or `App/Src/app_init.c` (EXTI config, stop-mode entry), `App/Src/calculator_core.c` (save state before entering stop, trigger `Persist_Save` via `2nd+ON` flow)
+- Gotchas: on wake from Stop mode, clocks must be re-initialised (`SystemClock_Config()`); LTDC and SDRAM re-init may also be needed; test on discovery board by shorting PE6 to GND manually before custom PCB is built
 
-**8. ENTER on blank line recalculates previous entry** — Pressing ENTER on an empty input line should re-evaluate the last expression (same result as recalling it and pressing ENTER again). Matches common calculator behaviour.
-- Files: `Core/Src/calculator_core.c` (`TOKEN_ENTER` handler in `MODE_NORMAL`)
+**6. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
+- Files: `App/Src/calculator_core.c` (Y= cursor handling for `=` column), `App/Src/graph.c` (skip disabled equations in renderer)
 
-**9. 2nd+ENTRY recall conflict** — The UP arrow history recall feature inadvertently displaced the original TI-81 behaviour where `2nd+ENTRY` recalled the last entry. Both behaviours should coexist: UP/DOWN scrolls history as now; `2nd+ENTRY` still recalls the last entry directly.
-- Files: `Core/Src/calculator_core.c` (`TOKEN_ENTRY` handler under `MODE_2ND`)
+**7. ENTER on blank line recalculates previous entry** — Pressing ENTER on an empty input line should re-evaluate the last expression (same result as recalling it and pressing ENTER again). Matches common calculator behaviour.
+- Files: `App/Src/calculator_core.c` (`TOKEN_ENTER` handler in `MODE_NORMAL`)
 
-**10. ~~Project directory restructure~~** ✓ Done (2026-03-15) — All application code now lives under `App/`; CubeMX-generated code stays in `Core/`. CMakeLists.txt updated. See File structure section in Architecture.
+**8. 2nd+ENTRY recall conflict** — The UP arrow history recall feature inadvertently displaced the original TI-81 behaviour where `2nd+ENTRY` recalled the last entry. Both behaviours should coexist: UP/DOWN scrolls history as now; `2nd+ENTRY` still recalls the last entry directly.
+- Files: `App/Src/calculator_core.c` (`TOKEN_ENTRY` handler under `MODE_2ND`)
 
-**11. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. Difficulty is low-to-medium: LVGL supports image objects natively; main question is asset format (RGB565 array in FLASH) and whether to display it before or after LVGL init.
+**9. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. Difficulty is low-to-medium: LVGL supports image objects natively; main question is asset format (RGB565 array in FLASH) and whether to display it before or after LVGL init.
 
-**12. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
+**10. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
 
 ---
 
@@ -169,20 +137,21 @@ These specs describe the intended final state of each menu screen.
 ### MODE screen
 No title text. Screen filled with option rows; arrow keys navigate.
 
-| Row | Options |
-|-----|---------|
-| 1 | Normal \| Sci \| Eng |
-| 2 | Float \| 0 1 2 3 4 5 6 7 8 9 |
-| 3 | Radian \| Degree |
-| 4 | Function \| Param |
-| 5 | Connected \| Dot |
-| 6 | Sequential \| Simul |
-| 7 | Grid off \| Grid on |
-| 8 | Polar \| Seq |
+| Row | Options | Wired? |
+|-----|---------|--------|
+| 1 | Normal \| Sci \| Eng | No — display notation not implemented |
+| 2 | Float \| 0 1 2 3 4 5 6 7 8 9 | Yes — `mode_committed[1]`, `Calc_SetDecimalMode()` |
+| 3 | Radian \| Degree | Yes — `mode_committed[2]`, `angle_degrees` |
+| 4 | Function \| Param | No — parametric graphing not implemented |
+| 5 | Connected \| Dot | No — Connected/Dot curve rendering not implemented |
+| 6 | Sequential \| Simul | No — simultaneous graphing not implemented |
+| 7 | Grid off \| Grid on | Yes — `mode_committed[6]`, `graph_state.grid_on` |
+| 8 | Polar \| Seq | No — polar/sequence graphing not implemented |
 
 - LEFT/RIGHT moves selection within a row. UP/DOWN changes active row.
 - ENTER commits the highlighted selection; stays in MODE screen.
-- State persists in `CalcSettings_t` (only Radian/Degree and basic fields wired so far).
+- Active selections stored in `mode_committed[8]`; wired rows take effect immediately on ENTER.
+- 2ND key should open MODE from any screen (currently only works from `MODE_NORMAL` — see Known Issues).
 
 ---
 
@@ -672,7 +641,7 @@ shunting-yard from treating it as binary subtraction. `-3^2` still evaluates as 
 
 ## Keypad Driver
 
-`Drivers/Keypad/keypad.c`:
+`App/Drivers/Keypad/keypad.c`:
 - 7×8 matrix: A-lines (cols) driven HIGH one at a time, B-lines (rows) read
 - Key ID = `(row * 7) + col`; range 1–55; 0xFF = no key
 - `StartKeypadTask` scans every 20ms, fires `Process_Hardware_Key()` on new keypress
@@ -704,21 +673,42 @@ All ICs verified available on JLCPCB:
 | IC | Purpose |
 |----|---------|
 | STM32H7B0VBT6 | Main MCU LQFP100 |
-| W25Q128JV | 16MB OctoSPI NOR flash on OCTOSPI1 — firmware XIP (required; H7B0 has only 128KB internal flash, current firmware uses 684KB) |
-| W25Q32JV | 4MB OctoSPI NOR flash on OCTOSPI2 — user data (variables, programs, settings) |
-| RT9526A | LiPo charger |
+| W25Q128JV | 16MB OctoSPI NOR flash on OCTOSPI1 — firmware XIP + user data (variables, programs, settings); partitioned by sector |
+| RT9471 | LiPo charger with power path management — I²C programmable, 3A, USB OTG boost, WQFN-24L 4×4 |
 | MT2492 | 3.3V main buck (R_upper=100K, R_lower=22.1K 1%) |
-| RT9078 | 3.3V always-on LDO |
-| RT6150 | 5V Pi boost — DNF Rev1 |
-| USBLC6-2SC6 | USB ESD protection |
+| RT4812 | 5V boost — **DNF Rev1; reserved for Rev2 when Raspberry Pi Zero 2 W is integrated** |
+| TPD4E05U06DQAR | USB ESD protection (TI, 4-channel, SOT-563) |
+
+**Power architecture notes:**
+
+Power flows as follows:
+```
+USB ──► RT9471 (SYS rail) ──► MT2492 (buck) ──► 3.3V system rail
+         ▲        │
+        BAT ──────┘  (RT9471 power path selects best source automatically)
+```
+
+- **RT9471 SYS rail** is a managed output — not a raw battery passthrough. It has a guaranteed minimum of 3.5V (VSYS_MIN) at all times while any power source is available. When USB is connected, SYS is regulated from VBUS and the system runs normally even with a fully depleted battery.
+- **MT2492** bucks the SYS rail down to 3.3V. Minimum headroom at worst case (SYS = 3.5V, VOUT = 3.3V) is 200mV — tight but workable. At 300mA load the buck dropout is ~100mV, well within margin.
+- **Low-battery threshold:** set the ADC monitor to flag low battery at ~3.6V (battery terminal, not SYS) to ensure graceful shutdown before SYS hits its 3.5V floor. At 3.6V battery the system still has ~200mV headroom on the MT2492.
+- **MT2492 feedback resistors:** R_upper = 100kΩ, R_lower = 22.1kΩ 1% → 3.3V output. Optionally bias to 3.28V to gain a few mV of extra dropout margin.
+- **RT9471 I²C:** SCL/SDA to STM32 with 10kΩ pull-ups to 3.3V. Default power-on settings (2A charge current, 4.2V charge voltage, 0.5A input current limit) are safe without firmware initialisation, but the STM32 should configure AICR to 1.5A on boot to allow faster charging when a capable adapter is present. CE pin pulled low to enable charging; INT pin to STM32 GPIO for fault notification.
+- **RT9471 package:** WQFN-24L 4×4 with exposed thermal pad — thermal pad must be soldered to a solid GND copper pour for heat dissipation. Requires reflow; not hand-solderable.
+- **TPD4E05U06DQAR:** placed on USB D+/D− lines as close to the connector as possible, before the RT9471 D+/D− pins. SOT-563 package.
+- **RT4812 (DNF Rev1):** footprint placed on board but unpopulated. Reserved for Rev2 when a Raspberry Pi Zero 2 W is added to the design — the Pi requires a 5V supply rail that the RT4812 will provide by boosting from the LiPo.
 
 **External flash notes:**
-- H7B0 has two independent OctoSPI peripherals — use both to fully eliminate the write-freeze problem:
-  - **OCTOSPI1 → W25Q128JV**: permanently in memory-mapped (XIP) mode; firmware executes directly from it and it is never written at runtime
-  - **OCTOSPI2 → W25Q32JV**: dedicated to user data; freely erased/written without affecting code execution — no `.RamFunc` workaround needed, no freeze, no mode switching
-- W25Q128JV is single-bank NOR; writing to it while in XIP mode would require switching OctoSPI to indirect mode and running erase from RAM — the two-chip split avoids this entirely
+- Single W25Q128JV (16MB) on OCTOSPI1 serves both firmware XIP and user data storage. 16MB is far more than enough — current firmware is ~684KB; even with generous growth headroom, the top 1–2MB is more than sufficient for user data.
+- **Proposed partition layout:**
+  - `0x000000 – 0x0FFFFF` (first 1MB): firmware image (XIP, never written at runtime)
+  - `0x100000 – 0xFFFFFF` (remaining 15MB): user data — variables, programs, settings
+- **Write-freeze gotcha (critical):** W25Q128JV is single-bank NOR. Erasing or writing any sector while OCTOSPI1 is in memory-mapped (XIP) mode stalls the AHB bus and freezes execution. Any erase/write routine that touches the user data partition **must** run from RAM:
+  - Declare with `__attribute__((section(".RamFunc")))` or equivalent linker section
+  - Switch OCTOSPI1 to indirect mode before erase/write; switch back to memory-mapped mode before returning
+  - Keep the routine short — execution is stalled during the switch and any cache misses will fault
+- **Alternative approach (simpler):** only write flash on `2nd+ON` power-off gesture (same plan as STM32F429 persistent storage). This limits erase/write operations to once per session and makes the RAM-execution window very short and predictable.
 - Flash wear negligible at this scale — effectively unlimited for calculator use
-- CR2032 coin cell on VBAT pin — plan footprint in Rev1; enables RTC backup registers to survive power-off for timekeeping or fast-boot state
+- **VBAT supply:** no coin cell. Route LiPo BAT pin → BAT54 Schottky diode (SOD-323) → STM32 VBAT. The diode prevents back-feed into the RT9471 power path. VBAT draws ~1–5μA; a 1000mAh LiPo powering only VBAT would last decades. RTC survives soft power-off as long as the LiPo is installed. If LiPo is removed the RTC resets — acceptable since no timekeeping feature is planned.
 - Battery monitoring: voltage divider R1=100K / R2=82K 1% into STM32 ADC; max ADC voltage at 4.2V LiPo = 1.89V (safe for 3.3V VDDA reference)
 
 ---
