@@ -57,16 +57,6 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define MatrixA4_Pin GPIO_PIN_2
-#define MatrixA4_GPIO_Port GPIOE
-#define MatrixA3_Pin GPIO_PIN_3
-#define MatrixA3_GPIO_Port GPIOE
-#define MatrixA2_Pin GPIO_PIN_4
-#define MatrixA2_GPIO_Port GPIOE
-#define MatrixA1_Pin GPIO_PIN_5
-#define MatrixA1_GPIO_Port GPIOE
-#define MatrixA0_Pin GPIO_PIN_6
-#define MatrixA0_GPIO_Port GPIOE
 #define PC14_OSC32_IN_Pin GPIO_PIN_14
 #define PC14_OSC32_IN_GPIO_Port GPIOC
 #define PC15_OSC32_OUT_Pin GPIO_PIN_15
@@ -101,8 +91,6 @@ void Error_Handler(void);
 #define NCS_MEMS_SPI_GPIO_Port GPIOC
 #define CSX_Pin GPIO_PIN_2
 #define CSX_GPIO_Port GPIOC
-#define MatrixB5_Pin GPIO_PIN_3
-#define MatrixB5_GPIO_Port GPIOC
 #define B1_Pin GPIO_PIN_0
 #define B1_GPIO_Port GPIOA
 #define MEMS_INT1_Pin GPIO_PIN_1
@@ -113,8 +101,6 @@ void Error_Handler(void);
 #define B5_GPIO_Port GPIOA
 #define VSYNC_Pin GPIO_PIN_4
 #define VSYNC_GPIO_Port GPIOA
-#define MatrixB6_Pin GPIO_PIN_5
-#define MatrixB6_GPIO_Port GPIOA
 #define G2_Pin GPIO_PIN_6
 #define G2_GPIO_Port GPIOA
 #define ACP_RST_Pin GPIO_PIN_7
@@ -189,10 +175,6 @@ void Error_Handler(void);
 #define D0_GPIO_Port GPIOD
 #define D1_Pin GPIO_PIN_15
 #define D1_GPIO_Port GPIOD
-#define MatrixB7_Pin GPIO_PIN_2
-#define MatrixB7_GPIO_Port GPIOG
-#define MatrixB8_Pin GPIO_PIN_3
-#define MatrixB8_GPIO_Port GPIOG
 #define BA0_Pin GPIO_PIN_4
 #define BA0_GPIO_Port GPIOG
 #define BA1_Pin GPIO_PIN_5
@@ -207,8 +189,6 @@ void Error_Handler(void);
 #define HSYNC_GPIO_Port GPIOC
 #define G6_Pin GPIO_PIN_7
 #define G6_GPIO_Port GPIOC
-#define MatrixB4_Pin GPIO_PIN_8
-#define MatrixB4_GPIO_Port GPIOC
 #define I2C3_SDA_Pin GPIO_PIN_9
 #define I2C3_SDA_GPIO_Port GPIOC
 #define I2C3_SCL_Pin GPIO_PIN_8
@@ -229,8 +209,6 @@ void Error_Handler(void);
 #define TP_INT1_GPIO_Port GPIOA
 #define R2_Pin GPIO_PIN_10
 #define R2_GPIO_Port GPIOC
-#define MatrixB3_Pin GPIO_PIN_11
-#define MatrixB3_GPIO_Port GPIOC
 #define D2_Pin GPIO_PIN_0
 #define D2_GPIO_Port GPIOD
 #define D3_Pin GPIO_PIN_1
@@ -239,10 +217,6 @@ void Error_Handler(void);
 #define G7_GPIO_Port GPIOD
 #define B2_Pin GPIO_PIN_6
 #define B2_GPIO_Port GPIOD
-#define MatrixB2_Pin GPIO_PIN_7
-#define MatrixB2_GPIO_Port GPIOD
-#define MatrixB1_Pin GPIO_PIN_9
-#define MatrixB1_GPIO_Port GPIOG
 #define G3_Pin GPIO_PIN_10
 #define G3_GPIO_Port GPIOG
 #define B3_Pin GPIO_PIN_11
@@ -255,16 +229,10 @@ void Error_Handler(void);
 #define LD4_GPIO_Port GPIOG
 #define SDNCAS_Pin GPIO_PIN_15
 #define SDNCAS_GPIO_Port GPIOG
-#define MatrixA7_Pin GPIO_PIN_3
-#define MatrixA7_GPIO_Port GPIOB
-#define MatrixA6_Pin GPIO_PIN_4
-#define MatrixA6_GPIO_Port GPIOB
 #define SDCKE1_Pin GPIO_PIN_5
 #define SDCKE1_GPIO_Port GPIOB
 #define SDNE1_Pin GPIO_PIN_6
 #define SDNE1_GPIO_Port GPIOB
-#define MatrixA5_Pin GPIO_PIN_7
-#define MatrixA5_GPIO_Port GPIOB
 #define B6_Pin GPIO_PIN_8
 #define B6_GPIO_Port GPIOB
 #define B7_Pin GPIO_PIN_9

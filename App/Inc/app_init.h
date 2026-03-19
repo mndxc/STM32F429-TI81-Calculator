@@ -31,6 +31,14 @@ void App_DefaultTask_Run(void);
 void Power_EnterStop(void);
 
 /**
+ * @brief  Prototype stand-in for Stop mode sleep.
+ *         Shows a full-screen black "Powered off" overlay and blocks until
+ *         the ON button is pressed.  Replaces Power_EnterStop() on the
+ *         STM32F429I-DISC1 where the display cannot be held dark in hardware.
+ */
+void Power_DisplayBlankAndMessage(void);
+
+/**
  * @brief  Wrapper around the static SystemClock_Config() so App code can
  *         call it after waking from Stop mode.  Defined in main.c USER CODE.
  */

@@ -1875,17 +1875,23 @@ void Execute_Token(Token_t t)
         sto_pending  = false;
         lvgl_lock();
         lv_obj_del(saving_lbl);
+        /* ON always lands on the calculator screen — hide every graph screen.
+         * Without this, pressing ON while viewing the graph or a graph editor
+         * leaves current_mode=NORMAL with the graph still visible, and CLEAR
+         * (which operates on the expression in NORMAL mode) cannot dismiss it. */
+        Graph_SetVisible(false);
+        lv_obj_add_flag(ui_graph_yeq_screen,         LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(ui_graph_range_screen,        LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(ui_graph_zoom_screen,         LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_status_bar();
         lvgl_unlock();
 
         if (power_down) {
-            /* 2nd+ON — enter Stop mode; returns after ON button wakes the CPU */
-            Power_EnterStop();
-            /* Force a full LVGL redraw on wake (SDRAM content survives
-             * self-refresh but LVGL dirty-region state may need a nudge) */
-            lvgl_lock();
-            lv_obj_invalidate(lv_scr_act());
-            lvgl_unlock();
+            /* 2nd+ON — show "Powered off" screen and block until ON is pressed.
+             * Power_DisplayBlankAndMessage() is the prototype stand-in for
+             * Power_EnterStop(); it handles the LVGL invalidate internally. */
+            Power_DisplayBlankAndMessage();
         }
         return;
     }
@@ -2800,7 +2806,12 @@ void Execute_Token(Token_t t)
             lvgl_unlock();
             return;
         case TOKEN_TRACE:
-            /* Pressing TRACE again is a no-op while already tracing */
+            /* Pressing TRACE again exits trace — return to plain graph view */
+            current_mode = MODE_NORMAL;
+            lvgl_lock();
+            Graph_ClearTrace();
+            Graph_Render(angle_degrees);
+            lvgl_unlock();
             return;
         default:
             /* Any other key exits trace — clear cursor, re-render clean graph,

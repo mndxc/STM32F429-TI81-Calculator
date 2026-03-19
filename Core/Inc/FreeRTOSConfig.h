@@ -138,7 +138,24 @@ standard names. */
 #define xPortSysTickHandler SysTick_Handler
 
 /* USER CODE BEGIN Defines */
-/* Section where parameter definitions can be added (for instance, to override default ones in FreeRTOS.h) */
+/* Project-specific overrides — preserved across CubeMX regeneration.
+ * CubeMX writes the body of this file from .ioc settings; if any of these
+ * values are accidentally reset there, the #undef/#define pairs below
+ * restore the correct project values.
+ *
+ * NOTE: configUSE_IDLE_HOOK and configUSE_MALLOC_FAILED_HOOK are intentionally
+ * NOT overridden here — those flags control whether CubeMX generates the weak
+ * hook stubs in freertos.c. They must stay set in the .ioc. */
+#undef  configTOTAL_HEAP_SIZE
+#define configTOTAL_HEAP_SIZE            ((size_t)65536)
+#undef  configCHECK_FOR_STACK_OVERFLOW
+#define configCHECK_FOR_STACK_OVERFLOW   2
+#undef  configUSE_RECURSIVE_MUTEXES
+#define configUSE_RECURSIVE_MUTEXES      1
+#undef  configUSE_APPLICATION_TASK_TAG
+#define configUSE_APPLICATION_TASK_TAG   1
+#undef  configUSE_COUNTING_SEMAPHORES
+#define configUSE_COUNTING_SEMAPHORES    1
 /* USER CODE END Defines */
 
 #endif /* FREERTOS_CONFIG_H */

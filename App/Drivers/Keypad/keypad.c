@@ -24,27 +24,27 @@
 
 /** Column driver lines — driven HIGH one at a time during scan */
 static GPIO_TypeDef *Matrix_A_Ports[] = {
-    MatrixA1_GPIO_Port, MatrixA2_GPIO_Port, MatrixA3_GPIO_Port,
-    MatrixA4_GPIO_Port, MatrixA5_GPIO_Port, MatrixA6_GPIO_Port,
-    MatrixA7_GPIO_Port
+    KEYPAD_A1_PORT, KEYPAD_A2_PORT, KEYPAD_A3_PORT,
+    KEYPAD_A4_PORT, KEYPAD_A5_PORT, KEYPAD_A6_PORT,
+    KEYPAD_A7_PORT
 };
 
 static uint16_t Matrix_A_Pins[] = {
-    MatrixA1_Pin, MatrixA2_Pin, MatrixA3_Pin,
-    MatrixA4_Pin, MatrixA5_Pin, MatrixA6_Pin,
-    MatrixA7_Pin
+    KEYPAD_A1_PIN, KEYPAD_A2_PIN, KEYPAD_A3_PIN,
+    KEYPAD_A4_PIN, KEYPAD_A5_PIN, KEYPAD_A6_PIN,
+    KEYPAD_A7_PIN
 };
 
 /** Row input lines — read with pull-down resistors */
 static GPIO_TypeDef *Matrix_B_Ports[] = {
-    MatrixB1_GPIO_Port, MatrixB2_GPIO_Port, MatrixB3_GPIO_Port,
-    MatrixB4_GPIO_Port, MatrixB5_GPIO_Port, MatrixB6_GPIO_Port,
-    MatrixB7_GPIO_Port, MatrixB8_GPIO_Port
+    KEYPAD_B1_PORT, KEYPAD_B2_PORT, KEYPAD_B3_PORT,
+    KEYPAD_B4_PORT, KEYPAD_B5_PORT, KEYPAD_B6_PORT,
+    KEYPAD_B7_PORT, KEYPAD_B8_PORT
 };
 
 static uint16_t Matrix_B_Pins[] = {
-    MatrixB1_Pin, MatrixB2_Pin, MatrixB3_Pin, MatrixB4_Pin,
-    MatrixB5_Pin, MatrixB6_Pin, MatrixB7_Pin, MatrixB8_Pin
+    KEYPAD_B1_PIN, KEYPAD_B2_PIN, KEYPAD_B3_PIN, KEYPAD_B4_PIN,
+    KEYPAD_B5_PIN, KEYPAD_B6_PIN, KEYPAD_B7_PIN, KEYPAD_B8_PIN
 };
 
 #define MATRIX_COLS     7
@@ -54,6 +54,58 @@ static uint16_t Matrix_B_Pins[] = {
 /*---------------------------------------------------------------------------
  * Global functions
  *--------------------------------------------------------------------------*/
+
+/**
+ * @brief Initialises all keypad matrix GPIO pins.
+ *
+ * A-lines (column drivers): push-pull output, no pull, low speed.
+ * B-lines (row inputs):     input with pull-down.
+ *
+ * Clock enables are emitted for every port used; redundant enables are
+ * harmless and avoid silent failures if a port's clock was not already on.
+ *
+ * PE6 (ON button) is NOT configured here — on_button_init() in app_init.c
+ * sets it up as a falling-edge EXTI with pull-up.
+ */
+void Keypad_GPIO_Init(void)
+{
+    GPIO_InitTypeDef gpio = {0};
+
+    /* Enable GPIO clocks for all ports used by the keypad matrix */
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOD_CLK_ENABLE();
+    __HAL_RCC_GPIOE_CLK_ENABLE();
+    __HAL_RCC_GPIOG_CLK_ENABLE();
+
+    /* A-lines: push-pull output, all driven LOW initially */
+    gpio.Mode  = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull  = GPIO_NOPULL;
+    gpio.Speed = GPIO_SPEED_FREQ_LOW;
+
+    gpio.Pin = KEYPAD_A1_PIN; HAL_GPIO_Init(KEYPAD_A1_PORT, &gpio);
+    gpio.Pin = KEYPAD_A2_PIN; HAL_GPIO_Init(KEYPAD_A2_PORT, &gpio);
+    gpio.Pin = KEYPAD_A3_PIN; HAL_GPIO_Init(KEYPAD_A3_PORT, &gpio);
+    gpio.Pin = KEYPAD_A4_PIN; HAL_GPIO_Init(KEYPAD_A4_PORT, &gpio);
+    gpio.Pin = KEYPAD_A5_PIN; HAL_GPIO_Init(KEYPAD_A5_PORT, &gpio);
+    gpio.Pin = KEYPAD_A6_PIN; HAL_GPIO_Init(KEYPAD_A6_PORT, &gpio);
+    gpio.Pin = KEYPAD_A7_PIN; HAL_GPIO_Init(KEYPAD_A7_PORT, &gpio);
+
+    /* B-lines: input with pull-down */
+    gpio.Mode  = GPIO_MODE_INPUT;
+    gpio.Pull  = GPIO_PULLDOWN;
+    gpio.Speed = GPIO_SPEED_FREQ_LOW;
+
+    gpio.Pin = KEYPAD_B1_PIN; HAL_GPIO_Init(KEYPAD_B1_PORT, &gpio);
+    gpio.Pin = KEYPAD_B2_PIN; HAL_GPIO_Init(KEYPAD_B2_PORT, &gpio);
+    gpio.Pin = KEYPAD_B3_PIN; HAL_GPIO_Init(KEYPAD_B3_PORT, &gpio);
+    gpio.Pin = KEYPAD_B4_PIN; HAL_GPIO_Init(KEYPAD_B4_PORT, &gpio);
+    gpio.Pin = KEYPAD_B5_PIN; HAL_GPIO_Init(KEYPAD_B5_PORT, &gpio);
+    gpio.Pin = KEYPAD_B6_PIN; HAL_GPIO_Init(KEYPAD_B6_PORT, &gpio);
+    gpio.Pin = KEYPAD_B7_PIN; HAL_GPIO_Init(KEYPAD_B7_PORT, &gpio);
+    gpio.Pin = KEYPAD_B8_PIN; HAL_GPIO_Init(KEYPAD_B8_PORT, &gpio);
+}
 
 /**
  * @brief Scans the full 7x8 keypad matrix.
@@ -119,6 +171,10 @@ static const uint8_t ARROW_KEY_IDS[] = {
 void StartKeypadTask(void const *argument)
 {
     (void)argument;
+
+    /* Configure all matrix GPIO pins before first scan */
+    Keypad_GPIO_Init();
+
     uint8_t  last_key   = MATRIX_NO_KEY;
     uint32_t hold_ticks = 0;
 

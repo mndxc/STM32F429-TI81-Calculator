@@ -13,6 +13,7 @@
 #include "cmsis_os.h"
 #include "usb_host.h"
 #include "app_common.h"
+#include "keypad.h"
 #include "lv_port_disp.h"
 #include "lv_port_indev.h"
 #include "lvgl.h"
@@ -54,23 +55,23 @@ volatile bool g_sleeping = false;
  *---------------------------------------------------------------------------*/
 
 /**
- * @brief  Reconfigures PE6 (MatrixA0) as the ON button EXTI input.
+ * @brief  Configures PE6 (KEYPAD_ON_PIN) as the ON button EXTI input.
  *
- * CubeMX generates PE6 as a push-pull output (leftover MatrixA0 label).
- * The keypad scanner only drives MatrixA1–MatrixA7, so PE6 is completely
- * idle in the generated config. This override runs after MX_GPIO_Init()
- * and reconfigures PE6 as a pull-up input with a falling-edge EXTI.
+ * On a default DISC1 project PE6 is unconfigured. This runs after
+ * MX_GPIO_Init() and sets PE6 as a pull-up input with a falling-edge EXTI.
+ * Pin constants come from keypad.h so this function has no dependency on
+ * CubeMX-generated main.h macros.
  *
- * Called from App_RTOS_Init() so it lives entirely in App code with no
- * changes required to any CubeMX-generated file.
+ * Called from App_RTOS_Init() — entirely in App code, no generated file
+ * modifications required.
  */
 static void on_button_init(void)
 {
     GPIO_InitTypeDef gpio = {0};
-    gpio.Pin  = MatrixA0_Pin;         /* PE6 */
+    gpio.Pin  = KEYPAD_ON_PIN;        /* PE6 */
     gpio.Mode = GPIO_MODE_IT_FALLING; /* button shorts to GND on press */
     gpio.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(MatrixA0_GPIO_Port, &gpio);
+    HAL_GPIO_Init(KEYPAD_ON_PORT, &gpio);
 
     /* Priority 5 — at or below configMAX_SYSCALL_INTERRUPT_PRIORITY on F4,
      * required for xQueueSendFromISR to be safe */
@@ -107,7 +108,7 @@ void App_RTOS_Init(void)
  */
 void EXTI9_5_IRQHandler(void)
 {
-    HAL_GPIO_EXTI_IRQHandler(MatrixA0_Pin);
+    HAL_GPIO_EXTI_IRQHandler(KEYPAD_ON_PIN);
 }
 
 /**
@@ -122,7 +123,7 @@ void EXTI9_5_IRQHandler(void)
  */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    if (GPIO_Pin != MatrixA0_Pin) { return; }
+    if (GPIO_Pin != KEYPAD_ON_PIN) { return; }
     if (g_sleeping) { return; }          /* waking from Stop — nothing to queue */
     if (keypadQueueHandle == NULL) { return; }
 
@@ -228,6 +229,58 @@ void Power_EnterStop(void)
 }
 
 /**
+ * @brief  Prototype stand-in for Stop mode sleep.
+ *
+ * On the STM32F429I-DISC1 the ILI9341 runs in RGB interface mode and has no
+ * internal frame buffer.  Once LTDC stops clocking, the panel capacitors
+ * discharge and the display fades to white — there is no hardware path to hold
+ * it black.  Rather than enter actual Stop mode (invisible, then white fade),
+ * this function shows a full-screen black LVGL overlay with a dim centred
+ * "Powered off" label and blocks until the ON button is pressed again.
+ *
+ * The call site in Execute_Token is identical to where Power_EnterStop() would
+ * be called, so replacing this with the real implementation on a custom PCB
+ * only requires changing this function body.
+ */
+void Power_DisplayBlankAndMessage(void)
+{
+    /* 1. Create a full-screen black overlay so every active screen below
+     *    is completely hidden.  The overlay is the last child of lv_scr_act()
+     *    so LVGL draws it on top of everything else. */
+    xSemaphoreTake(xLVGL_Mutex, portMAX_DELAY);
+    lv_obj_t *overlay = lv_obj_create(lv_scr_act());
+    lv_obj_set_size(overlay, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_pos(overlay, 0, 0);
+    lv_obj_set_style_bg_color(overlay, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(overlay, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(overlay, 0, 0);
+    lv_obj_set_style_pad_all(overlay, 0, 0);
+    lv_obj_clear_flag(overlay, LV_OBJ_FLAG_SCROLLABLE);
+
+    lv_obj_t *lbl = lv_label_create(overlay);
+    lv_label_set_text(lbl, "Powered off");
+    lv_obj_set_style_text_color(lbl, lv_color_hex(0x444444), 0);
+    lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+    xSemaphoreGive(xLVGL_Mutex);
+
+    /* 2. Let DefaultTask render the overlay for at least one full frame */
+    osDelay(20);
+
+    /* 3. Drain the queue and block until the ON button is pressed.
+     *    Any other tokens that arrive while the screen is "off" are discarded. */
+    Token_t tok;
+    do {
+        xQueueReceive(keypadQueueHandle, &tok, portMAX_DELAY);
+    } while (tok != TOKEN_ON);
+
+    /* 4. Tear down the overlay — screens beneath are unchanged */
+    xSemaphoreTake(xLVGL_Mutex, portMAX_DELAY);
+    lv_obj_del(overlay);
+    lv_obj_invalidate(lv_scr_act());
+    xSemaphoreGive(xLVGL_Mutex);
+}
+
+/**
  * @brief  Printf retarget to USART1 for debug output.
  */
 int _write(int file, char *ptr, int len)
@@ -247,15 +300,23 @@ void App_DefaultTask_Run(void)
     /* Bring up external SDRAM — framebuffer lives here */
     BSP_SDRAM_Init();
 
-    /* Initialise the ILI9341 display controller over SPI */
+    /* Initialise the ILI9341 display controller over SPI.
+     * LTDC is disabled at this point (disabled in MX_LTDC_Init after CubeMX
+     * config) so the ILI9341 SPI init sequence is not corrupted by garbage
+     * RGB pixel data from an uninitialised framebuffer. */
     BSP_LCD_Init();
     BSP_LCD_LayerDefaultInit(LCD_BACKGROUND_LAYER, LCD_FRAME_BUFFER);
     BSP_LCD_SelectLayer(LCD_BACKGROUND_LAYER);
-    BSP_LCD_DisplayOn();
 
-    /* Clear framebuffer to black before LVGL takes over */
+    /* Clear framebuffer to black BEFORE enabling LTDC and turning the display
+     * on — this guarantees the first frame the ILI9341 sees is solid black. */
     memset((void *)LCD_FRAMEBUFFER_ADDR, 0,
            LCD_WIDTH * LCD_HEIGHT * LCD_BYTES_PER_PIXEL);
+
+    /* Re-enable LTDC now the framebuffer is black and ILI9341 is initialised. */
+    LTDC->GCR |= LTDC_GCR_LTDCEN;
+
+    BSP_LCD_DisplayOn();
 
     /* Initialise LVGL and connect tick source */
     lv_init();

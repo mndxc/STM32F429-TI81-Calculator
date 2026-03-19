@@ -110,8 +110,68 @@ enum {
 };
 
 /*---------------------------------------------------------------------------
+ * Hardware pin assignments
+ *
+ * Defined here so keypad.c and app_init.c are independent of the
+ * CubeMX-generated main.h Matrix* macros. A fresh CubeMX project needs no
+ * keypad GPIO entries in the .ioc — Keypad_GPIO_Init() handles all of it.
+ *--------------------------------------------------------------------------*/
+
+/* A-lines: column driver outputs (driven HIGH one at a time during scan)
+ * Wiring: MatrixA1=PE5, A2=PE4, A3=PE3, A4=PE2, A5=PB7, A6=PB4, A7=PB3 */
+#define KEYPAD_A1_PORT  GPIOE
+#define KEYPAD_A1_PIN   GPIO_PIN_5
+#define KEYPAD_A2_PORT  GPIOE
+#define KEYPAD_A2_PIN   GPIO_PIN_4
+#define KEYPAD_A3_PORT  GPIOE
+#define KEYPAD_A3_PIN   GPIO_PIN_3
+#define KEYPAD_A4_PORT  GPIOE
+#define KEYPAD_A4_PIN   GPIO_PIN_2
+#define KEYPAD_A5_PORT  GPIOB
+#define KEYPAD_A5_PIN   GPIO_PIN_7
+#define KEYPAD_A6_PORT  GPIOB
+#define KEYPAD_A6_PIN   GPIO_PIN_4
+#define KEYPAD_A7_PORT  GPIOB
+#define KEYPAD_A7_PIN   GPIO_PIN_3
+
+/* B-lines: row sense inputs (pull-down; read HIGH when key pressed)
+ * Wiring: MatrixB1=PG9, B2=PD7, B3=PC11, B4=PC8, B5=PC3, B6=PA5, B7=PG2, B8=PG3 */
+#define KEYPAD_B1_PORT  GPIOG
+#define KEYPAD_B1_PIN   GPIO_PIN_9
+#define KEYPAD_B2_PORT  GPIOD
+#define KEYPAD_B2_PIN   GPIO_PIN_7
+#define KEYPAD_B3_PORT  GPIOC
+#define KEYPAD_B3_PIN   GPIO_PIN_11
+#define KEYPAD_B4_PORT  GPIOC
+#define KEYPAD_B4_PIN   GPIO_PIN_8
+#define KEYPAD_B5_PORT  GPIOC
+#define KEYPAD_B5_PIN   GPIO_PIN_3
+#define KEYPAD_B6_PORT  GPIOA
+#define KEYPAD_B6_PIN   GPIO_PIN_5
+#define KEYPAD_B7_PORT  GPIOG
+#define KEYPAD_B7_PIN   GPIO_PIN_2
+#define KEYPAD_B8_PORT  GPIOG
+#define KEYPAD_B8_PIN   GPIO_PIN_3
+
+/* ON button — PE6, falling-edge EXTI, configured by on_button_init() in
+ * app_init.c. Not part of the scan; listed here for a single source of truth. */
+#define KEYPAD_ON_PORT  GPIOE
+#define KEYPAD_ON_PIN   GPIO_PIN_6
+
+/*---------------------------------------------------------------------------
  * Function prototypes
  *--------------------------------------------------------------------------*/
+
+/**
+ * @brief Initialises all keypad matrix GPIO pins.
+ *
+ * A-lines configured as push-pull outputs; B-lines as pull-down inputs.
+ * The ON button (PE6) is NOT configured here — on_button_init() in
+ * app_init.c sets it up as a falling-edge EXTI.
+ *
+ * Called once from StartKeypadTask() before the scan loop starts.
+ */
+void Keypad_GPIO_Init(void);
 
 /**
  * @brief Scans the 7x8 matrix and returns the ID of the first pressed key.
