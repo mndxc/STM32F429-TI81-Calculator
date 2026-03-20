@@ -14,17 +14,20 @@
 #include <string.h>
 
 /*---------------------------------------------------------------------------
- * Global store (in-RAM, normal .bss)
+ * Global store — placed in CCMRAM (64 KB, CPU-only, 0% used elsewhere).
+ * At 19280 B the store fits easily; CCMRAM cannot be used for DMA but
+ * g_prgm_store is only ever touched by the CPU (CalcCoreTask / Prgm_Save).
  *---------------------------------------------------------------------------*/
 
-ProgramStore_t g_prgm_store;
+ProgramStore_t g_prgm_store __attribute__((section(".ccmram")));
 
 /*---------------------------------------------------------------------------
- * Static write buffer — module-level so it is always in RAM during FLASH ops.
- * A 5226-byte stack allocation in Prgm_Save would risk CalcCoreTask overflow.
+ * Static write buffer — also in CCMRAM so it does not burden main RAM.
+ * The .RamFunc write routine copies from CCMRAM into FLASH word-by-word;
+ * CCMRAM is accessible to the CPU even while code runs from .RamFunc SRAM.
  *---------------------------------------------------------------------------*/
 
-static ProgramFlashBlock_t s_prgm_flash_buf;
+static ProgramFlashBlock_t s_prgm_flash_buf __attribute__((section(".ccmram")));
 
 /*---------------------------------------------------------------------------
  * Internal helpers

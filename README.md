@@ -24,7 +24,11 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 Core arithmetic, standard math functions (trig, hyperbolic, log, √), variables A–Z / ANS, TEST operators, and the MATH/MODE menus all work. Function graphing is fully implemented — Y= editor, RANGE, ZOOM (8 presets, ZBox, Set Factors), and TRACE. State persists across power cycles; `2nd+ON` enters Stop mode with full wake restore.
 
-STAT, PRGM, and MATRIX are not yet implemented.
+MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, and FLASH persistence.
+
+PRGM is ~85% complete: EXEC/EDIT/ERASE menu with all 37 slots, name entry (letters and digits, optional), line editor with CTL/I/O sub-menus, and a full text interpreter supporting `If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, subroutine calls, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment, and general expression lines. Programs persist in FLASH.
+
+STAT is not yet implemented.
 
 ---
 

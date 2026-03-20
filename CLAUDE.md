@@ -6,7 +6,7 @@ It also provides continuity for AI-assisted development sessions, summarising al
 
 ---
 
-## Feature Completion Status (~60% of original TI-81, as of 2026-03-19; PRGM executor added 2026-03-19)
+## Feature Completion Status (~65% of original TI-81, as of 2026-03-20; PRGM UI polish session added 2026-03-20)
 
 ### Well-implemented (60–100%)
 
@@ -24,7 +24,7 @@ It also provides continuity for AI-assisted development sessions, summarising al
 | Area | Est. Done | Notes |
 |---|---|---|
 | MATRIX | ~95% | Variable dimensions 1–6×6 per matrix; scrolling cell editor with dim mode; all 6 explicit ops + arithmetic (+, −, ×, scalar×matrix) fully evaluated; `det(ANS)` / `[A]+ANS` chains work; persist across power-off; `[A]`/`[B]`/`[C]` cursor/DEL atomicity fixed; matrix tokens blocked in Y= editor |
-| PRGM | ~80% | Sessions 1+2 complete: EXEC/EDIT/NEW menu, name-entry, line editor, CTL/I/O sub-menus, FLASH sector 11 persistence, full text interpreter. Supported: `If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, `prgm` subroutine call, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment (`expr->VAR`), general expression lines. EXEC tab runs selected program; CLEAR aborts; ENTER resumes after Pause/Input. Deferred: `IS>(`, `DS<(`, `Menu(`, `Output(`. **⚠️ Pending hardware validation — see `TEMP-prgm_manual_tests.md` (20 tests).** |
+| PRGM | ~85% | Sessions 1+2+3 complete: EXEC/EDIT/ERASE menu, name-entry (A–Z and 0–9, user name optional), line editor, CTL/I/O sub-menus, FLASH sector 11 persistence, full text interpreter. EXEC and EDIT both list all 37 slots as `N:PrgmN` with optional user-name column; ERASE shows occupied slots only. Cursor blinks and reflects 2nd/ALPHA state in editor and name-entry screens, matching all other menus. Highlighted items/tabs use yellow (0xFFFF00); scroll indicators use amber (0xFFAA00) with opaque background that covers the underlying colon. Supported: `If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, `prgm` subroutine call, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment (`expr->VAR`), general expression lines. CLEAR aborts; ENTER resumes after Pause/Input. Deferred: `IS>(`, `DS<(`, `Menu(`, `Output(`. **⚠️ Pending hardware validation — see `TEMP-prgm_manual_tests.md` (28 tests).** |
 
 ### Entirely missing (0%)
 
@@ -35,7 +35,7 @@ It also provides continuity for AI-assisted development sessions, summarising al
 | Parametric / Polar / Seq graphing | ~5% | Only function mode works |
 | VARS menu | ~3% | Window, Zoom, GDB, Picture, Statistics vars — stub only |
 
-The core calculator (arithmetic + standard functions + function graphing + TEST comparisons + matrix math + PRGM) covers ~85% of day-to-day TI-81 usage. STAT is entirely absent. Matrix is ~95% complete; PRGM is ~80% complete.
+The core calculator (arithmetic + standard functions + function graphing + TEST comparisons + matrix math + PRGM) covers ~85% of day-to-day TI-81 usage. STAT is entirely absent. Matrix is ~95% complete; PRGM is ~85% complete.
 
 ---
 
@@ -137,7 +137,7 @@ A new contributor can reproduce the CubeMX base from scratch with a single non-d
 
 ---
 
-## Current Project State (as of 2026-03-19)
+## Current Project State (as of 2026-03-20)
 
 All custom application code lives under `App/`. `Core/` contains only CubeMX-generated files. The `main.c` touch points are `#include "app_init.h"` and `App_RTOS_Init()`.
 
@@ -181,6 +181,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - **Matrix arithmetic (+, −, ×, scalar×matrix)** — `[A]+[B]`, `[A]-[B]`, `[A]*[B]`, `scalar*[M]`, `[M]*scalar` fully evaluated. `mat_add`, `mat_sub`, `mat_mul`, `mat_scale` helpers in `calc_engine.c`; matrix dispatch block runs before the scalar binary-op block in `EvaluateRPN`. Result always written to `calc_matrices[3]` (ANS slot). Chaining works: `det(ANS)` after a matrix result correctly resolves ANS as a matrix reference via `ans_is_matrix` (see Variables section).
 - **Execute_Token refactor** — the 1,724-line monolithic function was mechanically split into 13 named static handler functions (`handle_yeq_mode`, `handle_range_mode`, `handle_zoom_mode`, `handle_zoom_factors_mode`, `handle_zbox_mode`, `handle_trace_mode`, `handle_mode_screen`, `handle_math_menu`, `handle_test_menu`, `handle_matrix_menu`, `handle_matrix_edit`, `handle_sto_pending`, `handle_normal_mode`). `Execute_Token` itself reduced to ~60 lines (TOKEN_ON and TOKEN_MODE inline + dispatcher chain). Zero logic changes.
 - **PRGM executor (Session 2)** — `prgm_run_start()`, `prgm_run_loop()`, `prgm_execute_line()`, `prgm_skip_to_target()`, and `handle_prgm_running()` all in `calculator_core.c`. Text interpreter runs `\n`-delimited program lines synchronously from CalcCoreTask. Supported: `If/Then/Else/End`, `While`, `For(V,begin,end,step)`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, `prgm<name>` subroutine call (call stack depth 4), `Disp "str"`/`Disp expr`, `Input V`, `Prompt V`, `ClrHome`, `expr->VAR` assignment, general expression lines (result → ANS). Control flow stack depth 8 (`CtrlFrame_t`). `CLEAR` aborts; `ENTER` resumes after `Pause`/`Input`/`Prompt`. `TOKEN_ON` (SAVE) clears executor state. Programs persist in FLASH sector 11. Deferred: `IS>(`, `DS<(`, `Menu(`, `Output(`.
+- **PRGM UI polish (Session 3)** — EXEC and EDIT tabs both list all 37 program slots (previously EXEC showed occupied slots only). Display format changed to `N:PrgmN` (canonical slot name) with optional second column `  USER_NAME` when a user name has been given. Tabs renamed from EXEC/EDIT/NEW to EXEC/EDIT/ERASE; program creation now triggered from the EDIT tab by selecting any empty slot (user name is optional — pressing ENTER with no name opens the editor immediately). Program names now accept A–Z and 0–9 (previously letters only). All PRGM menu highlights and titles changed from amber (0xFFAA00) to yellow (0xFFFF00) to match MATH, TEST, and MATRIX menus. PRGM editor and name-entry cursors now blink and reflect 2nd (amber `^`) and ALPHA (green `A`) state, wired into `cursor_timer_cb` and `ui_update_status_bar` via `prgm_editor_cursor_update()` and `prgm_new_cursor_update()`. Scroll indicators fixed across PRGM, MATH, and ZOOM menus: previously initialized with empty text so no arrow was visible; now initialized with ↑/↓ glyphs. All scroll indicator overlay labels given opaque black background (`LV_OPA_COVER`) to cover the underlying colon character in item text. Editor scroll indicators moved from X=18 to X=4 to sit on the `:` line prefix rather than the first content character.
 - **UART debug retarget removed** — `_write()` syscall override in `app_init.c` deleted. No `printf` calls exist in App code; newlib's default stub (discards output) now applies. Saves ~640 bytes FLASH.
 
 ### Known issues
