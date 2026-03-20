@@ -1,6 +1,15 @@
-# Power Management Plan — STM32F429 Stop Mode Sleep/Wake
+# Power Management Spec — Custom PCB Stop Mode Sleep/Wake
 
-**Status:** Ready to implement
+> [!WARNING]
+> **TARGET HARDWARE SPECIFICATION**
+> This document outlines the true Stop Mode sleep strategy, which is the final target for a **custom PCB**.
+>
+> On the STM32F429I-DISC1 Discovery Board, this exact sleep sequence results in the display fading to bright white due to hardware limitations (RGB interface with no internal framebuffer holding black). 
+> Therefore, this implementation is currently bypassed in `calculator_core.c` via the `Power_DisplayBlankAndMessage()` function, which acts as a software mock to simulate power-off without the white fade.
+>
+> **When transitioning to custom hardware:** Switch the function call in `Execute_Token()` back to `Power_EnterStop()` to engage this full sleep sequence.
+
+**Status:** Implemented (but bypassed on Discovery Board)
 **Date:** 2026-03-18
 **Gestures:** `2nd+ON` = power down | `ON` (while sleeping) = wake
 
