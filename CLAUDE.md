@@ -6,6 +6,20 @@ It also provides continuity for AI-assisted development sessions, summarising al
 
 ---
 
+## Project Quality
+
+**[QUALITY_TRACKER.md](QUALITY_TRACKER.md)** — read this before starting any significant work.
+
+It contains the results of a full professional code review (2026-03-20), a rated scorecard across
+10 dimensions, and 10 prioritised improvement items (P1–P10). When writing new code or refactoring
+existing code, check whether the change addresses or risks regressing any open item.
+
+Current overall rating: **60–70% production-ready.** Key gaps: no automated tests (P1), monolithic
+`calculator_core.c` (P2), scattered static state (P3). Key strengths: documentation, RTOS
+integration, FLASH/memory-safety correctness.
+
+---
+
 ## Feature Completion Status (~65% of original TI-81, as of 2026-03-20; PRGM UI polish session added 2026-03-20)
 
 ### Well-implemented (60–100%)
@@ -24,7 +38,7 @@ It also provides continuity for AI-assisted development sessions, summarising al
 | Area | Est. Done | Notes |
 |---|---|---|
 | MATRIX | ~95% | Variable dimensions 1–6×6 per matrix; scrolling cell editor with dim mode; all 6 explicit ops + arithmetic (+, −, ×, scalar×matrix) fully evaluated; `det(ANS)` / `[A]+ANS` chains work; persist across power-off; `[A]`/`[B]`/`[C]` cursor/DEL atomicity fixed; matrix tokens blocked in Y= editor |
-| PRGM | ~85% | Sessions 1+2+3 complete: EXEC/EDIT/ERASE menu, name-entry (A–Z and 0–9, user name optional), line editor, CTL/I/O sub-menus, FLASH sector 11 persistence, full text interpreter. EXEC and EDIT both list all 37 slots as `N:PrgmN` with optional user-name column; ERASE shows occupied slots only. Cursor blinks and reflects 2nd/ALPHA state in editor and name-entry screens, matching all other menus. Highlighted items/tabs use yellow (0xFFFF00); scroll indicators use amber (0xFFAA00) with opaque background that covers the underlying colon. Supported: `If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, `prgm` subroutine call, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment (`expr->VAR`), general expression lines. CLEAR aborts; ENTER resumes after Pause/Input. Deferred: `IS>(`, `DS<(`, `Menu(`, `Output(`. **⚠️ Pending hardware validation — see `TEMP-prgm_manual_tests.md` (28 tests).** |
+| PRGM | ~85% | **⚠️ CODED BUT NOT HARDWARE-VALIDATED — treat as non-functional until `TEMP-prgm_manual_tests.md` (28 tests) passes on hardware.** Sessions 1+2+3 complete: EXEC/EDIT/ERASE menu, name-entry (A–Z and 0–9, user name optional), line editor, CTL/I/O sub-menus, FLASH sector 11 persistence, full text interpreter. EXEC and EDIT both list all 37 slots as `N:PrgmN` with optional user-name column; ERASE shows occupied slots only. Cursor blinks and reflects 2nd/ALPHA state in editor and name-entry screens, matching all other menus. Highlighted items/tabs use yellow (0xFFFF00); scroll indicators use amber (0xFFAA00) with opaque background that covers the underlying colon. Supported: `If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, `prgm` subroutine call, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment (`expr->VAR`), general expression lines. CLEAR aborts; ENTER resumes after Pause/Input. Deferred: `IS>(`, `DS<(`, `Menu(`, `Output(`. |
 
 ### Entirely missing (0%)
 
@@ -35,7 +49,7 @@ It also provides continuity for AI-assisted development sessions, summarising al
 | Parametric / Polar / Seq graphing | ~5% | Only function mode works |
 | VARS menu | ~3% | Window, Zoom, GDB, Picture, Statistics vars — stub only |
 
-The core calculator (arithmetic + standard functions + function graphing + TEST comparisons + matrix math + PRGM) covers ~85% of day-to-day TI-81 usage. STAT is entirely absent. Matrix is ~95% complete; PRGM is ~85% complete.
+The core calculator (arithmetic + standard functions + function graphing + TEST comparisons + matrix math) covers ~85% of day-to-day TI-81 usage. STAT is entirely absent. Matrix is ~95% complete. PRGM code is ~85% written but **has not been validated on hardware** — see `TEMP-prgm_manual_tests.md`.
 
 ---
 
@@ -211,6 +225,19 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - Files: `App/Src/calculator_core.c` (history entry rendering; LEFT/RIGHT handler when a matrix result row is focused), `App/Src/calc_engine.c` (`Calc_FormatResult` or a new `Calc_FormatMatrix` that pre-formats column-aligned rows into a buffer)
 - Approach: pre-format the matrix into a fixed-width-per-column string at evaluation time and store it alongside the history entry; display a 320px-wide window into that string; track a `matrix_scroll_offset` (in characters or pixels) per history entry; reset offset to 0 on any non-scroll input
 - Gotchas: `MAX_RESULT_LEN` is currently 96 — a 6×6 matrix with 8-char cells needs up to ~300 chars per display row; either increase the buffer or format on-the-fly from the `CalcMatrix_t` stored in `calc_matrices[3]`; consider whether the ANS matrix slot survives enough history entries before being overwritten
+
+**9. Verify cursor activity uniformity across all screens** — Audit cursor rendering, blink behaviour, position tracking, and mode-indicator logic across every screen (main calculator, Y=, RANGE, ZOOM FACTORS, MATRIX EDIT, PRGM editor). Note any inconsistencies and recommend a refactor to unify cursor handling.
+- Files: `App/Src/calculator_core.c` (cursor_update, cursor_timer_cb, mode-specific cursor boxes), `App/Inc/app_common.h` (CalcMode_t)
+
+**10. Verify menu user interaction uniformity across all screens** — Audit UP/DOWN/ENTER/number-key navigation, tab switching, overflow indicators, CLEAR/exit behaviour, and return-to-caller logic across MATH, TEST, MATRIX, ZOOM, and MODE menus. Note any irregularities and recommend resolution measures.
+- Files: `App/Src/calculator_core.c` (all menu mode handlers, menu_open/menu_close/tab_move helpers)
+
+**11. Verify header files are complete** — Audit all App header files (`app_init.h`, `app_common.h`, `calc_engine.h`, `graph.h`, `persist.h`, `keypad.h`, `keypad_map.h`) to confirm every non-static function defined in the corresponding `.c` file has a declaration, and that type/enum definitions are consistent and not duplicated.
+- Files: `App/Inc/` (all headers), cross-referenced against `App/Src/` and `App/Drivers/Keypad/`
+
+**12. Review RAM usage — LVGL and video interface consumption** — Profile total RAM allocation: stack sizes, LVGL heap, framebuffer(s), static buffers. Determine how much RAM LVGL and the LTDC/ILI9341 video path consume vs. application data. Investigate why RAM limits are being approached given the MCU has 192 KB internal RAM + 64 KB CCMRAM + 64 MB SDRAM, far exceeding the original TI-81 hardware.
+- Files: `App/Src/app_init.c` (LVGL init, heap config), `App/LVGL/lv_conf.h` (LVGL buffer sizes), `Core/Src/main.c` (SDRAM layout), linker `.map` file in `build/Debug/`
+- Approach: check `build/Debug/*.map` for `.bss`/`.data` section sizes; review `lv_conf.h` draw buffer size; confirm `graph_buf`/`graph_buf_clean`/framebuffer are all in SDRAM (not internal RAM)
 
 ---
 
