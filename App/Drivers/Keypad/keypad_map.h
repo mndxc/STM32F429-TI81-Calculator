@@ -150,6 +150,24 @@ typedef enum {
     TOKEN_COMMA,    /* Alpha + .      */
     TOKEN_QSTN_M,   /* Alpha + (-)    */
 
+    /* PRGM control-flow and I/O tokens — produced only by in-editor sub-menus */
+    TOKEN_PRGM_IF,
+    TOKEN_PRGM_THEN,
+    TOKEN_PRGM_ELSE,
+    TOKEN_PRGM_END,
+    TOKEN_PRGM_WHILE,
+    TOKEN_PRGM_FOR,
+    TOKEN_PRGM_GOTO,
+    TOKEN_PRGM_LBL,
+    TOKEN_PRGM_PAUSE,
+    TOKEN_PRGM_STOP,
+    TOKEN_PRGM_RETURN,
+    TOKEN_PRGM_CALL,      /* prgm<NAME> — invoke another program */
+    TOKEN_PRGM_DISP,
+    TOKEN_PRGM_INPUT,
+    TOKEN_PRGM_PROMPT,
+    TOKEN_PRGM_CLRHOME,
+
     TOKEN_MAX       /* Sentinel — useful for array sizing */
 
 } Token_t;

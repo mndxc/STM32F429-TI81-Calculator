@@ -6,7 +6,7 @@ It also provides continuity for AI-assisted development sessions, summarising al
 
 ---
 
-## Feature Completion Status (~50% of original TI-81, as of 2026-03-19; matrix updated 2026-03-19)
+## Feature Completion Status (~60% of original TI-81, as of 2026-03-19; PRGM executor added 2026-03-19)
 
 ### Well-implemented (60–100%)
 
@@ -24,18 +24,18 @@ It also provides continuity for AI-assisted development sessions, summarising al
 | Area | Est. Done | Notes |
 |---|---|---|
 | MATRIX | ~95% | Variable dimensions 1–6×6 per matrix; scrolling cell editor with dim mode; all 6 explicit ops + arithmetic (+, −, ×, scalar×matrix) fully evaluated; `det(ANS)` / `[A]+ANS` chains work; persist across power-off; `[A]`/`[B]`/`[C]` cursor/DEL atomicity fixed; matrix tokens blocked in Y= editor |
+| PRGM | ~80% | Sessions 1+2 complete: EXEC/EDIT/NEW menu, name-entry, line editor, CTL/I/O sub-menus, FLASH sector 11 persistence, full text interpreter. Supported: `If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, `prgm` subroutine call, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment (`expr->VAR`), general expression lines. EXEC tab runs selected program; CLEAR aborts; ENTER resumes after Pause/Input. Deferred: `IS>(`, `DS<(`, `Menu(`, `Output(`. **⚠️ Pending hardware validation — see `TEMP-prgm_manual_tests.md` (20 tests).** |
 
 ### Entirely missing (0%)
 
 | Area | TI-81 weight | Notes |
 |---|---|---|
 | STAT | ~15% | 1-Var/2-Var stats, regression, stat plots — nothing implemented |
-| PRGM | ~15% | Program editor, runner, control flow, I/O — stub only |
 | DRAW | ~5% | Line, Horizontal, Vertical, DrawF, Shade — stub only |
 | Parametric / Polar / Seq graphing | ~5% | Only function mode works |
 | VARS menu | ~3% | Window, Zoom, GDB, Picture, Statistics vars — stub only |
 
-The core calculator (arithmetic + standard functions + function graphing + TEST comparisons + matrix math) covers ~80% of day-to-day TI-81 usage. STAT and PRGM are entirely absent. Matrix is ~95% complete.
+The core calculator (arithmetic + standard functions + function graphing + TEST comparisons + matrix math + PRGM) covers ~85% of day-to-day TI-81 usage. STAT is entirely absent. Matrix is ~95% complete; PRGM is ~80% complete.
 
 ---
 
@@ -180,6 +180,8 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - **TRACE exit speed** — pressing any non-navigation key from TRACE now hides the graph canvas immediately without re-rendering before processing the key.
 - **Matrix arithmetic (+, −, ×, scalar×matrix)** — `[A]+[B]`, `[A]-[B]`, `[A]*[B]`, `scalar*[M]`, `[M]*scalar` fully evaluated. `mat_add`, `mat_sub`, `mat_mul`, `mat_scale` helpers in `calc_engine.c`; matrix dispatch block runs before the scalar binary-op block in `EvaluateRPN`. Result always written to `calc_matrices[3]` (ANS slot). Chaining works: `det(ANS)` after a matrix result correctly resolves ANS as a matrix reference via `ans_is_matrix` (see Variables section).
 - **Execute_Token refactor** — the 1,724-line monolithic function was mechanically split into 13 named static handler functions (`handle_yeq_mode`, `handle_range_mode`, `handle_zoom_mode`, `handle_zoom_factors_mode`, `handle_zbox_mode`, `handle_trace_mode`, `handle_mode_screen`, `handle_math_menu`, `handle_test_menu`, `handle_matrix_menu`, `handle_matrix_edit`, `handle_sto_pending`, `handle_normal_mode`). `Execute_Token` itself reduced to ~60 lines (TOKEN_ON and TOKEN_MODE inline + dispatcher chain). Zero logic changes.
+- **PRGM executor (Session 2)** — `prgm_run_start()`, `prgm_run_loop()`, `prgm_execute_line()`, `prgm_skip_to_target()`, and `handle_prgm_running()` all in `calculator_core.c`. Text interpreter runs `\n`-delimited program lines synchronously from CalcCoreTask. Supported: `If/Then/Else/End`, `While`, `For(V,begin,end,step)`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, `prgm<name>` subroutine call (call stack depth 4), `Disp "str"`/`Disp expr`, `Input V`, `Prompt V`, `ClrHome`, `expr->VAR` assignment, general expression lines (result → ANS). Control flow stack depth 8 (`CtrlFrame_t`). `CLEAR` aborts; `ENTER` resumes after `Pause`/`Input`/`Prompt`. `TOKEN_ON` (SAVE) clears executor state. Programs persist in FLASH sector 11. Deferred: `IS>(`, `DS<(`, `Menu(`, `Output(`.
+- **UART debug retarget removed** — `_write()` syscall override in `app_init.c` deleted. No `printf` calls exist in App code; newlib's default stub (discards output) now applies. Saves ~640 bytes FLASH.
 
 ### Known issues
 - **Display fade on power-off (hardware limitation — prototype substitute implemented)** — The ILI9341 in RGB interface mode has no internal frame buffer. When LTDC stops clocking pixels, the panel's liquid crystal capacitors discharge to their resting state, which the panel renders as white. There is no hardware path to hold the display black after LTDC is halted. **Current prototype behaviour:** `2nd+ON` calls `Power_DisplayBlankAndMessage()` (`app_init.c`) instead of `Power_EnterStop()`. It shows a full-screen black LVGL overlay with a centred "Powered off" label in dim grey (`0x444444`) and blocks the CalcCoreTask on `xQueueReceive` until the ON button is pressed again — no actual Stop mode is entered, no display fade occurs. **Custom PCB migration (one-line change):** in `Execute_Token()` in `calculator_core.c`, in the `TOKEN_ON` / `power_down` branch, replace the `Power_DisplayBlankAndMessage()` call with `Power_EnterStop()`. Both functions are defined in `app_init.c` and declared in `app_init.h`; no other files need to change.
@@ -187,12 +189,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 ### Next session priorities (in order)
 
-**1. PRGM** — Program editor and runner (persistent storage prerequisite now complete).
-- Files: `App/Src/calculator_core.c` (new `MODE_PRGM_*` handlers), `App/Inc/app_common.h` (new CalcMode_t values), `App/Src/prgm.c` (new), `App/Inc/prgm.h` (new)
-- Gotchas: program text storage goes in FLASH via the persistent storage layer; working buffer during editing can live in CCMRAM (64 KB free); control flow tokens (If/Then/Goto/Lbl) will need new TOKEN_* entries in `App/Drivers/Keypad/keypad_map.h`
-- PDF pages 133–150 of `docs/TI81Guidebook.pdf` contain original TI-81 programming instructions
-
-**2. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
+**1. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
 - Files: `App/Src/calculator_core.c` (Y= cursor handling for `=` column), `App/Src/graph.c` (skip disabled equations in renderer)
 
 **3. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.

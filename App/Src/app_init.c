@@ -280,15 +280,6 @@ void Power_DisplayBlankAndMessage(void)
     xSemaphoreGive(xLVGL_Mutex);
 }
 
-/**
- * @brief  Printf retarget to USART1 for debug output.
- */
-int _write(int file, char *ptr, int len)
-{
-    extern UART_HandleTypeDef huart1;
-    HAL_UART_Transmit(&huart1, (uint8_t *)ptr, len, HAL_MAX_DELAY);
-    return len;
-}
 
 /**
  * @brief  Application body of the default FreeRTOS task.
