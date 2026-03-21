@@ -34,8 +34,8 @@ mx.scratch
 lcov.info
 coverage/
 
-# LVGL duplicate copy
-LVGL/
+# LVGL duplicate copy (anchored to root — avoids case-insensitive match on Middlewares/Third_Party/lvgl/)
+/LVGL/
 
 # LVGL files not needed for embedded build
 Middlewares/Third_Party/lvgl/tests/
