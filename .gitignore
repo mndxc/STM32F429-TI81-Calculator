@@ -1,22 +1,22 @@
 # Build output
-build/
+/build/
 
 # CubeMX internal files
-.mxproject
-mx.scratch
+/.mxproject
+/mx.scratch
 
-# macOS metadata
+# macOS metadata (unanchored — .DS_Store appears in every subdirectory)
 .DS_Store
 
 # IDE settings
-.settings/
-.vscode/
+/.settings/
+/.vscode/
 
 # CubeMX Eclipse settings (not needed for CMake builds)
-.project
-.cproject
+/.project
+/.cproject
 
-# Compiled output
+# Compiled output (unanchored — build artifacts can appear in subdirectories)
 *.elf
 *.bin
 *.hex
@@ -27,17 +27,17 @@ mx.scratch
 *.o
 *.obj
 
-# gcov / lcov coverage output
+# gcov / lcov coverage output (unanchored — coverage files appear alongside sources)
 *.gcov
 *.gcda
 *.gcno
-lcov.info
-coverage/
+/lcov.info
+/coverage/
 
 # LVGL duplicate copy (anchored to root — avoids case-insensitive match on Middlewares/Third_Party/lvgl/)
 /LVGL/
 
-# LVGL files not needed for embedded build
+# LVGL files not needed for embedded build (mid-path slash makes these implicitly root-relative)
 Middlewares/Third_Party/lvgl/tests/
 Middlewares/Third_Party/lvgl/docs/
 Middlewares/Third_Party/lvgl/examples/
