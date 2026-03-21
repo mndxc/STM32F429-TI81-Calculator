@@ -14,9 +14,14 @@
 #include "graph.h"
 #include "persist.h"
 #include "prgm.h"
+#include "calc_internal.h"
+#include "ui_matrix.h"
 #include "cmsis_os.h"
 #include "lvgl.h"
 #include "main.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -150,11 +155,13 @@ static char         expression[MAX_EXPR_LEN];
 static uint8_t      expr_len       = 0;
 static uint8_t      cursor_pos     = 0;  /* Insertion point, 0–expr_len */
 static uint8_t      expr_chars_per_row = 22; /* Chars that fit on one display row; set at init */
-static bool         insert_mode    = false; /* false=overwrite (default), true=insert */
-static CalcMode_t   current_mode   = MODE_NORMAL;
-static bool         angle_degrees  = true;
-static float        ans            = 0.0f;
-static bool         ans_is_matrix  = false; /* true when ans holds a matrix slot index */
+bool         insert_mode            = false; /* false=overwrite (default), true=insert */
+CalcMode_t   current_mode           = MODE_NORMAL;
+CalcMode_t   return_mode            = MODE_NORMAL;
+bool         angle_degrees          = true;
+
+float ans = 0.0f;
+bool         ans_is_matrix  = false; /* true when ans holds a matrix slot index */
 static bool         sto_pending    = false;  /* True after STO — next alpha stores ans */
 
 static HistoryEntry_t history[HISTORY_LINE_COUNT];
@@ -192,7 +199,7 @@ static int32_t zbox_py1         = 0;
 static bool    zbox_corner1_set = false;
 
 /* Mode to restore after a 2nd/ALPHA modifier is consumed */
-static CalcMode_t return_mode = MODE_NORMAL;
+// return_mode moved to global Calc state
 
 /* ZOOM menu scroll state */
 static uint8_t   zoom_scroll_offset = 0;
@@ -205,8 +212,6 @@ static lv_obj_t *ui_graph_zoom_factors_screen = NULL;
 static lv_obj_t *ui_lbl_zoom_factors_rows[2];
 static lv_obj_t *zoom_factors_cursor_box   = NULL;
 static lv_obj_t *zoom_factors_cursor_inner = NULL;
-static lv_obj_t *matrix_edit_cursor_box    = NULL;
-static lv_obj_t *matrix_edit_cursor_inner  = NULL;
 static float     zoom_x_fact          = 4.0f;  /* XFact default */
 static float     zoom_y_fact          = 4.0f;  /* YFact default */
 static uint8_t   zoom_factors_field   = 0;     /* 0=XFact, 1=YFact */
@@ -222,7 +227,7 @@ static const char * const zoom_item_names[ZOOM_ITEM_COUNT] = {
 };
 
 /* MODE screen state */
-static lv_obj_t *ui_mode_screen                          = NULL;
+lv_obj_t *ui_mode_screen                          = NULL;
 static uint8_t   mode_row_selected                        = 0;
 /* cursor position per row (which option is highlighted by arrow keys) */
 static uint8_t   mode_cursor[MODE_ROW_COUNT]              = {0, 0, 1, 0, 0, 0, 0, 0};
@@ -323,7 +328,7 @@ static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
 /* Matrix data lives in calc_matrices[] (calc_engine.c) — accessed via extern. */
 
 /* MATRIX menu state */
-static lv_obj_t    *ui_matrix_screen       = NULL;
+
 static uint8_t      matrix_tab             = 0;   /* 0=MATRX, 1=EDIT */
 static uint8_t      matrix_item_cursor     = 0;
 static CalcMode_t   matrix_return_mode     = MODE_NORMAL;
@@ -331,18 +336,7 @@ static lv_obj_t    *matrix_tab_labels[MATRIX_TAB_COUNT];
 static lv_obj_t    *matrix_item_labels[MENU_VISIBLE_ROWS];
 
 /* MATRIX EDIT sub-screen state */
-static lv_obj_t    *ui_matrix_edit_screen  = NULL;
-static uint8_t      matrix_edit_idx        = 0;   /* 0=[A], 1=[B], 2=[C] */
-static int16_t      matrix_edit_cursor     = 0;   /* flat cell index 0..rows*cols-1; -1 = dim mode */
-static int16_t      matrix_edit_scroll     = 0;   /* first visible flat cell index */
-static uint8_t      matrix_edit_dim_field  = 0;   /* 0=rows, 1=cols (in dim mode only) */
-static char         matrix_edit_buf[16]    = {0};
-static uint8_t      matrix_edit_len        = 0;
-static uint8_t      matrix_edit_val_cursor = 0;   /* char position within matrix_edit_buf */
-static lv_obj_t    *matrix_edit_title_lbl  = NULL;
-static lv_obj_t    *matrix_list_labels[MATRIX_LIST_VISIBLE];
-static lv_obj_t    *matrix_edit_up_lbl;
-static lv_obj_t    *matrix_edit_down_lbl;
+
 
 /* PRGM menu state */
 static lv_obj_t   *ui_prgm_screen            = NULL;
@@ -428,16 +422,7 @@ static const char * const prgm_io_insert[PRGM_IO_ITEM_COUNT] = {
     "Input ", "Prompt ", "Disp ", "ClrHome",
 };
 
-/* MATRIX menu data */
-static const char * const matrix_tab_names[MATRIX_TAB_COUNT]     = {"MATRX", "EDIT"};
-static const uint8_t matrix_tab_item_count[MATRIX_TAB_COUNT]     = {MATRIX_MATRX_ITEMS, MATRIX_EDIT_ITEMS};
-static const char * const matrix_op_names[MATRIX_MATRX_ITEMS]   = {
-    "RowSwap(", "Row+(", "*Row(", "*Row+(", "det(", "T"
-};
-static const char * const matrix_op_insert[MATRIX_MATRX_ITEMS]  = {
-    "rowSwap(", "row+(", "*row(", "*row+(", "det(", "T"
-};
-static const char * const matrix_edit_item_names[MATRIX_EDIT_ITEMS] = {"[A]", "[B]", "[C]"};
+
 
 /*---------------------------------------------------------------------------
  * Forward declarations for display helpers defined later in this file
@@ -446,10 +431,7 @@ static const char * const matrix_edit_item_names[MATRIX_EDIT_ITEMS] = {"[A]", "[
 static void ui_update_zoom_display(void);
 static void ui_update_mode_display(void);
 static void ui_update_math_display(void);
-static void ui_update_test_display(void);
-static void ui_update_matrix_display(void);
-static void ui_update_matrix_edit_display(void);
-static void ui_update_prgm_display(void);
+static void ui_update_test_display(void);static void ui_update_prgm_display(void);
 static void ui_update_prgm_editor_display(void);
 static void zoom_factors_reset(void);
 static void zoom_factors_load_field(void);
@@ -469,10 +451,7 @@ static bool handle_zbox_mode(Token_t t);
 static bool handle_trace_mode(Token_t t);
 static bool handle_mode_screen(Token_t t);
 static bool handle_math_menu(Token_t t);
-static bool handle_test_menu(Token_t t);
-static bool handle_matrix_menu(Token_t t);
-static void handle_matrix_edit(Token_t t);
-static bool handle_prgm_menu(Token_t t);
+static bool handle_test_menu(Token_t t);static bool handle_prgm_menu(Token_t t);
 static bool handle_prgm_new_name(Token_t t);
 static bool handle_prgm_editor(Token_t t);
 static bool handle_prgm_ctl_menu(Token_t t);
@@ -535,7 +514,7 @@ void Calc_ApplyPersistBlock(const PersistBlock_t *in)
     ans = in->ans;
     memcpy(mode_committed, in->mode_committed, sizeof(mode_committed));
 
-    /* Re-derive state that is computed from mode_committed */
+    /* Re-derives state that is computed from mode_committed */
     angle_degrees = (in->mode_committed[2] == 1);
     Calc_SetDecimalMode(in->mode_committed[1]);
 
@@ -600,7 +579,7 @@ static void ui_init_styles(void)
 /* Creates a block cursor box (14×26 px) with an inner label child.
  * All cursor objects across every screen are built through this single function.
  * Change the size, font, or style properties here and all cursors update at once. */
-static void cursor_box_create(lv_obj_t *parent, bool start_hidden,
+void cursor_box_create(lv_obj_t *parent, bool start_hidden,
                                lv_obj_t **out_box, lv_obj_t **out_inner)
 {
     lv_obj_t *box = lv_obj_create(parent);
@@ -688,7 +667,7 @@ static void ui_update_range_display(void)
 
 /* Creates a full-screen opaque black LVGL panel, hidden by default.
  * Used as the base for all overlay screens (MODE, MATH, TEST, MATRIX). */
-static lv_obj_t *screen_create(lv_obj_t *parent)
+lv_obj_t *screen_create(lv_obj_t *parent)
 {
     lv_obj_t *scr = lv_obj_create(parent);
     lv_obj_set_size(scr, LV_HOR_RES, LV_VER_RES);
@@ -930,79 +909,6 @@ static void ui_init_test_screen(void)
     }
 }
 
-/* Creates the MATRIX menu and MATRIX EDIT sub-screen (both hidden at startup). */
-static void ui_init_matrix_screen(void)
-{
-    lv_obj_t *scr = lv_scr_act();
-
-    /* --- MATRIX menu screen --- */
-    ui_matrix_screen = screen_create(scr);
-
-    /* Tab bar: MATRX  EDIT */
-    static const int16_t matrix_tab_x[MATRIX_TAB_COUNT] = {4, 100};
-    for (int i = 0; i < MATRIX_TAB_COUNT; i++) {
-        matrix_tab_labels[i] = lv_label_create(ui_matrix_screen);
-        lv_obj_set_pos(matrix_tab_labels[i], matrix_tab_x[i], 4);
-        lv_obj_set_style_text_font(matrix_tab_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(matrix_tab_labels[i], lv_color_hex(0x666666), 0);
-        lv_label_set_text(matrix_tab_labels[i], matrix_tab_names[i]);
-    }
-
-    /* Item labels — text set by ui_update_matrix_display() */
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        matrix_item_labels[i] = lv_label_create(ui_matrix_screen);
-        lv_obj_set_pos(matrix_item_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(matrix_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(matrix_item_labels[i], lv_color_hex(0xFFFFFF), 0);
-        lv_label_set_text(matrix_item_labels[i], "");
-    }
-
-    /* --- MATRIX EDIT sub-screen --- */
-    ui_matrix_edit_screen = lv_obj_create(scr);
-    lv_obj_set_size(ui_matrix_edit_screen, DISPLAY_W, DISPLAY_H);
-    lv_obj_set_pos(ui_matrix_edit_screen, 0, 0);
-    lv_obj_set_style_bg_color(ui_matrix_edit_screen, lv_color_hex(0x000000), 0);
-    lv_obj_set_style_border_width(ui_matrix_edit_screen, 0, 0);
-    lv_obj_set_style_pad_all(ui_matrix_edit_screen, 0, 0);
-    lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-
-    /* Title label: "[A] 3x3" — text updated when editor opens */
-    matrix_edit_title_lbl = lv_label_create(ui_matrix_edit_screen);
-    lv_obj_set_pos(matrix_edit_title_lbl, 4, 4);
-    lv_obj_set_style_text_font(matrix_edit_title_lbl, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(matrix_edit_title_lbl, lv_color_hex(0xFFFFFF), 0);
-    lv_label_set_text(matrix_edit_title_lbl, "[A] 3x3");
-
-    /* Scrolling list labels — 7 rows below the title, each 30px tall */
-    for (int i = 0; i < MATRIX_LIST_VISIBLE; i++) {
-        matrix_list_labels[i] = lv_label_create(ui_matrix_edit_screen);
-        lv_obj_set_pos(matrix_list_labels[i], 4, 34 + i * 30);
-        lv_obj_set_style_text_font(matrix_list_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(matrix_list_labels[i], lv_color_hex(0xFFFFFF), 0);
-        lv_label_set_text(matrix_list_labels[i], "");
-    }
-
-    /* Scroll indicators — amber overlay at the '=' character position (x=46).
-     * x=46 = label margin(4) + 3 chars × glyph width(14) — sits over the '=' slot.
-     * Mirrors the ZOOM/MATH pattern: row text uses space instead of '=' when shown. */
-    matrix_edit_down_lbl = lv_label_create(ui_matrix_edit_screen);
-    lv_obj_set_pos(matrix_edit_down_lbl, 46, 34 + (MATRIX_LIST_VISIBLE - 1) * 30);
-    lv_obj_set_style_text_font(matrix_edit_down_lbl, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(matrix_edit_down_lbl, lv_color_hex(0xFFAA00), 0);
-    lv_label_set_text(matrix_edit_down_lbl, "\xE2\x86\x93");
-    lv_obj_add_flag(matrix_edit_down_lbl, LV_OBJ_FLAG_HIDDEN);
-
-    matrix_edit_up_lbl = lv_label_create(ui_matrix_edit_screen);
-    lv_obj_set_pos(matrix_edit_up_lbl, 46, 34);
-    lv_obj_set_style_text_font(matrix_edit_up_lbl, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(matrix_edit_up_lbl, lv_color_hex(0xFFAA00), 0);
-    lv_label_set_text(matrix_edit_up_lbl, "\xE2\x86\x91");
-    lv_obj_add_flag(matrix_edit_up_lbl, LV_OBJ_FLAG_HIDDEN);
-
-    cursor_box_create(ui_matrix_edit_screen, true,
-                      &matrix_edit_cursor_box, &matrix_edit_cursor_inner);
-}
 
 /*---------------------------------------------------------------------------
  * UI update functions
@@ -1026,7 +932,7 @@ static void ui_init_matrix_screen(void)
  * @param row_label  The LVGL label whose text provides the reference position.
  * @param char_pos   Character index within row_label at which to place cbox.
  */
-static void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
+void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
                          lv_obj_t *row_label, uint32_t char_pos)
 {
     if (cbox == NULL) return;
@@ -1498,7 +1404,7 @@ static void expr_insert_char(char c)
         cursor_pos++;
     } else {
         /* Insert: shift tail right, then write */
-        if (expr_len >= MAX_EXPR_LEN - 1) return;
+        if (expr_len + 1 > MAX_EXPR_LEN) return; // Check for buffer overflow
         memmove(&expression[cursor_pos + 1], &expression[cursor_pos],
                 expr_len - cursor_pos + 1);
         expression[cursor_pos] = c;
@@ -1902,110 +1808,10 @@ static void ui_update_test_display(void)
     }
 }
 
-/* Redraws the MATRIX menu: highlights active tab, populates item rows. */
-static void ui_update_matrix_display(void)
-{
-    for (int i = 0; i < MATRIX_TAB_COUNT; i++) {
-        lv_obj_set_style_text_color(matrix_tab_labels[i],
-            (i == (int)matrix_tab) ? lv_color_hex(0xFFFF00) : lv_color_hex(0x666666), 0);
-    }
-
-    uint8_t item_count = matrix_tab_item_count[matrix_tab];
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        if (i < (int)item_count) {
-            char buf[32];
-            if (matrix_tab == 0) {
-                snprintf(buf, sizeof(buf), "%d:%s", i + 1, matrix_op_names[i]);
-            } else {
-                snprintf(buf, sizeof(buf), "%d:%s %dx%d",
-                         i + 1, matrix_edit_item_names[i],
-                         calc_matrices[i].rows, calc_matrices[i].cols);
-            }
-            lv_obj_set_style_text_color(matrix_item_labels[i],
-                (i == (int)matrix_item_cursor) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
-            lv_label_set_text(matrix_item_labels[i], buf);
-        } else {
-            lv_label_set_text(matrix_item_labels[i], "");
-        }
-    }
-}
-
-/* Redraws the MATRIX EDIT sub-screen: title, scrolling cell list, cursor highlight. */
-static void ui_update_matrix_edit_display(void)
-{
-    CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
-    int total_cells = (int)m->rows * (int)m->cols;
-
-    /* Title: name + dimensions. Yellow in dim mode so the row stands out. */
-    char title_buf[24];
-    snprintf(title_buf, sizeof(title_buf), "%s %dx%d",
-             matrix_edit_item_names[matrix_edit_idx], m->rows, m->cols);
-    lv_obj_set_style_text_color(matrix_edit_title_lbl,
-        (matrix_edit_cursor == -1) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
-    lv_label_set_text(matrix_edit_title_lbl, title_buf);
-
-    /* Hide both scroll indicators; re-shown below if needed */
-    lv_obj_add_flag(matrix_edit_up_lbl,   LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(matrix_edit_down_lbl, LV_OBJ_FLAG_HIDDEN);
-
-    bool more_above = (matrix_edit_cursor >= 0 && matrix_edit_scroll > 0);
-    bool more_below = ((int)matrix_edit_scroll + MATRIX_LIST_VISIBLE < total_cells);
-
-    /* Populate the 7 visible list rows */
-    for (int i = 0; i < MATRIX_LIST_VISIBLE; i++) {
-        int cell_idx = (int)matrix_edit_scroll + i;
-        if (cell_idx >= total_cells) {
-            lv_label_set_text(matrix_list_labels[i], "");
-            lv_obj_set_style_text_color(matrix_list_labels[i], lv_color_hex(0xFFFFFF), 0);
-            continue;
-        }
-        int row_1b = cell_idx / (int)m->cols + 1;  /* 1-based */
-        int col_1b = cell_idx % (int)m->cols + 1;
-        bool is_cursor = (matrix_edit_cursor >= 0 && cell_idx == (int)matrix_edit_cursor);
-        char val_str[16];
-        if (is_cursor && matrix_edit_len > 0) {
-            snprintf(val_str, sizeof(val_str), "%s", matrix_edit_buf);
-        } else {
-            Calc_FormatResult(m->data[row_1b - 1][col_1b - 1], val_str, sizeof(val_str));
-        }
-
-        /* Use a space instead of '=' when an amber arrow overlay covers that slot */
-        bool show_down = (more_below && i == MATRIX_LIST_VISIBLE - 1);
-        bool show_up   = (more_above && i == 0);
-        char sep = (show_down || show_up) ? ' ' : '=';
-
-        char row_buf[32];
-        snprintf(row_buf, sizeof(row_buf), "%d,%d%c%s", row_1b, col_1b, sep, val_str);
-        lv_label_set_text(matrix_list_labels[i], row_buf);
-        lv_obj_set_style_text_color(matrix_list_labels[i],
-            is_cursor ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
-
-        if (show_down) lv_obj_clear_flag(matrix_edit_down_lbl, LV_OBJ_FLAG_HIDDEN);
-        if (show_up)   lv_obj_clear_flag(matrix_edit_up_lbl,   LV_OBJ_FLAG_HIDDEN);
-    }
-
-    matrix_edit_cursor_update();
-}
 
 /**
  * @brief Loads the stored value of the current cell into matrix_edit_buf.
  *
- * Called whenever the cursor lands on a new cell (navigation or open).
- * Populates the edit buffer from the stored float so that LEFT/RIGHT can
- * immediately move through the existing value without the user having to
- * retype it. val_cursor is placed at the end of the loaded string.
- */
-static void matrix_edit_load_cell(void)
-{
-    if (matrix_edit_cursor < 0) return;
-    CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
-    int r = (int)matrix_edit_cursor / (int)m->cols;
-    int c = (int)matrix_edit_cursor % (int)m->cols;
-    Calc_FormatResult(m->data[r][c], matrix_edit_buf, sizeof(matrix_edit_buf));
-    matrix_edit_len        = (uint8_t)strlen(matrix_edit_buf);
-    matrix_edit_val_cursor = 0;  /* cursor at start — overwrite mode replaces from first char */
-}
-
 /*---------------------------------------------------------------------------
  * RANGE editor helpers
  *---------------------------------------------------------------------------*/
@@ -2130,25 +1936,7 @@ static void zoom_factors_cursor_update(void)
  */
 static void matrix_edit_cursor_update(void)
 {
-    if (matrix_edit_cursor_box == NULL) return;
-
-    if (matrix_edit_cursor == -1) {
-        /* Dim mode — cursor on rows digit (char 4) or cols digit (char 6) */
-        uint32_t char_pos = (matrix_edit_dim_field == 0) ? 4u : 6u;
-        cursor_place(matrix_edit_cursor_box, matrix_edit_cursor_inner,
-                     matrix_edit_title_lbl, char_pos);
-    } else {
-        /* Cell mode — cursor after the '=' in the active list row */
-        int vis_idx = (int)matrix_edit_cursor - (int)matrix_edit_scroll;
-        if (vis_idx < 0 || vis_idx >= MATRIX_LIST_VISIBLE) {
-            lv_obj_add_flag(matrix_edit_cursor_box, LV_OBJ_FLAG_HIDDEN);
-            return;
-        }
-        /* "r,c=" prefix is always 4 chars for rows/cols 1–6 */
-        uint32_t char_pos = 4u + (uint32_t)matrix_edit_val_cursor;
-        cursor_place(matrix_edit_cursor_box, matrix_edit_cursor_inner,
-                     matrix_list_labels[vis_idx], char_pos);
-    }
+    /* No-op, matrix functionality removed */
 }
 
 /*---------------------------------------------------------------------------
@@ -2193,6 +1981,38 @@ static void math_menu_insert(const char *ins)
 }
 
 /**
+ * @brief Generic cross-module helper that takes a menu item and inserts it
+ *        into either the Y= editor or the normal calculator context, then
+ *        returns context via pointers.
+ */
+void menu_insert_text(const char *ins, CalcMode_t *ret_mode)
+{
+    if (*ret_mode == MODE_GRAPH_YEQ) {
+        current_mode = MODE_GRAPH_YEQ;
+        char *eq = graph_state.equations[yeq_selected];
+        size_t ins_len = strlen(ins);
+        size_t eq_len  = strlen(eq);
+        if (eq_len + ins_len < 63) {
+            memmove(&eq[yeq_cursor_pos + ins_len], &eq[yeq_cursor_pos],
+                    eq_len - yeq_cursor_pos + 1);
+            memcpy(&eq[yeq_cursor_pos], ins, ins_len);
+            yeq_cursor_pos += (uint8_t)ins_len;
+        }
+        lvgl_lock();
+        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        lvgl_unlock();
+    } else {
+        current_mode = MODE_NORMAL;
+        expr_insert_str(ins);
+        Update_Calculator_Display();
+    }
+    *ret_mode = MODE_NORMAL;
+}
+
+/**
  * @brief Inserts a TEST menu item into the active destination and exits the
  *        TEST menu.  Mirrors math_menu_insert — supports return to Y= or
  *        normal calculator input.
@@ -2228,48 +2048,13 @@ static void test_menu_insert(const char *ins)
     test_return_mode = MODE_NORMAL;
 }
 
-/**
- * @brief Inserts a MATRIX MATRX-tab operation string into the active destination
- *        and returns to the prior mode (normal or Y= editor).
- */
-static void matrix_menu_insert(const char *ins)
-{
-    lvgl_lock();
-    lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-    lvgl_unlock();
-
-    if (matrix_return_mode == MODE_GRAPH_YEQ) {
-        current_mode = MODE_GRAPH_YEQ;
-        char *eq = graph_state.equations[yeq_selected];
-        size_t ins_len = strlen(ins);
-        size_t eq_len  = strlen(eq);
-        if (eq_len + ins_len < 63) {
-            memmove(&eq[yeq_cursor_pos + ins_len], &eq[yeq_cursor_pos],
-                    eq_len - yeq_cursor_pos + 1);
-            memcpy(&eq[yeq_cursor_pos], ins, ins_len);
-            yeq_cursor_pos += (uint8_t)ins_len;
-        }
-        lvgl_lock();
-        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_label_set_text(ui_lbl_yeq_eq[yeq_selected], eq);
-        yeq_reflow_rows();
-        yeq_cursor_update();
-        lvgl_unlock();
-    } else {
-        current_mode = MODE_NORMAL;
-        expr_insert_str(ins);
-        Update_Calculator_Display();
-    }
-    matrix_return_mode = MODE_NORMAL;
-}
-
 /*---------------------------------------------------------------------------
  * Navigation helper functions
  *---------------------------------------------------------------------------*/
 
 /* Hides every graph editor, menu overlay, and the graph canvas.
  * Must be called inside lvgl_lock(). */
-static void hide_all_screens(void)
+void hide_all_screens(void)
 {
     lv_obj_add_flag(ui_graph_yeq_screen,         LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_graph_range_screen,        LV_OBJ_FLAG_HIDDEN);
@@ -2293,7 +2078,7 @@ static void hide_all_screens(void)
  * Caller must do any FROM-state cleanup before calling
  * (e.g. range_commit_field, zoom_menu_reset, zbox_corner1_set=false).
  * Pass MODE_NORMAL to press GRAPH: renders the graph canvas. */
-static void nav_to(CalcMode_t target)
+void nav_to(CalcMode_t target)
 {
     lvgl_lock();
     hide_all_screens();
@@ -2397,7 +2182,7 @@ static void menu_open(Token_t menu_token, CalcMode_t return_to)
 /* Closes a menu and restores the calling screen.
  * Returns the restored CalcMode_t (MODE_NORMAL or MODE_GRAPH_YEQ).
  * Does NOT fall through; callers decide whether to return or break. */
-static CalcMode_t menu_close(Token_t menu_token)
+CalcMode_t menu_close(Token_t menu_token)
 {
     CalcMode_t ret;
     switch (menu_token) {
@@ -2443,7 +2228,7 @@ static CalcMode_t menu_close(Token_t menu_token)
 
 /* Moves the active tab in a multi-tab menu left or right.
  * Resets item cursor and scroll offset on tab change. */
-static void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
+void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
                      uint8_t tab_count, bool left, void (*update)(void))
 {
     if (left) {
@@ -3434,306 +3219,6 @@ static bool handle_test_menu(Token_t t)
     }
     }
     return true;
-}
-
-static bool handle_matrix_menu(Token_t t)
-{
-    switch (t) {
-    case TOKEN_LEFT:
-        tab_move(&matrix_tab, &matrix_item_cursor, NULL, MATRIX_TAB_COUNT, true, ui_update_matrix_display);
-        return true;
-    case TOKEN_RIGHT:
-        tab_move(&matrix_tab, &matrix_item_cursor, NULL, MATRIX_TAB_COUNT, false, ui_update_matrix_display);
-        return true;
-    case TOKEN_UP:
-        if (matrix_item_cursor > 0) matrix_item_cursor--;
-        lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        if (matrix_item_cursor < matrix_tab_item_count[matrix_tab] - 1) matrix_item_cursor++;
-        lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
-        return true;
-    case TOKEN_ENTER: {
-        if (matrix_tab == 0) {
-            const char *ins = matrix_op_insert[matrix_item_cursor];
-            if (ins != NULL) { matrix_menu_insert(ins); }
-        } else {
-            matrix_edit_idx    = matrix_item_cursor;
-            matrix_edit_cursor     = 0;
-            matrix_edit_scroll     = 0;
-            matrix_edit_dim_field  = 0;
-            current_mode = MODE_MATRIX_EDIT;
-            matrix_edit_load_cell();
-            lvgl_lock();
-            lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_matrix_edit_display();
-            lvgl_unlock();
-        }
-        return true;
-    }
-    case TOKEN_1 ... TOKEN_6: {
-        int idx = (int)(t - TOKEN_0) - 1;
-        if (idx >= 0 && idx < (int)matrix_tab_item_count[matrix_tab]) {
-            matrix_item_cursor = (uint8_t)idx;
-            if (matrix_tab == 0) {
-                const char *ins = matrix_op_insert[idx];
-                if (ins != NULL) { matrix_menu_insert(ins); }
-            } else {
-                matrix_edit_idx    = (uint8_t)idx;
-                matrix_edit_cursor = 0;
-                matrix_edit_scroll = 0;
-                matrix_edit_dim_field = 0;
-                matrix_edit_len    = 0;
-                matrix_edit_buf[0] = '\0';
-                current_mode = MODE_MATRIX_EDIT;
-                lvgl_lock();
-                lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-                ui_update_matrix_edit_display();
-                lvgl_unlock();
-            }
-        }
-        return true;
-    }
-    case TOKEN_CLEAR:
-    case TOKEN_MATRX:
-        menu_close(TOKEN_MATRX);
-        return true;
-    case TOKEN_Y_EQUALS:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
-        nav_to(MODE_GRAPH_YEQ);
-        return true;
-    case TOKEN_RANGE:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
-        nav_to(MODE_GRAPH_RANGE);
-        return true;
-    case TOKEN_ZOOM:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
-        zoom_menu_reset();
-        nav_to(MODE_GRAPH_ZOOM);
-        return true;
-    case TOKEN_GRAPH:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
-        nav_to(MODE_NORMAL);
-        return true;
-    case TOKEN_TRACE:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
-        nav_to(MODE_GRAPH_TRACE);
-        return true;
-    default: {
-        CalcMode_t ret = menu_close(TOKEN_MATRX);
-        if (ret == MODE_GRAPH_YEQ)
-            return true;
-        return false; /* fall through to main switch */
-    }
-    }
-    return true;
-}
-
-static void handle_matrix_edit(Token_t t)
-{
-    CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
-
-/* Commit the in-progress edit buffer to the current cell (cell mode only). */
-#define MXEDIT_COMMIT() do { \
-    if (matrix_edit_cursor >= 0) { \
-        int _r = matrix_edit_cursor / (int)m->cols; \
-        int _c = matrix_edit_cursor % (int)m->cols; \
-        if (matrix_edit_len > 0) \
-            m->data[_r][_c] = strtof(matrix_edit_buf, NULL); \
-        matrix_edit_len = 0; matrix_edit_val_cursor = 0; matrix_edit_buf[0] = '\0'; \
-    } \
-} while(0)
-
-/* Scroll so matrix_edit_cursor is within the visible window. */
-#define MXEDIT_SCROLL() do { \
-    if (matrix_edit_cursor >= 0) { \
-        if (matrix_edit_cursor < (int)matrix_edit_scroll) \
-            matrix_edit_scroll = (int16_t)matrix_edit_cursor; \
-        if (matrix_edit_cursor >= (int)matrix_edit_scroll + MATRIX_LIST_VISIBLE) \
-            matrix_edit_scroll = (int16_t)(matrix_edit_cursor - MATRIX_LIST_VISIBLE + 1); \
-    } else { \
-        matrix_edit_scroll = 0; \
-    } \
-} while(0)
-
-    int total_cells = (int)m->rows * (int)m->cols;
-
-    /* ---- DIMENSION MODE (cursor == -1) ---- */
-    if (matrix_edit_cursor == -1) {
-        switch (t) {
-        case TOKEN_1 ... TOKEN_6: {
-            int new_dim = (int)(t - TOKEN_0);
-            if (matrix_edit_dim_field == 0) {
-                m->rows = (uint8_t)new_dim;
-            } else {
-                m->cols = (uint8_t)new_dim;
-            }
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            return;
-        }
-        case TOKEN_LEFT:
-            matrix_edit_dim_field = 0;
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            return;
-        case TOKEN_RIGHT:
-            matrix_edit_dim_field = 1;
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            return;
-        case TOKEN_ENTER:
-        case TOKEN_DOWN:
-            matrix_edit_cursor = 0;
-            matrix_edit_scroll = 0;
-            matrix_edit_load_cell();
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-            return;
-        case TOKEN_CLEAR:
-        case TOKEN_MATRX:
-            current_mode = MODE_MATRIX_MENU;
-            lvgl_lock();
-            lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_matrix_display();
-            lvgl_unlock();
-            return;
-        default:
-            return;
-        }
-    }
-
-    /* ---- CELL MODE (cursor >= 0) ---- */
-    switch (t) {
-    case TOKEN_0 ... TOKEN_9: {
-        char ch = (char)((t - TOKEN_0) + '0');
-        if (!insert_mode && matrix_edit_val_cursor < matrix_edit_len) {
-            matrix_edit_buf[matrix_edit_val_cursor++] = ch;
-        } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
-            memmove(&matrix_edit_buf[matrix_edit_val_cursor + 1],
-                    &matrix_edit_buf[matrix_edit_val_cursor],
-                    matrix_edit_len - matrix_edit_val_cursor + 1);
-            matrix_edit_buf[matrix_edit_val_cursor++] = ch;
-            matrix_edit_len++;
-        }
-        lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-        return;
-    }
-    case TOKEN_DECIMAL: {
-        if (strchr(matrix_edit_buf, '.') == NULL) {
-            char ch = '.';
-            if (!insert_mode && matrix_edit_val_cursor < matrix_edit_len) {
-                matrix_edit_buf[matrix_edit_val_cursor++] = ch;
-            } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
-                memmove(&matrix_edit_buf[matrix_edit_val_cursor + 1],
-                        &matrix_edit_buf[matrix_edit_val_cursor],
-                        matrix_edit_len - matrix_edit_val_cursor + 1);
-                matrix_edit_buf[matrix_edit_val_cursor++] = ch;
-                matrix_edit_len++;
-            }
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-        }
-        return;
-    }
-    case TOKEN_NEG:
-        if (matrix_edit_len > 0 && matrix_edit_buf[0] == '-') {
-            memmove(matrix_edit_buf, matrix_edit_buf + 1, matrix_edit_len);
-            matrix_edit_len--;
-            if (matrix_edit_val_cursor > 0) matrix_edit_val_cursor--;
-        } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
-            memmove(matrix_edit_buf + 1, matrix_edit_buf, matrix_edit_len + 1);
-            matrix_edit_buf[0] = '-';
-            matrix_edit_len++;
-            matrix_edit_val_cursor++;
-        }
-        lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-        return;
-    case TOKEN_DEL:
-        if (matrix_edit_val_cursor > 0) {
-            memmove(&matrix_edit_buf[matrix_edit_val_cursor - 1],
-                    &matrix_edit_buf[matrix_edit_val_cursor],
-                    matrix_edit_len - matrix_edit_val_cursor + 1);
-            matrix_edit_len--;
-            matrix_edit_val_cursor--;
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-        }
-        return;
-    case TOKEN_ENTER:
-    case TOKEN_DOWN: {
-        MXEDIT_COMMIT();
-        if (matrix_edit_cursor < total_cells - 1)
-            matrix_edit_cursor++;
-        MXEDIT_SCROLL();
-        matrix_edit_load_cell();
-        lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-        return;
-    }
-    case TOKEN_UP: {
-        MXEDIT_COMMIT();
-        if (matrix_edit_cursor > 0) {
-            matrix_edit_cursor--;
-            MXEDIT_SCROLL();
-            matrix_edit_load_cell();
-        } else {
-            matrix_edit_cursor     = -1;
-            matrix_edit_dim_field  = 0;
-            matrix_edit_scroll     = 0;
-            matrix_edit_len        = 0;
-            matrix_edit_val_cursor = 0;
-            matrix_edit_buf[0]     = '\0';
-        }
-        lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-        return;
-    }
-    case TOKEN_RIGHT:
-        if (matrix_edit_val_cursor < matrix_edit_len)
-            matrix_edit_val_cursor++;
-        lvgl_lock(); matrix_edit_cursor_update(); lvgl_unlock();
-        return;
-    case TOKEN_LEFT:
-        if (matrix_edit_val_cursor > 0)
-            matrix_edit_val_cursor--;
-        lvgl_lock(); matrix_edit_cursor_update(); lvgl_unlock();
-        return;
-    case TOKEN_CLEAR:
-        if (matrix_edit_len > 0) {
-            matrix_edit_len        = 0;
-            matrix_edit_val_cursor = 0;
-            matrix_edit_buf[0]     = '\0';
-            lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
-        } else {
-            current_mode = MODE_MATRIX_MENU;
-            lvgl_lock();
-            lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_matrix_display();
-            lvgl_unlock();
-        }
-        return;
-    case TOKEN_MATRX:
-        MXEDIT_COMMIT();
-        current_mode = MODE_MATRIX_MENU;
-        lvgl_lock();
-        lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_matrix_display();
-        lvgl_unlock();
-        return;
-    default:
-        return;
-    }
-
-#undef MXEDIT_COMMIT
-#undef MXEDIT_SCROLL
 }
 
 static bool handle_sto_pending(Token_t t)

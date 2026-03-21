@@ -29,11 +29,42 @@ The TI-81 keypad works on a **Matrix**—a grid of rows and columns. Instead of 
 
 | TI-81 Ribbon Pin | STM32 Pin | Function |
 | :--- | :--- | :--- |
-| — | — | (follow-up: fill in complete wiring table) |
+| **A1** | PE5 | Column 1 |
+| **A2** | PE4 | Column 2 |
+| **A3** | PE3 | Column 3 |
+| **A4** | PE2 | Column 4 |
+| **A5** | PB7 | Column 5 |
+| **A6** | PB4 | Column 6 |
+| **A7** | PB3 | Column 7 |
+| **B1** | PG9 | Row 1 |
+| **B2** | PD7 | Row 2 |
+| **B3** | PC11 | Row 3 |
+| **B4** | PC8 | Row 4 |
+| **B5** | PC3 | Row 5 |
+| **B6** | PA5 | Row 6 |
+| **B7** | PG2 | Row 7 |
+| **B8** | PG3 | Row 8 |
+| **ON** | PE6 | ON/Interrupt |
+
+> **Note:** The TI-81 ribbon has 15 pins. Pins 1-7 are the "A-Lines" (Columns) and Pins 8-15 are the "B-Lines" (Rows). Verify with a multimeter if your specific hardware revision differs.
 
 ---
 
-## 3. Software Toolchain Setup
+## 3. Bill of Materials (BOM)
+
+To build a Neo-81, you will need the following components:
+
+| Component | Description | Source |
+| :--- | :--- | :--- |
+| **STM32F429I-DISC1** | Discovery kit with STM32F429ZI MCU and 2.4" LCD. | [ST Store](https://www.st.com/en/evaluation-tools/32f429idiscovery.html) |
+| **TI-81 Calculator** | Donor for shell, keypad, and ribbon connector. | Second-hand (eBay/etc) |
+| **Ribbon Connector** | 15-pin 1.25mm or 1.0mm pitch FFC/FPC connector (salvaged or new). | Salvage or Mouser/DigiKey |
+| **Hookup Wire** | 28-30 AWG solid or stranded wire for matrix connections. | Any electronics supplier |
+| **Power Source** | Micro-USB cable (for development) or 4xAAA batteries (original footprint). | Original shell |
+
+---
+
+## 4. Software Toolchain Setup
 To compile the code and "flash" it onto the STM32, you need the right tools on your computer.
 
 1.  **Install the ARM GCC toolchain:** `gcc-arm-none-eabi` 14.x or later.
@@ -78,7 +109,7 @@ Once your software is ready, follow these steps to get the Neo-81 firmware runni
 ---
 
 ## 5. Troubleshooting
-* **Screen is blank?** Check your SPI/Parallel wiring and ensure the display power jumpers are correct.
+* **Screen is blank?** Check your SPI/Parallel wiring and ensure your configuration match your physical wiring.
 * **Keys not responding?** Verify that the ribbon cable is seated firmly and the GPIO pins in your configuration match your physical wiring.
 
 ---

@@ -12,6 +12,9 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS ON)
 
+# Increase warning level for app code
+add_compile_options(-Wall -Wextra)
+
 
 # Define the build type
 if(NOT CMAKE_BUILD_TYPE)
@@ -76,6 +79,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/graph.c
     App/Src/persist.c
     App/Src/prgm.c
+    App/Src/ui_matrix.c
 
     # Add all LVGL Source files
     ${LVGL_SOURCES}
@@ -114,3 +118,9 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
     # Add user defined libraries
 )
+
+# --- HOST TESTS ---
+if(PROJECT_BUILD_TESTS)
+    add_subdirectory(App/Tests)
+endif()
+

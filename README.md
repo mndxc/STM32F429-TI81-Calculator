@@ -1,5 +1,10 @@
 # Neo-81: bringing new life to the classic.
 
+[![Build Status](https://github.com/jonathanpool/STM32F429-TI81-Calculator/actions/workflows/build.yml/badge.svg)](https://github.com/jonathanpool/STM32F429-TI81-Calculator/actions)
+[![License](https://img.shields.io/github/license/jonathanpool/STM32F429-TI81-Calculator)](LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+
 ![Calculator running on STM32F429I-DISC1](docs/Image_2.jpg)
 
 ## Why
@@ -50,3 +55,12 @@ STAT is not yet implemented.
 | [RT4812Boost.pdf](docs/Datasheets/RT4812Boost.pdf) | Richtek RT4812 — 5V boost (DNF Rev1; reserved for Rev2 with RPi Zero 2 W) |
 | [RT8059Buck.pdf](docs/Datasheets/RT8059Buck.pdf) | Richtek RT8059 — 3.3V buck reference |
 | [TPD4E05U06DQARDiode.pdf](docs/Datasheets/TPD4E05U06DQARDiode.pdf) | TI TPD4E05U06DQAR — USB ESD protection |
+
+---
+
+## Contributing
+
+We welcome contributions from the community! Whether you're fixing a bug, adding a feature, or improving documentation, please see our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started.
+
+All contributors are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+

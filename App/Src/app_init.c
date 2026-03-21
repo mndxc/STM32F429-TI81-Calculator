@@ -203,9 +203,9 @@ void Power_EnterStop(void)
      *     (stm32f4xx_hal_msp.c: PLLSAIN=100, PLLSAIR=3, PLLSAIDivR=2). */
     RCC_PeriphCLKInitTypeDef periphClk = {0};
     periphClk.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
-    periphClk.PLLSAI.PLLSAIN       = 100;
-    periphClk.PLLSAI.PLLSAIR       = 3;
-    periphClk.PLLSAIDivR            = RCC_PLLSAIDIVR_2;
+    periphClk.PLLSAI.PLLSAIN       = 176;
+    periphClk.PLLSAI.PLLSAIR       = 4;
+    periphClk.PLLSAIDivR            = RCC_PLLSAIDIVR_8;
     HAL_RCCEx_PeriphCLKConfig(&periphClk);
 
     /* 11. Exit SDRAM self-refresh — FMC clock restored above, data intact */
@@ -280,7 +280,6 @@ void Power_DisplayBlankAndMessage(void)
     xSemaphoreGive(xLVGL_Mutex);
 }
 
-
 /**
  * @brief  Application body of the default FreeRTOS task.
  *         Called from StartDefaultTask() in main.c after MX_USB_HOST_Init().
@@ -288,7 +287,17 @@ void Power_DisplayBlankAndMessage(void)
  */
 void App_DefaultTask_Run(void)
 {
-    /* Bring up external SDRAM — framebuffer lives here */
+    /* 1. Ensure the display clock is set to the stable 5.5 MHz (approx. 60 Hz).
+     *    We do this here (not just in stm32f4xx_hal_msp.c) so that it persists
+     *    even if CubeMX boilerplate is regenerated with different defaults. */
+    RCC_PeriphCLKInitTypeDef periphClk = {0};
+    periphClk.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    periphClk.PLLSAI.PLLSAIN       = 176;
+    periphClk.PLLSAI.PLLSAIR       = 4;
+    periphClk.PLLSAIDivR            = RCC_PLLSAIDIVR_8;
+    HAL_RCCEx_PeriphCLKConfig(&periphClk);
+
+    /* 2. Bring up external SDRAM — framebuffer lives here */
     BSP_SDRAM_Init();
 
     /* Initialise the ILI9341 display controller over SPI.

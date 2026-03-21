@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/cmake_install.cmake",
+		"/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/cmake/stm32cubemx/cmake_install.cmake",
+		"/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/App/Tests/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

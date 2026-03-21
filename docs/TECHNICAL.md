@@ -89,6 +89,14 @@ Waits on `xLVGL_Ready` before creating any UI elements. Blocks on
 | `xLVGL_Ready`       | Binary semaphore — signals when LVGL init is complete    |
 | `keypadQueueHandle` | Token queue from KeypadTask to CalcCoreTask              |
 
+### UI Extensibility Pattern
+
+To avoid monolithic growth in `calculator_core.c`, complex sub-menus and distinct feature screens (e.g., Matrix Editor, Program Editor) should be extracted into their own modules within `App/Src/`.
+
+1. **Standalone Modules:** Create isolated `ui_<feature>.c/.h` pairs containing the mode-specific LVGL initialization, display updates, and token handling loops (e.g., `ui_matrix.c`).
+2. **Shared UI Context:** Include `calc_internal.h` in these modules to access global calculator state (`current_mode`, `ans`, `insert_mode`) and cross-module UI functions (`screen_create`, `lvgl_lock`, `tab_move`, `menu_insert_text`).
+3. **Core Integration:** In `calculator_core.c`, remove mode-specific logic. Initialize the extracted screen once in `StartCalcCoreTask` (e.g., `ui_init_matrix_screen()`), and delegate mode-specific token handling to the public handlers defined in `ui_<feature>.h`.
+
 ---
 
 ## Display
@@ -318,10 +326,10 @@ LTDC_PIXEL_FORMAT_RGB565   /* was LTDC_PIXEL_FORMAT_ARGB8888 */
 ### 5. Pixel clock — CubeMX Clock Configuration
 Set via PLLSAI. The recommended setting for comfortable rendering:
 ```
-PLLSAIN = 100
+PLLSAIN = 176
 PLLSAIR = 4
-PLLSAIDivR = 2
-→ 16.67 MHz pixel clock
+PLLSAIDivR = 8
+→ 5.5 MHz pixel clock
 ```
 Below ~6 MHz produces visible diagonal motion artifacts on mid-range
 background colours. Above ~20 MHz exceeds the ILI9341 specification.

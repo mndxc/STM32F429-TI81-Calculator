@@ -680,7 +680,8 @@ static void mat_scale(float k, const CalcMatrix_t *m, CalcMatrix_t *dst)
 
 static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
 {
-    CalcResult_t res = { 0.0f, CALC_OK, "" };
+    CalcResult_t res = { 0.0f, CALC_OK, "", false, 0 };
+
     float        stack[CALC_MAX_STACK];
     bool         is_matrix[CALC_MAX_STACK]; /* parallel flag: true when slot holds a matrix index */
     int          top = -1;
@@ -987,7 +988,8 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
 CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
                            bool angle_degrees)
 {
-    CalcResult_t res = { 0.0f, CALC_OK, "" };
+    CalcResult_t res = { 0.0f, CALC_OK, "", false, 0 };
+
 
     if (expr == NULL || strlen(expr) == 0) {
         res.error = CALC_ERR_SYNTAX;
@@ -1042,7 +1044,8 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
 CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
                               float ans, bool angle_degrees)
 {
-    CalcResult_t res = { 0.0f, CALC_OK, "" };
+    CalcResult_t res = { 0.0f, CALC_OK, "", false, 0 };
+
     if (expr == NULL || strlen(expr) == 0) {
         res.error = CALC_ERR_SYNTAX;
         strncpy(res.error_msg, "Empty expression",
