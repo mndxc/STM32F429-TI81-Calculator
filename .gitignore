@@ -27,6 +27,13 @@ mx.scratch
 *.o
 *.obj
 
+# gcov / lcov coverage output
+*.gcov
+*.gcda
+*.gcno
+lcov.info
+coverage/
+
 # LVGL duplicate copy
 LVGL/
 

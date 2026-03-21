@@ -76,6 +76,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/app_init.c
     App/Src/calculator_core.c
     App/Src/calc_engine.c
+    App/Src/expr_util.c
     App/Src/graph.c
     App/Src/persist.c
     App/Src/prgm.c

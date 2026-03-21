@@ -4,6 +4,7 @@
  */
 #include "graph.h"
 #include "app_common.h"
+#include "ui_palette.h"
 #include "calc_engine.h"
 #include "lvgl.h"
 #include <math.h>
@@ -74,7 +75,7 @@ static float px_to_math_y(int32_t py)
  */
 static void draw_axes(void)
 {
-    lv_color_t axis_color = lv_color_hex(0x888888);
+    lv_color_t axis_color = lv_color_hex(COLOR_GREY_MED);
 
     /* Y axis — vertical line at x=0 */
     if (graph_state.x_min <= 0.0f && graph_state.x_max >= 0.0f) {
@@ -99,7 +100,7 @@ static void draw_axes(void)
  */
 static void draw_grid(void)
 {
-    lv_color_t grid_color = lv_color_hex(0x444444);
+    lv_color_t grid_color = lv_color_hex(COLOR_GREY_DARK);
 
     /* Anchor at multiples of x_scl/y_scl (same as draw_ticks) so dots stay
      * aligned with tick marks after zooming. */
@@ -122,7 +123,7 @@ static void draw_grid(void)
  */
 static void draw_ticks(void)
 {
-    lv_color_t tick_color = lv_color_hex(0x555555);
+    lv_color_t tick_color = lv_color_hex(COLOR_GREY_TICK);
     const int32_t TICK_LEN = 3;
 
     /* X axis ticks */
@@ -210,7 +211,7 @@ void Graph_Init(lv_obj_t *parent)
     graph_screen = lv_obj_create(parent);
     lv_obj_set_size(graph_screen, GRAPH_W, GRAPH_H);
     lv_obj_set_pos(graph_screen, 0, 0);
-    lv_obj_set_style_bg_color(graph_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(graph_screen, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_border_width(graph_screen, 0, 0);
     lv_obj_set_style_pad_all(graph_screen, 0, 0);
     lv_obj_add_flag(graph_screen, LV_OBJ_FLAG_HIDDEN);
@@ -225,8 +226,8 @@ void Graph_Init(lv_obj_t *parent)
     graph_lbl_x = lv_label_create(graph_screen);
     lv_obj_set_pos(graph_lbl_x, 4, GRAPH_H - 22);
     lv_obj_set_style_text_font(graph_lbl_x, &jetbrains_mono_20, 0);
-    lv_obj_set_style_text_color(graph_lbl_x, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_bg_color(graph_lbl_x, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_text_color(graph_lbl_x, lv_color_hex(COLOR_WHITE), 0);
+    lv_obj_set_style_bg_color(graph_lbl_x, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_bg_opa(graph_lbl_x, LV_OPA_70, 0);
     lv_obj_set_style_pad_hor(graph_lbl_x, 3, 0);
     lv_label_set_text(graph_lbl_x, "");
@@ -234,8 +235,8 @@ void Graph_Init(lv_obj_t *parent)
     graph_lbl_y = lv_label_create(graph_screen);
     lv_obj_set_pos(graph_lbl_y, GRAPH_W / 2, GRAPH_H - 22);
     lv_obj_set_style_text_font(graph_lbl_y, &jetbrains_mono_20, 0);
-    lv_obj_set_style_text_color(graph_lbl_y, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_set_style_bg_color(graph_lbl_y, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_text_color(graph_lbl_y, lv_color_hex(COLOR_WHITE), 0);
+    lv_obj_set_style_bg_color(graph_lbl_y, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_bg_opa(graph_lbl_y, LV_OPA_70, 0);
     lv_obj_set_style_pad_hor(graph_lbl_y, 3, 0);
     lv_label_set_text(graph_lbl_y, "");
@@ -246,7 +247,7 @@ void Graph_Render(bool angle_degrees)
     if (graph_canvas == NULL) return;
 
     /* Clear canvas to black */
-    lv_canvas_fill_bg(graph_canvas, lv_color_hex(0x000000), LV_OPA_COVER);
+    lv_canvas_fill_bg(graph_canvas, lv_color_hex(COLOR_BLACK), LV_OPA_COVER);
 
     /* Draw grid dots (if enabled), then axes and ticks on top */
     if (graph_state.grid_on) draw_grid();
@@ -255,10 +256,10 @@ void Graph_Render(bool angle_degrees)
 
     /* One color per Y= slot */
     static const uint32_t eq_palette[GRAPH_NUM_EQ] = {
-        0xFFFFFF,   /* Y1 — white   */
-        0x00FFFF,   /* Y2 — cyan    */
-        0xFFFF00,   /* Y3 — yellow  */
-        0xFF80FF,   /* Y4 — magenta */
+        COLOR_CURVE_Y1,   /* Y1 — white   */
+        COLOR_CURVE_Y2,   /* Y2 — cyan    */
+        COLOR_CURVE_Y3,   /* Y3 — yellow  */
+        COLOR_CURVE_Y4,   /* Y4 — magenta */
     };
 
     /* Plot each active curve */
@@ -406,8 +407,8 @@ void Graph_DrawZBox(int32_t px, int32_t py,
         Graph_Render(angle_degrees);
     }
 
-    lv_color_t box_color = lv_color_hex(0xFFFFFF);  /* white rectangle */
-    lv_color_t cur_color = lv_color_hex(0xFFFF00);  /* yellow crosshair */
+    lv_color_t box_color = lv_color_hex(COLOR_WHITE);  /* white rectangle */
+    lv_color_t cur_color = lv_color_hex(COLOR_YELLOW);  /* yellow crosshair */
 
     if (corner1_set) {
         /* Normalise corners so x0 <= x1 and y0 <= y1 */

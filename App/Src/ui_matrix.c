@@ -1,4 +1,5 @@
 #include "ui_matrix.h"
+#include "ui_palette.h"
 #include "calc_internal.h"
 #include "calc_engine.h"
 #include <stdio.h>
@@ -97,7 +98,7 @@ void ui_init_matrix_screen(void)
         matrix_tab_labels[i] = lv_label_create(ui_matrix_screen);
         lv_obj_set_pos(matrix_tab_labels[i], matrix_tab_x[i], 4);
         lv_obj_set_style_text_font(matrix_tab_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(matrix_tab_labels[i], lv_color_hex(0x666666), 0);
+        lv_obj_set_style_text_color(matrix_tab_labels[i], lv_color_hex(COLOR_GREY_INACTIVE), 0);
         lv_label_set_text(matrix_tab_labels[i], matrix_tab_names[i]);
     }
 
@@ -105,14 +106,14 @@ void ui_init_matrix_screen(void)
         matrix_item_labels[i] = lv_label_create(ui_matrix_screen);
         lv_obj_set_pos(matrix_item_labels[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(matrix_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(matrix_item_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(matrix_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(matrix_item_labels[i], "");
     }
 
     ui_matrix_edit_screen = lv_obj_create(scr);
     lv_obj_set_size(ui_matrix_edit_screen, 320, 240); // DISPLAY_W, DISPLAY_H
     lv_obj_set_pos(ui_matrix_edit_screen, 0, 0);
-    lv_obj_set_style_bg_color(ui_matrix_edit_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(ui_matrix_edit_screen, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_border_width(ui_matrix_edit_screen, 0, 0);
     lv_obj_set_style_pad_all(ui_matrix_edit_screen, 0, 0);
     lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_SCROLLABLE);
@@ -121,28 +122,28 @@ void ui_init_matrix_screen(void)
     matrix_edit_title_lbl = lv_label_create(ui_matrix_edit_screen);
     lv_obj_set_pos(matrix_edit_title_lbl, 4, 4);
     lv_obj_set_style_text_font(matrix_edit_title_lbl, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(matrix_edit_title_lbl, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(matrix_edit_title_lbl, lv_color_hex(COLOR_WHITE), 0);
     lv_label_set_text(matrix_edit_title_lbl, "[A] 3x3");
 
     for (int i = 0; i < 7; i++) {
         matrix_list_labels[i] = lv_label_create(ui_matrix_edit_screen);
         lv_obj_set_pos(matrix_list_labels[i], 4, 34 + i * 30);
         lv_obj_set_style_text_font(matrix_list_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(matrix_list_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(matrix_list_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(matrix_list_labels[i], "");
     }
 
     matrix_edit_down_lbl = lv_label_create(ui_matrix_edit_screen);
     lv_obj_set_pos(matrix_edit_down_lbl, 46, 34 + (7 - 1) * 30);
     lv_obj_set_style_text_font(matrix_edit_down_lbl, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(matrix_edit_down_lbl, lv_color_hex(0xFFAA00), 0);
+    lv_obj_set_style_text_color(matrix_edit_down_lbl, lv_color_hex(COLOR_AMBER), 0);
     lv_label_set_text(matrix_edit_down_lbl, "\xE2\x86\x93");
     lv_obj_add_flag(matrix_edit_down_lbl, LV_OBJ_FLAG_HIDDEN);
 
     matrix_edit_up_lbl = lv_label_create(ui_matrix_edit_screen);
     lv_obj_set_pos(matrix_edit_up_lbl, 46, 34);
     lv_obj_set_style_text_font(matrix_edit_up_lbl, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(matrix_edit_up_lbl, lv_color_hex(0xFFAA00), 0);
+    lv_obj_set_style_text_color(matrix_edit_up_lbl, lv_color_hex(COLOR_AMBER), 0);
     lv_label_set_text(matrix_edit_up_lbl, "\xE2\x86\x91");
     lv_obj_add_flag(matrix_edit_up_lbl, LV_OBJ_FLAG_HIDDEN);
 
@@ -157,7 +158,7 @@ void ui_update_matrix_display(void)
 {
     for (int i = 0; i < 2; i++) {
         lv_obj_set_style_text_color(matrix_tab_labels[i],
-            (i == (int)matrix_tab) ? lv_color_hex(0xFFFF00) : lv_color_hex(0x666666), 0);
+            (i == (int)matrix_tab) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_GREY_INACTIVE), 0);
     }
 
     uint8_t item_count = matrix_tab_item_count[matrix_tab];
@@ -172,7 +173,7 @@ void ui_update_matrix_display(void)
                          calc_matrices[i].rows, calc_matrices[i].cols);
             }
             lv_obj_set_style_text_color(matrix_item_labels[i],
-                (i == (int)matrix_item_cursor) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
+                (i == (int)matrix_item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
             lv_label_set_text(matrix_item_labels[i], buf);
         } else {
             lv_label_set_text(matrix_item_labels[i], "");
@@ -189,7 +190,7 @@ void ui_update_matrix_edit_display(void)
     snprintf(title_buf, sizeof(title_buf), "%s %dx%d",
              matrix_edit_item_names[matrix_edit_idx], m->rows, m->cols);
     lv_obj_set_style_text_color(matrix_edit_title_lbl,
-        (matrix_edit_cursor == -1) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
+        (matrix_edit_cursor == -1) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
     lv_label_set_text(matrix_edit_title_lbl, title_buf);
 
     lv_obj_add_flag(matrix_edit_up_lbl,   LV_OBJ_FLAG_HIDDEN);
@@ -202,7 +203,7 @@ void ui_update_matrix_edit_display(void)
         int cell_idx = (int)matrix_edit_scroll + i;
         if (cell_idx >= total_cells) {
             lv_label_set_text(matrix_list_labels[i], "");
-            lv_obj_set_style_text_color(matrix_list_labels[i], lv_color_hex(0xFFFFFF), 0);
+            lv_obj_set_style_text_color(matrix_list_labels[i], lv_color_hex(COLOR_WHITE), 0);
             continue;
         }
         int row_1b = cell_idx / (int)m->cols + 1;
@@ -223,7 +224,7 @@ void ui_update_matrix_edit_display(void)
         snprintf(row_buf, sizeof(row_buf), "%d,%d%c%s", row_1b, col_1b, sep, val_str);
         lv_label_set_text(matrix_list_labels[i], row_buf);
         lv_obj_set_style_text_color(matrix_list_labels[i],
-            is_cursor ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
+            is_cursor ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
 
         if (show_down) lv_obj_clear_flag(matrix_edit_down_lbl, LV_OBJ_FLAG_HIDDEN);
         if (show_up)   lv_obj_clear_flag(matrix_edit_up_lbl,   LV_OBJ_FLAG_HIDDEN);

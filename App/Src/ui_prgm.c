@@ -18,6 +18,7 @@
  * *************************************************************************
  */
 #include "ui_prgm.h"
+#include "ui_palette.h"
 #include "calc_internal.h"
 #include "prgm.h"
 #include "calc_engine.h"
@@ -153,7 +154,7 @@ static void ui_init_prgm_screen(void)
         prgm_tab_labels[i] = lv_label_create(ui_prgm_screen);
         lv_obj_set_pos(prgm_tab_labels[i], tab_x[i], 4);
         lv_obj_set_style_text_font(prgm_tab_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_tab_labels[i], lv_color_hex(0x666666), 0);
+        lv_obj_set_style_text_color(prgm_tab_labels[i], lv_color_hex(COLOR_GREY_INACTIVE), 0);
         lv_label_set_text(prgm_tab_labels[i], prgm_tab_names[i]);
     }
 
@@ -161,7 +162,7 @@ static void ui_init_prgm_screen(void)
         prgm_item_labels[i] = lv_label_create(ui_prgm_screen);
         lv_obj_set_pos(prgm_item_labels[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(prgm_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_item_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(prgm_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(prgm_item_labels[i], "");
     }
 
@@ -171,8 +172,8 @@ static void ui_init_prgm_screen(void)
         prgm_scroll_ind[i] = lv_label_create(ui_prgm_screen);
         lv_obj_set_pos(prgm_scroll_ind[i], 18, 30 + row * 30);
         lv_obj_set_style_text_font(prgm_scroll_ind[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_scroll_ind[i], lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_bg_color(prgm_scroll_ind[i], lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_color(prgm_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
+        lv_obj_set_style_bg_color(prgm_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
         lv_obj_set_style_bg_opa(prgm_scroll_ind[i], LV_OPA_COVER, 0);
         lv_obj_set_style_pad_all(prgm_scroll_ind[i], 0, 0);
         lv_label_set_text(prgm_scroll_ind[i], i == 0 ? "\xE2\x86\x91" : "\xE2\x86\x93");
@@ -192,14 +193,14 @@ static void ui_init_prgm_new_screen(void)
     prgm_new_title_lbl = lv_label_create(ui_prgm_new_screen);
     lv_obj_set_pos(prgm_new_title_lbl, 4, 4);
     lv_obj_set_style_text_font(prgm_new_title_lbl, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(prgm_new_title_lbl, lv_color_hex(0xFFFF00), 0);
+    lv_obj_set_style_text_color(prgm_new_title_lbl, lv_color_hex(COLOR_YELLOW), 0);
     lv_label_set_text(prgm_new_title_lbl, "Prgm1:");
 
     /* Row 1: first code line stub */
     lv_obj_t *code_stub = lv_label_create(ui_prgm_new_screen);
     lv_obj_set_pos(code_stub, 4, 34);
     lv_obj_set_style_text_font(code_stub, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(code_stub, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(code_stub, lv_color_hex(COLOR_WHITE), 0);
     lv_label_set_text(code_stub, ":");
 
     cursor_box_create(ui_prgm_new_screen, true,
@@ -217,14 +218,14 @@ static void ui_init_prgm_editor_screen(void)
     prgm_edit_title_lbl = lv_label_create(ui_prgm_editor_screen);
     lv_obj_set_pos(prgm_edit_title_lbl, 4, 4);
     lv_obj_set_style_text_font(prgm_edit_title_lbl, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(prgm_edit_title_lbl, lv_color_hex(0xFFFF00), 0);
+    lv_obj_set_style_text_color(prgm_edit_title_lbl, lv_color_hex(COLOR_YELLOW), 0);
     lv_label_set_text(prgm_edit_title_lbl, "PRGM");
 
     for (int i = 0; i < PRGM_EDITOR_VISIBLE; i++) {
         prgm_edit_line_labels[i] = lv_label_create(ui_prgm_editor_screen);
         lv_obj_set_pos(prgm_edit_line_labels[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(prgm_edit_line_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_edit_line_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(prgm_edit_line_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(prgm_edit_line_labels[i], "");
     }
 
@@ -234,8 +235,8 @@ static void ui_init_prgm_editor_screen(void)
     lv_obj_set_pos(prgm_edit_scroll_down, 4,
                    30 + (PRGM_EDITOR_VISIBLE - 1) * 30);
     lv_obj_set_style_text_font(prgm_edit_scroll_down, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(prgm_edit_scroll_down, lv_color_hex(0xFFAA00), 0);
-    lv_obj_set_style_bg_color(prgm_edit_scroll_down, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_text_color(prgm_edit_scroll_down, lv_color_hex(COLOR_AMBER), 0);
+    lv_obj_set_style_bg_color(prgm_edit_scroll_down, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_bg_opa(prgm_edit_scroll_down, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(prgm_edit_scroll_down, 0, 0);
     lv_label_set_text(prgm_edit_scroll_down, "\xE2\x86\x93");
@@ -244,8 +245,8 @@ static void ui_init_prgm_editor_screen(void)
     prgm_edit_scroll_up = lv_label_create(ui_prgm_editor_screen);
     lv_obj_set_pos(prgm_edit_scroll_up, 4, 30);
     lv_obj_set_style_text_font(prgm_edit_scroll_up, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(prgm_edit_scroll_up, lv_color_hex(0xFFAA00), 0);
-    lv_obj_set_style_bg_color(prgm_edit_scroll_up, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_text_color(prgm_edit_scroll_up, lv_color_hex(COLOR_AMBER), 0);
+    lv_obj_set_style_bg_color(prgm_edit_scroll_up, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_bg_opa(prgm_edit_scroll_up, LV_OPA_COVER, 0);
     lv_obj_set_style_pad_all(prgm_edit_scroll_up, 0, 0);
     lv_label_set_text(prgm_edit_scroll_up, "\xE2\x86\x91");
@@ -261,7 +262,7 @@ static void ui_init_prgm_editor_screen(void)
         prgm_sub_tab_labels_ctl[i] = lv_label_create(ui_prgm_ctl_screen);
         lv_obj_set_pos(prgm_sub_tab_labels_ctl[i], i == 0 ? 4 : 80, 4);
         lv_obj_set_style_text_font(prgm_sub_tab_labels_ctl[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_sub_tab_labels_ctl[i], lv_color_hex(i == 0 ? 0xFFFF00 : 0x666666), 0);
+        lv_obj_set_style_text_color(prgm_sub_tab_labels_ctl[i], lv_color_hex(i == 0 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
         lv_label_set_text(prgm_sub_tab_labels_ctl[i], i == 0 ? "CTL" : "I/O");
     }
 
@@ -269,7 +270,7 @@ static void ui_init_prgm_editor_screen(void)
         prgm_ctl_labels[i] = lv_label_create(ui_prgm_ctl_screen);
         lv_obj_set_pos(prgm_ctl_labels[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(prgm_ctl_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_ctl_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(prgm_ctl_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(prgm_ctl_labels[i], "");
     }
 
@@ -278,8 +279,8 @@ static void ui_init_prgm_editor_screen(void)
         prgm_ctl_scroll_ind[i] = lv_label_create(ui_prgm_ctl_screen);
         lv_obj_set_pos(prgm_ctl_scroll_ind[i], 18, 30 + row * 30);
         lv_obj_set_style_text_font(prgm_ctl_scroll_ind[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_ctl_scroll_ind[i], lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_bg_color(prgm_ctl_scroll_ind[i], lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_color(prgm_ctl_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
+        lv_obj_set_style_bg_color(prgm_ctl_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
         lv_obj_set_style_bg_opa(prgm_ctl_scroll_ind[i], LV_OPA_COVER, 0);
         lv_obj_set_style_pad_all(prgm_ctl_scroll_ind[i], 0, 0);
         lv_label_set_text(prgm_ctl_scroll_ind[i], i == 0 ? "\xE2\x86\x91" : "\xE2\x86\x93");
@@ -293,7 +294,7 @@ static void ui_init_prgm_editor_screen(void)
         prgm_sub_tab_labels_io[i] = lv_label_create(ui_prgm_io_screen);
         lv_obj_set_pos(prgm_sub_tab_labels_io[i], i == 0 ? 4 : 80, 4);
         lv_obj_set_style_text_font(prgm_sub_tab_labels_io[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_sub_tab_labels_io[i], lv_color_hex(i == 1 ? 0xFFFF00 : 0x666666), 0);
+        lv_obj_set_style_text_color(prgm_sub_tab_labels_io[i], lv_color_hex(i == 1 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
         lv_label_set_text(prgm_sub_tab_labels_io[i], i == 0 ? "CTL" : "I/O");
     }
 
@@ -301,7 +302,7 @@ static void ui_init_prgm_editor_screen(void)
         prgm_io_labels[i] = lv_label_create(ui_prgm_io_screen);
         lv_obj_set_pos(prgm_io_labels[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(prgm_io_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_io_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(prgm_io_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(prgm_io_labels[i], "");
     }
 }
@@ -338,7 +339,7 @@ static void ui_update_prgm_display(void)
     /* Tab highlights */
     for (int i = 0; i < PRGM_TAB_COUNT; i++) {
         lv_obj_set_style_text_color(prgm_tab_labels[i],
-            lv_color_hex(i == (int)prgm_tab ? 0xFFFF00 : 0x666666), 0);
+            lv_color_hex(i == (int)prgm_tab ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
     }
 
     /* buf for "<id>:Prgm<id>  NNNNNNNN\0" — 2+5+2+2+8+1=20 bytes max */
@@ -355,13 +356,13 @@ static void ui_update_prgm_display(void)
         else
             snprintf(title, sizeof(title), "Prgm%s", id);
         lv_label_set_text(prgm_item_labels[0], title);
-        lv_obj_set_style_text_color(prgm_item_labels[0], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(prgm_item_labels[0], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(prgm_item_labels[1], "1:Do not erase");
         lv_obj_set_style_text_color(prgm_item_labels[1],
-            lv_color_hex(prgm_erase_confirm_choice == 0 ? 0xFFFF00 : 0xFFFFFF), 0);
+            lv_color_hex(prgm_erase_confirm_choice == 0 ? COLOR_YELLOW : COLOR_WHITE), 0);
         lv_label_set_text(prgm_item_labels[2], "2:Erase");
         lv_obj_set_style_text_color(prgm_item_labels[2],
-            lv_color_hex(prgm_erase_confirm_choice == 1 ? 0xFFFF00 : 0xFFFFFF), 0);
+            lv_color_hex(prgm_erase_confirm_choice == 1 ? COLOR_YELLOW : COLOR_WHITE), 0);
         for (int i = 3; i < MENU_VISIBLE_ROWS; i++)
             lv_label_set_text(prgm_item_labels[i], "");
         lv_obj_add_flag(prgm_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
@@ -387,7 +388,7 @@ static void ui_update_prgm_display(void)
                     snprintf(buf, sizeof(buf), "%s:Prgm%s", id, id);
                 lv_label_set_text(prgm_item_labels[i], buf);
                 lv_obj_set_style_text_color(prgm_item_labels[i],
-                    lv_color_hex(i == (int)prgm_item_cursor ? 0xFFFF00 : 0xFFFFFF), 0);
+                    lv_color_hex(i == (int)prgm_item_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
             } else {
                 lv_label_set_text(prgm_item_labels[i], "");
             }
@@ -406,7 +407,7 @@ static void ui_update_prgm_display(void)
                     snprintf(buf, sizeof(buf), "%s:Prgm%s", id, id);
                 lv_label_set_text(prgm_item_labels[i], buf);
                 lv_obj_set_style_text_color(prgm_item_labels[i],
-                    lv_color_hex(i == (int)prgm_item_cursor ? 0xFFFF00 : 0xFFFFFF), 0);
+                    lv_color_hex(i == (int)prgm_item_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
             } else {
                 lv_label_set_text(prgm_item_labels[i], "");
             }
@@ -509,7 +510,7 @@ static void ui_update_prgm_editor_display(void)
             snprintf(buf, sizeof(buf), ":%s", prgm_edit_lines[line]);
             lv_label_set_text(prgm_edit_line_labels[i], buf);
             lv_obj_set_style_text_color(prgm_edit_line_labels[i],
-                lv_color_hex(line == (int)prgm_edit_line ? 0xFFFF00 : 0xFFFFFF), 0);
+                lv_color_hex(line == (int)prgm_edit_line ? COLOR_YELLOW : COLOR_WHITE), 0);
         } else {
             lv_label_set_text(prgm_edit_line_labels[i], "");
         }
@@ -536,7 +537,7 @@ static void ui_update_prgm_ctl_display(void)
         if (idx < PRGM_CTL_ITEM_COUNT) {
             lv_label_set_text(prgm_ctl_labels[i], prgm_ctl_display[idx]);
             lv_obj_set_style_text_color(prgm_ctl_labels[i],
-                lv_color_hex(i == (int)prgm_ctl_cursor ? 0xFFFF00 : 0xFFFFFF), 0);
+                lv_color_hex(i == (int)prgm_ctl_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
         } else {
             lv_label_set_text(prgm_ctl_labels[i], "");
         }
@@ -557,7 +558,7 @@ static void ui_update_prgm_io_display(void)
     for (int i = 0; i < PRGM_IO_ITEM_COUNT; i++) {
         lv_label_set_text(prgm_io_labels[i], prgm_io_display[i]);
         lv_obj_set_style_text_color(prgm_io_labels[i],
-            lv_color_hex(i == (int)prgm_io_cursor ? 0xFFFF00 : 0xFFFFFF), 0);
+            lv_color_hex(i == (int)prgm_io_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
     }
 }
 

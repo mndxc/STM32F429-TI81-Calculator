@@ -15,7 +15,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "stm32f4xx_hal.h"
+#ifndef HOST_TEST
+#  include "stm32f4xx_hal.h"
+#endif
 #include "calc_engine.h"   /* CalcMatrix_t, CALC_MATRIX_MAX_DIM */
 
 /*---------------------------------------------------------------------------
@@ -25,7 +27,9 @@
 #define PERSIST_MAGIC       0xCA1CC0DEU   /* Marker — "calc code" */
 #define PERSIST_VERSION     3U            /* Bumped when matrix storage expanded to 6×6 */
 #define PERSIST_FLASH_ADDR  0x080C0000U   /* Sector 10, 128 KB, unused by firmware */
-#define PERSIST_SECTOR      FLASH_SECTOR_10
+#ifndef HOST_TEST
+#  define PERSIST_SECTOR    FLASH_SECTOR_10
+#endif
 /* STM32F429 sector map (12 sectors per bank):
  *   Sectors 0-3:  16 KB each  (0x08000000 - 0x0800FFFF)
  *   Sector  4:    64 KB       (0x08010000 - 0x0801FFFF)
@@ -80,7 +84,7 @@ typedef struct {
        Only the 3 user matrices are saved; the ANS matrix (index 3) is transient. */
     float    matrix_data[3][CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM]; /* 432 B */
     uint32_t checksum;            /*   4 B — XOR of all preceding words */
-} PersistBlock_t;                 /* Total: 856 B */
+} PersistBlock_t;                 /* Total: 860 B */
 
 _Static_assert(sizeof(PersistBlock_t) % 4 == 0,
                "PersistBlock_t must be a multiple of 4 bytes");
@@ -89,6 +93,22 @@ _Static_assert(sizeof(PersistBlock_t) % 4 == 0,
  * Public API
  *---------------------------------------------------------------------------*/
 
+/**
+ * @brief  Compute the XOR checksum over all words preceding the checksum
+ *         field.  Available on host for testing; not tied to FLASH.
+ */
+uint32_t Persist_Checksum(const PersistBlock_t *b);
+
+/**
+ * @brief  Validate magic, version, and XOR checksum of an in-memory block.
+ * @return true  if all three fields match expected values.
+ * @return false if the block is blank, stale, or corrupt.
+ *
+ * Host-compatible — does not read from FLASH.
+ */
+bool Persist_Validate(const PersistBlock_t *b);
+
+#ifndef HOST_TEST
 /**
  * @brief  Read saved state from FLASH sector 10.
  * @param  out  Destination buffer; filled on success.
@@ -108,6 +128,7 @@ bool Persist_Load(PersistBlock_t *out);
  * while FLASH is busy on this single-bank device.
  */
 bool Persist_Save(const PersistBlock_t *in);
+#endif /* HOST_TEST */
 
 /**
  * @brief  Snapshot all saveable calculator state into @p out.

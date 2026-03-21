@@ -20,8 +20,9 @@
  * @brief  XOR checksum over all words preceding the checksum field.
  *
  * Does not need .RamFunc — pure arithmetic with no FLASH access.
+ * Exposed as public API for host-side testing via Persist_Checksum().
  */
-static uint32_t persist_checksum(const PersistBlock_t *b)
+uint32_t Persist_Checksum(const PersistBlock_t *b)
 {
     const uint32_t *w = (const uint32_t *)b;
     uint32_t n = sizeof(PersistBlock_t) / 4 - 1; /* all words except checksum */
@@ -31,6 +32,22 @@ static uint32_t persist_checksum(const PersistBlock_t *b)
     }
     return checksum;
 }
+
+/**
+ * @brief  Validate magic, version, and checksum of an in-memory block.
+ *
+ * Does not read from FLASH — works on any PersistBlock_t in RAM.
+ * Suitable for host-side round-trip testing.
+ */
+bool Persist_Validate(const PersistBlock_t *b)
+{
+    if (b->magic   != PERSIST_MAGIC)   return false;
+    if (b->version != PERSIST_VERSION) return false;
+    if (Persist_Checksum(b) != b->checksum) return false;
+    return true;
+}
+
+#ifndef HOST_TEST
 
 /**
  * @brief  Erase FLASH sector 10.
@@ -92,7 +109,7 @@ bool Persist_Save(const PersistBlock_t *in)
 
     block.magic    = PERSIST_MAGIC;
     block.version  = PERSIST_VERSION;
-    block.checksum = persist_checksum(&block);
+    block.checksum = Persist_Checksum(&block);
 
     HAL_FLASH_Unlock();
     persist_erase_sector();
@@ -119,8 +136,10 @@ bool Persist_Load(PersistBlock_t *out)
 
     if (stored->magic   != PERSIST_MAGIC)   { return false; }
     if (stored->version != PERSIST_VERSION) { return false; }
-    if (persist_checksum(stored) != stored->checksum) { return false; }
+    if (Persist_Checksum(stored) != stored->checksum) { return false; }
 
     memcpy(out, stored, sizeof(PersistBlock_t));
     return true;
 }
+
+#endif /* HOST_TEST */

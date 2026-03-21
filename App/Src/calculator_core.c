@@ -17,6 +17,8 @@
 #include "calc_internal.h"
 #include "ui_matrix.h"
 #include "ui_prgm.h"
+#include "ui_palette.h"
+#include "expr_util.h"
 #include "cmsis_os.h"
 #include "lvgl.h"
 #include "main.h"
@@ -58,13 +60,6 @@
 #define MATRIX_EDIT_ITEMS   3           /* Items in the EDIT tab */
 
 
-/* Color scheme */
-#define COLOR_BG            0x1A1A1A    /* Near black background */
-#define COLOR_HISTORY_EXPR  0x888888    /* Grey for committed expressions */
-#define COLOR_HISTORY_RES   0xFFFFFF    /* White for results */
-#define COLOR_EXPR          0xCCCCCC    /* Light grey for current expression */
-#define COLOR_2ND           0xF5A623    /* Amber for 2nd mode indicator */
-#define COLOR_ALPHA         0x7ED321    /* Green for alpha mode indicator */
 
 /*---------------------------------------------------------------------------
  * External references
@@ -458,7 +453,7 @@ void cursor_box_create(lv_obj_t *parent, bool start_hidden,
 {
     lv_obj_t *box = lv_obj_create(parent);
     lv_obj_set_size(box, 14, 26);
-    lv_obj_set_style_bg_color(box, lv_color_hex(0xCCCCCC), 0);
+    lv_obj_set_style_bg_color(box, lv_color_hex(COLOR_GREY_LIGHT), 0);
     lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(box, 0, 0);
     lv_obj_set_style_pad_all(box, 0, 0);
@@ -492,7 +487,7 @@ static void ui_init_screen(void)
         lv_obj_set_width(disp_rows[i], DISPLAY_W - 8);
         lv_obj_set_style_text_font(disp_rows[i], &jetbrains_mono_24, 0);
         lv_obj_set_style_text_color(disp_rows[i],
-                                    lv_color_hex(COLOR_HISTORY_EXPR), 0);
+                                    lv_color_hex(COLOR_GREY_MED), 0);
         lv_label_set_long_mode(disp_rows[i], LV_LABEL_LONG_CLIP);
         lv_label_set_text(disp_rows[i], "");
     }
@@ -546,7 +541,7 @@ lv_obj_t *screen_create(lv_obj_t *parent)
     lv_obj_t *scr = lv_obj_create(parent);
     lv_obj_set_size(scr, LV_HOR_RES, LV_VER_RES);
     lv_obj_set_pos(scr, 0, 0);
-    lv_obj_set_style_bg_color(scr, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(scr, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_border_width(scr, 0, 0);
     lv_obj_set_style_pad_all(scr, 0, 0);
     lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
@@ -564,7 +559,7 @@ static void ui_init_graph_screens(void)
     lv_obj_set_size(ui_graph_yeq_screen, DISPLAY_W, DISPLAY_H);
     lv_obj_set_pos(ui_graph_yeq_screen, 0, 0);
     lv_obj_set_style_bg_color(ui_graph_yeq_screen,
-                               lv_color_hex(0x000000), 0);
+                               lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_border_width(ui_graph_yeq_screen, 0, 0);
     lv_obj_set_style_pad_all(ui_graph_yeq_screen, 0, 0);
     lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_SCROLLABLE);
@@ -578,7 +573,7 @@ static void ui_init_graph_screens(void)
         lv_obj_set_pos(ui_lbl_yeq_name[i], 4, row_y);
         lv_obj_set_style_text_font(ui_lbl_yeq_name[i], &jetbrains_mono_24, 0);
         lv_obj_set_style_text_color(ui_lbl_yeq_name[i],
-                                     lv_color_hex(0xFFFFFF), 0);
+                                     lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(ui_lbl_yeq_name[i], eq_row_names[i]);
 
         ui_lbl_yeq_eq[i] = lv_label_create(ui_graph_yeq_screen);
@@ -586,7 +581,7 @@ static void ui_init_graph_screens(void)
         lv_obj_set_width(ui_lbl_yeq_eq[i], DISPLAY_W - 48);
         lv_obj_set_style_text_font(ui_lbl_yeq_eq[i], &jetbrains_mono_24, 0);
         lv_obj_set_style_text_color(ui_lbl_yeq_eq[i],
-                                     lv_color_hex(0xFFFFFF), 0);
+                                     lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_long_mode(ui_lbl_yeq_eq[i], LV_LABEL_LONG_WRAP);
         lv_label_set_text(ui_lbl_yeq_eq[i], "");
     }
@@ -599,7 +594,7 @@ static void ui_init_graph_screens(void)
     lv_obj_set_size(ui_graph_range_screen, DISPLAY_W, DISPLAY_H);
     lv_obj_set_pos(ui_graph_range_screen, 0, 0);
     lv_obj_set_style_bg_color(ui_graph_range_screen,
-                               lv_color_hex(0x000000), 0);
+                               lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_border_width(ui_graph_range_screen, 0, 0);
     lv_obj_set_style_pad_all(ui_graph_range_screen, 0, 0);
     lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_SCROLLABLE);
@@ -610,7 +605,7 @@ static void ui_init_graph_screens(void)
     lv_obj_set_pos(lbl_range_title, 4, 4);
     lv_obj_set_style_text_font(lbl_range_title, &jetbrains_mono_24, 0);
     lv_obj_set_style_text_color(lbl_range_title,
-                                 lv_color_hex(0xFFFFFF), 0);
+                                 lv_color_hex(COLOR_WHITE), 0);
     lv_label_set_text(lbl_range_title, "RANGE");
 
     /* Seven field rows — combined "Name=value" labels, text set by ui_update_range_display() */
@@ -619,7 +614,7 @@ static void ui_init_graph_screens(void)
         lv_obj_set_pos(ui_lbl_range_rows[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(ui_lbl_range_rows[i], &jetbrains_mono_24, 0);
         lv_obj_set_style_text_color(ui_lbl_range_rows[i],
-                                     lv_color_hex(0xFFFFFF), 0);
+                                     lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(ui_lbl_range_rows[i], range_field_names[i]);
     }
 
@@ -630,7 +625,7 @@ static void ui_init_graph_screens(void)
     ui_graph_zoom_screen = lv_obj_create(scr);
     lv_obj_set_size(ui_graph_zoom_screen, DISPLAY_W, DISPLAY_H);
     lv_obj_set_pos(ui_graph_zoom_screen, 0, 0);
-    lv_obj_set_style_bg_color(ui_graph_zoom_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(ui_graph_zoom_screen, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_border_width(ui_graph_zoom_screen, 0, 0);
     lv_obj_set_style_pad_all(ui_graph_zoom_screen, 0, 0);
     lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_SCROLLABLE);
@@ -640,7 +635,7 @@ static void ui_init_graph_screens(void)
     lv_obj_t *lbl_zoom_title = lv_label_create(ui_graph_zoom_screen);
     lv_obj_set_pos(lbl_zoom_title, 4, 4);
     lv_obj_set_style_text_font(lbl_zoom_title, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(lbl_zoom_title, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(lbl_zoom_title, lv_color_hex(COLOR_WHITE), 0);
     lv_label_set_text(lbl_zoom_title, "ZOOM");
 
     /* MENU_VISIBLE_ROWS dynamic item labels — text set by ui_update_zoom_display() */
@@ -648,7 +643,7 @@ static void ui_init_graph_screens(void)
         zoom_item_labels[i] = lv_label_create(ui_graph_zoom_screen);
         lv_obj_set_pos(zoom_item_labels[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(zoom_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(zoom_item_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(zoom_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(zoom_item_labels[i], "");
     }
 
@@ -660,8 +655,8 @@ static void ui_init_graph_screens(void)
         zoom_scroll_ind[i] = lv_label_create(ui_graph_zoom_screen);
         lv_obj_set_pos(zoom_scroll_ind[i], 18, 30 + row * 30);
         lv_obj_set_style_text_font(zoom_scroll_ind[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(zoom_scroll_ind[i], lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_bg_color(zoom_scroll_ind[i], lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_color(zoom_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
+        lv_obj_set_style_bg_color(zoom_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
         lv_obj_set_style_bg_opa(zoom_scroll_ind[i], LV_OPA_COVER, 0);
         lv_obj_set_style_pad_all(zoom_scroll_ind[i], 0, 0);
         lv_label_set_text(zoom_scroll_ind[i], "");
@@ -672,7 +667,7 @@ static void ui_init_graph_screens(void)
     ui_graph_zoom_factors_screen = lv_obj_create(scr);
     lv_obj_set_size(ui_graph_zoom_factors_screen, DISPLAY_W, DISPLAY_H);
     lv_obj_set_pos(ui_graph_zoom_factors_screen, 0, 0);
-    lv_obj_set_style_bg_color(ui_graph_zoom_factors_screen, lv_color_hex(0x000000), 0);
+    lv_obj_set_style_bg_color(ui_graph_zoom_factors_screen, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_border_width(ui_graph_zoom_factors_screen, 0, 0);
     lv_obj_set_style_pad_all(ui_graph_zoom_factors_screen, 0, 0);
     lv_obj_clear_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_SCROLLABLE);
@@ -681,14 +676,14 @@ static void ui_init_graph_screens(void)
     lv_obj_t *lbl_zf_title = lv_label_create(ui_graph_zoom_factors_screen);
     lv_obj_set_pos(lbl_zf_title, 4, 4);
     lv_obj_set_style_text_font(lbl_zf_title, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(lbl_zf_title, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_text_color(lbl_zf_title, lv_color_hex(COLOR_WHITE), 0);
     lv_label_set_text(lbl_zf_title, "ZOOM FACTORS");
 
     for (int i = 0; i < 2; i++) {
         ui_lbl_zoom_factors_rows[i] = lv_label_create(ui_graph_zoom_factors_screen);
         lv_obj_set_pos(ui_lbl_zoom_factors_rows[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(ui_lbl_zoom_factors_rows[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(ui_lbl_zoom_factors_rows[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(ui_lbl_zoom_factors_rows[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(ui_lbl_zoom_factors_rows[i], zoom_factors_names[i]);
     }
 
@@ -713,7 +708,7 @@ static void ui_init_mode_screen(void)
             lv_obj_t *lbl = lv_label_create(ui_mode_screen);
             lv_obj_set_pos(lbl, mode_option_x[r][c], r * 30);
             lv_obj_set_style_text_font(lbl, &jetbrains_mono_24, 0);
-            lv_obj_set_style_text_color(lbl, lv_color_hex(0x666666), 0);
+            lv_obj_set_style_text_color(lbl, lv_color_hex(COLOR_GREY_INACTIVE), 0);
             lv_label_set_text(lbl, mode_options[r][c]);
             mode_option_labels[r][c] = lbl;
         }
@@ -732,7 +727,7 @@ static void ui_init_math_screen(void)
         math_tab_labels[i] = lv_label_create(ui_math_screen);
         lv_obj_set_pos(math_tab_labels[i], tab_x[i], 4);
         lv_obj_set_style_text_font(math_tab_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(math_tab_labels[i], lv_color_hex(0x666666), 0);
+        lv_obj_set_style_text_color(math_tab_labels[i], lv_color_hex(COLOR_GREY_INACTIVE), 0);
         lv_label_set_text(math_tab_labels[i], math_tab_names[i]);
     }
 
@@ -741,7 +736,7 @@ static void ui_init_math_screen(void)
         math_item_labels[i] = lv_label_create(ui_math_screen);
         lv_obj_set_pos(math_item_labels[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(math_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(math_item_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(math_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(math_item_labels[i], "");
     }
 
@@ -751,8 +746,8 @@ static void ui_init_math_screen(void)
         math_scroll_ind[i] = lv_label_create(ui_math_screen);
         lv_obj_set_pos(math_scroll_ind[i], 18, 30 + row * 30);
         lv_obj_set_style_text_font(math_scroll_ind[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(math_scroll_ind[i], lv_color_hex(0xFFAA00), 0);
-        lv_obj_set_style_bg_color(math_scroll_ind[i], lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_color(math_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
+        lv_obj_set_style_bg_color(math_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
         lv_obj_set_style_bg_opa(math_scroll_ind[i], LV_OPA_COVER, 0);
         lv_obj_set_style_pad_all(math_scroll_ind[i], 0, 0);
         lv_label_set_text(math_scroll_ind[i], "");
@@ -770,7 +765,7 @@ static void ui_init_test_screen(void)
     test_title_label = lv_label_create(ui_test_screen);
     lv_obj_set_pos(test_title_label, 4, 4);
     lv_obj_set_style_text_font(test_title_label, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(test_title_label, lv_color_hex(0xFFFF00), 0);
+    lv_obj_set_style_text_color(test_title_label, lv_color_hex(COLOR_YELLOW), 0);
     lv_label_set_text(test_title_label, "TEST");
 
     /* Item labels — text set by ui_update_test_display() */
@@ -778,7 +773,7 @@ static void ui_init_test_screen(void)
         test_item_labels[i] = lv_label_create(ui_test_screen);
         lv_obj_set_pos(test_item_labels[i], 4, 30 + i * 30);
         lv_obj_set_style_text_font(test_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(test_item_labels[i], lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(test_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(test_item_labels[i], "");
     }
 }
@@ -833,7 +828,7 @@ void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
             break;
         default:
             show       = cursor_visible;
-            box_color  = lv_color_hex(0xCCCCCC);
+            box_color  = lv_color_hex(COLOR_GREY_LIGHT);
             inner_text = insert_mode ? "I" : "";
             break;
     }
@@ -877,11 +872,7 @@ static void cursor_update(lv_obj_t *row_label, uint32_t char_pos)
  */
 static uint8_t matrix_token_size_before(const char *buf, uint8_t pos)
 {
-    if (pos < 3) return 0;
-    if (buf[pos - 3] == '[' && buf[pos - 1] == ']' &&
-        (buf[pos - 2] == 'A' || buf[pos - 2] == 'B' || buf[pos - 2] == 'C'))
-        return 3;
-    return 0;
+    return ExprUtil_MatrixTokenSizeBefore(buf, pos);
 }
 
 /**
@@ -890,22 +881,12 @@ static uint8_t matrix_token_size_before(const char *buf, uint8_t pos)
  */
 static uint8_t matrix_token_size_at(const char *buf, uint8_t pos, uint8_t len)
 {
-    if (pos + 3 > len) return 0;
-    if (buf[pos] == '[' && buf[pos + 2] == ']' &&
-        (buf[pos + 1] == 'A' || buf[pos + 1] == 'B' || buf[pos + 1] == 'C'))
-        return 3;
-    return 0;
+    return ExprUtil_MatrixTokenSizeAt(buf, pos, len);
 }
 
 static uint8_t utf8_char_size(const char *s)
 {
-    uint8_t c = (uint8_t)s[0];
-    if (c == 0)    return 0;
-    if (c < 0x80)  return 1;   /* ASCII */
-    if (c < 0xC0)  return 1;   /* Continuation byte — skip safely */
-    if (c < 0xE0)  return 2;   /* 2-byte sequence (e.g. π U+03C0) */
-    if (c < 0xF0)  return 3;   /* 3-byte sequence (e.g. √ U+221A) */
-    return 4;                   /* 4-byte sequence */
+    return ExprUtil_Utf8CharSize(s);
 }
 
 /**
@@ -916,14 +897,7 @@ static uint8_t utf8_char_size(const char *s)
  */
 static uint32_t utf8_byte_to_glyph(const char *s, uint32_t byte_idx)
 {
-    uint32_t glyph = 0;
-    uint32_t i = 0;
-    while (i < byte_idx && s[i] != '\0') {
-        uint8_t sz = utf8_char_size(&s[i]);
-        i += sz;
-        glyph++;
-    }
-    return glyph;
+    return ExprUtil_Utf8ByteToGlyph(s, byte_idx);
 }
 
 /**
@@ -1113,7 +1087,7 @@ void ui_refresh_display(void)
                     memcpy(row_buf, history[idx].expression + char_start, (size_t)seg_len);
                     row_buf[seg_len] = '\0';
                     lv_obj_set_style_text_color(disp_rows[row],
-                                                lv_color_hex(COLOR_HISTORY_EXPR), 0);
+                                                lv_color_hex(COLOR_GREY_MED), 0);
                     lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
                     lv_label_set_text(disp_rows[row], row_buf);
                     break;
@@ -1126,7 +1100,7 @@ void ui_refresh_display(void)
                     char rbuf[MAX_RESULT_LEN];
                     get_result_line(history[idx].result, result_line, rbuf, sizeof(rbuf));
                     lv_obj_set_style_text_color(disp_rows[row],
-                                                lv_color_hex(COLOR_HISTORY_RES), 0);
+                                                lv_color_hex(COLOR_WHITE), 0);
                     lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_RIGHT, 0);
                     lv_label_set_text(disp_rows[row], rbuf);
                     break;
@@ -1146,7 +1120,7 @@ void ui_refresh_display(void)
             memcpy(row_buf, &expression[char_start], (size_t)seg_len);
             row_buf[seg_len] = '\0';
 
-            lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_EXPR), 0);
+            lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_GREY_LIGHT), 0);
             lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
             lv_label_set_text(disp_rows[row], row_buf);
 
@@ -1244,11 +1218,7 @@ void Update_Calculator_Display(void)
  */
 static void expr_prepend_ans_if_empty(void)
 {
-    if (expr_len == 0 && MAX_EXPR_LEN > 3) {
-        memcpy(expression, "ANS", 4);
-        expr_len   = 3;
-        cursor_pos = 3;
-    }
+    ExprUtil_PrependAns(expression, &expr_len, &cursor_pos, MAX_EXPR_LEN);
 }
 
 /**
@@ -1260,27 +1230,7 @@ static void expr_prepend_ans_if_empty(void)
  */
 static void expr_insert_char(char c)
 {
-    if (!insert_mode && cursor_pos < expr_len) {
-        /* Overwrite: remove all bytes of the current char, then write c.
-         * Treat [A]/[B]/[C] as atomic (3 bytes); also handle multi-byte UTF-8
-         * (e.g. ≥) to avoid orphaned continuation bytes. */
-        uint8_t cur_size = matrix_token_size_at(expression, cursor_pos, expr_len);
-        if (!cur_size) cur_size = utf8_char_size(&expression[cursor_pos]);
-        memmove(&expression[cursor_pos + 1],
-                &expression[cursor_pos + cur_size],
-                expr_len - cursor_pos - cur_size + 1);
-        expression[cursor_pos] = c;
-        expr_len = expr_len - cur_size + 1;
-        cursor_pos++;
-    } else {
-        /* Insert: shift tail right, then write */
-        if (expr_len + 1 > MAX_EXPR_LEN) return; // Check for buffer overflow
-        memmove(&expression[cursor_pos + 1], &expression[cursor_pos],
-                expr_len - cursor_pos + 1);
-        expression[cursor_pos] = c;
-        expr_len++;
-        cursor_pos++;
-    }
+    ExprUtil_InsertChar(expression, &expr_len, &cursor_pos, MAX_EXPR_LEN, insert_mode, c);
 }
 
 /**
@@ -1288,13 +1238,7 @@ static void expr_insert_char(char c)
  */
 static void expr_insert_str(const char *s)
 {
-    uint8_t slen = (uint8_t)strlen(s);
-    if (expr_len + slen >= MAX_EXPR_LEN) return;
-    memmove(&expression[cursor_pos + slen], &expression[cursor_pos],
-            expr_len - cursor_pos + 1);
-    memcpy(&expression[cursor_pos], s, slen);
-    expr_len   += slen;
-    cursor_pos += slen;
+    ExprUtil_InsertStr(expression, &expr_len, &cursor_pos, MAX_EXPR_LEN, s);
 }
 
 /**
@@ -1302,28 +1246,7 @@ static void expr_insert_str(const char *s)
  */
 void expr_delete_at_cursor(void)
 {
-    if (cursor_pos == 0) return;
-    /* Treat [A]/[B]/[C] as atomic — delete all 3 bytes at once. */
-    uint8_t mat = matrix_token_size_before(expression, cursor_pos);
-    if (mat) {
-        uint8_t start = cursor_pos - mat;
-        memmove(&expression[start], &expression[cursor_pos],
-                expr_len - cursor_pos + 1);
-        expr_len  -= mat;
-        cursor_pos = start;
-        return;
-    }
-    /* Find the start byte of the UTF-8 character that ends just before cursor.
-     * Without this, deleting a 3-byte sequence (e.g. ≥) would only remove the
-     * last byte, leaving two orphaned continuation bytes in the expression. */
-    uint8_t start = cursor_pos - 1;
-    while (start > 0 && ((uint8_t)expression[start] & 0xC0) == 0x80)
-        start--;
-    uint8_t char_bytes = cursor_pos - start;
-    memmove(&expression[start], &expression[cursor_pos],
-            expr_len - cursor_pos + 1);
-    expr_len  -= char_bytes;
-    cursor_pos = start;
+    ExprUtil_DeleteAtCursor(expression, &expr_len, &cursor_pos);
 }
 
 /**
@@ -1342,8 +1265,8 @@ void ui_update_history(void)
 static void yeq_update_highlight(void)
 {
     for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
-        lv_color_t col = (i == yeq_selected) ? lv_color_hex(0xFFFF00)
-                                             : lv_color_hex(0xFFFFFF);
+        lv_color_t col = (i == yeq_selected) ? lv_color_hex(COLOR_YELLOW)
+                                             : lv_color_hex(COLOR_WHITE);
         lv_obj_set_style_text_color(ui_lbl_yeq_name[i], col, 0);
     }
 }
@@ -1433,8 +1356,8 @@ static void ui_update_zoom_display(void)
             snprintf(buf, sizeof(buf), "%d:%s", idx + 1, zoom_item_names[idx]);
         }
         lv_color_t col = (i == (int)zoom_item_cursor)
-            ? lv_color_hex(0xFFFF00)
-            : lv_color_hex(0xFFFFFF);
+            ? lv_color_hex(COLOR_YELLOW)
+            : lv_color_hex(COLOR_WHITE);
         lv_obj_set_style_text_color(zoom_item_labels[i], col, 0);
         lv_label_set_text(zoom_item_labels[i], buf);
     }
@@ -1607,11 +1530,11 @@ static void ui_update_mode_display(void)
             if (lbl == NULL) continue;
             lv_color_t col;
             if (r == mode_row_selected && c == (int)mode_cursor[r])
-                col = lv_color_hex(0xFFFF00);
+                col = lv_color_hex(COLOR_YELLOW);
             else if (c == (int)mode_committed[r])
-                col = lv_color_hex(0xFFFFFF);   /* white — committed */
+                col = lv_color_hex(COLOR_WHITE);   /* white — committed */
             else
-                col = lv_color_hex(0x666666);   /* dim — not selected */
+                col = lv_color_hex(COLOR_GREY_INACTIVE);   /* dim — not selected */
             lv_obj_set_style_text_color(lbl, col, 0);
         }
     }
@@ -1628,7 +1551,7 @@ static void ui_update_math_display(void)
     /* Tab labels */
     for (int i = 0; i < MATH_TAB_COUNT; i++) {
         lv_obj_set_style_text_color(math_tab_labels[i],
-            (i == (int)math_tab) ? lv_color_hex(0xFFFF00) : lv_color_hex(0x666666), 0);
+            (i == (int)math_tab) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_GREY_INACTIVE), 0);
     }
 
     /* Hide both scroll indicators; re-shown below if needed */
@@ -1661,7 +1584,7 @@ static void ui_update_math_display(void)
         }
 
         lv_obj_set_style_text_color(math_item_labels[i],
-            (i == (int)math_item_cursor) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
+            (i == (int)math_item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(math_item_labels[i], buf);
     }
 }
@@ -1673,7 +1596,7 @@ static void ui_update_test_display(void)
         char buf[16];
         snprintf(buf, sizeof(buf), "%d:%s", i + 1, test_menu_items[i].display);
         lv_obj_set_style_text_color(test_item_labels[i],
-            (i == (int)test_item_cursor) ? lv_color_hex(0xFFFF00) : lv_color_hex(0xFFFFFF), 0);
+            (i == (int)test_item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(test_item_labels[i], buf);
     }
 }
@@ -1712,8 +1635,8 @@ static void range_update_highlight(void)
         if (lbl == NULL)
             continue;
         lv_obj_set_style_text_color(lbl,
-            (i == range_field_selected) ? lv_color_hex(0xFFFF00)
-                                        : lv_color_hex(0xFFFFFF),
+            (i == range_field_selected) ? lv_color_hex(COLOR_YELLOW)
+                                        : lv_color_hex(COLOR_WHITE),
             0);
     }
 }
@@ -1777,8 +1700,8 @@ static void zoom_factors_update_highlight(void)
     for (int i = 0; i < 2; i++) {
         if (ui_lbl_zoom_factors_rows[i] == NULL) continue;
         lv_obj_set_style_text_color(ui_lbl_zoom_factors_rows[i],
-            (i == (int)zoom_factors_field) ? lv_color_hex(0xFFFF00)
-                                           : lv_color_hex(0xFFFFFF),
+            (i == (int)zoom_factors_field) ? lv_color_hex(COLOR_YELLOW)
+                                           : lv_color_hex(COLOR_WHITE),
             0);
     }
 }
@@ -3151,28 +3074,14 @@ void handle_normal_mode(Token_t t)
 
     case TOKEN_LEFT:
         if (cursor_pos > 0) {
-            if (matrix_token_size_before(expression, cursor_pos) == 3) {
-                cursor_pos -= 3;
-            } else {
-                do { cursor_pos--; }
-                while (cursor_pos > 0 &&
-                       ((uint8_t)expression[cursor_pos] & 0xC0) == 0x80);
-            }
+            ExprUtil_MoveCursorLeft(expression, &cursor_pos);
             Update_Calculator_Display();
         }
         break;
 
     case TOKEN_RIGHT:
         if (cursor_pos < expr_len) {
-            uint8_t mat = matrix_token_size_at(expression, cursor_pos, expr_len);
-            if (mat) {
-                cursor_pos += mat;
-            } else {
-                cursor_pos++;
-                while (cursor_pos < expr_len &&
-                       ((uint8_t)expression[cursor_pos] & 0xC0) == 0x80)
-                    cursor_pos++;
-            }
+            ExprUtil_MoveCursorRight(expression, expr_len, &cursor_pos);
             Update_Calculator_Display();
         }
         break;
@@ -3421,7 +3330,7 @@ void Execute_Token(Token_t t)
         lvgl_lock();
         lv_obj_t *saving_lbl = lv_label_create(lv_scr_act());
         lv_label_set_text(saving_lbl, "Saving...");
-        lv_obj_set_style_text_color(saving_lbl, lv_color_hex(0xFFAA00), 0);
+        lv_obj_set_style_text_color(saving_lbl, lv_color_hex(COLOR_AMBER), 0);
         lv_obj_align(saving_lbl, LV_ALIGN_BOTTOM_MID, 0, -6);
         lvgl_unlock();
         osDelay(20);

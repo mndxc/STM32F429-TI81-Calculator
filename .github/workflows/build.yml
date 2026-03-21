@@ -24,3 +24,36 @@ jobs:
 
       - name: Build
         run: cmake --build build
+
+  host-tests:
+    name: Host Unit Tests + Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc cmake ninja-build gcovr
+
+      - name: Configure with coverage
+        run: cmake -G Ninja -S App/Tests -B build/tests -DCOVERAGE=ON
+
+      - name: Build tests
+        run: cmake --build build/tests
+
+      - name: Run tests
+        run: |
+          ./build/tests/test_calc_engine
+          ./build/tests/test_expr_util
+          ./build/tests/test_persist_roundtrip
+
+      - name: Branch coverage report
+        run: |
+          gcovr --root . \
+            --filter 'App/Src/calc_engine\.c' \
+            --filter 'App/Src/expr_util\.c' \
+            --filter 'App/Src/persist\.c' \
+            --branch \
+            --print-summary \
+            build/tests

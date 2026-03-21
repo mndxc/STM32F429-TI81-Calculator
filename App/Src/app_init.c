@@ -13,6 +13,7 @@
 #include "cmsis_os.h"
 #include "usb_host.h"
 #include "app_common.h"
+#include "ui_palette.h"
 #include "keypad.h"
 #include "lv_port_disp.h"
 #include "lv_port_indev.h"
@@ -259,7 +260,7 @@ void Power_DisplayBlankAndMessage(void)
 
     lv_obj_t *lbl = lv_label_create(overlay);
     lv_label_set_text(lbl, "Powered off");
-    lv_obj_set_style_text_color(lbl, lv_color_hex(0x444444), 0);
+    lv_obj_set_style_text_color(lbl, lv_color_hex(COLOR_GREY_DARK), 0);
     lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
     xSemaphoreGive(xLVGL_Mutex);
 
