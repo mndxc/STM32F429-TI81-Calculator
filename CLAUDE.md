@@ -811,7 +811,7 @@ All ICs verified available on JLCPCB:
 | STM32H7B0VBT6 | Main MCU LQFP100 |
 | W25Q128JV | 16MB OctoSPI NOR flash on OCTOSPI1 — firmware XIP + user data (variables, programs, settings); partitioned by sector |
 | RT9471 | LiPo charger with power path management — I²C programmable, 3A, USB OTG boost, WQFN-24L 4×4 |
-| MT2492 | 3.3V main buck (R_upper=100K, R_lower=22.1K 1%) |
+| RT8059 | 3.3V main buck (R_upper=100K, R_lower=22.1K 1%) |
 | RT4812 | 5V boost — **DNF Rev1; reserved for Rev2 when Raspberry Pi Zero 2 W is integrated** |
 | TPD4E05U06DQAR | USB ESD protection (TI, 4-channel, SOT-563) |
 
@@ -819,15 +819,15 @@ All ICs verified available on JLCPCB:
 
 Power flows as follows:
 ```
-USB ──► RT9471 (SYS rail) ──► MT2492 (buck) ──► 3.3V system rail
+USB ──► RT9471 (SYS rail) ──► RT8059 (buck) ──► 3.3V system rail
          ▲        │
         BAT ──────┘  (RT9471 power path selects best source automatically)
 ```
 
 - **RT9471 SYS rail** is a managed output — not a raw battery passthrough. It has a guaranteed minimum of 3.5V (VSYS_MIN) at all times while any power source is available. When USB is connected, SYS is regulated from VBUS and the system runs normally even with a fully depleted battery.
-- **MT2492** bucks the SYS rail down to 3.3V. Minimum headroom at worst case (SYS = 3.5V, VOUT = 3.3V) is 200mV — tight but workable. At 300mA load the buck dropout is ~100mV, well within margin.
-- **Low-battery threshold:** set the ADC monitor to flag low battery at ~3.6V (battery terminal, not SYS) to ensure graceful shutdown before SYS hits its 3.5V floor. At 3.6V battery the system still has ~200mV headroom on the MT2492.
-- **MT2492 feedback resistors:** R_upper = 100kΩ, R_lower = 22.1kΩ 1% → 3.3V output. Optionally bias to 3.28V to gain a few mV of extra dropout margin.
+- **RT8059** bucks the SYS rail down to 3.3V. Minimum headroom at worst case (SYS = 3.5V, VOUT = 3.3V) is 200mV — tight but workable. At 300mA load the buck dropout is ~100mV, well within margin.
+- **Low-battery threshold:** set the ADC monitor to flag low battery at ~3.6V (battery terminal, not SYS) to ensure graceful shutdown before SYS hits its 3.5V floor. At 3.6V battery the system still has ~200mV headroom on the RT8059.
+- **RT8059 feedback resistors:** R_upper = 100kΩ, R_lower = 22.1kΩ 1% → 3.3V output. Optionally bias to 3.28V to gain a few mV of extra dropout margin.
 - **RT9471 I²C:** SCL/SDA to STM32 with 10kΩ pull-ups to 3.3V. Default power-on settings (2A charge current, 4.2V charge voltage, 0.5A input current limit) are safe without firmware initialisation, but the STM32 should configure AICR to 1.5A on boot to allow faster charging when a capable adapter is present. CE pin pulled low to enable charging; INT pin to STM32 GPIO for fault notification.
 - **RT9471 package:** WQFN-24L 4×4 with exposed thermal pad — thermal pad must be soldered to a solid GND copper pour for heat dissipation. Requires reflow; not hand-solderable.
 - **TPD4E05U06DQAR:** placed on USB D+/D− lines as close to the connector as possible, before the RT9471 D+/D− pins. SOT-563 package.

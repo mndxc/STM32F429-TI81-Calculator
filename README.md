@@ -1,6 +1,6 @@
 # Neo-81: bringing new life to the classic.
 
-[![Build Status](https://github.com/jonathanpool/STM32F429-TI81-Calculator/actions/workflows/build.yml/badge.svg)](https://github.com/jonathanpool/STM32F429-TI81-Calculator/actions)
+[![Build](https://github.com/jonathanpool/STM32F429-TI81-Calculator/actions/workflows/build.yml/badge.svg)](https://github.com/jonathanpool/STM32F429-TI81-Calculator/actions)
 [![License](https://img.shields.io/github/license/jonathanpool/STM32F429-TI81-Calculator)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
@@ -27,7 +27,7 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 ## Status
 
-Core arithmetic, standard math functions (trig, hyperbolic, log, √), variables A–Z / ANS, TEST operators, and the MATH/MODE menus all work. Function graphing is fully implemented — Y= editor, RANGE, ZOOM (8 presets, ZBox, Set Factors), and TRACE. State persists across power cycles; `2nd+ON` enters Stop mode with full wake restore.
+Core arithmetic, standard math functions (trig, hyperbolic, log, √), variables A–Z / ANS, TEST operators, and the MATH/MODE menus all work. Function graphing is fully implemented — Y= editor, RANGE, ZOOM (8 presets, ZBox, Set Factors), and TRACE. State persists across power cycles. `2nd+ON` shows a power-off screen and blocks until the ON button is pressed again; real STM32 Stop mode is wired but disabled on the discovery board prototype due to a display hardware limitation (see `docs/DISPLAY_STABILITY.md`).
 
 MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, and FLASH persistence.
 
@@ -43,7 +43,6 @@ STAT is not yet implemented.
 |---|---|
 | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) | Zero-to-build guide — prerequisites, hardware wiring, toolchain setup, flashing. |
 | [docs/TECHNICAL.md](docs/TECHNICAL.md) | Architecture reference — file structure, build config, memory layout, LVGL threading, calculator engine, graphing system, keypad driver. |
-| [CLAUDE.md](CLAUDE.md) | AI development context — full feature status, architecture decisions, known issues, gotchas, and next session priorities. Read this before making any code changes. |
 
 ### Datasheets
 
@@ -53,14 +52,11 @@ STAT is not yet implemented.
 | [RT9471Charger.pdf](docs/Datasheets/RT9471Charger.pdf) | Richtek RT9471 — LiPo charger with power-path management |
 | [W25Q128JVSIQFlashMem.pdf](docs/Datasheets/W25Q128JVSIQFlashMem.pdf) | Winbond W25Q128JV — 16MB SPI NOR flash for firmware XIP + user data |
 | [RT4812Boost.pdf](docs/Datasheets/RT4812Boost.pdf) | Richtek RT4812 — 5V boost (DNF Rev1; reserved for Rev2 with RPi Zero 2 W) |
-| [RT8059Buck.pdf](docs/Datasheets/RT8059Buck.pdf) | Richtek RT8059 — 3.3V buck reference |
+| [RT8059Buck.pdf](docs/Datasheets/RT8059Buck.pdf) | Richtek RT8059 — 3.3V main buck |
 | [TPD4E05U06DQARDiode.pdf](docs/Datasheets/TPD4E05U06DQARDiode.pdf) | TI TPD4E05U06DQAR — USB ESD protection |
 
 ---
 
 ## Contributing
 
-We welcome contributions from the community! Whether you're fixing a bug, adding a feature, or improving documentation, please see our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started.
-
-All contributors are expected to follow our [Code of Conduct](CODE_OF_CONDUCT.md).
-
+Contributions are welcome — bug fixes, feature work, or documentation improvements. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. All contributors are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).

@@ -25,28 +25,34 @@ The TI-81 keypad works on a **Matrix**—a grid of rows and columns. Instead of 
 
 **Wiring Table (TI-81 Ribbon to STM32):**
 
-> **TODO:** Full ribbon-to-GPIO pin mapping to be documented. See `App/Drivers/Keypad/keypad.c` for the current matrix column/row GPIO assignments.
+> ### ⚠️ IMPORTANT — Physical Ribbon Mapping Not Yet Verified
+>
+> The table below shows the **STM32 GPIO assignments** used by the firmware (authoritative source: `App/Drivers/Keypad/keypad.h`). These are correct for the software.
+>
+> **What is missing:** The physical correspondence between the numbered pads/wires on your specific TI-81 PCB and the logical A-line/B-line names used here has **not yet been manually documented.** The original TI-81 ribbon connector pinout varies subtly between hardware revisions, and the exact wire-to-function mapping requires tracing with a multimeter on a real board.
+>
+> **This section will be updated with annotated photos** showing which physical ribbon wire connects to which STM32 GPIO header pin. Until then, use a multimeter in continuity mode to trace each ribbon wire to its key matrix row/column, then match it to the table below.
+>
+> If you have completed this mapping on your own hardware, please open an issue or PR with your findings — this is one of the most valuable contributions you can make to the project.
 
-| TI-81 Ribbon Pin | STM32 Pin | Function |
-| :--- | :--- | :--- |
-| **A1** | PE5 | Column 1 |
-| **A2** | PE4 | Column 2 |
-| **A3** | PE3 | Column 3 |
-| **A4** | PE2 | Column 4 |
-| **A5** | PB7 | Column 5 |
-| **A6** | PB4 | Column 6 |
-| **A7** | PB3 | Column 7 |
-| **B1** | PG9 | Row 1 |
-| **B2** | PD7 | Row 2 |
-| **B3** | PC11 | Row 3 |
-| **B4** | PC8 | Row 4 |
-| **B5** | PC3 | Row 5 |
-| **B6** | PA5 | Row 6 |
-| **B7** | PG2 | Row 7 |
-| **B8** | PG3 | Row 8 |
-| **ON** | PE6 | ON/Interrupt |
-
-> **Note:** The TI-81 ribbon has 15 pins. Pins 1-7 are the "A-Lines" (Columns) and Pins 8-15 are the "B-Lines" (Rows). Verify with a multimeter if your specific hardware revision differs.
+| Firmware Name | STM32 Pin | Function | Physical Ribbon Pin |
+| :--- | :--- | :--- | :--- |
+| **A1** | PE5 | Column 1 | *(to be verified — see note above)* |
+| **A2** | PE4 | Column 2 | *(to be verified)* |
+| **A3** | PE3 | Column 3 | *(to be verified)* |
+| **A4** | PE2 | Column 4 | *(to be verified)* |
+| **A5** | PB7 | Column 5 | *(to be verified)* |
+| **A6** | PB4 | Column 6 | *(to be verified)* |
+| **A7** | PB3 | Column 7 | *(to be verified)* |
+| **B1** | PG9 | Row 1 | *(to be verified)* |
+| **B2** | PD7 | Row 2 | *(to be verified)* |
+| **B3** | PC11 | Row 3 | *(to be verified)* |
+| **B4** | PC8 | Row 4 | *(to be verified)* |
+| **B5** | PC3 | Row 5 | *(to be verified)* |
+| **B6** | PA5 | Row 6 | *(to be verified)* |
+| **B7** | PG2 | Row 7 | *(to be verified)* |
+| **B8** | PG3 | Row 8 | *(to be verified)* |
+| **ON** | PE6 | ON/Interrupt | *(to be verified)* |
 
 ---
 

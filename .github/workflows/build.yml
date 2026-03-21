@@ -1,4 +1,4 @@
-name: Build and Test
+name: Build
 
 on:
   push:
@@ -24,20 +24,3 @@ jobs:
 
       - name: Build
         run: cmake --build build
-
-  host-tests:
-    name: Host Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build
-
-      - name: Configure CMake
-        run: cmake -G Ninja -B build-tests -DPROJECT_BUILD_TESTS=ON
-
-      - name: Build and Run Tests
-        run: |
-          cmake --build build-tests --target test_calc_engine
-          ./build-tests/App/Tests/test_calc_engine

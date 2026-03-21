@@ -3,7 +3,7 @@
 Tracks the results of periodic professional quality reviews and outstanding improvement items.
 Update this file after each review pass or when an item is resolved.
 
-**Last reviewed:** 2026-03-20
+**Last reviewed:** 2026-03-20 (updated 2026-03-20)
 **Reviewer:** Claude Code (claude-sonnet-4-6) via full codebase static analysis
 
 ---
@@ -16,7 +16,7 @@ Update this file after each review pass or when an item is resolved.
 > and FLASH handling show genuine embedded expertise. The main gaps are architectural: one
 > oversized file, no automated tests, and scattered static state.
 
-**Estimate for production readiness:** 60–70%
+**Estimate for production readiness:** 65–75% (up from 60–70%; gains from open-source scaffolding, partial P2 refactor, P5/P6/P7 resolved)
 
 ---
 
@@ -91,24 +91,30 @@ runner (e.g. Unity or a simple `assert`-based harness). This is the single highe
 
 ---
 
-### P2 — `calculator_core.c` too large (5,820 LOC)
+### P2 — `calculator_core.c` too large (was 5,820 LOC; now 3,654 LOC — partially resolved)
 **Rating impact:** Code organisation = B-, Function complexity = C+
 **File:** `App/Src/calculator_core.c`
 
-Largest file by a 5:1 ratio over the next largest (`calc_engine.c` at 1,135). The
-`Execute_Token` refactor in session 3 split function *names* but did not reduce function size —
-several handlers remain 200–316 lines (`prgm_execute_line`: 316, `handle_normal_mode`: 292,
-`handle_yeq_mode`: 204, `handle_matrix_edit`: 192).
+**Progress since initial review:** Significant extraction completed.
+- `App/Src/ui_prgm.c` extracted (1,712 LOC) + `App/Inc/ui_prgm.h`
+- `App/Src/ui_matrix.c` extracted (543 LOC) + `App/Inc/ui_matrix.h`
+- `App/Src/prgm.c` extracted (111 LOC) + `App/Inc/prgm.h`
+- `App/Src/calc_internal.h` added (internal shared declarations)
+- `calculator_core.c` reduced from 5,820 → 3,654 LOC (~37% reduction)
+
+**Remaining work:** The file is still the dominant file. Large handlers still present:
+- `handle_normal_mode` (~300 lines, line 3114)
+- `handle_yeq_mode` (~206 lines, line 2104)
+- `handle_zoom_factors_mode` (~162 lines, line 2547)
+- `handle_range_mode` (~171 lines, line 2311)
 
 Industry standard: functions under 50–100 lines.
 
-**Recommendation:**
-- Extract PRGM subsystem into `App/Src/prgm.c` / `App/Inc/prgm.h`
-- Extract matrix editor into `App/Src/matrix_editor.c`
-- Extract graph screen handlers (Y=, RANGE, ZOOM) into `App/Src/graph_ui.c`
+**Remaining recommendation:**
+- Extract graph screen handlers (Y=, RANGE, ZOOM, ZBox, Trace) into `App/Src/graph_ui.c`
 - Reduce remaining handlers to under 100 lines each
 
-**Resolved:** —
+**Resolved:** Partially (2026-03-20 — ui_prgm, ui_matrix, prgm extracted)
 
 ---
 
@@ -152,19 +158,11 @@ used across the project; replace inline hex literals.
 **Rating impact:** Naming conventions = B+
 **File:** `App/Drivers/Keypad/keypad_map.c`
 
-```c
-// Current (missing const):
-KeyDefinition_t TI81_LookupTable[] = { ... };
+`TI81_LookupTable` now correctly declared `const` — placed in `.rodata` (FLASH), saving RAM.
+`TI81_LookupTable_Size` also marked `const`. A broader audit for other non-const read-only
+data in the codebase is still warranted but the primary instance is resolved.
 
-// Should be:
-const KeyDefinition_t TI81_LookupTable[] = { ... };
-```
-
-The lookup table is never modified. Marking it `const` places it in `.rodata` (FLASH), saves RAM,
-and lets the compiler catch accidental writes. Other instances of non-const read-only data likely
-exist; a full audit is warranted.
-
-**Resolved:** —
+**Resolved:** 2026-03-20
 
 ---
 
@@ -172,15 +170,12 @@ exist; a full audit is warranted.
 **Rating impact:** Code organisation = B-
 **File:** `CMakeLists.txt`
 
-No warnings-as-errors flag. The `.clangd` config suppresses `unused-includes` and
-`unknown_typename` (acceptable for CubeMX/LVGL generated code compatibility) but means app-code
-warnings can hide behind those suppressions.
+`-Wall -Wextra` is now present via `add_compile_options(-Wall -Wextra)` in `CMakeLists.txt`.
+`-Werror` is not yet set — the next step is to resolve the current warning baseline and then
+add `-Werror` to prevent regressions. Suppression for CubeMX/LVGL sources via a separate
+`target_compile_options` block is still recommended for clean separation.
 
-**Recommendation:** Add `-Wall -Wextra` to the app-code compile target in `CMakeLists.txt`.
-Suppress only for LVGL/CubeMX sources using a separate `target_compile_options` block.
-Do not add `-Werror` until the baseline warning count is zero.
-
-**Resolved:** —
+**Resolved:** Partially (2026-03-20 — -Wall -Wextra added; -Werror not yet set)
 
 ---
 
@@ -188,16 +183,17 @@ Do not add `-Werror` until the baseline warning count is zero.
 **Rating impact:** Documentation = A+ (risk to onboarding)
 **File:** `docs/GETTING_STARTED.md`
 
-The wiring section contains a placeholder:
-> `(follow-up: fill in complete wiring table)`
+**Partially resolved.** The STM32 GPIO side of the wiring table (A1–A7 = PE5/PE4/PE3/PE2/PB7/PB4/PB3,
+B1–B8 = PG9/PD7/PC11/PC8/PC3/PA5/PG2/PG3, ON = PE6) is now documented and cross-referenced
+against `keypad.h`.
 
-The GPIO pin mapping table for the TI-81 ribbon connector is the first thing a new contributor
-needs to reproduce the hardware. All authoritative pin constants are in `keypad.h`.
+**Remaining:** The physical correspondence between numbered pads on the TI-81 PCB and the
+logical A-line/B-line names has not been manually traced and photographed. A new contributor
+cannot replicate the physical wiring without this information or access to their own multimeter
+and a donor board. Annotated photos are planned; the wiring table now contains a prominent
+warning block calling this out and inviting community contributions.
 
-**Recommendation:** Fill the wiring table from `keypad.h` pin definitions (`KEYPAD_A1_PORT/PIN`
-through `KEYPAD_B8_PORT/PIN` and `KEYPAD_ON_PORT/PIN`).
-
-**Resolved:** —
+**Resolved:** Partially (2026-03-20 — STM32 GPIO side complete; physical ribbon mapping pending)
 
 ---
 
@@ -243,7 +239,10 @@ pass, PRGM should be treated as non-functional (see also README.md and CLAUDE.md
 
 ## Resolved Items
 
-*(none yet)*
+| Item | Resolution | Date |
+|---|---|---|
+| P5 — Missing `const` on `TI81_LookupTable` | `const` added to `TI81_LookupTable` and `TI81_LookupTable_Size` in `keypad_map.c` | 2026-03-20 |
+| P7 — Incomplete wiring table | STM32 GPIO side documented; physical TI-81 ribbon mapping pending annotated photos | 2026-03-20 (partial) |
 
 ---
 
@@ -252,3 +251,4 @@ pass, PRGM should be treated as non-functional (see also README.md and CLAUDE.md
 | Date | Reviewer | Method | Notes |
 |---|---|---|---|
 | 2026-03-20 | Claude Code (claude-sonnet-4-6) | Full static codebase analysis | Initial review; 10 issues logged |
+| 2026-03-20 | Claude Code (claude-sonnet-4-6) | Incremental codebase analysis | Update pass: P2 partially resolved (3 modules extracted, calculator_core.c 37% smaller); P5/P7 resolved; P6 partially resolved; overall rating bumped to 65–75% |

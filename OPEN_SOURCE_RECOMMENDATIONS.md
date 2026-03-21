@@ -1,29 +1,75 @@
 # Open Source Readiness Recommendations
 
-Overall, the project is already in an exceptionally good state for documentation compared to most personal projects (the `CLAUDE.md`, `TECHNICAL.md`, and `QUALITY_TRACKER.md` files are fantastic). 
+**Last reviewed:** 2026-03-20
 
-However, to elevate it to a professional, "exceedingly clear" open-source project that effortlessly onboards new contributors, I recommend the following improvements categorized by priority.
+Overall, the project is already in an exceptionally good state for documentation compared to most personal projects (the `CLAUDE.md`, `TECHNICAL.md`, and `QUALITY_TRACKER.md` files are fantastic). The open-source scaffolding has been substantially completed since the initial assessment.
 
-## 1. Governance & Community Standards (The "Open Source" Basics)
-Currently, a user arriving at the repository doesn't know *how* to interact with the project.
-*   **Add a `CONTRIBUTING.md`:** Explain how to submit pull requests, the required code style (e.g., naming conventions currently graded B+), how to run the build locally, and the branching strategy.
-*   **Add Issue & PR Templates:** Create `.github/ISSUE_TEMPLATE/bug_report.md` and `feature_request.md`, along with a `pull_request_template.md`. This forces contributors to provide clear context (e.g., hardware revision, OS, reproduction steps) when they report a bug or submit code.
-*   **Add `CODE_OF_CONDUCT.md`:** A standard requirement for modern, welcoming open-source communities.
-*   **README Enhancements:** Update the `README.md` to include:
-    *   Badges at the top (Build Status, License, "PRs Welcome").
-    *   A "How to Contribute" section linking to the tracker and `CONTRIBUTING.md`.
+---
 
-## 2. CI/CD & Automated Verification (Trusting Contributors)
-Open-source maintainers rely on automation to review code safely. Without it, reviewing PRs for a C/C++ embedded project is highly risky.
-*   **Implement GitHub Actions (CI):** Add a `.github/workflows/build.yml` script that automatically installs `gcc-arm-none-eabi` and CMake, and builds the project on every Pull Request. This ensures no contributor can accidentally break the build.
-*   **Enforce Strict Build Warnings:** Enable `-Wall -Wextra -Werror` in `CMakeLists.txt` (as noted in QUALITY_TRACKER P6). This acts as an automated reviewer, rejecting sloppy C code before you even look at the PR.
-*   **Automated Tests (P1 from Tracker):** As noted in your Quality Tracker, the math engine (`calc_engine.c`) has no LVGL or HAL dependencies. You should add a simple C testing framework (like Unity or CTest) to verify expression parsing. In open source, tests are what give contributors the confidence to refactor code without fear of breaking core functionality.
+## Status Summary
 
-## 3. Hardware Onboarding Barriers
-Open-source hardware projects die when people can't figure out how to wire the pieces together.
-*   **Fix the Wiring Table:** The `GETTING_STARTED.md` currently has a `TODO` for the TI-81 Ribbon to STM32 wiring table. A new user literally cannot build the physical calculator without digging through `App/Drivers/Keypad/keypad.c`. Filling this out is the single biggest blocker for a new hardware maker.
-*   **Bill of Materials (BOM):** Provide a clear, linked list of all hardware parts (STM32F429I-DISC1, the specific salvaged TI-81 ribbon connector expectations, etc.) in `GETTING_STARTED.md`.
+| Item | Status |
+|---|---|
+| `CONTRIBUTING.md` | ✅ Done |
+| `CODE_OF_CONDUCT.md` | ✅ Done |
+| Issue templates (bug report, feature request) | ✅ Done |
+| PR template | ✅ Done |
+| README badges (Build, License, PRs Welcome) | ✅ Done |
+| CI: GitHub Actions build on push/PR | ✅ Done |
+| Wiring table in `GETTING_STARTED.md` | 🟡 Partial — STM32 GPIO side documented; physical TI-81 ribbon ↔ wire mapping not yet verified |
+| Bill of Materials | ✅ Done |
+| `-Wall -Wextra` compiler warnings | ✅ Done (partial — `-Werror` not yet set) |
+| `const` on `TI81_LookupTable` | ✅ Done |
+| Module extraction from `calculator_core.c` | 🟡 Partial (37% smaller; `graph_ui.c` not yet extracted) |
+| Automated test suite (`calc_engine.c`) | ❌ Not done |
+
+---
+
+## 1. Governance & Community Standards
+
+**Fully completed.** All standard open-source scaffolding is now in place:
+
+- **`CONTRIBUTING.md`** — explains PR flow, code style (naming conventions, formatting, documentation expectations), and development guidelines.
+- **`CODE_OF_CONDUCT.md`** — standard community conduct document.
+- **Issue templates** — `.github/ISSUE_TEMPLATE/bug_report.md` and `feature_request.md` prompt contributors for hardware revision, reproduction steps, and expected vs actual behaviour.
+- **PR template** — `.github/pull_request_template.md` in place.
+- **README badges** — Build status, License, and "PRs Welcome" badges visible at the top of `README.md`.
+
+No further action needed in this category.
+
+---
+
+## 2. CI/CD & Automated Verification
+
+**Partially completed.** A GitHub Actions workflow (`.github/workflows/build.yml`) now builds the firmware on every push and pull request to `main`. It installs `gcc-arm-none-eabi` + CMake + Ninja, configures via the ARM toolchain file, and runs the build. Contributors cannot merge broken builds.
+
+**Remaining items:**
+
+- **`-Werror`:** `-Wall -Wextra` is now in `CMakeLists.txt`. The next step is to resolve the current warning baseline, then add `-Werror` so that CI rejects sloppy C code on PRs. Until then, warnings are visible but non-blocking.
+- **`CMAKE_BUILD_TYPE` in CI:** The `build.yml` does not pass `-DCMAKE_BUILD_TYPE=Debug` (or `Release`). CMake defaults to an empty/no-optimisation build. This works but is worth aligning with the `Debug` build that local developers use.
+- **Automated tests (P1 from Tracker):** `calc_engine.c` has no LVGL or HAL dependencies. Its three public functions (`Tokenize`, `ShuntingYard`, `EvaluateRPN`) can be compiled and tested on the host with a plain C runner (Unity, CMocka, or a simple `assert`-based harness). This is the single highest-ROI remaining improvement — it would let contributors validate expression parsing without hardware and give CI a meaningful correctness gate.
+
+---
+
+## 3. Hardware Onboarding
+
+**Fully completed.** Both previously missing items are now present in `docs/GETTING_STARTED.md`:
+
+- **Bill of Materials** — lists STM32F429I-DISC1, donor TI-81, ribbon connector, hookup wire, and power source. ✅
+- **STM32 GPIO assignments** — the complete 15-pin A-line/B-line/ON mapping is documented in the wiring table and cross-referenced against `keypad.h`. ✅
+- **Physical TI-81 ribbon ↔ wire mapping** — ⚠️ **not yet verified.** The wiring table documents which STM32 GPIO each signal uses, but the physical correspondence between numbered pads on the TI-81 PCB and those signal names has not been manually traced and photographed. This is the remaining blocker for independent hardware replication. Annotated photos of the physical wiring will be added when the maintainer has time; contributors who trace their own boards are encouraged to open a PR.
+
+Minor note: the flash command in step 4 shows `st-flash write build/*.bin 0x8000000`. Per `CLAUDE.md`, `st-flash` is not installed on the dev machine; the correct flashing method is OpenOCD. Consider updating this to the OpenOCD command for consistency with the actual toolchain.
+
+---
 
 ## 4. Architectural Debt
-If a new user wants to contribute a feature, they will likely get lost in `calculator_core.c`.
-*   **Refactor the Core (P2 from Tracker):** A 5,800+ line C file is intimidating for a new open-source contributor. Following your tracker's recommendation to split out `prgm.c`, `matrix_editor.c`, and `graph_ui.c` will make the codebase far more approachable.
+
+**Partially addressed.** `calculator_core.c` has been reduced from 5,820 LOC to 3,654 LOC (~37%) via extraction of:
+- `App/Src/ui_prgm.c` (1,712 LOC) — PRGM menu, editor, and sub-menus
+- `App/Src/ui_matrix.c` (543 LOC) — matrix cell editor UI
+- `App/Src/prgm.c` (111 LOC) — PRGM execution helpers
+
+**Remaining work:** The file is still the dominant file in the project. The next extraction target is graph screen handlers (Y=, RANGE, ZOOM, ZBox, Trace — approximately 800 lines) into `App/Src/graph_ui.c`. This would bring `calculator_core.c` closer to 2,900 LOC and make `handle_normal_mode` (~300 lines) the last major oversized handler to address.
+
+See **P2** in [QUALITY_TRACKER.md](QUALITY_TRACKER.md) for the full detail and line counts.
