@@ -1,7 +1,7 @@
 # Neo-81: bringing new life to the classic.
 
-[![Build](https://github.com/jonathanpool/STM32F429-TI81-Calculator/actions/workflows/build.yml/badge.svg)](https://github.com/jonathanpool/STM32F429-TI81-Calculator/actions)
-[![License](https://img.shields.io/github/license/jonathanpool/STM32F429-TI81-Calculator)](LICENSE)
+[![Build](https://github.com/mndxc/STM32F429-TI81-Calculator/actions/workflows/build.yml/badge.svg)](https://github.com/mndxc/STM32F429-TI81-Calculator/actions)
+[![License](https://img.shields.io/github/license/mndxc/STM32F429-TI81-Calculator)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 
