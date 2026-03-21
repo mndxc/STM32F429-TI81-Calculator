@@ -94,8 +94,12 @@ Waits on `xLVGL_Ready` before creating any UI elements. Blocks on
 To avoid monolithic growth in `calculator_core.c`, complex sub-menus and distinct feature screens (e.g., Matrix Editor, Program Editor) should be extracted into their own modules within `App/Src/`.
 
 1. **Standalone Modules:** Create isolated `ui_<feature>.c/.h` pairs containing the mode-specific LVGL initialization, display updates, and token handling loops (e.g., `ui_matrix.c`).
-2. **Shared UI Context:** Include `calc_internal.h` in these modules to access global calculator state (`current_mode`, `ans`, `insert_mode`) and cross-module UI functions (`screen_create`, `lvgl_lock`, `tab_move`, `menu_insert_text`).
+2. **Shared UI Context:** Include `calc_internal.h` in these modules to access global calculator state (`current_mode`, `ans`, `insert_mode`, `cursor_visible`) and cross-module UI functions (`screen_create`, `lvgl_lock`, `tab_move`, `menu_insert_text`).
 3. **Core Integration:** In `calculator_core.c`, remove mode-specific logic. Initialize the extracted screen once in `StartCalcCoreTask` (e.g., `ui_init_matrix_screen()`), and delegate mode-specific token handling to the public handlers defined in `ui_<feature>.h`.
+
+> [!WARNING]
+> **Partially Completed Refactor: PRGM Module**
+> The Program (PRGM) logic has been extracted to `ui_prgm.c` and `ui_prgm.h` as an early iteration of this pattern, but it is currently **only partially complete and needs significant work**. While the UI screens (EXEC, EDIT, NEW, CTL, I/O) exist and tab routing functions correctly, the backend execution, true tokenization, memory management, and I/O handling are not yet feature-complete. Future work must bridge the UI module perfectly with the evaluator engine and persistent storage.
 
 ---
 

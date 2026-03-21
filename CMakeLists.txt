@@ -80,6 +80,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/persist.c
     App/Src/prgm.c
     App/Src/ui_matrix.c
+    App/Src/ui_prgm.c
 
     # Add all LVGL Source files
     ${LVGL_SOURCES}
