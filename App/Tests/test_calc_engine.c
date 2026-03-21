@@ -15,10 +15,6 @@
 #include <string.h>
 #include "calc_engine.h"
 
-/* calc_engine.c declares these as extern — define storage here. */
-float        calc_variables[26];
-CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT];
-
 /* -------------------------------------------------------------------------
  * Test infrastructure — soft-fail counter (does not abort on first failure)
  * ---------------------------------------------------------------------- */

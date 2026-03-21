@@ -48,8 +48,4 @@ Middlewares/Third_Party/lvgl/env_support/
 Middlewares/Third_Party/lvgl/.github/
 Middlewares/Third_Party/lvgl/.devcontainer/
 
-# STM32 HAL driver sources (large, redistributable by ST)
-Drivers/STM32F4xx_HAL_Driver/
-Drivers/CMSIS/
-Middlewares/Third_Party/FreeRTOS/
-Middlewares/ST/
+# STM32 vendor libraries are committed so CI firmware build works
