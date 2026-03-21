@@ -114,7 +114,22 @@ Once your software is ready, follow these steps to get the Neo-81 firmware runni
 
 ---
 
-## 5. Troubleshooting
+## 5. Host Tests
+
+The project includes a 301-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, and persistent storage round-trips.
+
+```bash
+cmake -S App/Tests -B build/tests && cmake --build build/tests
+./build/tests/test_calc_engine        # 153 tests
+./build/tests/test_expr_util          # 96 tests
+./build/tests/test_persist_roundtrip  # 52 tests
+```
+
+All three executables exit `0` on a full pass. These tests run automatically on every push via CI — running them locally before opening a PR is strongly recommended.
+
+---
+
+## 6. Troubleshooting
 * **Screen is blank?** Check your SPI/Parallel wiring and ensure your configuration match your physical wiring.
 * **Keys not responding?** Verify that the ribbon cable is seated firmly and the GPIO pins in your configuration match your physical wiring.
 
