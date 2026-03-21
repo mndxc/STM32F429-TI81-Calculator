@@ -14,13 +14,18 @@ It contains the results of a full professional code review (2026-03-20), a rated
 10 dimensions, and 10 prioritised improvement items (P1–P10). When writing new code or refactoring
 existing code, check whether the change addresses or risks regressing any open item.
 
-Current overall rating: **60–70% production-ready.** Key gaps: no automated tests (P1), monolithic
-`calculator_core.c` (P2), scattered static state (P3). Key strengths: documentation, RTOS
-integration, FLASH/memory-safety correctness.
+Current overall rating: **80–88% production-ready** (up from 60–70%; see QUALITY_TRACKER.md for full
+history). Key remaining gaps: PRGM backend incomplete (P10), `calculator_core.c` still dominant
+file (P2), scattered static state (P3), `-Werror` not yet enforced (P6). Key strengths:
+documentation, RTOS integration, FLASH/memory-safety correctness, 301-test host suite with CI.
 
 ---
 
-## Feature Completion Status (~65% of original TI-81, as of 2026-03-20; PRGM UI polish session added 2026-03-20)
+## Feature Completion Status (~65% of original TI-81, as of 2026-03-21)
+
+Sessions:
+- 2026-03-20: PRGM UI polish, colour palette extraction (`ui_palette.h`), PRGM module extraction to `ui_prgm.c`
+- 2026-03-21: `expr_util.c` extraction (9 pure functions), 301-test host suite, persist round-trip tests, HAL guards in `persist.c`, full quality review pass
 
 ### Well-implemented (60–100%)
 
@@ -116,7 +121,16 @@ OpenOCD uses the ST-Link on the discovery board directly. No PATH setup needed �
 **After flashing:** do a full USB power cycle (unplug/replug) if the display shows white after reset — the ILI9341 does not always recover cleanly from SWD reset alone.
 
 ### No tests
-There is no test suite. All validation is done on hardware.
+### Host Tests
+
+```bash
+cmake -S App/Tests -B build/tests && cmake --build build/tests
+./build/tests/test_calc_engine        # 153 tests: tokenizer, shunting-yard, RPN, matrix, edge cases
+./build/tests/test_expr_util          # 96 tests:  UTF-8 cursor, insert/delete, matrix token atomicity
+./build/tests/test_persist_roundtrip  # 52 tests:  PersistBlock_t checksum, validation, field round-trip
+```
+
+All three executables exit 0 on full pass (301 total tests). CI runs them automatically on every push/PR with gcov branch coverage measurement. Enable coverage locally with `-DCOVERAGE=ON`.
 
 ---
 
@@ -188,7 +202,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - **MATH PRB** — rand, nPr, nCr fully implemented. `rand` evaluated at tokenize time using `srand(HAL_GetTick())`; nPr/nCr in `EvaluateRPN()` in `calc_engine.c` with domain checking.
 - **MATRIX math fully evaluated** — All 6 operations fully wired end-to-end: `det([A])` → scalar; `[A]T` → transpose; `rowSwap([A],r1,r2)`, `row+([A],r1,r2)`, `*row(k,[A],r)`, `*row+(k,[A],r1,r2)` → matrix result. Row indices are 1-based (matching TI-81). Results stored in `calc_matrices[3]` (ANS slot); source matrix unchanged. Matrix results display as newline-separated rows in history. `CalcMatrix_t` and `calc_matrices[4]` in `calc_engine.c`/`calc_engine.h`. Comma tokenized as `MATH_COMMA`; ShuntingYard handles argument separation. Parallel `is_matrix[]` stack in `EvaluateRPN` tracks which stack slots hold matrix indices vs scalars. `MAX_RESULT_LEN` bumped 32→96.
 - **Variable matrix dimensions (1–6×6)** — `CALC_MATRIX_DIM` (fixed 3) replaced by `CALC_MATRIX_MAX_DIM = 6`; each `CalcMatrix_t` carries its own `rows`/`cols`. Default is 3×3. `det()` now uses Gaussian elimination with partial pivoting (handles 1×1–6×6; previously Sarrus 3×3 only). All row ops (`rowSwap`, `row+`, `*row`, `*row+`, transpose) iterate over actual dimensions. Row index bounds checked against actual matrix size. `round()` now works element-wise on matrix operands (e.g. `round([A],2)` rounds every element to 2 decimal places).
-- **Matrix cell editor — scrolling + dim mode** — Editor shows 7 visible cell rows with ↑/↓ amber scroll indicators when the matrix is larger than the viewport. Navigating UP past the first cell enters dim mode: cursor lands on the title label (`[A] RxC`); LEFT/RIGHT switches between the rows digit and cols digit; digit keys resize the matrix live. Dim-mode title renders in yellow; normal cell mode in white. `PERSIST_VERSION` bumped to 3; persist block now stores `matrix_rows[3]`/`matrix_cols[3]` and full 6×6 data arrays (432 B vs 108 B previously). `PersistBlock_t` size: 532 B → 856 B.
+- **Matrix cell editor — scrolling + dim mode** — Editor shows 7 visible cell rows with ↑/↓ amber scroll indicators when the matrix is larger than the viewport. Navigating UP past the first cell enters dim mode: cursor lands on the title label (`[A] RxC`); LEFT/RIGHT switches between the rows digit and cols digit; digit keys resize the matrix live. Dim-mode title renders in yellow; normal cell mode in white. `PERSIST_VERSION` bumped to 3; persist block now stores `matrix_rows[3]`/`matrix_cols[3]` and full 6×6 data arrays (432 B vs 108 B previously). `PersistBlock_t` size: 532 B → 860 B (documented as 856 B in header comment until 2026-03-21; corrected after test_persist_roundtrip verification).
 - **Screen navigation refactor** — five helpers centralise all cross-screen transitions in `calculator_core.c`: `hide_all_screens()`, `nav_to(target)`, `menu_open(token, return_to)`, `menu_close(token)`, `tab_move()`. Every graph-nav key (Y=, RANGE, ZOOM, GRAPH, TRACE) now works from every screen including MATH/TEST/MATRIX menus and ZBox/Trace modes. Unhandled keys in menus close the menu and fall through to the main switch (or drop the key if the return context is Y=, matching original TI-81 behaviour).
 - **ENTER in Y= editor** — moves cursor to next equation, same as DOWN.
 - **TRACE exit speed** — pressing any non-navigation key from TRACE now hides the graph canvas immediately without re-rendering before processing the key.
@@ -197,6 +211,10 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - **PRGM executor (Session 2)** — `prgm_run_start()`, `prgm_run_loop()`, `prgm_execute_line()`, `prgm_skip_to_target()`, and `handle_prgm_running()` all in `calculator_core.c`. Text interpreter runs `\n`-delimited program lines synchronously from CalcCoreTask. Supported: `If/Then/Else/End`, `While`, `For(V,begin,end,step)`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, `prgm<name>` subroutine call (call stack depth 4), `Disp "str"`/`Disp expr`, `Input V`, `Prompt V`, `ClrHome`, `expr->VAR` assignment, general expression lines (result → ANS). Control flow stack depth 8 (`CtrlFrame_t`). `CLEAR` aborts; `ENTER` resumes after `Pause`/`Input`/`Prompt`. `TOKEN_ON` (SAVE) clears executor state. Programs persist in FLASH sector 11. Deferred: `IS>(`, `DS<(`, `Menu(`, `Output(`.
 - **PRGM UI polish (Session 3)** — EXEC and EDIT tabs both list all 37 program slots (previously EXEC showed occupied slots only). Display format changed to `N:PrgmN` (canonical slot name) with optional second column `  USER_NAME` when a user name has been given. Tabs renamed from EXEC/EDIT/NEW to EXEC/EDIT/ERASE; program creation now triggered from the EDIT tab by selecting any empty slot (user name is optional — pressing ENTER with no name opens the editor immediately). Program names now accept A–Z and 0–9 (previously letters only). All PRGM menu highlights and titles changed from amber (0xFFAA00) to yellow (0xFFFF00) to match MATH, TEST, and MATRIX menus. PRGM editor and name-entry cursors now blink and reflect 2nd (amber `^`) and ALPHA (green `A`) state, wired into `cursor_timer_cb` and `ui_update_status_bar` via `prgm_editor_cursor_update()` and `prgm_new_cursor_update()`. Scroll indicators fixed across PRGM, MATH, and ZOOM menus: previously initialized with empty text so no arrow was visible; now initialized with ↑/↓ glyphs. All scroll indicator overlay labels given opaque black background (`LV_OPA_COVER`) to cover the underlying colon character in item text. Editor scroll indicators moved from X=18 to X=4 to sit on the `:` line prefix rather than the first content character.
 - **PRGM extraction (Session 4)** — Extracted PRGM menu, navigation, and sub-menus into `ui_prgm.c` and `ui_prgm.h` adhering to the UI Extensibility Pattern. Re-wired `cursor_visible` for hardware timers and regenerated the dual-tab CTL/IO screen elements. Note: Execution backend is disconnected and incomplete.
+- **Colour palette extraction (Session 5)** — All magic colour hex literals replaced with named constants in `App/Inc/ui_palette.h` (14 constants: `COLOR_BLACK`, `COLOR_WHITE`, `COLOR_BG`, `COLOR_YELLOW`, `COLOR_AMBER`, `COLOR_GREY_LIGHT/MED/INACTIVE/DARK/TICK`, `COLOR_2ND`, `COLOR_ALPHA`, `COLOR_CURVE_Y1–Y4`). Orphaned local `#define` block removed from `calculator_core.c`. Inline literals removed from `calculator_core.c`, `graph.c`, `app_init.c`, `ui_prgm.c`, `ui_matrix.c`. One intentional exception: `0x00FF00` trace crosshair green in `graph.c` (single-use, no semantic peer).
+- **`expr_util.c` extracted (Session 5)** — 9 pure expression-buffer functions moved from `calculator_core.c` to `App/Src/expr_util.c` + `App/Inc/expr_util.h`: `ExprUtil_Utf8CharSize`, `ExprUtil_Utf8ByteToGlyph`, `ExprUtil_MatrixTokenSizeBefore`, `ExprUtil_MatrixTokenSizeAt`, `ExprUtil_MoveCursorLeft`, `ExprUtil_MoveCursorRight`, `ExprUtil_InsertChar`, `ExprUtil_InsertStr`, `ExprUtil_DeleteAtCursor`, `ExprUtil_PrependAns`. Zero LVGL/HAL/RTOS dependencies — all state passed explicitly. Static functions in `calculator_core.c` are now thin wrappers; TOKEN_LEFT/RIGHT handlers simplified. 96-test suite (`test_expr_util.c`, 12 groups) covers all functions including UTF-8 multi-byte sequences, matrix token atomicity, insert/overwrite mode, and round-trip cursor navigation.
+- **`persist.c` host-testable (Session 5)** — `Persist_Checksum` and `Persist_Validate` exposed as public API (no FLASH dependency). HAL-dependent code (`Persist_Save`, `Persist_Load`, `persist_erase_sector`, `persist_write_block`) guarded with `#ifndef HOST_TEST`. Round-trip test suite (`test_persist_roundtrip.c`, 52 tests / 5 groups) validates checksum stability, valid/invalid block detection, 6 corruption patterns, field round-trip, and struct size/alignment. `PersistBlock_t` header-comment size corrected 856 → 860 B.
+- **301-test CI suite (Session 5)** — `App/Tests/CMakeLists.txt` now builds three executables (`test_calc_engine`, `test_expr_util`, `test_persist_roundtrip`). `.github/workflows/build.yml` `host-tests` job runs all three and reports gcov branch coverage across `calc_engine.c`, `expr_util.c`, and `persist.c`.
 - **UART debug retarget removed** — `_write()` syscall override in `app_init.c` deleted. No `printf` calls exist in App code; newlib's default stub (discards output) now applies. Saves ~640 bytes FLASH.
 
 ### Known issues
@@ -233,12 +251,21 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 **10. Verify menu user interaction uniformity across all screens** — Audit UP/DOWN/ENTER/number-key navigation, tab switching, overflow indicators, CLEAR/exit behaviour, and return-to-caller logic across MATH, TEST, MATRIX, ZOOM, and MODE menus. Note any irregularities and recommend resolution measures.
 - Files: `App/Src/calculator_core.c` (all menu mode handlers, menu_open/menu_close/tab_move helpers)
 
-**11. Verify header files are complete** — Audit all App header files (`app_init.h`, `app_common.h`, `calc_engine.h`, `graph.h`, `persist.h`, `keypad.h`, `keypad_map.h`) to confirm every non-static function defined in the corresponding `.c` file has a declaration, and that type/enum definitions are consistent and not duplicated.
-- Files: `App/Inc/` (all headers), cross-referenced against `App/Src/` and `App/Drivers/Keypad/`
+**11. ~~Verify header files are complete~~ — Completed 2026-03-21** — Full header audit performed. All 10 App headers correctly declare their public APIs, include guards are correct, no circular dependencies detected, module prefixes consistent. `expr_util.h` added for new module. `persist.h` updated with `Persist_Checksum`/`Persist_Validate` and `HOST_TEST` guards. Rating: A-grade header design confirmed.
 
 **12. Review RAM usage — LVGL and video interface consumption** — Profile total RAM allocation: stack sizes, LVGL heap, framebuffer(s), static buffers. Determine how much RAM LVGL and the LTDC/ILI9341 video path consume vs. application data. Investigate why RAM limits are being approached given the MCU has 192 KB internal RAM + 64 KB CCMRAM + 64 MB SDRAM, far exceeding the original TI-81 hardware.
 - Files: `App/Src/app_init.c` (LVGL init, heap config), `App/LVGL/lv_conf.h` (LVGL buffer sizes), `Core/Src/main.c` (SDRAM layout), linker `.map` file in `build/Debug/`
 - Approach: check `build/Debug/*.map` for `.bss`/`.data` section sizes; review `lv_conf.h` draw buffer size; confirm `graph_buf`/`graph_buf_clean`/framebuffer are all in SDRAM (not internal RAM)
+
+**13. Enable `-Werror` to lock out warning regressions** — `-Wall -Wextra` are on; next step is to resolve any existing warning baseline and add `-Werror` in `CMakeLists.txt` so CI rejects new warnings on PRs. See P6 in QUALITY_TRACKER.md.
+- Files: `CMakeLists.txt` (add `-Werror`), `App/Tests/CMakeLists.txt` (add to test targets too)
+
+**14. Extract graph screen handlers into `App/Src/graph_ui.c`** — `handle_yeq_mode` (~300 lines), `handle_range_mode` (~171 lines), `handle_zoom_factors_mode` (~162 lines), `handle_zoom_mode`, and related helpers belong in a dedicated graph UI module alongside the existing `graph.c`. Estimated extraction: ~800 lines, would bring `calculator_core.c` from ~3,650 to ~2,850 LOC. Addresses P2.
+- Files: `App/Src/calculator_core.c` (source), new `App/Src/graph_ui.c` + `App/Inc/graph_ui.h`
+- Pattern: follow the same approach as `ui_matrix.c` and `ui_prgm.c` extractions
+
+**15. Add runtime assertion for float printf support (P8)** — Boot-time check that `snprintf(buf, 8, "%.2f", 1.5f)` produces `"1.50"`; halt with LED error pattern if not. Prevents silent failure if `-u _printf_float` is dropped during CMake refactoring.
+- Files: `App/Src/app_init.c` (`App_DefaultTask_Run` or a dedicated `app_selftest()` function)
 
 ---
 
