@@ -3,7 +3,7 @@
 Tracks the results of periodic professional quality reviews and outstanding improvement items.
 Update this file after each review pass or when an item is resolved.
 
-**Last reviewed:** 2026-03-20 (updated 2026-03-21)
+**Last reviewed:** 2026-03-21 (second pass — static analysis of all App/ source files)
 **Reviewer:** Claude Code (claude-sonnet-4-6) via full codebase static analysis
 
 ---
@@ -16,7 +16,7 @@ Update this file after each review pass or when an item is resolved.
 > and FLASH handling show genuine embedded expertise. The main gaps are architectural: one
 > oversized file, no automated tests, and scattered static state.
 
-**Estimate for production readiness:** 80–88% (up from 75–85%; gains from P1 B+-score resolution — expr_util.c extracted and 96-test suite added, persist round-trip 52-test suite added, 301 total host tests)
+**Estimate for production readiness:** 82–88% (up from 80–88%; gains from P9 resolution — `mat_det` confirmed iterative, not recursive)
 
 ---
 
@@ -56,6 +56,7 @@ write this well. `README.md`, `GETTING_STARTED.md`, and `TECHNICAL.md` provide c
 - `volatile` correctly applied to `g_sleeping` ISR flag
 - Checksums + magic number + version on the persist block
 - ISR-safe queue use (`xQueueSendFromISR`)
+- `prgm.c` correctly mirrors `persist.c` pattern: CCMRAM storage, `.RamFunc` erase/write, magic/version/checksum
 
 ### RTOS integration (A)
 Mutex guards on all LVGL calls are consistent. The `cursor_timer_cb` deadlock case is explicitly
@@ -150,7 +151,7 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 
 **Gaps deferred to hardware or PRGM extraction (needed for A):**
 - PRGM execution backend (`prgm_execute_line`, `prgm_run_loop`) is coupled to LVGL display
-  calls; needs extraction before host testing is practical. `TEMP-prgm_manual_tests.md`
+  calls; needs extraction before host testing is practical. `prgm_manual_tests.md`
   contains a 28-item hardware test plan; a signed-off manual protocol is the interim path
 - `Calc_FormatResult` scientific notation format not checked byte-for-byte (format differs
   between ARM nano.specs and host libc; only presence of 'e' is currently verified)
@@ -159,22 +160,28 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 
 ---
 
-### P2 — `calculator_core.c` too large (was 5,820 LOC; now 3,654 LOC — partially resolved)
+### P2 — `calculator_core.c` too large (was 5,820 LOC; now 3,563 LOC — partially resolved)
 **Rating impact:** Code organisation = B-, Function complexity = C+
 **File:** `App/Src/calculator_core.c`
 
 **Progress since initial review:** Significant extraction completed.
-- `App/Src/ui_prgm.c` extracted (1,712 LOC) + `App/Inc/ui_prgm.h`
-- `App/Src/ui_matrix.c` extracted (543 LOC) + `App/Inc/ui_matrix.h`
-- `App/Src/prgm.c` extracted (111 LOC) + `App/Inc/prgm.h`
-- `App/Src/calc_internal.h` added (internal shared declarations)
-- `calculator_core.c` reduced from 5,820 → 3,654 LOC (~37% reduction)
+- `App/Src/ui_prgm.c` extracted (1,713 LOC) + `App/Inc/ui_prgm.h`
+- `App/Src/ui_matrix.c` extracted (544 LOC) + `App/Inc/ui_matrix.h`
+- `App/Src/prgm_exec.c` extracted (111 LOC) + `App/Inc/prgm_exec.h`
+- `App/Inc/calc_internal.h` added (internal shared declarations)
+- `calculator_core.c` reduced from 5,820 → 3,563 LOC (~39% reduction)
 
 **Remaining work:** The file is still the dominant file. Large handlers still present:
-- `handle_normal_mode` (~300 lines, line 3114)
-- `handle_yeq_mode` (~206 lines, line 2104)
-- `handle_zoom_factors_mode` (~162 lines, line 2547)
-- `handle_range_mode` (~171 lines, line 2311)
+- `handle_normal_mode` (287 lines, L3037) — largest handler; contains a big token dispatch switch
+- `handle_yeq_mode` (207 lines, L2027)
+- `handle_range_mode` (172 lines, L2234)
+- `handle_zoom_factors_mode` (163 lines, L2470)
+- `handle_zbox_mode` (94 lines, L2633)
+- `handle_math_menu` (89 lines, L2850)
+- `handle_trace_mode` (75 lines, L2727)
+- `handle_zoom_mode` (64 lines, L2406)
+- `handle_test_menu` (64 lines, L2939)
+- `handle_mode_screen` (48 lines, L2802) — acceptable size
 
 Industry standard: functions under 50–100 lines.
 
@@ -182,7 +189,7 @@ Industry standard: functions under 50–100 lines.
 - Extract graph screen handlers (Y=, RANGE, ZOOM, ZBox, Trace) into `App/Src/graph_ui.c`
 - Reduce remaining handlers to under 100 lines each
 
-**Resolved:** Partially (2026-03-20 — ui_prgm, ui_matrix, prgm extracted)
+**Resolved:** Partially (2026-03-20 — ui_prgm, ui_matrix, prgm extracted; 2026-03-21 — further reduced 3,654 → 3,563)
 
 ---
 
@@ -224,7 +231,7 @@ used across the project; replace inline hex literals.
 
 ### P5 — Missing `const` on immutable data
 **Rating impact:** Naming conventions = B+
-**File:** `App/Drivers/Keypad/keypad_map.c`
+**File:** `App/HW/Keypad/keypad_map.c`
 
 `TI81_LookupTable` now correctly declared `const` — placed in `.rodata` (FLASH), saving RAM.
 `TI81_LookupTable_Size` also marked `const`. A broader audit for other non-const read-only
@@ -280,26 +287,56 @@ no compiler or linker error is produced.
 
 ---
 
-### P9 — Matrix determinant recursion has no depth guard
-**Rating impact:** Low (bounded by CALC_MATRIX_MAX_DIM = 6)
+### P9 — Matrix determinant recursion (TRACKER DESCRIPTION WAS INCORRECT — now resolved)
+**Rating impact:** Low
 **File:** `App/Src/calc_engine.c`
 
-The Gaussian-elimination `mat_det` function recurses up to `size` levels. At the current maximum
-of 6×6 this is safe (depth ≤ 6). But there is no `assert(depth < CALC_MATRIX_MAX_DIM)` to
-catch a regression if the max dimension is ever increased without auditing the recursion.
+**Re-examined 2026-03-21:** The previous tracker entry said "the Gaussian-elimination `mat_det`
+function recurses up to `size` levels." This was incorrect. `mat_det` (`calc_engine.c:549`) is
+fully **iterative** — it uses standard nested `for` loops for Gaussian elimination with partial
+pivoting, with no recursive calls whatsoever. The function cannot stack-overflow regardless of
+matrix dimensions. No assertion or depth guard is needed.
 
-**Recommendation:** Add a compile-time or runtime depth assertion inside `mat_det`.
-
-**Resolved:** —
+**Resolved:** 2026-03-21 (tracker error corrected — implementation was always iterative)
 
 ---
 
 ### P10 — PRGM system not hardware-validated
 **Rating impact:** Testing = D (existing item)
-**Files:** `App/Src/calculator_core.c` (prgm_* functions), `TEMP-prgm_manual_tests.md`
+**Files:** `App/Src/calculator_core.c` (prgm_* functions), `prgm_manual_tests.md`
 
-See `TEMP-prgm_manual_tests.md` for the 28-test hardware validation plan. Until all 28 tests
+See `prgm_manual_tests.md` for the 28-test hardware validation plan. Until all 28 tests
 pass, PRGM should be treated as non-functional (see also README.md and CLAUDE.md notices).
+
+**Note (2026-03-21):** PRGM backend handler functions now exist in `calculator_core.c`:
+`handle_prgm_running`, `handle_prgm_menu`, `handle_prgm_new_name`, `handle_prgm_editor`,
+`handle_prgm_ctl_menu`, `handle_prgm_io_menu`. The 6 PRGM modes are all dispatched from
+`Execute_Token`. However, hardware validation has not been performed; PRGM remains untested.
+
+**Resolved:** —
+
+---
+
+### P11 — Duplicate `#include` directives in `calculator_core.c`
+**Rating impact:** Naming conventions = B+ (minor cleanliness issue)
+**File:** `App/Src/calculator_core.c` (lines 25–30)
+
+`<stdio.h>`, `<stdlib.h>`, and `<string.h>` are each included **twice** in the same file:
+```c
+// Lines 25–27 (first occurrence)
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+// Lines 28–30 (duplicate)
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+```
+Include guards in the standard headers prevent double-definition errors, so there is no
+functional impact. However, this is a maintenance smell — it likely originated from a
+copy-paste during a merge or extraction session.
+
+**Recommendation:** Delete lines 28–30.
 
 **Resolved:** —
 
@@ -313,6 +350,7 @@ pass, PRGM should be treated as non-functional (see also README.md and CLAUDE.md
 | P4 — Magic numbers: colours | `ui_palette.h` created; 14 named constants; inline hex literals replaced across `calculator_core.c`, `graph.c`, `app_init.c`, `ui_prgm.c`, `ui_matrix.c`; one intentional exception (trace crosshair green in `graph.c`) | 2026-03-21 |
 | P5 — Missing `const` on `TI81_LookupTable` | `const` added to `TI81_LookupTable` and `TI81_LookupTable_Size` in `keypad_map.c` | 2026-03-20 |
 | P7 — Incomplete wiring table | STM32 GPIO side documented; physical TI-81 ribbon mapping pending annotated photos | 2026-03-20 (partial) |
+| P9 — Matrix determinant recursion | Tracker description was incorrect — `mat_det` (L549) is iterative Gaussian elimination; no recursive calls exist; no depth guard needed | 2026-03-21 |
 
 ---
 
@@ -326,3 +364,4 @@ pass, PRGM should be treated as non-functional (see also README.md and CLAUDE.md
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | Incremental codebase analysis | P1 B score: 153 tests (groups 15–20 added), gcov 80.28% branch coverage, CI host-tests job; Testing C → B; overall rating bumped to 75–85% |
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | Incremental codebase analysis | P1 B+ score: expr_util.c extracted (9 pure functions, 96 tests/12 groups), persist round-trip suite (52 tests/5 groups), HOST_TEST HAL guards, PersistBlock_t size corrected 856→860 B; Testing B → B+; overall rating bumped to 80–88% |
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | Full static quality review + documentation pass | All docs updated (CLAUDE.md, QUALITY_TRACKER.md, OPEN_SOURCE_RECOMMENDATIONS.md); header audit: A-grade (all 10 headers complete, no circular deps); 7 onboarding gaps identified; priorities 13–15 added; P4 fully resolved entry added to resolved items table |
+| 2026-03-21 | Claude Code (claude-sonnet-4-6) | Full static codebase re-review (all App/ source files) | P9 resolved (mat_det confirmed iterative, tracker description was wrong); P11 added (duplicate #includes in calculator_core.c L25–30); calculator_core.c LOC corrected 3,654→3,563; all handler sizes re-measured with exact line numbers; prgm.c confirmed correct .RamFunc + CCMRAM pattern; overall rating bumped to 82–88% |

@@ -101,9 +101,9 @@ The following gaps were identified in a quality review pass. None are blocking �
 - What each executable tests (calc_engine: expression pipeline; expr_util: cursor/UTF-8/buffer manipulation; persist: serialization/checksum)
 - How to add a test (copy a `static void test_*()` function, use `EXPECT_*` macros, call from `main()`)
 - Coverage expectations (>80% branch coverage on `calc_engine.c` required; run with `-DCOVERAGE=ON`)
-- Link to `TEMP-prgm_manual_tests.md` for the PRGM hardware test protocol
+- Link to `prgm_manual_tests.md` for the PRGM hardware test protocol
 
-**PRGM completion roadmap** — `ui_prgm.h` warns that the backend is incomplete but doesn't list concrete tasks. A `docs/PRGM_COMPLETION.md` with 5–10 specific tasks (tokenization bridge, `prgm_flatten_to_store`, I/O execution loop, `Goto`/`Lbl` lookup table, `Menu(` support), effort estimates, and acceptance criteria (all 28 manual tests in `TEMP-prgm_manual_tests.md`) would give any PRGM contributor a clear starting point.
+**PRGM completion roadmap** — `ui_prgm.h` warns that the backend is incomplete but doesn't list concrete tasks. A `docs/PRGM_COMPLETION.md` with 5–10 specific tasks (tokenization bridge, `prgm_flatten_to_store`, I/O execution loop, `Goto`/`Lbl` lookup table, `Menu(` support), effort estimates, and acceptance criteria (all 28 manual tests in `prgm_manual_tests.md`) would give any PRGM contributor a clear starting point.
 
 ### Medium priority
 

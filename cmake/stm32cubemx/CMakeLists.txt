@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 3.22)
+# =============================================================================
+# STM32CubeMX-generated build configuration — DO NOT hand-edit this file.
+# Regenerate by opening STM32F429-TI81-Calculator.ioc in STM32CubeMX and
+# clicking Project → Generate Code.  After regeneration, re-apply the manual
+# settings documented in docs/TECHNICAL.md § Build Configuration.
+# =============================================================================
 # Enable CMake support for ASM and C languages
 enable_language(C ASM)
 # STM32CubeMX generated symbols (macros)

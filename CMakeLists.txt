@@ -6,6 +6,10 @@ cmake_minimum_required(VERSION 3.22)
 #
 # User is free to modify the file as much as necessary
 #
+# Note: STM32CubeMX-generated build config is in cmake/stm32cubemx/CMakeLists.txt
+# (HAL libraries, FreeRTOS, USB, startup sources, include dirs, linker flags).
+# That file is not hand-edited — regenerate via CubeMX if peripheral config changes.
+#
 
 # Setup compiler settings
 set(CMAKE_C_STANDARD 11)
@@ -69,8 +73,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Fonts/jetbrains_mono_20.c
 
     # --- KEYPAD SOURCES ---
-    App/Drivers/Keypad/keypad.c
-    App/Drivers/Keypad/keypad_map.c
+    App/HW/Keypad/keypad.c
+    App/HW/Keypad/keypad_map.c
 
     # --- LOGIC SOURCES ---
     App/Src/app_init.c
@@ -79,14 +83,14 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/expr_util.c
     App/Src/graph.c
     App/Src/persist.c
-    App/Src/prgm.c
+    App/Src/prgm_exec.c
     App/Src/ui_matrix.c
     App/Src/ui_prgm.c
 
     # Add all LVGL Source files
     ${LVGL_SOURCES}
-    App/LVGL/lv_port_disp.c
-    App/LVGL/lv_port_indev.c
+    App/Display/lv_port_disp.c
+    App/Display/lv_port_indev.c
 )
 
 # Add include paths
@@ -99,8 +103,8 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     Drivers/BSP/Components/Fonts
 
     App/Inc
-    App/Drivers/Keypad
-    App/LVGL
+    App/HW/Keypad
+    App/Display
 
     ${LVGL_ROOT_DIR}
     ${LVGL_ROOT_DIR}/..     # needed for #include "lvgl/lvgl.h" in generated font files

@@ -1,5 +1,5 @@
 /**
- * @file    prgm.c
+ * @file    prgm_exec.c
  * @brief   Program storage — FLASH sector 11 erase/write and load/save.
  *
  * Mirrors persist.c in structure.  All routines that touch FLASH carry
@@ -10,7 +10,7 @@
  * then loads from FLASH, so no startup-copy dependency exists.
  */
 
-#include "prgm.h"
+#include "prgm_exec.h"
 #include <string.h>
 
 /*---------------------------------------------------------------------------

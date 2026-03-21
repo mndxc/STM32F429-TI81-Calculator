@@ -8,13 +8,13 @@ It also provides continuity for AI-assisted development sessions, summarising al
 
 ## Project Quality
 
-**[QUALITY_TRACKER.md](QUALITY_TRACKER.md)** — read this before starting any significant work.
+**[QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md)** — read this before starting any significant work.
 
 It contains the results of a full professional code review (2026-03-20), a rated scorecard across
 10 dimensions, and 10 prioritised improvement items (P1–P10). When writing new code or refactoring
 existing code, check whether the change addresses or risks regressing any open item.
 
-Current overall rating: **80–88% production-ready** (up from 60–70%; see QUALITY_TRACKER.md for full
+Current overall rating: **80–88% production-ready** (up from 60–70%; see docs/QUALITY_TRACKER.md for full
 history). Key remaining gaps: PRGM backend incomplete (P10), `calculator_core.c` still dominant
 file (P2), scattered static state (P3), `-Werror` not yet enforced (P6). Key strengths:
 documentation, RTOS integration, FLASH/memory-safety correctness, 301-test host suite with CI.
@@ -237,7 +237,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 **6. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
 
 **7. QUIT / back button (2nd+CLEAR)** — `2nd+CLEAR` should act as a universal back button: close the current menu or screen and return to the previous one (e.g. MATH menu → main calculator, Y= → main calculator, RANGE → graph screen, ZOOM → graph screen, MODE → main calculator). Currently `2nd+CLEAR` produces `TOKEN_QUIT` but it is not handled — add handling in each mode block of `Execute_Token()` in `calculator_core.c` that calls the same teardown path as CLEAR-when-empty or the existing exit paths for each screen.
-- Files: `App/Src/calculator_core.c` (add `TOKEN_QUIT` handling in each mode handler), `App/Drivers/Keypad/keypad_map.h` (verify `TOKEN_QUIT` exists or add it)
+- Files: `App/Src/calculator_core.c` (add `TOKEN_QUIT` handling in each mode handler), `App/HW/Keypad/keypad_map.h` (verify `TOKEN_QUIT` exists or add it)
 - Gotchas: ensure the back-destination is consistent with the free graph-screen navigation model — e.g. back from a graph editing screen (Y=, RANGE, ZOOM) should return to the graph canvas, not the main calculator
 
 **8. Matrix result display — left-aligned columns with horizontal scroll** — When a matrix result is shown in history, columns should be left-aligned (all cells in a column share the same left-edge x position, determined by the widest cell in that column) for easy visual parsing. For wide matrices that exceed the display width, the result should be horizontally scrollable: LEFT/RIGHT arrow keys pan the view, with an ellipsis (`…`) shown at the right edge when content is clipped to the right, and at the left edge when content is clipped to the left. Scrolling is active only while the matrix result row has focus; any input other than LEFT/RIGHT (digit, operator, function key, etc.) exits scroll mode and is processed normally.
@@ -254,10 +254,10 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 **11. ~~Verify header files are complete~~ — Completed 2026-03-21** — Full header audit performed. All 10 App headers correctly declare their public APIs, include guards are correct, no circular dependencies detected, module prefixes consistent. `expr_util.h` added for new module. `persist.h` updated with `Persist_Checksum`/`Persist_Validate` and `HOST_TEST` guards. Rating: A-grade header design confirmed.
 
 **12. Review RAM usage — LVGL and video interface consumption** — Profile total RAM allocation: stack sizes, LVGL heap, framebuffer(s), static buffers. Determine how much RAM LVGL and the LTDC/ILI9341 video path consume vs. application data. Investigate why RAM limits are being approached given the MCU has 192 KB internal RAM + 64 KB CCMRAM + 64 MB SDRAM, far exceeding the original TI-81 hardware.
-- Files: `App/Src/app_init.c` (LVGL init, heap config), `App/LVGL/lv_conf.h` (LVGL buffer sizes), `Core/Src/main.c` (SDRAM layout), linker `.map` file in `build/Debug/`
+- Files: `App/Src/app_init.c` (LVGL init, heap config), `App/Display/lv_conf.h` (LVGL buffer sizes), `Core/Src/main.c` (SDRAM layout), linker `.map` file in `build/Debug/`
 - Approach: check `build/Debug/*.map` for `.bss`/`.data` section sizes; review `lv_conf.h` draw buffer size; confirm `graph_buf`/`graph_buf_clean`/framebuffer are all in SDRAM (not internal RAM)
 
-**13. Enable `-Werror` to lock out warning regressions** — `-Wall -Wextra` are on; next step is to resolve any existing warning baseline and add `-Werror` in `CMakeLists.txt` so CI rejects new warnings on PRs. See P6 in QUALITY_TRACKER.md.
+**13. Enable `-Werror` to lock out warning regressions** — `-Wall -Wextra` are on; next step is to resolve any existing warning baseline and add `-Werror` in `CMakeLists.txt` so CI rejects new warnings on PRs. See P6 in docs/QUALITY_TRACKER.md.
 - Files: `CMakeLists.txt` (add `-Werror`), `App/Tests/CMakeLists.txt` (add to test targets too)
 
 **14. Extract graph screen handlers into `App/Src/graph_ui.c`** — `handle_yeq_mode` (~300 lines), `handle_range_mode` (~171 lines), `handle_zoom_factors_mode` (~162 lines), `handle_zoom_mode`, and related helpers belong in a dedicated graph UI module alongside the existing `graph.c`. Estimated extraction: ~800 lines, would bring `calculator_core.c` from ~3,650 to ~2,850 LOC. Addresses P2.
@@ -528,28 +528,44 @@ CubeMX resets these when regenerating — always check after any `.ioc` changes.
 
 ### File structure
 ```
-App/Inc/                        ← application headers (custom, not CubeMX)
-    app_init.h          — App_RTOS_Init() and App_DefaultTask_Run() declarations
-    app_common.h        — shared types, extern declarations, CalcMode_t enum
-    calc_engine.h       — math engine public API
-    graph.h             — graphing subsystem public API
 App/Src/                        ← application sources (custom, not CubeMX)
     app_init.c          — RTOS objects, hardware bring-up, LVGL init, render loop, Power_EnterStop
     calculator_core.c   — UI creation, token processing, calculator state
     calc_engine.c       — tokenizer, shunting-yard, RPN evaluator
+    expr_util.c         — pure expression-buffer helpers (UTF-8, insert, delete, cursor)
     graph.c             — graph canvas, renderer, axes, curve plotting
     persist.c           — FLASH erase/write/load for persistent state (.RamFunc routines)
+    prgm_exec.c         — program storage — FLASH sector 11 erase/write/load
+    ui_matrix.c         — matrix cell editor UI (extracted module)
+    ui_prgm.c           — program menu and editor UI (extracted module)
+App/Inc/                        ← application headers (custom, not CubeMX)
+    app_init.h          — App_RTOS_Init() and App_DefaultTask_Run() declarations
+    app_common.h        — shared types, extern declarations, CalcMode_t enum
+    calc_engine.h       — math engine public API
+    calc_internal.h     — shared internal state for calculator UI modules
+    expr_util.h         — expression buffer utility API
+    graph.h             — graphing subsystem public API
+    persist.h           — persistent storage API
+    prgm_exec.h         — program storage and FLASH persistence API
+    ui_matrix.h         — matrix editor UI interface
+    ui_prgm.h           — program menu UI interface
+    ui_palette.h        — named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)
 App/Fonts/
     JetBrainsMono-Regular.ttf — source font (Apache 2.0; committed so regeneration is always possible)
     jetbrains_mono_20.c — JetBrains Mono 20px LVGL font (generated)
     jetbrains_mono_24.c — JetBrains Mono 24px LVGL font (generated)
-App/Drivers/Keypad/
+App/HW/Keypad/
     keypad.c/h          — hardware key matrix scanning
     keypad_map.c/h      — Token_t enum, hardware key → token lookup table
-App/LVGL/
+App/Display/
     lv_conf.h           — LVGL configuration
-    lv_port_disp.c/h    — LVGL display driver
-    lv_port_indev.c/h   — LVGL input driver
+    lv_port_disp.c/h    — LVGL display driver (LTDC port layer)
+    lv_port_indev.c/h   — LVGL input driver (keypad port layer)
+App/Tests/
+    CMakeLists.txt      — host test build (3 executables, 301 tests total)
+    test_calc_engine.c  — 153 tests: tokenizer, shunting-yard, RPN, matrix
+    test_expr_util.c    — 96 tests: UTF-8 cursor, insert/delete, matrix atomicity
+    test_persist_roundtrip.c — 52 tests: PersistBlock_t checksum and round-trip
 Core/Inc/                       ← CubeMX generated (regenerated from .ioc)
     main.h, stm32f4xx_hal_conf.h, stm32f4xx_it.h, FreeRTOSConfig.h
 Core/Src/                       ← CubeMX generated (regenerated from .ioc)
@@ -805,7 +821,7 @@ shunting-yard from treating it as binary subtraction. `-3^2` still evaluates as 
 
 ## Keypad Driver
 
-`App/Drivers/Keypad/keypad.c`:
+`App/HW/Keypad/keypad.c`:
 - 7×8 matrix: A-lines (cols) driven HIGH one at a time, B-lines (rows) read
 - Key ID = `(row * 7) + col`; range 1–55; 0xFF = no key
 - `StartKeypadTask` scans every 20ms, fires `Process_Hardware_Key()` on new keypress
@@ -881,7 +897,7 @@ USB ──► RT9471 (SYS rail) ──► RT8059 (buck) ──► 3.3V system ra
 ```bash
 git add App/Src/calculator_core.c App/Src/app_init.c App/Inc/app_common.h \
         App/Src/graph.c App/Inc/graph.h \
-        App/Drivers/Keypad/keypad.c App/Drivers/Keypad/keypad.h \
+        App/HW/Keypad/keypad.c App/HW/Keypad/keypad.h \
         Core/Inc/FreeRTOSConfig.h CLAUDE.md
 git commit -m "description"
 git push

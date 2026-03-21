@@ -20,7 +20,7 @@
 #include "ui_prgm.h"
 #include "ui_palette.h"
 #include "calc_internal.h"
-#include "prgm.h"
+#include "prgm_exec.h"
 #include "calc_engine.h"
 #include <stdio.h>
 #include <string.h>

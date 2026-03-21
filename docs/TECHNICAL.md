@@ -16,26 +16,43 @@ App/                            ← Custom application code (never touched by Cu
     app_init.c                  RTOS object creation, hardware bring-up, LVGL init, render loop
     calculator_core.c           Calculator UI, token processing, expression building
     calc_engine.c               Expression parser and evaluator (shunting-yard + RPN)
+    expr_util.c                 Pure expression-buffer helpers (UTF-8, insert, delete, cursor)
     graph.c                     Graph canvas, axes, tick marks, curve renderer
+    persist.c                   FLASH sector 10 erase/write/load for calculator state
+    prgm_exec.c                 Program storage — FLASH sector 11 erase/write/load
+    ui_matrix.c                 Matrix cell editor UI (extracted module)
+    ui_prgm.c                   Program menu and editor UI (extracted module)
   Inc/
     app_init.h                  App_RTOS_Init() and App_DefaultTask_Run() declarations
     app_common.h                Shared types, handles and function declarations
     calc_engine.h               Math engine interface
+    calc_internal.h             Shared internal state for calculator UI modules
+    expr_util.h                 Expression buffer utility API
     graph.h                     Graphing subsystem interface
+    persist.h                   Persistent storage API
+    prgm_exec.h                 Program storage and FLASH persistence API
+    ui_matrix.h                 Matrix editor UI interface
+    ui_prgm.h                   Program menu UI interface
+    ui_palette.h                Named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)
   Fonts/
     JetBrainsMono-Regular.ttf   Source font (Apache 2.0)
     jetbrains_mono_24.c         LVGL bitmap font 24px (generated from TTF)
     jetbrains_mono_20.c         LVGL bitmap font 20px (generated from TTF)
-  Drivers/
+  HW/
     Keypad/
       keypad.c                  Matrix scan driver, FreeRTOS scan task, arrow auto-repeat
       keypad.h                  Key ID enum and scan function prototype
       keypad_map.c              Hardware key to token lookup table
       keypad_map.h              Token_t enum and lookup table declaration
-  LVGL/
+  Display/
     lv_conf.h                   LVGL configuration
     lv_port_disp.c/h            LVGL display port — LTDC framebuffer flush with rotation
     lv_port_indev.c/h           LVGL input device port — keypad registration
+  Tests/
+    CMakeLists.txt              Host test build (3 executables, 301 tests total)
+    test_calc_engine.c          153 tests: tokenizer, shunting-yard, RPN, matrix
+    test_expr_util.c            96 tests: UTF-8 cursor, insert/delete, matrix atomicity
+    test_persist_roundtrip.c    52 tests: PersistBlock_t checksum and round-trip
 
 Core/                           ← CubeMX-generated code (regenerated from .ioc)
   Src/
@@ -311,7 +328,7 @@ osThreadDef(keypadTask, StartKeypadTask, osPriorityNormal, 0, 1024 * 2);
 osThreadDef(calcCore,   StartCalcCoreTask, osPriorityNormal, 0, 1024 * 2);
 ```
 
-### 3. LVGL OS integration — `App/LVGL/lv_conf.h`
+### 3. LVGL OS integration — `App/Display/lv_conf.h`
 Must be `LV_OS_NONE`. Setting this to `LV_OS_FREERTOS` causes LVGL to
 attempt creating its own internal task which fails silently and breaks
 the render pipeline.

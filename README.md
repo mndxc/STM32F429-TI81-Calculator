@@ -31,7 +31,7 @@ Core arithmetic, standard math functions (trig, hyperbolic, log, √), variables
 
 MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, and FLASH persistence.
 
-**PRGM is coded but not yet hardware-validated — treat as non-functional until testing is complete.** The UI (EXEC/EDIT/ERASE menu, all 37 slots, name entry, line editor, CTL/I/O sub-menus) and a full text interpreter (`If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, subroutine calls, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment, expression lines) are implemented and programs persist in FLASH. None of this has been run on hardware yet — see `TEMP-prgm_manual_tests.md` for the 28-test validation plan that must pass before PRGM is considered functional.
+**PRGM is coded but not yet hardware-validated — treat as non-functional until testing is complete.** The UI (EXEC/EDIT/ERASE menu, all 37 slots, name entry, line editor, CTL/I/O sub-menus) and a full text interpreter (`If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, subroutine calls, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment, expression lines) are implemented and programs persist in FLASH. None of this has been run on hardware yet — see `docs/prgm_manual_tests.md` for the 28-test validation plan that must pass before PRGM is considered functional.
 
 STAT is not yet implemented.
 
@@ -39,10 +39,15 @@ STAT is not yet implemented.
 
 ## Documentation
 
-| Document | Description |
+| I want to… | Go here |
 |---|---|
-| [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) | Zero-to-build guide — prerequisites, hardware wiring, toolchain setup, flashing. |
-| [docs/TECHNICAL.md](docs/TECHNICAL.md) | Architecture reference — file structure, build config, memory layout, LVGL threading, calculator engine, graphing system, keypad driver. |
+| Build and flash the firmware | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) |
+| Understand the architecture | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Read the full technical reference | [docs/TECHNICAL.md](docs/TECHNICAL.md) |
+| Run the host tests | [docs/GETTING_STARTED.md § Tests](docs/GETTING_STARTED.md) |
+| See open quality issues | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) |
+| See open source recommendations | [docs/OPEN_SOURCE_RECOMMENDATIONS.md](docs/OPEN_SOURCE_RECOMMENDATIONS.md) |
+| Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ### Datasheets
 

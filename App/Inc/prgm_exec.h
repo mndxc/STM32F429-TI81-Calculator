@@ -1,5 +1,5 @@
 /**
- * @file    prgm.h
+ * @file    prgm_exec.h
  * @brief   Program storage and persistence for the TI-81 PRGM system.
  *
  * Provides 37 fixed program slots matching original TI-81 capacity.
@@ -17,8 +17,8 @@
  *   Sector 11: 0x080E0000 — program storage  (this module)
  */
 
-#ifndef PRGM_H
-#define PRGM_H
+#ifndef PRGM_EXEC_H
+#define PRGM_EXEC_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -109,4 +109,4 @@ bool Prgm_Save(void);
  */
 bool Prgm_Load(void);
 
-#endif /* PRGM_H */
+#endif /* PRGM_EXEC_H */

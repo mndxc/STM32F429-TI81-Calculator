@@ -27,7 +27,7 @@ The TI-81 keypad works on a **Matrix**—a grid of rows and columns. Instead of 
 
 > ### ⚠️ IMPORTANT — Physical Ribbon Mapping Not Yet Verified
 >
-> The table below shows the **STM32 GPIO assignments** used by the firmware (authoritative source: `App/Drivers/Keypad/keypad.h`). These are correct for the software.
+> The table below shows the **STM32 GPIO assignments** used by the firmware (authoritative source: `App/HW/Keypad/keypad.h`). These are correct for the software.
 >
 > **What is missing:** The physical correspondence between the numbered pads/wires on your specific TI-81 PCB and the logical A-line/B-line names used here has **not yet been manually documented.** The original TI-81 ribbon connector pinout varies subtly between hardware revisions, and the exact wire-to-function mapping requires tracing with a multimeter on a real board.
 >

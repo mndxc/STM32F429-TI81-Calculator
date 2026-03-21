@@ -13,7 +13,7 @@
 #include "calc_engine.h"
 #include "graph.h"
 #include "persist.h"
-#include "prgm.h"
+#include "prgm_exec.h"
 #include "calc_internal.h"
 #include "ui_matrix.h"
 #include "ui_prgm.h"
