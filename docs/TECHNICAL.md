@@ -428,6 +428,23 @@ SDRAM layout:
 0xD004B000  graph_buf_clean     320×240×2 = 153,600 bytes  (trace cache)
 ```
 
+FLASH sector map (STM32F429ZIT6, 2 MB dual-bank):
+
+| Sector | Address      | Size        | Contents                                   |
+|--------|--------------|-------------|--------------------------------------------|
+| 0–3    | 0x08000000   | 16 KB each  | Firmware                                   |
+| 4      | 0x08010000   | 64 KB       | Firmware                                   |
+| 5–9    | 0x08020000   | 128 KB each | Firmware                                   |
+| **10** | **0x080C0000** | **128 KB** | **Calculator state (`PersistBlock_t`, 860 B)** |
+| **11** | **0x080E0000** | **128 KB** | **Program storage (37 slots)**             |
+
+> [!CAUTION]
+> **FLASH_SECTOR_7 is at 0x08060000 — inside the firmware image for a ~684 KB build.**
+> Using the wrong sector number for user data will erase firmware and put the board into
+> a HardFault boot loop. Always use sector 10 (0x080C0000) for calculator state and
+> sector 11 (0x080E0000) for programs. The authoritative definitions are in
+> `App/Inc/persist.h` and `App/Inc/prgm_exec.h`.
+
 ---
 
 ## Known Limitations

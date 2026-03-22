@@ -1,8 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+**Purpose:** AI session continuity and feature backlog. Contains project context, architectural decisions, gotchas, known issues, the active feature/bug backlog (`Next session priorities`), and standing rules for AI-assisted development. Read in full at the start of every session.
 
-It also provides continuity for AI-assisted development sessions, summarising all key decisions, gotchas, and work-in-progress state.
+**For code quality items** (CI gates, refactoring, test coverage, contributor docs) see [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) — that document is the single source of truth for all P-numbered improvement items. Items are never duplicated between the two files.
 
 ---
 
@@ -10,13 +10,10 @@ It also provides continuity for AI-assisted development sessions, summarising al
 
 **[QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md)** — read this before starting any significant work.
 
-It contains the results of full professional code reviews, a rated scorecard across 10 dimensions,
-17 prioritised items (P1–P17), and open-source readiness status. When writing new code or
-refactoring, check whether the change addresses or risks regressing any open item.
+**Purpose of QUALITY_TRACKER:** Permanent register for code quality reviews. Tracks a rated scorecard across 10 dimensions, P-numbered improvement items with effort/impact rankings, and full resolution history. It is the single source of truth for all quality, CI, refactoring, and contributor-docs work. Items are not duplicated in this file.
 
 Current overall rating: **83–89% production-ready** (up from 60–70%; see docs/QUALITY_TRACKER.md
-for full history). Key remaining gaps: PRGM backend incomplete (P10), `calculator_core.c` still
-dominant file (P2), `-Werror` not yet enforced (P6), contributor docs missing (P12–P17). Key
+for full history). Key remaining gaps: PRGM backend incomplete (P10), `-Werror` not yet enforced (P6), contributor docs missing (P12–P17). Key
 strengths: documentation, RTOS integration, FLASH/memory-safety correctness, 301-test host suite
 with CI.
 
@@ -61,6 +58,23 @@ Add to "Next session priorities" with a tag `[complexity]`:
 ```
 **[complexity] <short title>** — <one sentence explaining what grew and why>. <one sentence describing the planned simplification>. Files: <file list>.
 ```
+
+---
+
+## To-Do Routing
+
+When the user asks to add something to the to-do list, place it in the correct location based on item type — never duplicate it in both files.
+
+| Item type | Where it goes |
+|---|---|
+| **Feature work** — new calculator behaviour, TI-81 accuracy, UI improvements | `Next session priorities` in this file (with files + implementation detail) |
+| **Bug fix** — incorrect behaviour, crashes, display glitches | `Next session priorities` in this file |
+| **Complexity debt** — complexity introduced by a commit that needs paying down | `Next session priorities` in this file (tag `[complexity]`) |
+| **Code quality** — compiler warnings, CI gates, refactoring, static analysis | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) as a new P-item |
+| **Testing** — new test coverage, test infrastructure, coverage targets | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) as a new P-item |
+| **Contributor/open-source docs** — architecture diagrams, guides, onboarding | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) as a new P-item |
+
+**Rule of thumb:** if the item is about *what the calculator does*, it goes in `Next session priorities`. If it is about *how the code is structured, validated, or documented for contributors*, it goes in QUALITY_TRACKER.
 
 ---
 
@@ -273,6 +287,9 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 ### Next session priorities (in order)
 
+> **Quality and refactoring items** are tracked in [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md), not here.
+> Open items: **P1, P3, P6, P7, P8, P10, P12–P17**. Highest ease-to-impact: P8, P6, P13, P12.
+
 **1. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
 - Files: `App/Src/calculator_core.c` (Y= cursor handling for `=` column), `App/Src/graph.c` (skip disabled equations in renderer)
 
@@ -286,9 +303,8 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **6. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
 
-**7. QUIT / back button (2nd+CLEAR)** — `2nd+CLEAR` should act as a universal back button: close the current menu or screen and return to the previous one (e.g. MATH menu → main calculator, Y= → main calculator, RANGE → graph screen, ZOOM → graph screen, MODE → main calculator). Currently `2nd+CLEAR` produces `TOKEN_QUIT` but it is not handled — add handling in each mode block of `Execute_Token()` in `calculator_core.c` that calls the same teardown path as CLEAR-when-empty or the existing exit paths for each screen.
-- Files: `App/Src/calculator_core.c` (add `TOKEN_QUIT` handling in each mode handler), `App/HW/Keypad/keypad_map.h` (verify `TOKEN_QUIT` exists or add it)
-- Gotchas: ensure the back-destination is consistent with the free graph-screen navigation model — e.g. back from a graph editing screen (Y=, RANGE, ZOOM) should return to the graph canvas, not the main calculator
+**7. QUIT (2nd+CLEAR) always exits to main calculator screen** — `2nd+CLEAR` should unconditionally close whatever screen or menu is currently active and return to the main calculator (MODE_NORMAL), clearing any pending state (sto_pending, modifier mode, partial edits). This is a hard exit, not a hierarchical back button — pressing it from RANGE, ZOOM, Y=, MATRIX, PRGM, TRACE, or any menu always lands on the main calculator, never an intermediate screen. Currently `2nd+CLEAR` produces `TOKEN_QUIT` but it is not handled anywhere. Implementation: add a single `TOKEN_QUIT` check at the very top of `Execute_Token()` (after `TOKEN_ON`, before all mode handlers) that calls `hide_all_screens()`, resets `current_mode` and `return_mode` to `MODE_NORMAL`, clears `sto_pending`, restores the normal cursor, and returns — identical in effect to what `TOKEN_ON` (save) does but without saving state.
+- Files: `App/Src/calculator_core.c` (add `TOKEN_QUIT` early-return at top of `Execute_Token()`), `App/HW/Keypad/keypad_map.h` (verify `TOKEN_QUIT` exists or add it)
 
 **8. Matrix result display — left-aligned columns with horizontal scroll** — When a matrix result is shown in history, columns should be left-aligned (all cells in a column share the same left-edge x position, determined by the widest cell in that column) for easy visual parsing. For wide matrices that exceed the display width, the result should be horizontally scrollable: LEFT/RIGHT arrow keys pan the view, with an ellipsis (`…`) shown at the right edge when content is clipped to the right, and at the left edge when content is clipped to the left. Scrolling is active only while the matrix result row has focus; any input other than LEFT/RIGHT (digit, operator, function key, etc.) exits scroll mode and is processed normally.
 - Files: `App/Src/calculator_core.c` (history entry rendering; LEFT/RIGHT handler when a matrix result row is focused), `App/Src/calc_engine.c` (`Calc_FormatResult` or a new `Calc_FormatMatrix` that pre-formats column-aligned rows into a buffer)
@@ -301,21 +317,17 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 **10. Verify menu user interaction uniformity across all screens** — Audit UP/DOWN/ENTER/number-key navigation, tab switching, overflow indicators, CLEAR/exit behaviour, and return-to-caller logic across MATH, TEST, MATRIX, ZOOM, and MODE menus. Note any irregularities and recommend resolution measures.
 - Files: `App/Src/calculator_core.c` (all menu mode handlers, menu_open/menu_close/tab_move helpers)
 
-**11. ~~Verify header files are complete~~ — Completed 2026-03-21** — Full header audit performed. All 10 App headers correctly declare their public APIs, include guards are correct, no circular dependencies detected, module prefixes consistent. `expr_util.h` added for new module. `persist.h` updated with `Persist_Checksum`/`Persist_Validate` and `HOST_TEST` guards. Rating: A-grade header design confirmed.
-
 **12. Review RAM usage — LVGL and video interface consumption** — Profile total RAM allocation: stack sizes, LVGL heap, framebuffer(s), static buffers. Determine how much RAM LVGL and the LTDC/ILI9341 video path consume vs. application data. Investigate why RAM limits are being approached given the MCU has 192 KB internal RAM + 64 KB CCMRAM + 64 MB SDRAM, far exceeding the original TI-81 hardware.
 - Files: `App/Src/app_init.c` (LVGL init, heap config), `App/Display/lv_conf.h` (LVGL buffer sizes), `Core/Src/main.c` (SDRAM layout), linker `.map` file in `build/Debug/`
 - Approach: check `build/Debug/*.map` for `.bss`/`.data` section sizes; review `lv_conf.h` draw buffer size; confirm `graph_buf`/`graph_buf_clean`/framebuffer are all in SDRAM (not internal RAM)
 
-**13. Enable `-Werror` to lock out warning regressions** — `-Wall -Wextra` are on; next step is to resolve any existing warning baseline and add `-Werror` in `CMakeLists.txt` so CI rejects new warnings on PRs. See P6 in docs/QUALITY_TRACKER.md.
-- Files: `CMakeLists.txt` (add `-Werror`), `App/Tests/CMakeLists.txt` (add to test targets too)
+**13. Audit and unify colour scheme between calculator screen and menu screens** — The main calculator screen (expression/history area) has a noticeably lighter background and darker text than the menu screens, reducing visual consistency and legibility. Audit all colour usages in `calculator_core.c` (history row colours `0x888888`/`0xFFFFFF`/`0xCCCCCC`, background `COLOR_BG`) against the menu colour constants in `ui_palette.h`. Decide on a unified palette and update `ui_palette.h` if new constants are needed; replace any inline hex literals that deviate from the palette. Goal: background darkness, text brightness, and contrast ratios should feel consistent whether the user is on the main screen or any menu.
+- Files: `App/Inc/ui_palette.h` (palette constants), `App/Src/calculator_core.c` (history/expression row colours, screen background), `App/Src/ui_matrix.c`, `App/Src/ui_prgm.c`, `App/Src/graph.c` (check for remaining inline literals)
+- Approach: compare `COLOR_BG` against the actual background used on the calculator screen; check whether expression grey (`0x888888`) and history result white (`0xFFFFFF`) are consistent with the text colours used in menus; adjust until both contexts feel visually unified
 
-**14. Extract graph screen handlers into `App/Src/graph_ui.c`** — `handle_yeq_mode` (~300 lines), `handle_range_mode` (~171 lines), `handle_zoom_factors_mode` (~162 lines), `handle_zoom_mode`, and related helpers belong in a dedicated graph UI module alongside the existing `graph.c`. Estimated extraction: ~800 lines, would bring `calculator_core.c` from ~3,650 to ~2,850 LOC. Addresses P2.
-- Files: `App/Src/calculator_core.c` (source), new `App/Src/graph_ui.c` + `App/Inc/graph_ui.h`
-- Pattern: follow the same approach as `ui_matrix.c` and `ui_prgm.c` extractions
-
-**15. Add runtime assertion for float printf support (P8)** — Boot-time check that `snprintf(buf, 8, "%.2f", 1.5f)` produces `"1.50"`; halt with LED error pattern if not. Prevents silent failure if `-u _printf_float` is dropped during CMake refactoring.
-- Files: `App/Src/app_init.c` (`App_DefaultTask_Run` or a dedicated `app_selftest()` function)
+**17. Fix STO> to evaluate the current expression, not just store ANS** — `handle_sto_pending()` (`calculator_core.c:1432`) always stores the current `ans` value directly, ignoring whatever the user has typed. On the TI-81, STO> stores the *result of evaluating the current expression* into the destination variable. If the expression buffer is empty when STO> is pressed, it should auto-prepend `"ANS"` (matching the existing `expr_prepend_ans_if_empty()` pattern used by binary operators). The history entry should show `<expression>→<VAR>` on the expression line and the stored value as the result, not just the bare variable name.
+- Files: `App/Src/calculator_core.c` — `TOKEN_STO` handler (~line 1714): call `expr_prepend_ans_if_empty()` when `expr_len == 0`; `handle_sto_pending()` (~line 1432): call `Calc_Evaluate(expression, ...)` instead of using `ans` directly, then write `<expr>→<VAR>` into the history expression field and the formatted result into the history result field; update `ans` and `ans_is_matrix` from the evaluation result
+- Gotchas: `sto_pending` already forces the alpha key layer in `Process_Hardware_Key()` (line 1874) so the variable letter arrives correctly; the expression buffer should be cleared and cursor reset after a successful store, same as after ENTER; if `Calc_Evaluate` returns an error the store should be aborted and the error displayed in the result row instead of storing a garbage value
 
 ---
 

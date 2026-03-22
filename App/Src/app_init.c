@@ -333,6 +333,18 @@ void App_DefaultTask_Run(void)
     /* Seed the RNG — tick varies with OS/USB init duration, giving entropy */
     srand(HAL_GetTick());
 
+    /* Verify float printf is functional (requires -u _printf_float linker flag).
+     * If missing, all %.f/%.e/%.g format specifiers silently produce empty strings.
+     * Signal the fault via fast heartbeat LED blink (10 Hz) and halt. */
+    {
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%.2f", 1.5f);
+        while (buf[0] != '1') {
+            HAL_GPIO_TogglePin(HEARTBEAT_PORT, HEARTBEAT_PIN);
+            HAL_Delay(50);
+        }
+    }
+
     /* UI render loop — runs every 5 ms */
     for (;;) {
         if (xSemaphoreTake(xLVGL_Mutex, portMAX_DELAY) == pdTRUE) {

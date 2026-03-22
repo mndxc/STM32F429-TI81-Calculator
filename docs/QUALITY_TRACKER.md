@@ -1,10 +1,9 @@
 # Project Quality & Open-Source Readiness
 
+**Purpose:** Permanent register for code quality reviews, CI, refactoring, testing, and contributor-docs work. This is the single source of truth for all P-numbered improvement items. Feature work, bug fixes, and session planning live in `CLAUDE.md` — not here. Update this file when a quality item is opened, progressed, or resolved.
+
 **Last reviewed:** 2026-03-21 (P2 resolved post-review)
 **Reviewer:** Claude Code (claude-sonnet-4-6) via full codebase static analysis
-
-Tracks periodic quality reviews, outstanding improvement items, and open-source readiness status.
-Update this file after each review pass or when an item is resolved.
 
 ---
 
@@ -46,7 +45,7 @@ Update this file after each review pass or when an item is resolved.
 | `expr_util.c` extraction + host tests | ✅ Done |
 | Module extraction from `calculator_core.c` | ✅ Done — P2 resolved 2026-03-21 (`graph_ui.c` extracted; file at 1,989 LOC) |
 | Scattered static state consolidation | 🟡 Partial — P3 (Phase 1+2 done; Phase 3 optional) |
-| Float printf runtime guard | 🔴 Open — P8 |
+| Float printf runtime guard | ✅ Done — P8 |
 | **Hardware Onboarding** | |
 | Bill of Materials | ✅ Done |
 | STM32 GPIO wiring table | ✅ Done |
@@ -56,7 +55,7 @@ Update this file after each review pass or when an item is resolved.
 | Testing guide (`docs/TESTING.md`) | 🔴 Open — P13 |
 | PRGM completion roadmap | 🔴 Open — P14 |
 | Expression pipeline walkthrough | 🔴 Open — P15 |
-| FLASH sector map in onboarding docs | 🔴 Open — P16 |
+| FLASH sector map in onboarding docs | ✅ Done — P16 |
 | Troubleshooting guide | 🔴 Open — P17 |
 
 ---
@@ -125,8 +124,8 @@ Two reference views over the open issues. Use these to decide what to tackle nex
 
 | Rank | Item | Effort estimate | Notes |
 |---|---|---|---|
-| 1 | P8 — Float printf guard | ~30 min | 5-line assertion in `app_init.c`; no design decisions |
-| 2 | P16 — FLASH sector map in docs | ~30 min | Copy table from headers into `TECHNICAL.md`; purely additive |
+| 1 | ~~P8 — Float printf guard~~ | ~~30 min~~ | ✅ Resolved 2026-03-21 |
+| 2 | ~~P16 — FLASH sector map in docs~~ | ~~30 min~~ | ✅ Resolved 2026-03-21 |
 | 3 | P17 — Troubleshooting guide | 1–2 hrs | Reorganise existing gotchas from `CLAUDE.md`; no new content needed |
 | 4 | P13 — Testing guide | 1–2 hrs | Material already exists in `CLAUDE.md` and test file headers |
 | 5 | P12 — Architecture diagram | 2–3 hrs | One Mermaid diagram; no code changes |
@@ -152,12 +151,12 @@ Two reference views over the open issues. Use these to decide what to tackle nex
 | 7 | P14 — PRGM completion roadmap | Contributor enablement | Without a concrete task list, community effort cannot be directed at the largest incomplete feature |
 | 8 | P13 — Testing guide | Onboarding; test suite growth | Without it, contributors can read tests but cannot add them confidently |
 | 9 | P15 — Expression pipeline walkthrough | Contributor safety | Most algorithmically dense file; undocumented behaviour here is the most likely source of subtle community PR bugs |
-| 10 | P16 — FLASH sector map in docs | Hardware safety | Wrong sector choice bricks the board; low probability, high consequence |
+| 10 | ~~P16 — FLASH sector map in docs~~ | ~~Hardware safety~~ | ✅ Resolved 2026-03-21 |
 | 11 | P17 — Troubleshooting guide | First-contact friction | Reduces the most common new-builder failures; improves open-source engagement |
-| 12 | P8 — Float printf guard | Silent failure prevention | Low trigger probability but consequence (all floats silently empty) justifies the 5-line fix |
+| 12 | ~~P8 — Float printf guard~~ | ~~Silent failure prevention~~ | ✅ Resolved 2026-03-21 |
 | 13 | P7 — Physical wiring table | Hardware replication | Relevant only to contributors replicating the physical build; STM32 GPIO side already documented |
 
-**Sweet spot** — highest impact for least effort: **P6, P8, P16, P12, P13, P17** — five documentation and config items, ~6–10 hrs total, that close most open-source onboarding gaps and add a permanent CI quality gate.
+**Sweet spot** — highest impact for least effort: **P6, P12, P13, P17** — documentation and config items that close most open-source onboarding gaps and add a permanent CI quality gate. (P8, P16 resolved 2026-03-21.)
 
 ---
 
@@ -337,14 +336,7 @@ The STM32 GPIO side of the wiring table (A1–A7 = PE5/PE4/PE3/PE2/PB7/PB4/PB3; 
 
 50+ `snprintf` calls rely on `%.4g`/`%.6f`/`%.4e` format specifiers. If `-u _printf_float` is accidentally removed during a CMake refactor, all float output silently becomes empty strings — no compiler or linker error is produced.
 
-**Recommendation:** Add a startup assertion in `App_DefaultTask_Run()` or a dedicated `app_selftest()`:
-```c
-char buf[8];
-snprintf(buf, sizeof(buf), "%.2f", 1.5f);
-if (buf[0] != '1') { /* halt with error LED pattern */ }
-```
-
-**Status:** Open
+**Status:** ✅ Resolved (2026-03-21 — startup assertion added in `App_DefaultTask_Run()` after LVGL init; formats `1.5f` with `%.2f` and halts with 10 Hz heartbeat LED blink if the result is not `"1.5"`)
 
 ---
 
@@ -424,22 +416,7 @@ Suitable for embedding in `README.md` or a standalone `docs/ARCHITECTURE.md`.
 
 ### P16 — FLASH sector map not in onboarding docs
 
-**Priority:** Medium (contributor safety)
-**File:** `docs/TECHNICAL.md`
-
-The sector layout is documented in `persist.h` and `prgm_exec.h` but not in any onboarding document. A new contributor unaware of `CLAUDE.md` gotcha #15 could inadvertently erase firmware by choosing the wrong sector.
-
-**Recommendation:** Add a FLASH sector table to `TECHNICAL.md`:
-
-| Sector | Address | Size | Contents |
-|---|---|---|---|
-| 0–3 | 0x08000000 | 16 KB each | Firmware |
-| 4 | 0x08010000 | 64 KB | Firmware |
-| 5–9 | 0x08020000 | 128 KB each | Firmware |
-| **10** | **0x080C0000** | **128 KB** | **Calculator state (PersistBlock_t, 860 B)** |
-| **11** | **0x080E0000** | **128 KB** | **Program storage (37 slots)** |
-
-**Status:** Open
+**Status:** ✅ Resolved (2026-03-21 — sector table + caution block added to `docs/TECHNICAL.md` Memory Layout section)
 
 ---
 
@@ -465,10 +442,12 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 | Item | Resolution | Date |
 |---|---|---|
 | P2 — `calculator_core.c` too large | `graph_ui.c` (1,579 LOC) + `graph_ui.h` extracted. All 6 graph handler functions, `nav_to`, `ui_init_graph_screens`, ~20 private helpers, and 6 state structs moved. `calculator_core.c` reduced from 3,603 → 1,989 LOC (−45%); from 5,820 → 1,989 overall (−66%). Code organisation B → B+. Three minor architectural compromises documented in P2 issue entry above. 301/301 host tests pass. | 2026-03-21 |
+| P8 — Float printf runtime guard | Startup assertion in `App_DefaultTask_Run()`: `snprintf(buf, 8, "%.2f", 1.5f)` — halts with 10 Hz heartbeat LED blink if `-u _printf_float` is missing | 2026-03-21 |
 | P4 — Magic numbers: colours | `ui_palette.h` created with 14 named constants; inline hex literals replaced across `calculator_core.c`, `graph.c`, `app_init.c`, `ui_prgm.c`, `ui_matrix.c`; one intentional exception (trace crosshair green in `graph.c`) | 2026-03-21 |
 | P5 — Missing `const` on `TI81_LookupTable` | `const` added to `TI81_LookupTable` and `TI81_LookupTable_Size` in `keypad_map.c` | 2026-03-20 |
 | P9 — Matrix determinant recursion (tracker error) | `mat_det` (L549) confirmed fully iterative — Gaussian elimination with partial pivoting, no recursive calls; tracker description was wrong; no guard needed | 2026-03-21 |
 | P11 — Duplicate `#include` directives | Lines 28–30 in `calculator_core.c` deleted; `<stdio.h>`, `<stdlib.h>`, `<string.h>` each now included once | 2026-03-21 |
+| P16 — FLASH sector map in docs | Sector table (sectors 0–11 with addresses, sizes, contents) + `[!CAUTION]` block warning about FLASH_SECTOR_7 collision added to `docs/TECHNICAL.md` Memory Layout section | 2026-03-21 |
 | Open-source governance | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates (bug + feature), PR template, README badges — all complete | 2026-03-21 |
 | Header audit | All 10 App headers correctly declare their public APIs; include guards correct; no circular dependencies; module prefixes consistent — A-grade confirmed | 2026-03-21 |
 | `st-flash` references removed | `GETTING_STARTED.md` and `TECHNICAL.md` now use OpenOCD commands throughout | 2026-03-21 |
@@ -487,5 +466,6 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | Full quality + documentation pass; header audit A-grade; 7 onboarding gaps identified; P4 resolved |
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | Full codebase re-review; P9 resolved (tracker error); P11 added and resolved; handler sizes re-measured; rating 82–88% |
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | Maintenance pass: P11 resolved; `GETTING_STARTED.md`/`TECHNICAL.md` corrected; `st-flash` references removed |
+| 2026-03-21 | Claude Code (claude-sonnet-4-6) | P8 resolved: float printf startup assertion added in `App_DefaultTask_Run()`; 10 Hz heartbeat fault indicator |
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | P3 Phase 1+2: 10 named sub-structs, ~40 statics consolidated; Code organisation B-→B; rating 83–89% |
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | Document consolidation: `OPEN_SOURCE_RECOMMENDATIONS.md` merged into this file; P12–P17 added for onboarding gaps; governance added to Resolved Items |
