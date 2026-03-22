@@ -63,6 +63,7 @@ typedef enum {
  */
 typedef struct {
     char    equations[GRAPH_NUM_EQ][64]; /* Y= equation strings in terms of x */
+    bool    enabled[GRAPH_NUM_EQ];       /* True if equation is plotted */
     float   x_min;          /* Left edge of graph window */
     float   x_max;          /* Right edge of graph window */
     float   y_min;          /* Bottom edge of graph window */

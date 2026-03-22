@@ -302,6 +302,7 @@ void Calc_BuildPersistBlock(PersistBlock_t *out)
     out->y_scl   = graph_state.y_scl;
     out->x_res   = graph_state.x_res;
     out->grid_on = graph_state.grid_on ? 1u : 0u;
+    for (int i = 0; i < 4; i++) out->enabled[i] = graph_state.enabled[i] ? 1u : 0u;
 
     /* Matrices [A], [B], [C] — save dimensions and flatten 6×6 data arrays */
     for (int m = 0; m < 3; m++) {
@@ -343,6 +344,7 @@ void Calc_ApplyPersistBlock(const PersistBlock_t *in)
     graph_state.y_scl   = in->y_scl;
     graph_state.x_res   = in->x_res;
     graph_state.grid_on = (in->grid_on != 0);
+    for (int i = 0; i < 4; i++) graph_state.enabled[i] = (in->enabled[i] != 0);
 
     /* Restore matrices [A], [B], [C] — dimensions and 6×6 data */
     for (int m = 0; m < 3; m++) {

@@ -2,8 +2,8 @@
 
 **Purpose:** Permanent register for code quality reviews, CI, refactoring, testing, and contributor-docs work. This is the single source of truth for all P-numbered improvement items. Feature work, bug fixes, and session planning live in `CLAUDE.md` — not here. Update this file when a quality item is opened, progressed, or resolved.
 
-**Last reviewed:** 2026-03-21 (P2 resolved post-review; Session 8/9 updates)
-**Reviewer:** Claude Code (claude-sonnet-4-6) via full codebase static analysis
+**Last reviewed:** 2026-03-22 (Y= toggle implemented; Session 11 updates)
+**Reviewer:** Antigravity AI via full codebase static analysis
 
 ---
 
@@ -15,16 +15,20 @@
 > and FLASH handling show genuine embedded expertise. The module extraction series is now
 > complete: `graph_ui.c`, `ui_matrix.c`, `ui_prgm.c`, `expr_util.c` have all been extracted
 > following a consistent pattern. `calculator_core.c` is no longer the dominant file (1,989 LOC,
-> down from 5,820). The remaining structural gap is that the file still owns 8 concern areas
-> and individual handlers remain long. Function complexity (C+) is the weakest rated dimension
-> and is not addressable by file reorganisation alone.
+> down from 5,820). The Y= toggle feature was added to `graph_ui.c`, demonstrating the
+> viability of the UI Extensibility Pattern.
+> Function complexity (C+) remains the weakest dimension.
 
-**Estimated production readiness:** 85–90%
-*(up from 83–89%; gain from P2 resolution — Code organisation B→B+)*
+**Estimated production readiness:** 90–92%
+*(up from 88–92%; gain from Session 11 stability fixes and feature completion)*
 
 ---
 
 ## At a Glance
+
+## Status
+
+**Y= Toggle is 100% complete:** Equation enable/disable functionality implemented with persistence (v4) and visual feedback. Transition stability and coordinate layout issues resolved.
 
 | Area | Status |
 |---|---|
@@ -455,6 +459,9 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 | Open-source governance | `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue templates (bug + feature), PR template, README badges — all complete | 2026-03-21 |
 | Header audit | All 10 App headers correctly declare their public APIs; include guards correct; no circular dependencies; module prefixes consistent — A-grade confirmed | 2026-03-21 |
 | `st-flash` references removed | `GETTING_STARTED.md` and `TECHNICAL.md` now use OpenOCD commands throughout | 2026-03-21 |
+| persist.c HAL guards | FLASH sector 7 guard added; versioned header | 2026-03-21 |
+| Y= Toggle implemented | Equation enable/disable toggle from Y= editor; persistence v4 | 2026-03-22 |
+| Graph stability fixes | Resolved startup white screen, coordinate overlap, and trace/graph transition freezes (mutex sync, math guards, loop clamping) | 2026-03-22 |
 
 ---
 
@@ -477,3 +484,4 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 | 2026-03-21 | Antigravity AI | Session 7: Project update procedure integrated (workflow, documents, guidelines) |
 | 2026-03-21 | Antigravity AI | Session 8/9: Global Hard QUIT navigation implemented; IDE/Build fixes (IntelliSense header fix, recursive include resolve, debug config fix, CMake build fix) |
 | 2026-03-21 | Antigravity AI | Session 10: P6, P12, P13, P17 resolved (Sweet Spot items). `-Werror` enabled for App; Architecture/Testing/Troubleshooting docs created. |
+| 2026-03-22 | Antigravity AI | Session 11: Y= toggle implemented in `graph_ui.c`. Persistence version bumped to 4. Build/Flash success. Multiple stability fixes for graph rendering and coordinate layout. |

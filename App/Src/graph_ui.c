@@ -59,6 +59,7 @@ typedef struct {
 typedef struct {
     uint8_t  selected;          /* Which Y= row is active */
     uint8_t  cursor_pos;        /* Byte offset of insertion point within the equation */
+    bool     on_equal;          /* True if cursor is on the '=' sign */
 } YeqEditorState_t;
 
 /*---------------------------------------------------------------------------
@@ -90,6 +91,7 @@ lv_obj_t *ui_graph_zoom_factors_screen = NULL;
 
 /* Y= editor labels and cursor */
 static lv_obj_t *ui_lbl_yeq_name[GRAPH_NUM_EQ];
+static lv_obj_t *ui_lbl_yeq_equal[GRAPH_NUM_EQ];
 static lv_obj_t *ui_lbl_yeq_eq[GRAPH_NUM_EQ];
 static lv_obj_t *yeq_cursor_box   = NULL;
 static lv_obj_t *yeq_cursor_inner = NULL;
@@ -153,7 +155,7 @@ void ui_init_graph_screens(void)
     lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
 
-    const char *eq_row_names[] = { "Y1=", "Y2=", "Y3=", "Y4=" };
+    const char *eq_row_names[] = { "Y1", "Y2", "Y3", "Y4" };
     for (int i = 0; i < GRAPH_NUM_EQ; i++) {
         int32_t row_y = 4 + i * 26;
         ui_lbl_yeq_name[i] = lv_label_create(ui_graph_yeq_screen);
@@ -162,6 +164,13 @@ void ui_init_graph_screens(void)
         lv_obj_set_style_text_color(ui_lbl_yeq_name[i],
                                      lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(ui_lbl_yeq_name[i], eq_row_names[i]);
+
+        ui_lbl_yeq_equal[i] = lv_label_create(ui_graph_yeq_screen);
+        lv_obj_set_pos(ui_lbl_yeq_equal[i], 31, row_y); /* Shifted right from name */
+        lv_obj_set_style_text_font(ui_lbl_yeq_equal[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(ui_lbl_yeq_equal[i],
+                                     lv_color_hex(COLOR_WHITE), 0);
+        lv_label_set_text(ui_lbl_yeq_equal[i], "=");
 
         ui_lbl_yeq_eq[i] = lv_label_create(ui_graph_yeq_screen);
         lv_obj_set_pos(ui_lbl_yeq_eq[i], 44, row_y);
@@ -311,8 +320,9 @@ void yeq_reflow_rows(void)
     lv_obj_update_layout(ui_graph_yeq_screen);
     int32_t y = 4;
     for (int i = 0; i < GRAPH_NUM_EQ; i++) {
-        lv_obj_set_pos(ui_lbl_yeq_name[i], 4,  y);
-        lv_obj_set_pos(ui_lbl_yeq_eq[i],  44,  y);
+        lv_obj_set_pos(ui_lbl_yeq_name[i],  4,  y);
+        lv_obj_set_pos(ui_lbl_yeq_equal[i], 31, y);
+        lv_obj_set_pos(ui_lbl_yeq_eq[i],     44, y);
         int32_t h = lv_obj_get_height(ui_lbl_yeq_eq[i]);
         if (h < 26) h = 26;
         y += h + 2;
@@ -325,11 +335,17 @@ void yeq_reflow_rows(void)
  */
 void yeq_cursor_update(void)
 {
-    if (yeq_cursor_box == NULL || ui_lbl_yeq_eq[s_yeq.selected] == NULL) return;
-    const char *txt = lv_label_get_text(ui_lbl_yeq_eq[s_yeq.selected]);
-    uint32_t glyph_pos = ExprUtil_Utf8ByteToGlyph(txt, s_yeq.cursor_pos);
-    cursor_place(yeq_cursor_box, yeq_cursor_inner,
-                 ui_lbl_yeq_eq[s_yeq.selected], glyph_pos);
+    if (yeq_cursor_box == NULL) return;
+    if (s_yeq.on_equal) {
+        cursor_place(yeq_cursor_box, yeq_cursor_inner,
+                     ui_lbl_yeq_equal[s_yeq.selected], 0);
+    } else {
+        if (ui_lbl_yeq_eq[s_yeq.selected] == NULL) return;
+        const char *txt = lv_label_get_text(ui_lbl_yeq_eq[s_yeq.selected]);
+        uint32_t glyph_pos = ExprUtil_Utf8ByteToGlyph(txt, s_yeq.cursor_pos);
+        cursor_place(yeq_cursor_box, yeq_cursor_inner,
+                     ui_lbl_yeq_eq[s_yeq.selected], glyph_pos);
+    }
 }
 
 /* Positions the RANGE field editor cursor.
@@ -347,9 +363,15 @@ void range_cursor_update(void)
 static void yeq_update_highlight(void)
 {
     for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
-        lv_color_t col = (i == s_yeq.selected) ? lv_color_hex(COLOR_YELLOW)
-                                             : lv_color_hex(COLOR_WHITE);
-        lv_obj_set_style_text_color(ui_lbl_yeq_name[i], col, 0);
+        /* Name is yellow if selected row, white otherwise */
+        lv_color_t name_col = (i == s_yeq.selected) ? lv_color_hex(COLOR_YELLOW)
+                                                   : lv_color_hex(COLOR_WHITE);
+        lv_obj_set_style_text_color(ui_lbl_yeq_name[i], name_col, 0);
+
+        /* Equal sign is amber if enabled, inactive grey if disabled */
+        lv_color_t eq_col = graph_state.enabled[i] ? lv_color_hex(COLOR_AMBER)
+                                                 : lv_color_hex(COLOR_GREY_INACTIVE);
+        lv_obj_set_style_text_color(ui_lbl_yeq_equal[i], eq_col, 0);
     }
 }
 
@@ -445,7 +467,7 @@ void ui_update_zoom_display(void)
 static uint8_t find_first_active_eq(void)
 {
     for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
-        if (strlen(graph_state.equations[i]) > 0)
+        if (strlen(graph_state.equations[i]) > 0 && graph_state.enabled[i])
             return i;
     }
     return 0;
@@ -708,6 +730,7 @@ void graph_ui_sync_yeq_labels(void)
 {
     for (int i = 0; i < GRAPH_NUM_EQ; i++)
         lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+    yeq_update_highlight();
 }
 
 /**
@@ -757,6 +780,7 @@ void nav_to(CalcMode_t target)
     switch (target) {
     case MODE_GRAPH_YEQ:
         graph_state.active = false;
+        s_yeq.on_equal   = false;
         s_yeq.cursor_pos = (uint8_t)strlen(graph_state.equations[s_yeq.selected]);
         lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
         for (int i = 0; i < GRAPH_NUM_EQ; i++)
@@ -836,6 +860,7 @@ bool handle_yeq_mode(Token_t t)
         lvgl_unlock();
         return true;
     case TOKEN_LEFT:
+        if (s_yeq.on_equal) return true;
         if (s_yeq.cursor_pos > 0) {
             if (ExprUtil_MatrixTokenSizeBefore(eq, s_yeq.cursor_pos) == 3) {
                 s_yeq.cursor_pos -= 3;
@@ -844,13 +869,18 @@ bool handle_yeq_mode(Token_t t)
                 while (s_yeq.cursor_pos > 0 &&
                        ((uint8_t)eq[s_yeq.cursor_pos] & 0xC0) == 0x80);
             }
+        } else {
+            s_yeq.on_equal = true;
         }
         lvgl_lock();
         yeq_cursor_update();
         lvgl_unlock();
         return true;
     case TOKEN_RIGHT:
-        if (s_yeq.cursor_pos < eq_len) {
+        if (s_yeq.on_equal) {
+            s_yeq.on_equal = false;
+            s_yeq.cursor_pos = 0;
+        } else if (s_yeq.cursor_pos < eq_len) {
             uint8_t mat = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, (uint8_t)eq_len);
             if (mat) {
                 s_yeq.cursor_pos += mat;
@@ -903,7 +933,8 @@ bool handle_yeq_mode(Token_t t)
         return true;
     case TOKEN_UP:
         if (s_yeq.selected > 0) s_yeq.selected--;
-        s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
+        if (!s_yeq.on_equal)
+            s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
         lvgl_lock();
         yeq_update_highlight();
         yeq_reflow_rows();
@@ -911,9 +942,18 @@ bool handle_yeq_mode(Token_t t)
         lvgl_unlock();
         return true;
     case TOKEN_ENTER:
+        if (s_yeq.on_equal) {
+            graph_state.enabled[s_yeq.selected] = !graph_state.enabled[s_yeq.selected];
+            lvgl_lock();
+            yeq_update_highlight();
+            lvgl_unlock();
+            return true;
+        }
+        /* fallthrough */
     case TOKEN_DOWN:
         if (s_yeq.selected < GRAPH_NUM_EQ - 1) s_yeq.selected++;
-        s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
+        if (!s_yeq.on_equal)
+            s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
         lvgl_lock();
         yeq_update_highlight();
         yeq_reflow_rows();
@@ -976,7 +1016,7 @@ bool handle_yeq_mode(Token_t t)
     default: break;
     }
 
-    if (append != NULL) {
+    if (append != NULL && !s_yeq.on_equal) {
         size_t len = strlen(append);
         if (!insert_mode && len == 1 && s_yeq.cursor_pos < eq_len) {
             uint8_t cur_size = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, (uint8_t)eq_len);
@@ -1524,7 +1564,7 @@ bool handle_trace_mode(Token_t t)
     case TOKEN_UP:
         for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
             uint8_t idx = (s_trace.eq_idx + GRAPH_NUM_EQ - i) % GRAPH_NUM_EQ;
-            if (strlen(graph_state.equations[idx]) > 0) {
+            if (strlen(graph_state.equations[idx]) > 0 && graph_state.enabled[idx]) {
                 s_trace.eq_idx = idx;
                 break;
             }
@@ -1536,7 +1576,7 @@ bool handle_trace_mode(Token_t t)
     case TOKEN_DOWN:
         for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
             uint8_t idx = (s_trace.eq_idx + i) % GRAPH_NUM_EQ;
-            if (strlen(graph_state.equations[idx]) > 0) {
+            if (strlen(graph_state.equations[idx]) > 0 && graph_state.enabled[idx]) {
                 s_trace.eq_idx = idx;
                 break;
             }
@@ -1553,20 +1593,20 @@ bool handle_trace_mode(Token_t t)
         lvgl_unlock();
         return true;
     case TOKEN_Y_EQUALS:
-        Graph_ClearTrace();
+        lvgl_lock(); Graph_ClearTrace(); lvgl_unlock();
         nav_to(MODE_GRAPH_YEQ);
         return true;
     case TOKEN_RANGE:
-        Graph_ClearTrace();
+        lvgl_lock(); Graph_ClearTrace(); lvgl_unlock();
         nav_to(MODE_GRAPH_RANGE);
         return true;
     case TOKEN_ZOOM:
-        Graph_ClearTrace();
+        lvgl_lock(); Graph_ClearTrace(); lvgl_unlock();
         zoom_menu_reset();
         nav_to(MODE_GRAPH_ZOOM);
         return true;
     case TOKEN_GRAPH:
-        Graph_ClearTrace();
+        lvgl_lock(); Graph_ClearTrace(); lvgl_unlock();
         nav_to(MODE_NORMAL);
         return true;
     default:

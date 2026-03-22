@@ -27,6 +27,7 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 ## Status
 
+**Y= Toggle is 100% complete:** Equation enable/disable functionality is fully implemented with visual feedback and persistence (v4). Critical graphing stability issues (startup crash, transition freezes) have been resolved.
 
 MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, and FLASH persistence.
 

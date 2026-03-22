@@ -25,7 +25,7 @@
  *---------------------------------------------------------------------------*/
 
 #define PERSIST_MAGIC       0xCA1CC0DEU   /* Marker — "calc code" */
-#define PERSIST_VERSION     3U            /* Bumped when matrix storage expanded to 6×6 */
+#define PERSIST_VERSION     4U            /* Bumped when Y= enabled flags added */
 #define PERSIST_FLASH_ADDR  0x080C0000U   /* Sector 10, 128 KB, unused by firmware */
 #ifndef HOST_TEST
 #  define PERSIST_SECTOR    FLASH_SECTOR_10
@@ -79,12 +79,13 @@ typedef struct {
     uint8_t  grid_on;             /*   1 B */
     uint8_t  matrix_rows[3];      /*   3 B — row counts for [A][B][C] */
     uint8_t  matrix_cols[3];      /*   3 B — col counts for [A][B][C] */
+    uint8_t  enabled[4];          /*   4 B — newly added */
     uint8_t  _pad[1];             /*   1 B — word alignment */
     /* Matrices [A], [B], [C] — 3 × 6×6 floats each (432 B total).
        Only the 3 user matrices are saved; the ANS matrix (index 3) is transient. */
     float    matrix_data[3][CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM]; /* 432 B */
     uint32_t checksum;            /*   4 B — XOR of all preceding words */
-} PersistBlock_t;                 /* Total: 860 B */
+} PersistBlock_t;                 /* Total: 864 B */
 
 _Static_assert(sizeof(PersistBlock_t) % 4 == 0,
                "PersistBlock_t must be a multiple of 4 bytes");

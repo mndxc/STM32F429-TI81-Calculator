@@ -31,14 +31,7 @@ static lv_obj_t *graph_lbl_y   = NULL;  /* Y= readout, bottom-right of canvas */
  * Private helpers
  *--------------------------------------------------------------------------*/
 
-/**
- * @brief Maps a math x coordinate to a canvas pixel column.
- */
-static int32_t math_x_to_px(float x)
-{
-    return (int32_t)((x - graph_state.x_min) /
-                     (graph_state.x_max - graph_state.x_min) * (GRAPH_W - 1));
-}
+
 
 /**
  * @brief Maps a math y coordinate to a canvas pixel row.
@@ -46,8 +39,16 @@ static int32_t math_x_to_px(float x)
  */
 static int32_t math_y_to_px(float y)
 {
-    return (int32_t)((graph_state.y_max - y) /
-                     (graph_state.y_max - graph_state.y_min) * (GRAPH_H - 1));
+    float range = graph_state.y_max - graph_state.y_min;
+    if (fabsf(range) < 1e-9f) return 0;
+    return (int32_t)((graph_state.y_max - y) / range * (GRAPH_H - 1));
+}
+
+static int32_t math_x_to_px(float x)
+{
+    float range = graph_state.x_max - graph_state.x_min;
+    if (fabsf(range) < 1e-9f) return 0;
+    return (int32_t)((x - graph_state.x_min) / range * (GRAPH_W - 1));
 }
 
 /**
@@ -127,7 +128,7 @@ static void draw_ticks(void)
     const int32_t TICK_LEN = 3;
 
     /* X axis ticks */
-    if (graph_state.y_min <= 0.0f && graph_state.y_max >= 0.0f) {
+    if (graph_state.x_scl > 0.0f && graph_state.y_min <= 0.0f && graph_state.y_max >= 0.0f) {
         int32_t py = math_y_to_px(0.0f);
         for (float x = 0.0f; x <= graph_state.x_max; x += graph_state.x_scl) {
             int32_t px = math_x_to_px(x);
@@ -142,7 +143,7 @@ static void draw_ticks(void)
     }
 
     /* Y axis ticks */
-    if (graph_state.x_min <= 0.0f && graph_state.x_max >= 0.0f) {
+    if (graph_state.y_scl > 0.0f && graph_state.x_min <= 0.0f && graph_state.x_max >= 0.0f) {
         int32_t px = math_x_to_px(0.0f);
         for (float y = 0.0f; y <= graph_state.y_max; y += graph_state.y_scl) {
             int32_t py = math_y_to_px(y);
@@ -233,13 +234,18 @@ void Graph_Init(lv_obj_t *parent)
     lv_label_set_text(graph_lbl_x, "");
 
     graph_lbl_y = lv_label_create(graph_screen);
-    lv_obj_set_pos(graph_lbl_y, GRAPH_W / 2, GRAPH_H - 22);
+    lv_obj_set_pos(graph_lbl_y, 160, GRAPH_H - 22);
     lv_obj_set_style_text_font(graph_lbl_y, &jetbrains_mono_20, 0);
     lv_obj_set_style_text_color(graph_lbl_y, lv_color_hex(COLOR_WHITE), 0);
     lv_obj_set_style_bg_color(graph_lbl_y, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_bg_opa(graph_lbl_y, LV_OPA_70, 0);
     lv_obj_set_style_pad_hor(graph_lbl_y, 3, 0);
     lv_label_set_text(graph_lbl_y, "");
+
+    /* Default all equations to enabled on first init */
+    for (int i = 0; i < GRAPH_NUM_EQ; i++) {
+        graph_state.enabled[i] = true;
+    }
 }
 
 void Graph_Render(bool angle_degrees)
@@ -265,7 +271,7 @@ void Graph_Render(bool angle_degrees)
     /* Plot each active curve */
     for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
         const char *eqstr = graph_state.equations[eq];
-        if (strlen(eqstr) == 0) continue;
+        if (strlen(eqstr) == 0 || !graph_state.enabled[eq]) continue;
 
         lv_color_t curve_color = lv_color_hex(eq_palette[eq]);
         int32_t prev_py    = -1;
@@ -302,9 +308,13 @@ void Graph_Render(bool angle_degrees)
                     int32_t cur_interp = prev_py + (int32_t)((float)(cx - prev_px) / (float)span * (py - prev_py));
                     int32_t y_start = last_interp < cur_interp ? last_interp : cur_interp;
                     int32_t y_end   = last_interp < cur_interp ? cur_interp : last_interp;
+
+                    /* Clamp to canvas bounds to prevent massive loops on singularities */
+                    if (y_start < 0) y_start = 0;
+                    if (y_end >= GRAPH_H) y_end = GRAPH_H - 1;
+
                     for (int32_t y = y_start; y <= y_end; y++)
-                        if (y >= 0 && y < GRAPH_H)
-                            lv_canvas_set_px(graph_canvas, cx, y, curve_color, LV_OPA_COVER);
+                        lv_canvas_set_px(graph_canvas, cx, y, curve_color, LV_OPA_COVER);
                     last_interp = cur_interp;
                 }
             } else {

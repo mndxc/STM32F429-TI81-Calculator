@@ -2,6 +2,12 @@
 
 **Purpose:** AI session continuity and feature backlog. Contains project context, architectural decisions, gotchas, known issues, the active feature/bug backlog (`Next session priorities`), and standing rules for AI-assisted development. Read in full at the start of every session.
 
+- [x] **Verification and Bug Fixes**
+    - [x] Build and verify logic (Walkthrough created).
+    - [x] Fixed startup white screen (restored `graph_lbl_y` init).
+    - [x] Fixed coordinate overlap (switched to absolute positioning).
+    - [x] Fixed freeze during Trace/Graph switching (added scale guards, loop clamping, and proper mutex locking).
+
 **For code quality items** (CI gates, refactoring, test coverage, contributor docs) see [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) — that document is the single source of truth for all P-numbered improvement items. Items are never duplicated between the two files.
 
 ---
@@ -83,7 +89,7 @@ When the user asks to add something to the to-do list, place it in the correct l
 
 ---
 
-## Feature Completion Status (~70% of original TI-81, as of 2026-03-22)
+## Feature Completion Status (~72% of original TI-81, as of 2026-03-22)
 
 Sessions:
 - 2026-03-20: PRGM UI polish, colour palette extraction (`ui_palette.h`), PRGM module extraction to `ui_prgm.c`
@@ -93,17 +99,21 @@ Sessions:
 - 2026-03-21 (Session 8): Implement Global Hard QUIT (2nd+CLEAR) navigation
 - 2026-03-21 (Session 9): IDE/Build fixes (IntelliSense header fix, recursive include resolve, debug config fix, CMake build fix)
 - 2026-03-22 (Session 10): P6, P12, P13, P17 resolved (Sweet Spot items). -Werror enabled for App; Architecture/Testing/Troubleshooting docs created.
+- 2026-03-22 (Session 11): Implement Y= equation enable/disable toggle functionality. Update graph renderer and persistence (v4). Fixed a startup crash and multiple trace/graph transition freezes in `graph.c` and `graph_ui.c` (guards for zero-scale ticks, loop clamping for singularities, and LVGL mutex synchronization).
 
 ### Completed features
 
 | Feature | Log date | Notes |
 |---|---|---|
+| **Build**: Successful (fixed an implicit fallthrough error in `graph_ui.c` and multiple stability issues in `graph.c`, including a startup crash and a trace-related freeze).
+| **Flash**: Successful using OpenOCD to STM32F429I-DISC1.
 | ZBox rubber-band zoom | 2026-03-20 | Final validation on hardware pending |
 | UTF-8 cursor navigation | 2026-03-21 | 12 test groups; `expr_util.c` extracted |
 | Persist checksums/HAL | 2026-03-21 | FLASH sector 7 guard added; versioned header |
 | Graph UI extraction | 2026-03-21 | Removed 1.5k LOC from `calculator_core.c` (P2) |
 | Project Update Procedure | 2026-03-21 | Canonical sync rules + workflow automated |
 | Global Hard QUIT | 2026-03-22 | 2nd+CLEAR hard exit to main screen implemented |
+| Y= Toggle | 2026-03-22 | Equation enable/disable toggle from Y= editor implemented |
 
 ### Well-implemented (60–100%)
 
@@ -113,7 +123,7 @@ Sessions:
 | Standard math functions | ~80% | sin/cos/tan, asin/acos/atan, ln, log, √, abs, round, iPart, fPart, int, rand, nPr, nCr work; factorial, cube root, ∛, nDeriv NOT evaluated |
 | Variables (A–Z, ANS) | ~90% | STO, ANS, X in graph all work; list variables missing |
 | Display / UI / navigation | ~90% | Expression wrap, wrapped history, Fix/Float mode, MATH from Y=, UTF-8 cursor, history scroll, ENTER re-run all solid; Sci/Eng notation display not wired |
-| Graphing (function mode) | ~75% | 4 equations, axes, grid (toggle from MODE), trace, ZBox, zoom, RANGE, Xres step, interpolated curves; Connected/Dot mode not wired |
+| Graphing (function mode) | ~80% | 4 equations with enable/disable toggle, axes, grid (toggle from MODE), trace, ZBox, zoom, RANGE, Xres step, interpolated curves; stability fixes for zero-scale and singularities; Connected/Dot mode not wired |
 | TEST operators | ~100% | Menu (2nd+MATH), UP/DOWN/ENTER/number-key selection, inserts =, ≠, >, ≥, <, ≤; all 6 operators fully evaluated (return 1/0); accessible from Y= editor; and/or/not not present on TI-81 hardware — not planned |
 
 ### Partially implemented
@@ -143,7 +153,7 @@ Behaviours that differ from the original hardware by design:
 | Feature | Original TI-81 | This implementation |
 |---------|---------------|---------------------|
 | History scroll | Not present — `2nd+ENTRY` recalled last entry only | UP/DOWN arrows scroll backward/forward through history |
-| `2nd+ENTRY` | Recalled the single most recent entry | Recalls most recent entry AND positions `history_recall_offset` at 1, so UP/DOWN continue working from there without requiring a CLEAR first |
+| `2nd+ENTRY` | Recalled the single most recent entry | Recalls most recent entry AND positions `history_recall_offset` at 1, so UP/DOWN continue working from there |
 
 ---
 
@@ -276,7 +286,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - Font regeneration — ↑↓ (U+2191/U+2193) and ≠/≥/≤ (U+2260/U+2264/U+2265) added to both font sizes
 - Scroll indicator glyphs — ZOOM and MATH menus use ↓/↑ (U+2193/U+2191) amber overlays
 - Heartbeat LED fixed to 1 Hz (100 × 5 ms in DefaultTask render loop)
-- **Persistent storage** — `App/Inc/persist.h`, `App/Src/persist.c`. Saves A–Z, ANS, MODE, graph equations, RANGE, zoom factors to FLASH sector 10 (0x080C0000). `Calc_BuildPersistBlock` / `Calc_ApplyPersistBlock` in `calculator_core.c`. Load on boot, save on plain ON and 2nd+ON. On boot-load, all screens are synced: Y= labels, MODE highlight, RANGE field labels, and ZOOM FACTORS labels all reflect the restored state.
+- **Persistent storage** — `App/Inc/persist.h`, `App/Src/persist.c`. Saves A–Z, ANS, MODE, graph equations, RANGE, zoom factors to FLASH sector 10 (0x080C0000). `Calc_BuildPersistBlock` / `Calc_ApplyPersistBlock` in `calculator_core.c`. Load on boot, save on plain ON and 2nd+ON. On boot-load, all screens are synced: Y= labels, MODE highlight, RANGE field labels, and ZOOM FACTORS labels all reflect the restored state. `PersistBlock_t` size: 864 B.
 - **ON button EXTI** — PE6 configured as EXTI falling-edge with pull-up in `on_button_init()` (called from `App_RTOS_Init`). `EXTI9_5_IRQHandler` and `HAL_GPIO_EXTI_Callback` defined in `app_init.c`. Pin referenced via `KEYPAD_ON_PIN` / `KEYPAD_ON_PORT` from `keypad.h` — no dependency on CubeMX `main.h` macros.
 - **CubeMX decoupling** — Keypad GPIO pins (all 15 Matrix* signals) removed from CubeMX dependency. `keypad.h` defines all pin constants (`KEYPAD_A1_PORT`/`PIN` … `KEYPAD_B8_PORT`/`PIN`, `KEYPAD_ON_PORT`/`PIN`). `Keypad_GPIO_Init()` in `keypad.c` initialises them at task start. `app_init.c` uses `KEYPAD_ON_*` for the ON button EXTI. FreeRTOS config values protected by `#undef`/`#define` overrides in the `USER CODE BEGIN Defines` section of `Core/Inc/FreeRTOSConfig.h` — survive CubeMX regeneration.
 - **Power management / Stop mode** — `Power_EnterStop()` in `app_init.c`. `2nd+ON` saves state then enters STM32 Stop mode. Wake on ON button press restores PLL, PLLSAI, SDRAM, LTDC, and resumes DefaultTask. `App_SystemClock_Reinit()` wrapper in `main.c` USER CODE BEGIN 4. `g_sleeping` flag guards ISR from posting spurious TOKEN_ON during wake.
@@ -314,8 +324,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 > **Quality and refactoring items** are tracked in [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md), not here.
 > Open items: **P1, P3, P7, P10, P14, P15**. Highest ease-to-impact: P15, P14, P1.
 
-**1. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
-- Files: `App/Src/calculator_core.c` (Y= cursor handling for `=` column), `App/Src/graph.c` (skip disabled equations in renderer)
+**1. Y= equation enable/disable toggle** — ✅ Resolved 2026-03-22
 
 **3. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
 

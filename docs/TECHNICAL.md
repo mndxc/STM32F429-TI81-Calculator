@@ -184,7 +184,7 @@ per row is measured at runtime from the glyph width.
 | `MODE_2ND`                 | 2nd function layer — one-shot, reverts after next key   |
 | `MODE_ALPHA`               | Alpha character layer — one-shot, reverts after next key|
 | `MODE_ALPHA_LOCK`          | Alpha stays active (entered via 2nd+ALPHA)              |
-| `MODE_GRAPH_YEQ`           | Y= equation editor                                      |
+| `MODE_GRAPH_YEQ`           | Y= equation editor (includes enable/disable toggles)    |
 | `MODE_GRAPH_RANGE`         | RANGE field editor                                      |
 | `MODE_GRAPH_ZOOM`          | ZOOM preset menu                                        |
 | `MODE_GRAPH_TRACE`         | Trace cursor active on graph                            |
@@ -267,7 +267,7 @@ Pressing GRAPH plots all active Y= equations over the current RANGE window.
 
 | Key    | Screen / action                                                    |
 |--------|--------------------------------------------------------------------|
-| Y=     | Equation editor — up to four simultaneous equations Y1–Y4         |
+| Y=     | Equation editor — up to four equations Y1–Y4; toggle with ENTER on = |
 | RANGE  | Window settings: Xmin, Xmax, Xscl, Ymin, Ymax, Yscl, Xres        |
 | ZOOM   | Preset menu (see below)                                            |
 | GRAPH  | Renders all active equations onto the graph canvas                 |
@@ -437,7 +437,7 @@ FLASH sector map (STM32F429ZIT6, 2 MB dual-bank):
 | 0–3    | 0x08000000   | 16 KB each  | Firmware                                   |
 | 4      | 0x08010000   | 64 KB       | Firmware                                   |
 | 5–9    | 0x08020000   | 128 KB each | Firmware                                   |
-| **10** | **0x080C0000** | **128 KB** | **Calculator state (`PersistBlock_t`, 860 B)** |
+| **10** | **0x080C0000** | **128 KB** | **Calculator state (`PersistBlock_t`, 864 B)** |
 | **11** | **0x080E0000** | **128 KB** | **Program storage (37 slots)**             |
 
 > [!CAUTION]
