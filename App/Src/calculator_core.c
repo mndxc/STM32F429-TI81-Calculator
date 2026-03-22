@@ -23,6 +23,7 @@
 #include "cmsis_os.h"
 #include "lvgl.h"
 #include "main.h"
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1781,6 +1782,19 @@ void Execute_Token(Token_t t)
         if (power_down) {
             Power_DisplayBlankAndMessage();
         }
+        return;
+    }
+
+    /*--- TOKEN_QUIT: hard exit to main calculator screen ------------------*/
+    if (t == TOKEN_QUIT) {
+        current_mode = MODE_NORMAL;
+        return_mode  = MODE_NORMAL;
+        sto_pending  = false;
+        prgm_reset_execution_state();
+        lvgl_lock();
+        hide_all_screens();
+        ui_update_status_bar();
+        lvgl_unlock();
         return;
     }
 

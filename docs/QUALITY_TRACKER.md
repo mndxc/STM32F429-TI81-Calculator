@@ -2,7 +2,7 @@
 
 **Purpose:** Permanent register for code quality reviews, CI, refactoring, testing, and contributor-docs work. This is the single source of truth for all P-numbered improvement items. Feature work, bug fixes, and session planning live in `CLAUDE.md` — not here. Update this file when a quality item is opened, progressed, or resolved.
 
-**Last reviewed:** 2026-03-21 (P2 resolved post-review)
+**Last reviewed:** 2026-03-21 (P2 resolved post-review; Session 8/9 updates)
 **Reviewer:** Claude Code (claude-sonnet-4-6) via full codebase static analysis
 
 ---
@@ -471,3 +471,4 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | Document consolidation: `OPEN_SOURCE_RECOMMENDATIONS.md` merged into this file; P12–P17 added for onboarding gaps; governance added to Resolved Items |
 | 2026-03-21 | Antigravity AI | Session 6: `graph_ui.c` extraction (P2), float printf startup guard (P8), FLASH sector map docs (P16) resolved |
 | 2026-03-21 | Antigravity AI | Session 7: Project update procedure integrated (workflow, documents, guidelines) |
+| 2026-03-21 | Antigravity AI | Session 8/9: Global Hard QUIT navigation implemented; IDE/Build fixes (IntelliSense header fix, recursive include resolve, debug config fix, CMake build fix) |

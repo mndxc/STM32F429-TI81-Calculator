@@ -90,6 +90,19 @@ Sessions:
 - 2026-03-21: `expr_util.c` extraction (9 pure functions), 301-test host suite, persist round-trip tests, HAL guards in `persist.c`, full quality review pass
 - 2026-03-21 (Session 6): `graph_ui.c` extraction (P2), float printf runtime guard (P8), FLASH sector map docs (P16)
 - 2026-03-21 (Session 7): Integrate project update procedure (workflow, documentation, guidelines)
+- 2026-03-21 (Session 8): Implement Global Hard QUIT (2nd+CLEAR) navigation
+- 2026-03-21 (Session 9): IDE/Build fixes (IntelliSense header fix, recursive include resolve, debug config fix, CMake build fix)
+
+### Completed features
+
+| Feature | Log date | Notes |
+|---|---|---|
+| ZBox rubber-band zoom | 2026-03-20 | Final validation on hardware pending |
+| UTF-8 cursor navigation | 2026-03-21 | 12 test groups; `expr_util.c` extracted |
+| Persist checksums/HAL | 2026-03-21 | FLASH sector 7 guard added; versioned header |
+| Graph UI extraction | 2026-03-21 | Removed 1.5k LOC from `calculator_core.c` (P2) |
+| Project Update Procedure | 2026-03-21 | Canonical sync rules + workflow automated |
+| Global Hard QUIT | 2026-03-22 | 2nd+CLEAR hard exit to main screen implemented |
 
 ### Well-implemented (60–100%)
 
@@ -313,8 +326,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **6. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
 
-**7. QUIT (2nd+CLEAR) always exits to main calculator screen** — `2nd+CLEAR` should unconditionally close whatever screen or menu is currently active and return to the main calculator (MODE_NORMAL), clearing any pending state (sto_pending, modifier mode, partial edits). This is a hard exit, not a hierarchical back button — pressing it from RANGE, ZOOM, Y=, MATRIX, PRGM, TRACE, or any menu always lands on the main calculator, never an intermediate screen. Currently `2nd+CLEAR` produces `TOKEN_QUIT` but it is not handled anywhere. Implementation: add a single `TOKEN_QUIT` check at the very top of `Execute_Token()` (after `TOKEN_ON`, before all mode handlers) that calls `hide_all_screens()`, resets `current_mode` and `return_mode` to `MODE_NORMAL`, clears `sto_pending`, restores the normal cursor, and returns — identical in effect to what `TOKEN_ON` (save) does but without saving state.
-- Files: `App/Src/calculator_core.c` (add `TOKEN_QUIT` early-return at top of `Execute_Token()`), `App/HW/Keypad/keypad_map.h` (verify `TOKEN_QUIT` exists or add it)
+**7. QUIT (2nd+CLEAR) always exits to main calculator screen** — ✅ Resolved 2026-03-22
 
 **8. Matrix result display — left-aligned columns with horizontal scroll** — When a matrix result is shown in history, columns should be left-aligned (all cells in a column share the same left-edge x position, determined by the widest cell in that column) for easy visual parsing. For wide matrices that exceed the display width, the result should be horizontally scrollable: LEFT/RIGHT arrow keys pan the view, with an ellipsis (`…`) shown at the right edge when content is clipped to the right, and at the left edge when content is clipped to the left. Scrolling is active only while the matrix result row has focus; any input other than LEFT/RIGHT (digit, operator, function key, etc.) exits scroll mode and is processed normally.
 - Files: `App/Src/calculator_core.c` (history entry rendering; LEFT/RIGHT handler when a matrix result row is focused), `App/Src/calc_engine.c` (`Calc_FormatResult` or a new `Calc_FormatMatrix` that pre-formats column-aligned rows into a buffer)
