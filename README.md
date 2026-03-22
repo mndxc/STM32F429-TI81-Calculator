@@ -29,7 +29,7 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 **Y= Toggle is 100% complete:** Equation enable/disable functionality is fully implemented with visual feedback and persistence (v4). Critical graphing stability issues (startup crash, transition freezes) have been resolved.
 
-MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, and FLASH persistence.
+MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, FLASH persistence, and column-aligned history display with horizontal scroll.
 
 **PRGM is coded but not yet hardware-validated — treat as non-functional until testing is complete.** The UI (EXEC/EDIT/ERASE menu, all 37 slots, name entry, line editor, CTL/I/O sub-menus) and a full text interpreter (`If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, subroutine calls, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment, expression lines) are implemented and programs persist in FLASH. None of this has been run on hardware yet — see `docs/prgm_manual_tests.md` for the 28-test validation plan that must pass before PRGM is considered functional.
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Permanent register for code quality reviews, CI, refactoring, testing, and contributor-docs work. This is the single source of truth for all P-numbered improvement items. Feature work, bug fixes, and session planning live in `CLAUDE.md` — not here. Update this file when a quality item is opened, progressed, or resolved.
 
-**Last reviewed:** 2026-03-22 (P15 resolved; Session 12 updates)
+**Last reviewed:** 2026-03-22 (Session 13: matrix history display, calc_engine refactor, full doc sync)
 **Reviewer:** Antigravity AI via full codebase static analysis
 
 ---
@@ -253,9 +253,9 @@ The file is no longer oversized, but it still contains: display/history renderin
 | File | LOC | Note |
 |---|---|---|
 | `App/Src/ui_prgm.c` | 1,713 | Now the largest module; PRGM UI + executor |
-| `App/Src/calculator_core.c` | 1,989 | Still 8 concern areas but no longer dominant |
-| `App/Src/graph_ui.c` | 1,579 | New; well-scoped to graph editor screens |
-| `App/Src/calc_engine.c` | 1,138 | Dense but single-responsibility (expression pipeline) |
+| `App/Src/calculator_core.c` | 2,162 | Grew +173 (Session 13 matrix history display); still 8 concern areas |
+| `App/Src/graph_ui.c` | 1,619 | Grew +40 (Session 11 Y= toggle) |
+| `App/Src/calc_engine.c` | 1,202 | Grew +64 (Session 13 Tokenize helper decomposition) |
 
 **Extraction pattern (established and validated):**
 1. Move state structs and their LVGL widget handles to the new `.c` file as private statics
