@@ -14,6 +14,7 @@
 #include "ui_prgm.h"
 #include "calc_internal.h"
 #include "calc_engine.h"
+#include "graph.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -131,6 +132,15 @@ static bool        prgm_run_active    = false;
 static bool        prgm_waiting_input = false; /* true when paused at Pause/Input/Prompt */
 static char        prgm_input_var     = 0;    /* 'A'–'Z' for Input/Prompt, 0 for Pause */
 
+/* Menu( runtime state */
+static bool        prgm_waiting_menu         = false;
+static uint8_t     prgm_menu_option_count    = 0;
+static uint8_t     prgm_menu_cursor          = 0;
+static uint8_t     prgm_menu_scroll          = 0;
+static char        prgm_menu_labels[9][PRGM_MAX_LINE_LEN];       /* Lbl names */
+static char        prgm_menu_option_texts[9][PRGM_MAX_LINE_LEN]; /* display strings */
+static char        prgm_menu_title[PRGM_MAX_LINE_LEN];
+
 /**
  * @brief Skip forward to the line after the matching Else (if want_else) or End.
  *
@@ -165,6 +175,32 @@ static void prgm_skip_to_target(bool want_else)
         prgm_run_pc++;
     }
     /* No matching End found — fall off end of program */
+}
+
+/** Select a Menu( item by 0-based index: jump to its Lbl and resume. */
+static void prgm_menu_select(uint8_t idx)
+{
+    const char *lbl_name = prgm_menu_labels[idx];
+    lvgl_lock();
+    ui_prgm_menu_hide();
+    hide_all_screens();
+    ui_refresh_display();
+    lvgl_unlock();
+    prgm_waiting_input = false;
+    prgm_waiting_menu  = false;
+
+    char lbl_line[PRGM_MAX_LINE_LEN + 8];
+    snprintf(lbl_line, sizeof(lbl_line), "Lbl %s", lbl_name);
+    for (uint16_t i = 0; i < (uint16_t)prgm_run_num_lines; i++) {
+        if (strcmp(prgm_edit_lines[i], lbl_line) == 0) {
+            prgm_run_pc = i + 1;
+            prgm_run_loop();
+            return;
+        }
+    }
+    /* Label not found — abort */
+    prgm_run_active = false;
+    current_mode    = MODE_NORMAL;
 }
 
 /** Execute the program line at index @p ln. prgm_run_pc is already ln+1. */
@@ -294,6 +330,114 @@ static void prgm_execute_line(uint16_t ln)
         return;
     }
 
+    /* --- IS>( ------------------------------------------------------------- */
+    if (strncmp(line, "IS>(", 4) == 0) {
+        const char *args = line + 4;
+        if (args[0] < 'A' || args[0] > 'Z' || args[1] != ',') return;
+        char var = args[0];
+        const char *rest = args + 2;
+        char val_buf[MAX_EXPR_LEN];
+        int depth = 0, j = 0;
+        for (const char *p = rest; *p && j < MAX_EXPR_LEN - 1; p++) {
+            if (*p == '(' || *p == '[')      depth++;
+            else if (*p == ']') { if (depth > 0) depth--; }
+            else if (*p == ')') { if (depth == 0) break; depth--; }
+            val_buf[j++] = *p;
+        }
+        val_buf[j] = '\0';
+        if (j == 0) return;
+        CalcResult_t r = Calc_Evaluate(val_buf, ans, ans_is_matrix, angle_degrees);
+        if (r.error != CALC_OK || r.has_matrix) return;
+        calc_variables[var - 'A'] += 1.0f;
+        if (calc_variables[var - 'A'] > r.value)
+            prgm_run_pc = ln + 2; /* skip next line */
+        return;
+    }
+
+    /* --- DS<( ------------------------------------------------------------- */
+    if (strncmp(line, "DS<(", 4) == 0) {
+        const char *args = line + 4;
+        if (args[0] < 'A' || args[0] > 'Z' || args[1] != ',') return;
+        char var = args[0];
+        const char *rest = args + 2;
+        char val_buf[MAX_EXPR_LEN];
+        int depth = 0, j = 0;
+        for (const char *p = rest; *p && j < MAX_EXPR_LEN - 1; p++) {
+            if (*p == '(' || *p == '[')      depth++;
+            else if (*p == ']') { if (depth > 0) depth--; }
+            else if (*p == ')') { if (depth == 0) break; depth--; }
+            val_buf[j++] = *p;
+        }
+        val_buf[j] = '\0';
+        if (j == 0) return;
+        CalcResult_t r = Calc_Evaluate(val_buf, ans, ans_is_matrix, angle_degrees);
+        if (r.error != CALC_OK || r.has_matrix) return;
+        calc_variables[var - 'A'] -= 1.0f;
+        if (calc_variables[var - 'A'] < r.value)
+            prgm_run_pc = ln + 2; /* skip next line */
+        return;
+    }
+
+    /* --- Menu( ------------------------------------------------------------ */
+    if (strncmp(line, "Menu(", 5) == 0) {
+        /* Parse variadic args: "title","opt1",lbl1,"opt2",lbl2,... */
+        const char *p = line + 5;
+        char raw[32][PRGM_MAX_LINE_LEN];
+        int  nargs = 0, depth = 0, j = 0;
+        for (; *p && nargs < 32; p++) {
+            if (*p == '(' || *p == '[')       depth++;
+            else if (*p == ']') { if (depth > 0) depth--; }
+            else if (*p == ')') { if (depth == 0) break; depth--; }
+            else if (*p == ',' && depth == 0) {
+                raw[nargs][j] = '\0'; nargs++; j = 0; continue;
+            }
+            if (j < PRGM_MAX_LINE_LEN - 1) raw[nargs][j++] = *p;
+        }
+        if (j > 0) { raw[nargs][j] = '\0'; nargs++; }
+        if (nargs < 3) return; /* need title + at least one opt/lbl pair */
+
+        /* arg 0 = title (strip quotes) */
+        const char *ts = raw[0];
+        if (*ts == '"') ts++;
+        size_t tlen = strlen(ts);
+        if (tlen > 0 && ts[tlen - 1] == '"') tlen--;
+        if (tlen >= PRGM_MAX_LINE_LEN) tlen = PRGM_MAX_LINE_LEN - 1;
+        strncpy(prgm_menu_title, ts, tlen);
+        prgm_menu_title[tlen] = '\0';
+
+        /* args 1,3,5... = option texts (quoted); 2,4,6... = label names */
+        uint8_t count = 0;
+        for (int a = 1; a + 1 < nargs && count < 9; a += 2) {
+            /* option text */
+            const char *os = raw[a];
+            if (*os == '"') os++;
+            size_t olen = strlen(os);
+            if (olen > 0 && os[olen - 1] == '"') olen--;
+            if (olen >= PRGM_MAX_LINE_LEN) olen = PRGM_MAX_LINE_LEN - 1;
+            strncpy(prgm_menu_option_texts[count], os, olen);
+            prgm_menu_option_texts[count][olen] = '\0';
+            /* label name (unquoted) */
+            strncpy(prgm_menu_labels[count], raw[a + 1], PRGM_MAX_LINE_LEN - 1);
+            prgm_menu_labels[count][PRGM_MAX_LINE_LEN - 1] = '\0';
+            count++;
+        }
+        if (count == 0) return;
+
+        prgm_menu_option_count = count;
+        prgm_menu_cursor       = 0;
+        prgm_menu_scroll       = 0;
+        prgm_waiting_input     = true;
+        prgm_waiting_menu      = true;
+
+        lvgl_lock();
+        hide_all_screens();
+        ui_prgm_menu_show(prgm_menu_title,
+                          (const char (*)[PRGM_MAX_LINE_LEN])prgm_menu_option_texts,
+                          count, 0, 0);
+        lvgl_unlock();
+        return;
+    }
+
     /* --- End -------------------------------------------------------------- */
     if (strcmp(line, "End") == 0) {
         if (prgm_ctrl_top == 0) return; /* unmatched End */
@@ -382,6 +526,75 @@ static void prgm_execute_line(uint16_t ln)
         history_count         = 0;
         history_recall_offset = 0;
         lvgl_lock(); ui_update_history(); lvgl_unlock();
+        return;
+    }
+
+    /* --- DispHome --------------------------------------------------------- */
+    if (strcmp(line, "DispHome") == 0) {
+        lvgl_lock();
+        hide_all_screens();
+        ui_refresh_display();
+        lvgl_unlock();
+        return;
+    }
+
+    /* --- DispGraph -------------------------------------------------------- */
+    if (strcmp(line, "DispGraph") == 0) {
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        return;
+    }
+
+    /* --- Output( ---------------------------------------------------------- */
+    if (strncmp(line, "Output(", 7) == 0) {
+        const char *p = line + 7;
+        /* Parse three depth-0 comma-separated args: row, col, "string" */
+        char parts[3][MAX_EXPR_LEN];
+        int n = 0, depth = 0, j = 0;
+        for (; *p && n < 3; p++) {
+            if (*p == '(' || *p == '[')       depth++;
+            else if (*p == ']') { if (depth > 0) depth--; }
+            else if (*p == ')') { if (depth == 0) break; depth--; }
+            else if (*p == ',' && depth == 0) {
+                parts[n][j] = '\0'; n++; j = 0; continue;
+            }
+            if (j < MAX_EXPR_LEN - 1) parts[n][j++] = *p;
+        }
+        if (j > 0) { parts[n][j] = '\0'; n++; }
+        if (n < 3) return; /* malformed — silent no-op */
+
+        CalcResult_t rr = Calc_Evaluate(parts[0], ans, ans_is_matrix, angle_degrees);
+        CalcResult_t rc = Calc_Evaluate(parts[1], ans, ans_is_matrix, angle_degrees);
+        if (rr.error != CALC_OK || rr.has_matrix) return;
+        if (rc.error != CALC_OK || rc.has_matrix) return;
+        int row = (int)rr.value;
+        int col = (int)rc.value;
+        if (row < 1 || row > DISP_ROW_COUNT) return;
+        if (col < 1) col = 1;
+
+        /* Third arg must be a quoted string literal */
+        const char *str_arg = parts[2];
+        if (*str_arg != '"') return;
+        str_arg++;
+        const char *str_end = strchr(str_arg, '"');
+        size_t slen = str_end ? (size_t)(str_end - str_arg) : strlen(str_arg);
+
+        /* Build output: (col-1) spaces + string, clipped to display width */
+        char out_buf[MAX_EXPR_LEN];
+        int spaces = col - 1;
+        if (spaces >= MAX_EXPR_LEN - 1) spaces = MAX_EXPR_LEN - 2;
+        memset(out_buf, ' ', (size_t)spaces);
+        size_t avail = (size_t)(MAX_EXPR_LEN - 1 - spaces);
+        if (slen > avail) slen = avail;
+        memcpy(out_buf + spaces, str_arg, slen);
+        out_buf[spaces + slen] = '\0';
+
+        lvgl_lock();
+        ui_output_row((uint8_t)row, out_buf);
+        lvgl_unlock();
         return;
     }
 
@@ -554,6 +767,64 @@ void prgm_run_start(uint8_t idx)
  */
 bool handle_prgm_running(Token_t t)
 {
+    /* --- Menu( waiting for selection ------------------------------------ */
+    if (prgm_waiting_menu) {
+        if (t == TOKEN_CLEAR) {
+            lvgl_lock();
+            ui_prgm_menu_hide();
+            hide_all_screens();
+            lvgl_unlock();
+            prgm_run_active    = false;
+            prgm_waiting_input = false;
+            prgm_waiting_menu  = false;
+            prgm_ctrl_top      = 0;
+            prgm_call_top      = 0;
+            current_mode       = MODE_NORMAL;
+            lvgl_lock(); ui_refresh_display(); lvgl_unlock();
+            return true;
+        }
+        if (t == TOKEN_UP) {
+            if (prgm_menu_cursor > 0) {
+                prgm_menu_cursor--;
+                if (prgm_menu_cursor < prgm_menu_scroll)
+                    prgm_menu_scroll = prgm_menu_cursor;
+                lvgl_lock();
+                ui_prgm_menu_show(prgm_menu_title,
+                                  (const char (*)[PRGM_MAX_LINE_LEN])prgm_menu_option_texts,
+                                  prgm_menu_option_count,
+                                  prgm_menu_cursor, prgm_menu_scroll);
+                lvgl_unlock();
+            }
+            return true;
+        }
+        if (t == TOKEN_DOWN) {
+            if (prgm_menu_cursor + 1 < prgm_menu_option_count) {
+                prgm_menu_cursor++;
+                if (prgm_menu_cursor >= prgm_menu_scroll + MENU_VISIBLE_ROWS)
+                    prgm_menu_scroll = prgm_menu_cursor - MENU_VISIBLE_ROWS + 1;
+                lvgl_lock();
+                ui_prgm_menu_show(prgm_menu_title,
+                                  (const char (*)[PRGM_MAX_LINE_LEN])prgm_menu_option_texts,
+                                  prgm_menu_option_count,
+                                  prgm_menu_cursor, prgm_menu_scroll);
+                lvgl_unlock();
+            }
+            return true;
+        }
+        if (t == TOKEN_ENTER) {
+            prgm_menu_select(prgm_menu_cursor);
+            return true;
+        }
+        /* Number keys 1–9: direct selection */
+        if (t >= TOKEN_1 && t <= TOKEN_9) {
+            uint8_t sel = (uint8_t)(t - TOKEN_1); /* 0-based */
+            if (sel < prgm_menu_option_count)
+                prgm_menu_select(sel);
+            return true;
+        }
+        return true; /* consume all other keys silently */
+    }
+
     if (prgm_waiting_input) {
         if (t == TOKEN_ENTER) {
             if (prgm_input_var != 0) {
@@ -645,8 +916,9 @@ bool handle_prgm_running(Token_t t)
 
 void prgm_reset_execution_state(void)
 {
-    prgm_run_active = false;
+    prgm_run_active    = false;
     prgm_waiting_input = false;
-    prgm_ctrl_top = 0;
-    prgm_call_top = 0;
+    prgm_waiting_menu  = false;
+    prgm_ctrl_top      = 0;
+    prgm_call_top      = 0;
 }

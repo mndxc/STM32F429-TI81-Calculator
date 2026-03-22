@@ -18,7 +18,7 @@
 
 **Purpose of QUALITY_TRACKER:** Permanent register for code quality reviews. Tracks a rated scorecard across 10 dimensions, P-numbered improvement items with effort/impact rankings, and full resolution history. It is the single source of truth for all quality, CI, refactoring, and contributor-docs work. Items are not duplicated in this file.
 
-Current overall rating: **92–94% production-ready** (up from 90–92%; gain from P18 resolution: function complexity C+ → B). Key remaining gaps: PRGM backend incomplete (P10), test suite A-rating (P1). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 301-test host suite with CI.
+Current overall rating: **92–94% production-ready** (up from 90–92%; gain from P18 resolution: function complexity C+ → B). Key remaining gaps: PRGM hardware validation pending (P10), test suite A-rating (P1). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 301-test host suite with CI.
 
 ---
 
@@ -105,6 +105,9 @@ Sessions:
 - 2026-03-22 (Session 15): P18 resolved — all 10 CODE_REVIEW_PENDING items complete. PRGM execution logic moved from `ui_prgm.c` to `prgm_exec.c` (−545 L / +540 L). Over-100-line functions split: `ShuntingYard` (3 helpers), `handle_yeq_mode` (navigation+insertion), `ui_init_graph_screens` (4 per-screen), `handle_history_nav` (`commit_history_entry`), `ui_refresh_display` (`render_result_row`), `try_tokenize_number` (2 helpers). Docs: README links, ARCHITECTURE diagram, `calc_internal.h` scope comment. `CODE_REVIEW_PENDING.md` deleted. Function complexity C+ → B. 301/301 tests pass. **Complexity delta: `decrease`** — pure function extractions and module responsibility correction; no new logic, state, or abstractions introduced.
 - 2026-03-22 (Session 16): Graph render speed — added `MATH_VAR_X` token and `GraphEquation_t` postfix cache API to `calc_engine`. `Graph_Render` now runs Tokenize+ShuntingYard once per equation per render (on equation change only) and calls `Calc_EvalGraphEquation` per pixel column. At x_res=1 parse cost drops from 320× to 1× per equation per frame. 301/301 tests pass. **Complexity delta: `neutral`** — performance optimization with no new logic; cache is bounded state replacing repeated identical work; new public API surface is focused (2 functions, 1 type).
 - 2026-03-22 (Session 17): `HistoryEntry_t` matrix ring buffer refactor — replaced embedded `CalcMatrix_t` (148 B) with 3-byte ring reference. 8-slot `matrix_ring[]` stores last 8 matrix results; generation counter detects eviction and falls back to pre-formatted `result` string. RAM: 82.44% → 81.82%. 301/301 tests pass. **Complexity delta: `decrease`** — resolves [complexity] debt from Session 13; no new logic or state abstractions.
+- 2026-03-22 (Session 18): RAM audit (P12) — root cause: LVGL heap (`work_mem_int`, 64 KB) and FreeRTOS heap (`ucHeap`, 64 KB) = 128 KB = 65% of 192 KB internal RAM; SDRAM had 63.5 MB free. Fix: `SDRAM` region added to linker script (`0xD0070800`), `.sdram (NOLOAD)` section, `LV_ATTRIBUTE_LARGE_RAM_ARRAY` redirects LVGL heap to SDRAM. RAM: 81.82% → 48.49%. 301/301 tests pass. **Complexity delta: `neutral`** — two-line config change and linker extension; no new logic or state.
+- 2026-03-22 (Session 19): PRGM system feature-complete — stale warning comments updated (`ui_prgm.c`/`ui_prgm.h`); `IS>(` and `DS<(` implemented in `prgm_exec.c` + CTL menu (items 13–14); `DispHome` and `DispGraph` implemented; `Output(row,col,"str")` implemented with `ui_output_row()` helper in `calculator_core.c`; `Menu("title","opt",Lbl,…)` fully implemented with dedicated LVGL overlay screen (`ui_prgm_menu_screen`) and UP/DOWN/1–9/ENTER/CLEAR key handling during execution. All 5 tasks from `docs/PRGM_COMPLETION.md` resolved. PRGM: ~50% → ~95% (hardware validation pending, P10). 301/301 tests pass. **Complexity delta: `neutral`** — all new handlers follow existing patterns; new `ui_prgm_menu_screen` follows the same LVGL screen creation pattern as all other PRGM screens.
+- 2026-03-22 (Session 20): PRGM command reference created — `docs/PRGM_COMMANDS.md` documents all 14 CTL commands (If/Then/Else/End/While/For/Goto/Lbl/Pause/Stop/Return/prgm/IS>/DS<), all 6 I/O commands, Output(, Menu(, expr->VAR, and expression lines with syntax, edge cases, and limits table. `docs/PRGM_COMPLETION.md` deleted (all tasks resolved; pre-flight checklist folded into QUALITY_TRACKER.md P10; file list coverage moved to `PRGM_COMMANDS.md`). 301/301 tests pass. **Complexity delta: `neutral`** — documentation only; no code changes.
 
 ### Completed features
 
@@ -136,7 +139,7 @@ Sessions:
 | Area | Est. Done | Notes |
 |---|---|---|
 | MATRIX | ~95% | Variable dimensions 1–6×6 per matrix; scrolling cell editor with dim mode; all 6 explicit ops + arithmetic (+, −, ×, scalar×matrix) fully evaluated; `det(ANS)` / `[A]+ANS` chains work; persist across power-off; `[A]`/`[B]`/`[C]` cursor/DEL atomicity fixed; matrix tokens blocked in Y= editor |
-| PRGM | ~50% | **⚠️ EXTRACTED BUT PARTIALLY COMPLETE.** UI layouts, tab navigation, cursor blinking, and sub-menus (CTL, I/O) have been successfully extracted to `ui_prgm.c` and `ui_prgm.h` as part of the UI Extensibility Pattern. However, backend execution, true token validation, memory storage formatting (`prgm_flatten_to_store`), and I/O execution loops remain incomplete and require significant implementation to bridge with `calc_engine.c`. |
+| PRGM | ~95% | UI (menus, editor, CTL/I/O sub-menus) and executor (`prgm_exec.c`) fully implemented. Supported: `If/Then/Else/While/For/Goto/Lbl/Disp/Input/Prompt/ClrHome/Pause/Stop/Return/prgm/STO/IS>(DS</DispHome/DispGraph/Output(/Menu(`. Remaining: hardware validation (P10). See `docs/PRGM_COMMANDS.md` for full command reference. |
 
 ### Entirely missing (0%)
 
@@ -360,9 +363,19 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - All other menu behaviours are uniform and correct: MATH/TEST/MATRIX use `menu_open`/`menu_close` with `return_mode`; ZOOM is a graph screen with no `return_mode` (by design); MODE uses inline early-exit (non-modal); overflow indicators (↑/↓) are present where needed (MATH, ZOOM — 8 items each); TEST (6 items) and MATRIX (6/3 items) fit the viewport without scrolling.
 - No further irregularities requiring action.
 
-**12. Review RAM usage — LVGL and video interface consumption** — Profile total RAM allocation: stack sizes, LVGL heap, framebuffer(s), static buffers. Determine how much RAM LVGL and the LTDC/ILI9341 video path consume vs. application data. Investigate why RAM limits are being approached given the MCU has 192 KB internal RAM + 64 KB CCMRAM + 64 MB SDRAM, far exceeding the original TI-81 hardware.
-- Files: `App/Src/app_init.c` (LVGL init, heap config), `App/Display/lv_conf.h` (LVGL buffer sizes), `Core/Src/main.c` (SDRAM layout), linker `.map` file in `build/Debug/`
-- Approach: check `build/Debug/*.map` for `.bss`/`.data` section sizes; review `lv_conf.h` draw buffer size; confirm `graph_buf`/`graph_buf_clean`/framebuffer are all in SDRAM (not internal RAM)
+**12. Review RAM usage — LVGL and video interface consumption** — ✅ Resolved 2026-03-22
+- **Root cause found and fixed.** Two heap pools defaulted to internal RAM: LVGL heap (`work_mem_int`, 64 KB from `LV_MEM_SIZE`) and FreeRTOS heap (`ucHeap`, 64 KB from `configTOTAL_HEAP_SIZE`). Together = 128 KB = 65% of all 192 KB internal RAM. SDRAM had 63.5 MB free.
+- **Fix:** Added `SDRAM` region to `STM32F429XX_FLASH.ld` (origin `0xD0070800`, after the three framebuffers) with a `.sdram (NOLOAD)` section. Set `LV_ATTRIBUTE_LARGE_RAM_ARRAY __attribute__((section(".sdram")))` in `lv_conf.h` to relocate LVGL's heap pool to SDRAM. FreeRTOS heap stays in internal RAM (CCMRAM is not DMA-accessible; internal RAM is the correct location for task stacks).
+- **Result: internal RAM 81.8% → 48.5%** (64 KB freed). SDRAM usage: 0.70% → 0.80%. 301/301 tests pass.
+- **Confirmed via `arm-none-eabi-nm`:** `work_mem_int` is at `0xD0070800` (SDRAM); `ucHeap` remains at `0x20000ADC` (internal RAM). All three framebuffers confirmed at fixed SDRAM pointers (`graph_buf`, `graph_buf_clean` at `0xD0025800`/`0xD004B000`), not in linker sections.
+- **SDRAM layout (complete):**
+  ```
+  0xD0000000  LCD framebuffer    320×240×2 = 153,600 B  (fixed pointer in app_init.c)
+  0xD0025800  graph_buf          320×240×2 = 153,600 B  (fixed pointer in graph.c)
+  0xD004B000  graph_buf_clean    320×240×2 = 153,600 B  (fixed pointer in graph.c)
+  0xD0070800  .sdram section     64 KB = LVGL heap      (linker-placed, NOLOAD)
+  0xD0080800  free SDRAM         ~63.5 MB remaining
+  ```
 
 **13. Audit and unify colour scheme between calculator screen and menu screens** — ✅ Resolved 2026-03-22
 - All files already used named `COLOR_*` constants — no bare hex literals found. The only inconsistency was the main screen background using `COLOR_BG` (0x1A1A1A) while all menu/graph screens used `COLOR_BLACK` (0x000000). Fixed by replacing both `COLOR_BG` usages in `calculator_core.c` (screen background style and cursor-inner text colour) with `COLOR_BLACK`, then removing the now-unused `COLOR_BG` constant from `ui_palette.h`. Result: background is uniformly pure black across the calculator screen and all menus; grey history-expression text (`COLOR_GREY_MED`) and live-expression text (`COLOR_GREY_LIGHT`) have improved contrast on the darker background.
@@ -638,17 +651,19 @@ Without `-u _printf_float`, `%f`, `%g`, and `%e` produce empty strings silently.
 
 ### Memory regions
 ```
-RAM:     192 KB @ 0x20000000   (~82% used)
-CCMRAM:   64 KB @ 0x10000000   (partial use — investigation pending; see item 12)
-FLASH:     2 MB @ 0x08000000   (~33% used)
-SDRAM:    64 MB @ 0xD0000000   (external, initialised in main.c)
+RAM:     192 KB @ 0x20000000   (~49% used — LVGL heap moved to SDRAM in Session 18)
+CCMRAM:   64 KB @ 0x10000000   (59% used: g_prgm_store 19KB + s_prgm_flash_buf 19KB + persist RamFunc code)
+FLASH:     2 MB @ 0x08000000   (~36% used)
+SDRAM:    64 MB @ 0xD0000000   (external, initialised in main.c; see SDRAM layout below)
 ```
 
 ### SDRAM layout
 ```
-0xD0000000  LCD framebuffer     320×240×2 = 153,600 bytes
-0xD0025800  graph_buf           320×240×2 = 153,600 bytes
-0xD004B000  graph_buf_clean     320×240×2 = 153,600 bytes  (trace cache)
+0xD0000000  LCD framebuffer     320×240×2 = 153,600 bytes  (fixed pointer in app_init.c)
+0xD0025800  graph_buf           320×240×2 = 153,600 bytes  (fixed pointer in graph.c)
+0xD004B000  graph_buf_clean     320×240×2 = 153,600 bytes  (fixed pointer in graph.c — trace cache)
+0xD0070800  .sdram section      64 KB = LVGL heap pool     (linker-placed, NOLOAD — work_mem_int)
+0xD0080800  free SDRAM          ~63.5 MB remaining
 ```
 `graph_buf` and `graph_buf_clean` are pointers into SDRAM, not static arrays:
 ```c

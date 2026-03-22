@@ -58,6 +58,15 @@ MEMORY
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 192K
 CCMRAM (xrw)      : ORIGIN = 0x10000000, LENGTH = 64K
 FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 2048K
+/* External SDRAM — 64 MB at 0xD0000000.
+ * First 0x70800 bytes are reserved for the three framebuffers placed by
+ * fixed pointer in graph.c / app_init.c:
+ *   0xD0000000  LCD framebuffer  (320×240×2 = 153 600 B = 0x25800)
+ *   0xD0025800  graph_buf        (320×240×2 = 153 600 B = 0x25800)
+ *   0xD004B000  graph_buf_clean  (320×240×2 = 153 600 B = 0x25800)
+ *   0xD0070800  ← .sdram section starts here (~63.6 MB remaining)
+ * Initialised by BSP_SDRAM_Init() before any .sdram symbol is accessed. */
+SDRAM (xrw)    : ORIGIN = 0xD0070800, LENGTH = 63M
 }
 
 /* Highest address of the user mode stack */
@@ -257,6 +266,18 @@ SECTIONS
   } >RAM
 
 
+
+  /* External SDRAM data — NOLOAD: not initialised by startup code.
+   * Callers must ensure BSP_SDRAM_Init() has run before accessing any symbol
+   * placed here.  Currently used for the LVGL 64 KB heap pool
+   * (work_mem_int, via LV_ATTRIBUTE_LARGE_RAM_ARRAY in lv_conf.h).         */
+  .sdram (NOLOAD) :
+  {
+    . = ALIGN(4);
+    *(.sdram)
+    *(.sdram*)
+    . = ALIGN(4);
+  } >SDRAM
 
   /* Remove information from the standard libraries */
   /DISCARD/ :

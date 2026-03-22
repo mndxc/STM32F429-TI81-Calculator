@@ -458,17 +458,19 @@ openocd \
 ## Memory Layout
 
 ```
-RAM:     192 KB @ 0x20000000   (~82% used)
-CCMRAM:   64 KB @ 0x10000000   (partial — see item 12 in CLAUDE.md next-session priorities)
-FLASH:     2 MB @ 0x08000000   (~33% used)
-SDRAM:    64 MB @ 0xD0000000   (external, IS42S16400J)
+RAM:     192 KB @ 0x20000000   (~49% used — LVGL heap moved to SDRAM, Session 18)
+CCMRAM:   64 KB @ 0x10000000   (~59% used: prgm_store 19 KB + prgm_flash_buf 19 KB + RamFunc code)
+FLASH:     2 MB @ 0x08000000   (~36% used)
+SDRAM:    64 MB @ 0xD0000000   (external, IS42S16400J; linker SDRAM region defined from 0xD0070800)
 ```
 
 SDRAM layout:
 ```
-0xD0000000  LCD framebuffer     320×240×2 = 153,600 bytes
-0xD0025800  graph_buf           320×240×2 = 153,600 bytes
-0xD004B000  graph_buf_clean     320×240×2 = 153,600 bytes  (trace cache)
+0xD0000000  LCD framebuffer     320×240×2 = 153,600 bytes  (fixed pointer, app_init.c)
+0xD0025800  graph_buf           320×240×2 = 153,600 bytes  (fixed pointer, graph.c)
+0xD004B000  graph_buf_clean     320×240×2 = 153,600 bytes  (fixed pointer, graph.c — trace cache)
+0xD0070800  .sdram section      64 KB — LVGL heap pool (work_mem_int, NOLOAD, linker-placed)
+0xD0080800  free SDRAM          ~63.5 MB remaining
 ```
 
 FLASH sector map (STM32F429ZIT6, 2 MB dual-bank):

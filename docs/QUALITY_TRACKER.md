@@ -2,7 +2,7 @@
 
 **Purpose:** Permanent register for code quality reviews, CI, refactoring, testing, and contributor-docs work. This is the single source of truth for all P-numbered improvement items. Feature work, bug fixes, and session planning live in `CLAUDE.md` — not here. Update this file when a quality item is opened, progressed, or resolved.
 
-**Last reviewed:** 2026-03-22 (Session 17: HistoryEntry_t matrix ring buffer refactor — complexity debt resolved, RAM 82.44% → 81.82%)
+**Last reviewed:** 2026-03-22 (Session 20: PRGM command reference `docs/PRGM_COMMANDS.md` created — all 14 CTL and 6 I/O commands documented with syntax, edge cases, and limits table)
 **Reviewer:** Claude Code (claude-sonnet-4-6)
 
 ---
@@ -53,7 +53,7 @@
 | **Contributor Documentation** | |
 | Architecture diagram | ✅ Done — P12 resolved 2026-03-21 |
 | Testing guide (`docs/TESTING.md`) | ✅ Done — P13 resolved 2026-03-21 |
-| PRGM completion roadmap | 🔴 Open — P14 |
+| PRGM completion roadmap | ✅ Done — P14 resolved 2026-03-22 |
 | Expression pipeline walkthrough | ✅ Done — P15 resolved 2026-03-22 |
 | FLASH sector map in onboarding docs | ✅ Done — P16 |
 | Troubleshooting guide | ✅ Done — P17 resolved 2026-03-21 |
@@ -118,21 +118,19 @@ badges — all in place. No further action needed.
 
 | Rank | Item | Effort estimate | Notes |
 |---|---|---|---|
-| 1 | P14 — PRGM completion roadmap | 2–4 hrs | Planning doc only; maps backend gaps against 28-item test plan |
-| 2 | P1 — Test suite to A rating | 4–8 hrs | Property-based tests are well-scoped; PRGM arm blocked until P10 complete |
-| 3 | P3 — Handler state params (Phase 3) | 8–16 hrs | Every handler signature changes; high regression risk |
-| 4 | P10 — PRGM hardware validation | Weeks | Blocked on completing disconnected backend first |
-| 5 | P7 — Physical wiring table | Indefinite | Requires donor board, multimeter, photography; cannot be done in software |
+| 1 | P1 — Test suite to A rating | 4–8 hrs | Property-based tests are well-scoped; PRGM arm gated on P10 |
+| 2 | P3 — Handler state params (Phase 3) | 8–16 hrs | Every handler signature changes; high regression risk |
+| 3 | P10 — PRGM hardware validation | ~2–4 hrs | Implementation complete; execute 28-item test plan in `docs/prgm_manual_tests.md` |
+| 4 | P7 — Physical wiring table | Indefinite | Requires donor board, multimeter, photography; cannot be done in software |
 
 ### By Impact of Resolution
 
 | Rank | Item | Scorecard dimension(s) | Why |
 |---|---|---|---|
-| 1 | P10 — PRGM hardware validation | Testing; feature completeness | Largest remaining feature gap |
+| 1 | P10 — PRGM hardware validation | Testing; feature completeness | Largest remaining feature gap; implementation complete, awaiting hardware sign-off on `docs/prgm_manual_tests.md` |
 | 2 | P1 — Test suite to A rating | Testing B+→A | Hardens expression engine edge cases via property-based tests |
 | 3 | P3 — Handler state params (Phase 3) | Code organisation; enables unit testing | Handlers that accept `State_t *` become host-testable in isolation |
-| 4 | P14 — PRGM completion roadmap | Contributor enablement | Without a task list, community effort cannot target the largest incomplete feature |
-| 5 | P7 — Physical wiring table | Hardware replication | Relevant only to contributors replicating the physical build |
+| 4 | P7 — Physical wiring table | Hardware replication | Relevant only to contributors replicating the physical build |
 
 ---
 
@@ -217,24 +215,18 @@ STM32 GPIO side is documented and cross-referenced against `keypad.h`. ✅
 **Rating impact:** Testing = D
 **Files:** `App/Src/ui_prgm.c` (PRGM menu and editor UI), `App/Src/prgm_exec.c` (execution interpreter), `docs/prgm_manual_tests.md`
 
-All 6 PRGM modes are dispatched from `Execute_Token`. The full UI (EXEC/EDIT/ERASE tabs, 37 slots, name entry, line editor, CTL/I/O sub-menus) is implemented in `ui_prgm.c`. The execution interpreter (`prgm_execute_line`, `prgm_run_loop`, `prgm_run_start`) was moved to `prgm_exec.c` in Session 15 (P18) but has not been validated on hardware.
+All 6 PRGM modes are dispatched from `Execute_Token`. The full UI (EXEC/EDIT/ERASE tabs, 37 slots, name entry, line editor, CTL/I/O sub-menus) is implemented in `ui_prgm.c`. The execution interpreter (`prgm_execute_line`, `prgm_run_loop`, `prgm_run_start`) was moved to `prgm_exec.c` in Session 15 (P18). All implementation gaps (IS>(, DS<(, DispHome, DispGraph, Output(, Menu() were resolved in Session 19. A full command reference is in `docs/PRGM_COMMANDS.md`.
 
-See `prgm_manual_tests.md` for the 28-item hardware test plan. Until all 28 tests pass, PRGM should be treated as non-functional.
+**Ready for hardware validation.** Execute the 28-item test plan in `docs/prgm_manual_tests.md`.
 
-**Status:** Open
+Pre-flight checklist:
+1. `cmake --preset Debug && cmake --build build/Debug` — firmware builds with 0 errors.
+2. All 301 host tests pass: `cmake -S App/Tests -B build/tests && cmake --build build/tests && ./build/tests/test_calc_engine && ./build/tests/test_expr_util && ./build/tests/test_persist_roundtrip`
+3. Flash via OpenOCD and power-cycle (USB unplug/replug) before starting tests.
 
----
+When all 28 tests pass, mark P10 resolved with the date and add a Review History row.
 
-### P14 — No PRGM completion roadmap
-
-**Priority:** High (contributor onboarding)
-**Files:** New `docs/PRGM_COMPLETION.md`
-
-`ui_prgm.c` warns that the backend is incomplete but lists no concrete tasks. A contributor wanting to complete PRGM has no clear starting point.
-
-**Recommendation:** `docs/PRGM_COMPLETION.md` listing 5–10 specific tasks (tokenization bridge, `prgm_flatten_to_store`, I/O execution loop, `Goto`/`Lbl` lookup table, `Menu(` support), effort estimates, and acceptance criteria tied to the 28-item test plan.
-
-**Status:** Open
+**Status:** Open — implementation complete; hardware validation pending
 
 ---
 
@@ -263,6 +255,7 @@ See `prgm_manual_tests.md` for the 28-item hardware test plan. Until all 28 test
 | P15 — Expression pipeline walkthrough | Worked example ("2 + sin(45)") added to `docs/TECHNICAL.md` | 2026-03-22 |
 | Matrix history display | Column-aligned rows, horizontal scroll via LEFT/RIGHT, `<`/`>` clip indicators; `HistoryEntry_t` embeds `CalcMatrix_t` copy | 2026-03-22 |
 | P18 — Function complexity reduction | All 10 CODE_REVIEW_PENDING items resolved: PRGM execution moved to `prgm_exec.c` (−545 L from `ui_prgm.c`); `ShuntingYard` split into 3 helpers; `handle_yeq_mode` split into navigation+insertion; `ui_init_graph_screens` split into 4 per-screen helpers; `commit_history_entry` extracted from `handle_history_nav`; `render_result_row` extracted from `ui_refresh_display`; `try_tokenize_number` split; 3 doc/comment quick-wins. Function complexity C+ → B. | 2026-03-22 |
+| P14 — PRGM completion roadmap | `docs/PRGM_COMPLETION.md` created: 5-task roadmap (stale comments, IS>/DS<, DispHome/DispGraph, Output(, Menu() with effort estimates, implementation notes, and acceptance criteria tied to the 28-item test plan. | 2026-03-22 |
 
 ---
 
@@ -289,3 +282,7 @@ See `prgm_manual_tests.md` for the 28-item hardware test plan. Until all 28 test
 | 2026-03-22 | Antigravity AI | Session 15: P18 resolved — all 10 CODE_REVIEW_PENDING items complete. PRGM execution moved to `prgm_exec.c`; 7 over-100-line functions split; 3 doc quick-wins. Function complexity C+ → B. 301/301 tests pass. Rating 92–94%. |
 | 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 16: Graph render speed optimized — `MATH_VAR_X` token + `GraphEquation_t` postfix cache; `Graph_Render` parse cost 320× → 1× per equation per frame. Complexity delta: neutral. 301/301 tests pass. No P-items opened or closed. |
 | 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 17: `HistoryEntry_t` matrix ring buffer refactor — replaced embedded `CalcMatrix_t` (148 B) with 3-byte ring reference; 8-slot ring stores last 8 matrix results with generation-based eviction. RAM: 82.44% → 81.82%. Complexity delta: decrease. 301/301 tests pass. No P-items opened or closed. P10 description updated (stale prgm_exec.c reference fixed). |
+| 2026-03-22 | Claude Code (claude-sonnet-4-6) | P14 resolved: `docs/PRGM_COMPLETION.md` created. Audited actual executor state (If/While/For/Goto/Lbl/Disp/Input/Prompt/ClrHome/prgm call all implemented since Session 15). Identified 5 remaining gaps: stale warning comments, IS>/DS<, DispHome/DispGraph, Output(, Menu(. Each has implementation notes, effort estimate, and acceptance criteria. Rating unchanged at 92–94%. |
+| 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 18: RAM audit (CLAUDE.md item 12). Root cause: LVGL heap (`work_mem_int`, 64 KB) + FreeRTOS heap (`ucHeap`, 64 KB) = 128 KB = 65% of internal RAM; SDRAM had 63.5 MB free. Fix: `SDRAM` linker region added to `STM32F429XX_FLASH.ld`; `.sdram (NOLOAD)` section; `LV_ATTRIBUTE_LARGE_RAM_ARRAY` redirects LVGL heap to SDRAM. Internal RAM: 81.82% → 48.49%. Complexity delta: neutral. 301/301 tests pass. No P-items opened or closed. |
+| 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 19: PRGM system feature-complete (all 5 tasks from `docs/PRGM_COMPLETION.md`). Stale warning comments updated; `IS>(` and `DS<(` added to executor and CTL menu; `DispHome` and `DispGraph` added to executor and I/O menu; `Output(` implemented with `ui_output_row()` helper; `Menu(` fully implemented with LVGL overlay screen, cursor/scroll state, and UP/DOWN/1–9/ENTER/CLEAR key handling. PRGM ~50% → ~95%. Complexity delta: neutral. 301/301 tests pass. P10 remains open (hardware validation). |
+| 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 20: `docs/PRGM_COMMANDS.md` created — complete PRGM command reference covering all 14 CTL commands (If/Then/Else/End/While/For/Goto/Lbl/Pause/Stop/Return/prgm/IS>/DS<), all 6 I/O commands (Input/Prompt/Disp/ClrHome/DispHome/DispGraph), Output(, Menu(, expr->VAR, and expression lines; each entry includes syntax, edge cases, and behaviour details. Complexity delta: neutral. 301/301 tests pass. No P-items opened or closed. |

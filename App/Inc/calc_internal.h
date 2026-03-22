@@ -110,6 +110,7 @@ extern uint8_t      cursor_pos;
 
 void ui_update_history(void);
 void ui_refresh_display(void);
+void ui_output_row(uint8_t row_1based, const char *text);
 void expr_delete_at_cursor(void);
 void format_calc_result(const CalcResult_t *r, char *buf, int buf_size, float *ans_ptr);
 void handle_normal_mode(Token_t t);

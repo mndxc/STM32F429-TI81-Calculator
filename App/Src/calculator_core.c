@@ -1057,6 +1057,18 @@ void ui_update_history(void)
     ui_refresh_display();
 }
 
+/** Write @p text directly to display row @p row_1based (1–8) without
+ *  touching the history ring buffer.  Must be called under lvgl_lock(). */
+void ui_output_row(uint8_t row_1based, const char *text)
+{
+    if (row_1based < 1 || row_1based > DISP_ROW_COUNT) return;
+    if (disp_rows[0] == NULL) return;
+    uint8_t row = row_1based - 1;
+    lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_WHITE), 0);
+    lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
+    lv_label_set_text(disp_rows[row], text);
+}
+
 /*---------------------------------------------------------------------------
  * MODE screen display helper
  *---------------------------------------------------------------------------*/

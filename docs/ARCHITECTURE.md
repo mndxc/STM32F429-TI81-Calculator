@@ -104,15 +104,17 @@ The key distinction: **`App/` is yours, `Core/` is CubeMX's.** Never place custo
 ## Memory Layout
 
 ```
-Internal RAM   192 KB  @ 0x20000000   ~82% used (FreeRTOS heap, stacks, app state)
-CCMRAM          64 KB  @ 0x10000000   partial use — investigation pending (see CLAUDE.md item 12)
-FLASH            2 MB  @ 0x08000000   ~33% used (firmware image)
-SDRAM           64 MB  @ 0xD0000000   external IS42S16400J
+Internal RAM   192 KB  @ 0x20000000   ~49% used (FreeRTOS heap, stacks, app state — LVGL heap in SDRAM)
+CCMRAM          64 KB  @ 0x10000000   ~59% used (prgm_store, prgm_flash_buf, RamFunc code)
+FLASH            2 MB  @ 0x08000000   ~36% used (firmware image)
+SDRAM           64 MB  @ 0xD0000000   external IS42S16400J; linker region from 0xD0070800
 
 SDRAM layout:
-  0xD0000000   LCD framebuffer     320×240×2 = 153,600 B
-  0xD0025800   graph_buf           320×240×2 = 153,600 B
-  0xD004B000   graph_buf_clean     320×240×2 = 153,600 B  (trace cache)
+  0xD0000000   LCD framebuffer     320×240×2 = 153,600 B  (fixed pointer)
+  0xD0025800   graph_buf           320×240×2 = 153,600 B  (fixed pointer)
+  0xD004B000   graph_buf_clean     320×240×2 = 153,600 B  (fixed pointer — trace cache)
+  0xD0070800   .sdram section      64 KB — LVGL heap pool (NOLOAD, linker-placed)
+  0xD0080800   free SDRAM          ~63.5 MB remaining
 
 FLASH sector map (relevant sectors):
   Sector 10  0x080C0000  128 KB  — calculator variables, graph state, matrices

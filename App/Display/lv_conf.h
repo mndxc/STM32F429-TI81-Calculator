@@ -619,8 +619,12 @@
 /** Attribute to mark large constant arrays, for example for font bitmaps */
 #define LV_ATTRIBUTE_LARGE_CONST
 
-/** Compiler prefix for a large array declaration in RAM */
-#define LV_ATTRIBUTE_LARGE_RAM_ARRAY
+/** Compiler prefix for a large array declaration in RAM.
+ *  Redirected to external SDRAM (.sdram section, ORIGIN = 0xD0070800) so that
+ *  the 64 KB LVGL heap pool does not consume internal RAM.
+ *  BSP_SDRAM_Init() in App_DefaultTask_Run() runs before lv_init(), so the
+ *  SDRAM is ready before LVGL's TLSF allocator touches this array.          */
+#define LV_ATTRIBUTE_LARGE_RAM_ARRAY __attribute__((section(".sdram")))
 
 /** Place performance critical functions into a faster memory (e.g RAM) */
 #define LV_ATTRIBUTE_FAST_MEM

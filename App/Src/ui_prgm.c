@@ -2,20 +2,16 @@
  * @file ui_prgm.c
  * @brief Program (PRGM) Menu and Editor UI Module Implementation
  *
- * *************************************************************************
- * WARNING: PARTIALLY COMPLETED MODULE
- * *************************************************************************
- * This module was extracted from `calculator_core.c` to adhere to the UI
- * Extensibility Pattern. Currently, ONLY the UI rendering and tab navigation
- * (EXEC, EDIT, NEW, CTL, I/O) are fully implemented.
+ * Handles PRGM menu UI (EXEC/EDIT/ERASE tabs, 37 slots), name-entry screen,
+ * program line editor (CTL/I/O sub-menus), and editor ↔ FLASH store round-trip.
+ * Execution is delegated to prgm_exec.c.
  *
- * SIGNIFICANT BACKEND WORK REMAINS:
- *   - The PRGM execution engine must be properly bridged to calc_engine.c.
- *   - Tokenization logic inside the editor is incomplete.
- *   - Program storage (prgm_flatten_to_store) and memory management must be finalized.
- *   - I/O handling and control flow loops (If, While, For) are non-functional.
- *   - Do not assume execution functions actually process tokens yet!
- * *************************************************************************
+ * Implementation status (as of 2026-03-22):
+ *   - UI (menus, editor, CTL/I/O sub-menus): fully implemented.
+ *   - Executor (prgm_exec.c): If/Then/Else/While/For/Goto/Lbl/Disp/Input/
+ *     Prompt/ClrHome/Pause/Stop/Return/prgm/STO all implemented.
+ *   - All commands implemented. Remaining: hardware validation (P10).
+ *     Command reference: docs/PRGM_COMMANDS.md
  */
 #include "ui_prgm.h"
 #include "ui_palette.h"
@@ -27,8 +23,8 @@
 
 /* PRGM menu/editor geometry */
 #define PRGM_TAB_COUNT          3   /* EXEC, EDIT, NEW */
-#define PRGM_CTL_ITEM_COUNT    12   /* CTL sub-menu items */
-#define PRGM_IO_ITEM_COUNT      4   /* I/O sub-menu items */
+#define PRGM_CTL_ITEM_COUNT    14   /* CTL sub-menu items */
+#define PRGM_IO_ITEM_COUNT      6   /* I/O sub-menu items */
 #define PRGM_EDITOR_VISIBLE     7   /* Visible editor rows (matches MENU_VISIBLE_ROWS) */
 /* PRGM_MAX_LINES and PRGM_MAX_LINE_LEN are defined in prgm_exec.h (via ui_prgm.h) */
 
@@ -86,6 +82,12 @@ static lv_obj_t   *ui_prgm_io_screen        = NULL;
 static lv_obj_t *prgm_sub_tab_labels_ctl[2];
 static lv_obj_t *prgm_sub_tab_labels_io[2];
 
+/* PRGM runtime Menu( screen — shown during program execution */
+static lv_obj_t   *ui_prgm_menu_screen         = NULL;
+static lv_obj_t   *prgm_menu_title_lbl          = NULL;
+static lv_obj_t   *prgm_menu_item_labels[MENU_VISIBLE_ROWS];
+static lv_obj_t   *prgm_menu_scroll_ind[2];
+
 static uint8_t     prgm_io_cursor            = 0;
 static lv_obj_t   *prgm_io_labels[PRGM_IO_ITEM_COUNT];
 
@@ -98,17 +100,21 @@ static const char * const prgm_ctl_display[PRGM_CTL_ITEM_COUNT] = {
     "1:If ",    "2:Then",   "3:Else",   "4:End",
     "5:While ", "6:For(",   "7:Goto ",  "8:Lbl ",
     "9:Pause",  "10:Stop",  "11:Return","12:prgm",
+    "13:IS>(", "14:DS<(",
 };
 static const char * const prgm_ctl_insert[PRGM_CTL_ITEM_COUNT] = {
     "If ",    "Then",   "Else",   "End",
     "While ", "For(",   "Goto ",  "Lbl ",
     "Pause",  "Stop",   "Return", "prgm",
+    "IS>(", "DS<(",
 };
 static const char * const prgm_io_display[PRGM_IO_ITEM_COUNT] = {
     "1:Input ", "2:Prompt ", "3:Disp ", "4:ClrHome",
+    "5:DispHome", "6:DispGraph",
 };
 static const char * const prgm_io_insert[PRGM_IO_ITEM_COUNT] = {
     "Input ", "Prompt ", "Disp ", "ClrHome",
+    "DispHome", "DispGraph",
 };
 
 /*===========================================================================
@@ -177,6 +183,40 @@ static void ui_init_prgm_new_screen(void)
 
     cursor_box_create(ui_prgm_new_screen, true,
                       &prgm_new_cursor_box, &prgm_new_cursor_inner);
+}
+
+/* Creates the runtime Menu( overlay screen (hidden at startup). */
+static void ui_init_prgm_menu_screen(void)
+{
+    lv_obj_t *scr = lv_scr_act();
+    ui_prgm_menu_screen = screen_create(scr);
+
+    prgm_menu_title_lbl = lv_label_create(ui_prgm_menu_screen);
+    lv_obj_set_pos(prgm_menu_title_lbl, 4, 4);
+    lv_obj_set_style_text_font(prgm_menu_title_lbl, &jetbrains_mono_24, 0);
+    lv_obj_set_style_text_color(prgm_menu_title_lbl, lv_color_hex(COLOR_YELLOW), 0);
+    lv_label_set_text(prgm_menu_title_lbl, "");
+
+    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
+        prgm_menu_item_labels[i] = lv_label_create(ui_prgm_menu_screen);
+        lv_obj_set_pos(prgm_menu_item_labels[i], 4, 30 + i * 30);
+        lv_obj_set_style_text_font(prgm_menu_item_labels[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(prgm_menu_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
+        lv_label_set_text(prgm_menu_item_labels[i], "");
+    }
+
+    for (int i = 0; i < 2; i++) {
+        int row = (i == 0) ? 0 : (MENU_VISIBLE_ROWS - 1);
+        prgm_menu_scroll_ind[i] = lv_label_create(ui_prgm_menu_screen);
+        lv_obj_set_pos(prgm_menu_scroll_ind[i], 18, 30 + row * 30);
+        lv_obj_set_style_text_font(prgm_menu_scroll_ind[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(prgm_menu_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
+        lv_obj_set_style_bg_color(prgm_menu_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
+        lv_obj_set_style_bg_opa(prgm_menu_scroll_ind[i], LV_OPA_COVER, 0);
+        lv_obj_set_style_pad_all(prgm_menu_scroll_ind[i], 0, 0);
+        lv_label_set_text(prgm_menu_scroll_ind[i], i == 0 ? "\xE2\x86\x91" : "\xE2\x86\x93");
+        lv_obj_add_flag(prgm_menu_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 /* Creates the PRGM line editor, CTL sub-menu, and I/O sub-menu screens. */
@@ -1113,10 +1153,47 @@ bool handle_prgm_io_menu(Token_t t)
 
 
 
+/** Show (or refresh) the runtime Menu( overlay.  Must be called under lvgl_lock(). */
+void ui_prgm_menu_show(const char *title,
+                        const char texts[][PRGM_MAX_LINE_LEN],
+                        uint8_t count, uint8_t cursor, uint8_t scroll)
+{
+    lv_label_set_text(prgm_menu_title_lbl, title);
+    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
+        int idx = (int)scroll + i;
+        if (idx < (int)count) {
+            char buf[PRGM_MAX_LINE_LEN + 4];
+            snprintf(buf, sizeof(buf), "%d:%s", idx + 1, texts[idx]);
+            lv_label_set_text(prgm_menu_item_labels[i], buf);
+            lv_obj_set_style_text_color(prgm_menu_item_labels[i],
+                lv_color_hex(idx == (int)cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
+        } else {
+            lv_label_set_text(prgm_menu_item_labels[i], "");
+        }
+    }
+    if (scroll > 0)
+        lv_obj_clear_flag(prgm_menu_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
+    else
+        lv_obj_add_flag(prgm_menu_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
+    if ((int)(scroll + MENU_VISIBLE_ROWS) < (int)count)
+        lv_obj_clear_flag(prgm_menu_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
+    else
+        lv_obj_add_flag(prgm_menu_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(ui_prgm_menu_screen, LV_OBJ_FLAG_HIDDEN);
+}
+
+/** Hide the runtime Menu( overlay.  Must be called under lvgl_lock(). */
+void ui_prgm_menu_hide(void)
+{
+    if (ui_prgm_menu_screen)
+        lv_obj_add_flag(ui_prgm_menu_screen, LV_OBJ_FLAG_HIDDEN);
+}
+
 void ui_init_prgm_screens(void)
 {
     ui_init_prgm_screen();
     ui_init_prgm_new_screen();
+    ui_init_prgm_menu_screen();
     ui_init_prgm_editor_screen();
 }
 
@@ -1128,6 +1205,7 @@ void hide_prgm_screens(void) {
     if (ui_prgm_editor_screen) lv_obj_add_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
     if (ui_prgm_ctl_screen) lv_obj_add_flag(ui_prgm_ctl_screen, LV_OBJ_FLAG_HIDDEN);
     if (ui_prgm_io_screen) lv_obj_add_flag(ui_prgm_io_screen, LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_menu_screen) lv_obj_add_flag(ui_prgm_menu_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
 void prgm_reset_state(CalcMode_t target_mode) {

@@ -2,19 +2,16 @@
  * @file ui_prgm.h
  * @brief Program (PRGM) Menu and Editor UI Module
  *
- * *************************************************************************
- * WARNING: PARTIALLY COMPLETED MODULE
- * *************************************************************************
- * This module was extracted from `calculator_core.c` to adhere to the UI
- * Extensibility Pattern. Currently, ONLY the UI rendering and tab navigation
- * (EXEC, EDIT, NEW, CTL, I/O) are fully implemented.
+ * Handles PRGM menu UI (EXEC/EDIT/ERASE tabs, 37 slots), name-entry screen,
+ * program line editor (CTL/I/O sub-menus), and editor ↔ FLASH store round-trip.
+ * Execution is delegated to prgm_exec.c.
  *
- * SIGNIFICANT BACKEND WORK REMAINS:
- *   - The PRGM execution engine must be properly bridged to calc_engine.c.
- *   - Tokenization logic inside the editor is incomplete.
- *   - Program storage (prgm_flatten_to_store) and memory management must be finalized.
- *   - I/O handling and control flow loops (If, While, For) are non-functional.
- * *************************************************************************
+ * Implementation status (as of 2026-03-22):
+ *   - UI (menus, editor, CTL/I/O sub-menus): fully implemented.
+ *   - Executor (prgm_exec.c): If/Then/Else/While/For/Goto/Lbl/Disp/Input/
+ *     Prompt/ClrHome/Pause/Stop/Return/prgm/STO all implemented.
+ *   - All commands implemented. Remaining: hardware validation (P10).
+ *     Command reference: docs/PRGM_COMMANDS.md
  */
 #ifndef UI_PRGM_H
 #define UI_PRGM_H
@@ -40,6 +37,9 @@ bool prgm_slot_is_used(uint8_t slot);
 void ui_init_prgm_screens(void);
 /* prgm_reset_execution_state, prgm_run_start, prgm_run_loop declared in prgm_exec.h */
 void hide_prgm_screens(void);
+void ui_prgm_menu_show(const char *title, const char texts[][PRGM_MAX_LINE_LEN],
+                        uint8_t count, uint8_t cursor, uint8_t scroll);
+void ui_prgm_menu_hide(void);
 void prgm_reset_state(CalcMode_t target_mode);
 
 bool handle_prgm_menu(Token_t t);
