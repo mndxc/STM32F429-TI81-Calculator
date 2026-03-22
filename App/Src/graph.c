@@ -27,6 +27,11 @@ static lv_obj_t *graph_canvas  = NULL;
 static lv_obj_t *graph_lbl_x   = NULL;  /* X= readout, bottom-left of canvas */
 static lv_obj_t *graph_lbl_y   = NULL;  /* Y= readout, bottom-right of canvas */
 
+/* Per-equation postfix cache — avoids re-parsing on every pixel column */
+static GraphEquation_t eq_postfix[GRAPH_NUM_EQ];
+static char            eq_postfix_str[GRAPH_NUM_EQ][64];
+static bool            eq_postfix_valid[GRAPH_NUM_EQ];
+
 /*---------------------------------------------------------------------------
  * Private helpers
  *--------------------------------------------------------------------------*/
@@ -273,6 +278,19 @@ void Graph_Render(bool angle_degrees)
         const char *eqstr = graph_state.equations[eq];
         if (strlen(eqstr) == 0 || !graph_state.enabled[eq]) continue;
 
+        /* Refresh postfix cache if the equation string has changed */
+        if (!eq_postfix_valid[eq] ||
+            strncmp(eqstr, eq_postfix_str[eq], sizeof(eq_postfix_str[eq])) != 0) {
+            if (Calc_PrepareGraphEquation(eqstr, 0.0f, &eq_postfix[eq]) == CALC_OK) {
+                strncpy(eq_postfix_str[eq], eqstr, sizeof(eq_postfix_str[eq]) - 1);
+                eq_postfix_str[eq][sizeof(eq_postfix_str[eq]) - 1] = '\0';
+                eq_postfix_valid[eq] = true;
+            } else {
+                eq_postfix_valid[eq] = false;
+                continue; /* Skip uncompilable equation */
+            }
+        }
+
         lv_color_t curve_color = lv_color_hex(eq_palette[eq]);
         int32_t prev_py    = -1;
         int32_t prev_px    = -1;
@@ -286,7 +304,7 @@ void Graph_Render(bool angle_degrees)
                       (float)px / (float)(GRAPH_W - 1) *
                       (graph_state.x_max - graph_state.x_min);
 
-            CalcResult_t r = Calc_EvaluateAt(eqstr, x, 0.0f, angle_degrees);
+            CalcResult_t r = Calc_EvalGraphEquation(&eq_postfix[eq], x, angle_degrees);
 
             if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
                 prev_valid = false;

@@ -51,6 +51,7 @@ typedef enum {
 
 typedef enum {
     MATH_NUMBER,
+    MATH_VAR_X,             /* X variable — value substituted at evaluation time */
     MATH_OP_ADD,
     MATH_OP_SUB,
     MATH_OP_MUL,
@@ -101,6 +102,17 @@ typedef struct {
     MathTokenType_t type;
     float           value;  /* Only used when type == MATH_NUMBER */
 } MathToken_t;
+
+/**
+ * @brief Cached postfix (RPN) form of a Y= equation.
+ *        Produced by Calc_PrepareGraphEquation(); evaluated by Calc_EvalGraphEquation().
+ *        Stores MATH_VAR_X tokens so X is substituted at evaluation time, not at
+ *        parse time — allows the postfix to be reused across all pixel columns.
+ */
+typedef struct {
+    MathToken_t tokens[CALC_MAX_TOKENS];
+    uint8_t     count;
+} GraphEquation_t;
 
 typedef struct {
     float       value;          /* Computed scalar result */
@@ -174,5 +186,37 @@ void Calc_SetDecimalMode(uint8_t mode);
  */
 CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
                               float ans, bool angle_degrees);
+
+/**
+ * @brief Compiles a Y= equation string into a cached postfix form.
+ *
+ * Runs Tokenize + ImplicitMulPass + ShuntingYard once per equation. The
+ * resulting GraphEquation_t can be passed to Calc_EvalGraphEquation() for
+ * each pixel column, avoiding repeated parsing on every call.
+ *
+ * MATH_VAR_X tokens in the output are placeholders; the actual x value is
+ * supplied at evaluation time by Calc_EvalGraphEquation().
+ *
+ * @param expr  Null-terminated infix expression (e.g. "sin(X)")
+ * @param ans   ANS value to bake in for any "ANS" reference in the expression
+ * @param out   Output postfix cache — must not be NULL
+ * @return      CALC_OK, or an error code if the expression is invalid
+ */
+CalcError_t Calc_PrepareGraphEquation(const char *expr, float ans,
+                                      GraphEquation_t *out);
+
+/**
+ * @brief Evaluates a pre-compiled graph equation at a specific x coordinate.
+ *
+ * Calls EvaluateRPN on the cached postfix, substituting x_val for every
+ * MATH_VAR_X token. No string parsing or shunting-yard conversion is done.
+ *
+ * @param eq            Postfix cache produced by Calc_PrepareGraphEquation()
+ * @param x_val         X coordinate to evaluate at
+ * @param angle_degrees True for degrees, false for radians
+ * @return              CalcResult_t containing value or error
+ */
+CalcResult_t Calc_EvalGraphEquation(const GraphEquation_t *eq, float x_val,
+                                    bool angle_degrees);
 
 #endif /* CALC_ENGINE_H */
