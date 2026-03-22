@@ -208,16 +208,49 @@ The calculator uses a three-stage expression evaluator:
 Expression string → Tokenizer → Shunting-yard → RPN Evaluator → Result
 ```
 
-**Tokenizer** — splits the infix string into typed math tokens (numbers,
-operators, functions, parentheses). Handles unary negation, negative exponents
-(`2^-3`), and the ANS variable.
+### Expression Pipeline Walkthrough
 
-**Shunting-yard** — converts infix token stream to postfix (RPN) respecting
-operator precedence, associativity, and function calls.
+To illustrate the pipeline, consider the evaluation of the expression `"2 + sin(45)"` (in Degrees mode).
 
-**RPN Evaluator** — evaluates the postfix token stream using a float stack.
-Returns a `CalcResult_t` containing either the computed value or a specific
-error code and message.
+#### Stage 1: Tokenizer
+The `Tokenize()` function (and the subsequent `ImplicitMulPass()`) converts the raw UTF-8 string into a list of `MathToken_t` structures.
+
+1.  **Raw String**: `"2 + sin(45)"`
+2.  **Linear Scan**: The tokenizer identifies numeric literals, named functions, and operator symbols.
+3.  **Infix Token List**:
+    - `MATH_NUMBER` (value: 2.0)
+    - `MATH_OP_ADD`
+    - `MATH_FUNC_SIN`
+    - `MATH_PAREN_LEFT`
+    - `MATH_NUMBER` (value: 45.0)
+    - `MATH_PAREN_RIGHT`
+
+*Note: If the expression was `2sin(45)`, the `ImplicitMulPass` would detect the `NUMBER` followed by a `FUNCTION` and insert a `MATH_OP_MUL` token between them.*
+
+#### Stage 2: Shunting-Yard
+The `ShuntingYard()` function implements Dijkstra's Shunting-yard algorithm to convert the infix token list into a postfix (Reverse Polish Notation) list. It uses an internal **operator stack** to manage precedence.
+
+| Input Token | Operator Stack | Output (Postfix List) | Rationale |
+| :--- | :--- | :--- | :--- |
+| `2` | `[]` | `2` | Numbers go straight to output. |
+| `+` | `[+]` | `2` | Push `+` to stack. |
+| `sin` | `[+, sin]` | `2` | Push function to stack. |
+| `(` | `[+, sin, (]` | `2` | Push `(` to stack. |
+| `45` | `[+, sin, (]` | `2, 45` | Numbers go straight to output. |
+| `)` | `[+]` | `2, 45, sin` | Pop until `(`; then pop `sin` function to output. |
+| *end* | `[]` | **`2, 45, sin, +`** | Pop remaining operators to output. |
+
+#### Stage 3: RPN Evaluator
+The `EvaluateRPN()` function processes the postfix list using a **value stack**.
+
+1.  **Input**: `2`, `45`, `sin`, `+`
+2.  **Process `2`**: Push `2.0` to stack. Stack: `[2.0]`
+3.  **Process `45`**: Push `45.0` to stack. Stack: `[2.0, 45.0]`
+4.  **Process `sin`**: Pop `45.0`, calculate `sin(45.0)` (≈ 0.7071), push result. Stack: `[2.0, 0.7071]`
+5.  **Process `+`**: Pop `0.7071`, pop `2.0`, calculate `2.0 + 0.7071`, push result. Stack: `[2.7071]`
+6.  **Final Result**: The single value remaining on the stack is moved into a `CalcResult_t`.
+
+**Result**: `2.7071` (CALC_OK)
 
 ### Supported Functions
 

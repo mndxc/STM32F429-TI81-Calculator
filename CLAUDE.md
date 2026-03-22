@@ -18,7 +18,7 @@
 
 **Purpose of QUALITY_TRACKER:** Permanent register for code quality reviews. Tracks a rated scorecard across 10 dimensions, P-numbered improvement items with effort/impact rankings, and full resolution history. It is the single source of truth for all quality, CI, refactoring, and contributor-docs work. Items are not duplicated in this file.
 
-Current overall rating: **88–92% production-ready** (up from 85–90%; gains from P6, P12, P13, P17 resolutions). Key remaining gaps: PRGM backend incomplete (P10), test suite A-rating (P1). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 301-test host suite with CI.
+Current overall rating: **90–92% production-ready** (up from 88–92%; gain from P15 resolution and Session 11 stability). Key remaining gaps: PRGM backend incomplete (P10), test suite A-rating (P1). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 301-test host suite with CI.
 
 ---
 
@@ -100,6 +100,7 @@ Sessions:
 - 2026-03-21 (Session 9): IDE/Build fixes (IntelliSense header fix, recursive include resolve, debug config fix, CMake build fix)
 - 2026-03-22 (Session 10): P6, P12, P13, P17 resolved (Sweet Spot items). -Werror enabled for App; Architecture/Testing/Troubleshooting docs created.
 - 2026-03-22 (Session 11): Implement Y= equation enable/disable toggle functionality. Update graph renderer and persistence (v4). Fixed a startup crash and multiple trace/graph transition freezes in `graph.c` and `graph_ui.c` (guards for zero-scale ticks, loop clamping for singularities, and LVGL mutex synchronization).
+- 2026-03-22 (Session 12): [P15] Expression pipeline documented in `TECHNICAL.md` with "2 + sin(45)" worked example. `QUALITY_TRACKER.md` updated.
 
 ### Completed features
 
@@ -322,7 +323,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 ### Next session priorities (in order)
 
 > **Quality and refactoring items** are tracked in [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md), not here.
-> Open items: **P1, P3, P7, P10, P14, P15**. Highest ease-to-impact: P15, P14, P1.
+> Open items: **P1, P3, P7, P10, P14**. Highest ease-to-impact: P14, P1.
 
 **1. Y= equation enable/disable toggle** — ✅ Resolved 2026-03-22
 

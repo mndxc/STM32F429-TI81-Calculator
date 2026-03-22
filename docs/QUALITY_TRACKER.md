@@ -2,7 +2,7 @@
 
 **Purpose:** Permanent register for code quality reviews, CI, refactoring, testing, and contributor-docs work. This is the single source of truth for all P-numbered improvement items. Feature work, bug fixes, and session planning live in `CLAUDE.md` — not here. Update this file when a quality item is opened, progressed, or resolved.
 
-**Last reviewed:** 2026-03-22 (Y= toggle implemented; Session 11 updates)
+**Last reviewed:** 2026-03-22 (P15 resolved; Session 12 updates)
 **Reviewer:** Antigravity AI via full codebase static analysis
 
 ---
@@ -58,7 +58,7 @@
 | Architecture diagram | ✅ Done — P12 resolved 2026-03-21 |
 | Testing guide (`docs/TESTING.md`) | ✅ Done — P13 resolved 2026-03-21 |
 | PRGM completion roadmap | 🔴 Open — P14 |
-| Expression pipeline walkthrough | 🔴 Open — P15 |
+| Expression pipeline walkthrough | ✅ Done — P15 resolved 2026-03-22 |
 | FLASH sector map in onboarding docs | ✅ Done — P16 |
 | Troubleshooting guide | ✅ Done — P17 resolved 2026-03-21 |
 
@@ -133,7 +133,7 @@ Two reference views over the open issues. Use these to decide what to tackle nex
 | 3 | ~~P17 — Troubleshooting guide~~ | ~~1–2 hrs~~ | ✅ Resolved 2026-03-21 |
 | 4 | ~~P13 — Testing guide~~ | ~~1–2 hrs~~ | ✅ Resolved 2026-03-21 |
 | 5 | ~~P12 — Architecture diagram~~ | ~~2–3 hrs~~ | ✅ Resolved 2026-03-21 |
-| 6 | P15 — Expression pipeline walkthrough | 2–3 hrs | Worked example in `TECHNICAL.md`; requires careful reading of `calc_engine.c` |
+| 6 | ~~P15 — Expression pipeline walkthrough~~ | ~~2–3 hrs~~ | ✅ Resolved 2026-03-22 |
 | 7 | P14 — PRGM completion roadmap | 2–4 hrs | Map backend gaps against 28-item test plan; planning doc only |
 | 8 | ~~P6 — Enable `-Werror`~~ | ~~2–8 hrs~~ | ✅ Resolved 2026-03-21 |
 | 9 | P1 — Test suite to A rating | 4–8 hrs | Property-based tests are well-scoped; PRGM arm blocked until backend complete |
@@ -154,7 +154,7 @@ Two reference views over the open issues. Use these to decide what to tackle nex
 | 6 | ~~P12 — Architecture diagram~~ | ~~Open-source onboarding~~ | ✅ Resolved 2026-03-21 |
 | 7 | P14 — PRGM completion roadmap | Contributor enablement | Without a concrete task list, community effort cannot be directed at the largest incomplete feature |
 | 8 | ~~P13 — Testing guide~~ | ~~Onboarding; test suite growth~~ | ✅ Resolved 2026-03-21 |
-| 9 | P15 — Expression pipeline walkthrough | Contributor safety | Most algorithmically dense file; undocumented behaviour here is the most likely source of subtle community PR bugs |
+| 9 | ~~P15 — Expression pipeline walkthrough~~ | ~~Contributor safety~~ | ✅ Resolved 2026-03-22 |
 | 10 | ~~P16 — FLASH sector map in docs~~ | ~~Hardware safety~~ | ✅ Resolved 2026-03-21 |
 | 11 | ~~P17 — Troubleshooting guide~~ | ~~First-contact friction~~ | ✅ Resolved 2026-03-21 |
 | 12 | ~~P8 — Float printf guard~~ | ~~Silent failure prevention~~ | ✅ Resolved 2026-03-21 |
@@ -414,7 +414,7 @@ Suitable for embedding in `README.md` or a standalone `docs/ARCHITECTURE.md`.
 
 **Recommendation:** Add a section to `TECHNICAL.md` walking through `"2 + sin(45)"` step by step: raw string → token list → postfix token list → RPN stack trace → `CalcResult_t`.
 
-**Status:** Open
+**Status: ✅ Resolved (2026-03-22 — worked example added to `docs/TECHNICAL.md`)**
 
 ---
 
