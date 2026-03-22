@@ -1,0 +1,1579 @@
+/**
+ * @file    graph_ui.c
+ * @brief   Graph screen UI handlers and helpers (Y=, RANGE, ZOOM, TRACE, ZBox).
+ *
+ * Extracted from calculator_core.c following the same pattern as ui_matrix.c
+ * and ui_prgm.c. Zero behavioral changes — purely a file organisation refactor.
+ *
+ * All LVGL calls must be made under lvgl_lock()/lvgl_unlock() except from
+ * cursor_timer_cb (which runs inside lv_task_handler — mutex already held).
+ */
+
+#include "graph_ui.h"
+#include "calc_internal.h"
+#include "app_common.h"
+#include "graph.h"
+#include "expr_util.h"
+#include "calc_engine.h"
+#include "ui_palette.h"
+#include "lvgl.h"
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+/*---------------------------------------------------------------------------
+ * Private types
+ *---------------------------------------------------------------------------*/
+
+typedef struct {
+    uint8_t  field;     /* 0=Xmin 1=Xmax 2=Xscl 3=Ymin 4=Ymax 5=Yscl 6=Xres */
+    char     buf[16];   /* In-progress edit buffer */
+    uint8_t  len;       /* Current length of buf */
+    uint8_t  cursor;    /* Insertion point within buf */
+} RangeEditorState_t;
+
+typedef struct {
+    float   x;          /* Current trace x position */
+    uint8_t eq_idx;     /* Which equation the crosshair is on */
+} TraceState_t;
+
+typedef struct {
+    int32_t  px,  py;           /* Current cursor pixel position */
+    int32_t  px1, py1;          /* First corner (valid once corner1_set) */
+    bool     corner1_set;
+} ZBoxState_t;
+
+typedef struct {
+    float    x_fact, y_fact;    /* XFact / YFact zoom multipliers (persisted) */
+    uint8_t  field;             /* 0=XFact, 1=YFact */
+    char     buf[16];           /* In-progress edit buffer */
+    uint8_t  len;
+    uint8_t  cursor;
+} ZoomFactorsState_t;
+
+typedef struct {
+    uint8_t  scroll_offset;
+    uint8_t  item_cursor;       /* Visible-row index of highlight */
+} ZoomMenuState_t;
+
+typedef struct {
+    uint8_t  selected;          /* Which Y= row is active */
+    uint8_t  cursor_pos;        /* Byte offset of insertion point within the equation */
+} YeqEditorState_t;
+
+/*---------------------------------------------------------------------------
+ * Constants
+ *---------------------------------------------------------------------------*/
+
+#define ZOOM_ITEM_COUNT  8
+
+static const char * const zoom_item_names[ZOOM_ITEM_COUNT] = {
+    "Box", "Zoom In", "Zoom Out", "Set Factors",
+    "Square", "Standard", "Trig", "Integer"
+};
+
+static const char * const zoom_factors_names[2] = {"XFact=", "YFact="};
+
+static const char * const range_field_names[7] = {
+    "Xmin=", "Xmax=", "Xscl=", "Ymin=", "Ymax=", "Yscl=", "Xres="
+};
+
+/*---------------------------------------------------------------------------
+ * LVGL object pointers — screen pointers are non-static (extern in headers)
+ *---------------------------------------------------------------------------*/
+
+/* Screen pointers — non-static so hide_all_screens() and menu_close() can reach them */
+lv_obj_t *ui_graph_yeq_screen          = NULL;
+lv_obj_t *ui_graph_range_screen        = NULL;
+lv_obj_t *ui_graph_zoom_screen         = NULL;
+lv_obj_t *ui_graph_zoom_factors_screen = NULL;
+
+/* Y= editor labels and cursor */
+static lv_obj_t *ui_lbl_yeq_name[GRAPH_NUM_EQ];
+static lv_obj_t *ui_lbl_yeq_eq[GRAPH_NUM_EQ];
+static lv_obj_t *yeq_cursor_box   = NULL;
+static lv_obj_t *yeq_cursor_inner = NULL;
+
+/* RANGE editor labels and cursor */
+static lv_obj_t *ui_lbl_range_rows[7];
+static lv_obj_t *range_cursor_box    = NULL;
+static lv_obj_t *range_cursor_inner  = NULL;
+
+/* ZOOM menu labels */
+static lv_obj_t *zoom_item_labels[MENU_VISIBLE_ROWS];
+static lv_obj_t *zoom_scroll_ind[2];   /* [0]=top(↑), [1]=bottom(↓) */
+
+/* ZOOM FACTORS labels and cursor */
+static lv_obj_t *ui_lbl_zoom_factors_rows[2];
+static lv_obj_t *zoom_factors_cursor_box   = NULL;
+static lv_obj_t *zoom_factors_cursor_inner = NULL;
+
+/*---------------------------------------------------------------------------
+ * State instances
+ *---------------------------------------------------------------------------*/
+
+static YeqEditorState_t   s_yeq   = {0};
+static RangeEditorState_t s_range = {0};
+static TraceState_t       s_trace = {0};
+static ZBoxState_t        s_zbox  = { .px = GRAPH_W / 2, .py = GRAPH_H / 2 };
+static ZoomMenuState_t    s_zoom  = {0};
+static ZoomFactorsState_t s_zf    = { .x_fact = 4.0f, .y_fact = 4.0f };
+
+/*---------------------------------------------------------------------------
+ * Forward declarations for static helpers
+ * (called by zoom_execute_item before their definitions)
+ *---------------------------------------------------------------------------*/
+
+static void zoom_factors_reset(void);
+static void zoom_factors_load_field(void);
+void ui_update_zoom_factors_display(void);
+static void zoom_factors_update_highlight(void);
+void zoom_factors_cursor_update(void);
+
+/*---------------------------------------------------------------------------
+ * Initialisation
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief Creates the Y=, RANGE, ZOOM, ZOOM FACTORS screens and graph canvas.
+ *        Called once from StartCalcCoreTask under lvgl_lock().
+ */
+void ui_init_graph_screens(void)
+{
+    lv_obj_t *scr = lv_scr_act();
+
+    /* --- Y= editor screen --- */
+    ui_graph_yeq_screen = lv_obj_create(scr);
+    lv_obj_set_size(ui_graph_yeq_screen, DISPLAY_W, DISPLAY_H);
+    lv_obj_set_pos(ui_graph_yeq_screen, 0, 0);
+    lv_obj_set_style_bg_color(ui_graph_yeq_screen,
+                               lv_color_hex(COLOR_BLACK), 0);
+    lv_obj_set_style_border_width(ui_graph_yeq_screen, 0, 0);
+    lv_obj_set_style_pad_all(ui_graph_yeq_screen, 0, 0);
+    lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+
+    const char *eq_row_names[] = { "Y1=", "Y2=", "Y3=", "Y4=" };
+    for (int i = 0; i < GRAPH_NUM_EQ; i++) {
+        int32_t row_y = 4 + i * 26;
+        ui_lbl_yeq_name[i] = lv_label_create(ui_graph_yeq_screen);
+        lv_obj_set_pos(ui_lbl_yeq_name[i], 4, row_y);
+        lv_obj_set_style_text_font(ui_lbl_yeq_name[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(ui_lbl_yeq_name[i],
+                                     lv_color_hex(COLOR_WHITE), 0);
+        lv_label_set_text(ui_lbl_yeq_name[i], eq_row_names[i]);
+
+        ui_lbl_yeq_eq[i] = lv_label_create(ui_graph_yeq_screen);
+        lv_obj_set_pos(ui_lbl_yeq_eq[i], 44, row_y);
+        lv_obj_set_width(ui_lbl_yeq_eq[i], DISPLAY_W - 48);
+        lv_obj_set_style_text_font(ui_lbl_yeq_eq[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(ui_lbl_yeq_eq[i],
+                                     lv_color_hex(COLOR_WHITE), 0);
+        lv_label_set_long_mode(ui_lbl_yeq_eq[i], LV_LABEL_LONG_WRAP);
+        lv_label_set_text(ui_lbl_yeq_eq[i], "");
+    }
+
+    cursor_box_create(ui_graph_yeq_screen, true, &yeq_cursor_box, &yeq_cursor_inner);
+
+    /* --- RANGE screen --- */
+    ui_graph_range_screen = lv_obj_create(scr);
+    lv_obj_set_size(ui_graph_range_screen, DISPLAY_W, DISPLAY_H);
+    lv_obj_set_pos(ui_graph_range_screen, 0, 0);
+    lv_obj_set_style_bg_color(ui_graph_range_screen,
+                               lv_color_hex(COLOR_BLACK), 0);
+    lv_obj_set_style_border_width(ui_graph_range_screen, 0, 0);
+    lv_obj_set_style_pad_all(ui_graph_range_screen, 0, 0);
+    lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t *lbl_range_title = lv_label_create(ui_graph_range_screen);
+    lv_obj_set_pos(lbl_range_title, 4, 4);
+    lv_obj_set_style_text_font(lbl_range_title, &jetbrains_mono_24, 0);
+    lv_obj_set_style_text_color(lbl_range_title,
+                                 lv_color_hex(COLOR_WHITE), 0);
+    lv_label_set_text(lbl_range_title, "RANGE");
+
+    for (int i = 0; i < 7; i++) {
+        ui_lbl_range_rows[i] = lv_label_create(ui_graph_range_screen);
+        lv_obj_set_pos(ui_lbl_range_rows[i], 4, 30 + i * 30);
+        lv_obj_set_style_text_font(ui_lbl_range_rows[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(ui_lbl_range_rows[i],
+                                     lv_color_hex(COLOR_WHITE), 0);
+        lv_label_set_text(ui_lbl_range_rows[i], range_field_names[i]);
+    }
+
+    cursor_box_create(ui_graph_range_screen, true, &range_cursor_box, &range_cursor_inner);
+
+    /* --- ZOOM menu screen --- */
+    ui_graph_zoom_screen = lv_obj_create(scr);
+    lv_obj_set_size(ui_graph_zoom_screen, DISPLAY_W, DISPLAY_H);
+    lv_obj_set_pos(ui_graph_zoom_screen, 0, 0);
+    lv_obj_set_style_bg_color(ui_graph_zoom_screen, lv_color_hex(COLOR_BLACK), 0);
+    lv_obj_set_style_border_width(ui_graph_zoom_screen, 0, 0);
+    lv_obj_set_style_pad_all(ui_graph_zoom_screen, 0, 0);
+    lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t *lbl_zoom_title = lv_label_create(ui_graph_zoom_screen);
+    lv_obj_set_pos(lbl_zoom_title, 4, 4);
+    lv_obj_set_style_text_font(lbl_zoom_title, &jetbrains_mono_24, 0);
+    lv_obj_set_style_text_color(lbl_zoom_title, lv_color_hex(COLOR_WHITE), 0);
+    lv_label_set_text(lbl_zoom_title, "ZOOM");
+
+    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
+        zoom_item_labels[i] = lv_label_create(ui_graph_zoom_screen);
+        lv_obj_set_pos(zoom_item_labels[i], 4, 30 + i * 30);
+        lv_obj_set_style_text_font(zoom_item_labels[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(zoom_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
+        lv_label_set_text(zoom_item_labels[i], "");
+    }
+
+    for (int i = 0; i < 2; i++) {
+        int row = (i == 0) ? 0 : (MENU_VISIBLE_ROWS - 1);
+        zoom_scroll_ind[i] = lv_label_create(ui_graph_zoom_screen);
+        lv_obj_set_pos(zoom_scroll_ind[i], 18, 30 + row * 30);
+        lv_obj_set_style_text_font(zoom_scroll_ind[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(zoom_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
+        lv_obj_set_style_bg_color(zoom_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
+        lv_obj_set_style_bg_opa(zoom_scroll_ind[i], LV_OPA_COVER, 0);
+        lv_obj_set_style_pad_all(zoom_scroll_ind[i], 0, 0);
+        lv_label_set_text(zoom_scroll_ind[i], "");
+        lv_obj_add_flag(zoom_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    /* --- ZOOM FACTORS sub-screen --- */
+    ui_graph_zoom_factors_screen = lv_obj_create(scr);
+    lv_obj_set_size(ui_graph_zoom_factors_screen, DISPLAY_W, DISPLAY_H);
+    lv_obj_set_pos(ui_graph_zoom_factors_screen, 0, 0);
+    lv_obj_set_style_bg_color(ui_graph_zoom_factors_screen, lv_color_hex(COLOR_BLACK), 0);
+    lv_obj_set_style_border_width(ui_graph_zoom_factors_screen, 0, 0);
+    lv_obj_set_style_pad_all(ui_graph_zoom_factors_screen, 0, 0);
+    lv_obj_clear_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+
+    lv_obj_t *lbl_zf_title = lv_label_create(ui_graph_zoom_factors_screen);
+    lv_obj_set_pos(lbl_zf_title, 4, 4);
+    lv_obj_set_style_text_font(lbl_zf_title, &jetbrains_mono_24, 0);
+    lv_obj_set_style_text_color(lbl_zf_title, lv_color_hex(COLOR_WHITE), 0);
+    lv_label_set_text(lbl_zf_title, "ZOOM FACTORS");
+
+    for (int i = 0; i < 2; i++) {
+        ui_lbl_zoom_factors_rows[i] = lv_label_create(ui_graph_zoom_factors_screen);
+        lv_obj_set_pos(ui_lbl_zoom_factors_rows[i], 4, 30 + i * 30);
+        lv_obj_set_style_text_font(ui_lbl_zoom_factors_rows[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(ui_lbl_zoom_factors_rows[i], lv_color_hex(COLOR_WHITE), 0);
+        lv_label_set_text(ui_lbl_zoom_factors_rows[i], zoom_factors_names[i]);
+    }
+
+    cursor_box_create(ui_graph_zoom_factors_screen, true,
+                      &zoom_factors_cursor_box, &zoom_factors_cursor_inner);
+
+    /* Init graph canvas */
+    Graph_Init(scr);
+}
+
+/*---------------------------------------------------------------------------
+ * Display update helpers (some non-static — called from calculator_core.c)
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief Refreshes all seven RANGE row labels from the current graph_state values.
+ */
+void ui_update_range_display(void)
+{
+    const float committed[7] = {
+        graph_state.x_min, graph_state.x_max, graph_state.x_scl,
+        graph_state.y_min, graph_state.y_max, graph_state.y_scl,
+        graph_state.x_res
+    };
+    char row_buf[32];
+    char val_buf[16];
+    for (int i = 0; i < 7; i++) {
+        if (ui_lbl_range_rows[i] == NULL) continue;
+        if (i == (int)s_range.field && s_range.len > 0) {
+            snprintf(row_buf, sizeof(row_buf), "%s%s",
+                     range_field_names[i], s_range.buf);
+        } else {
+            snprintf(val_buf, sizeof(val_buf), "%.4g", committed[i]);
+            snprintf(row_buf, sizeof(row_buf), "%s%s",
+                     range_field_names[i], val_buf);
+        }
+        lv_label_set_text(ui_lbl_range_rows[i], row_buf);
+    }
+}
+
+/**
+ * @brief Reflows Y= row positions after equation text changes.
+ *        Must be called under lvgl_lock().
+ */
+void yeq_reflow_rows(void)
+{
+    lv_obj_update_layout(ui_graph_yeq_screen);
+    int32_t y = 4;
+    for (int i = 0; i < GRAPH_NUM_EQ; i++) {
+        lv_obj_set_pos(ui_lbl_yeq_name[i], 4,  y);
+        lv_obj_set_pos(ui_lbl_yeq_eq[i],  44,  y);
+        int32_t h = lv_obj_get_height(ui_lbl_yeq_eq[i]);
+        if (h < 26) h = 26;
+        y += h + 2;
+    }
+}
+
+/**
+ * @brief Positions the Y= equation editor cursor.
+ *        Called from cursor_timer_cb — must NOT call lvgl_lock().
+ */
+void yeq_cursor_update(void)
+{
+    if (yeq_cursor_box == NULL || ui_lbl_yeq_eq[s_yeq.selected] == NULL) return;
+    const char *txt = lv_label_get_text(ui_lbl_yeq_eq[s_yeq.selected]);
+    uint32_t glyph_pos = ExprUtil_Utf8ByteToGlyph(txt, s_yeq.cursor_pos);
+    cursor_place(yeq_cursor_box, yeq_cursor_inner,
+                 ui_lbl_yeq_eq[s_yeq.selected], glyph_pos);
+}
+
+/* Positions the RANGE field editor cursor.
+ * Called from cursor_timer_cb — must NOT call lvgl_lock(). */
+void range_cursor_update(void)
+{
+    if (range_cursor_box == NULL || ui_lbl_range_rows[s_range.field] == NULL) return;
+    uint32_t char_pos = (uint32_t)strlen(range_field_names[s_range.field])
+                      + s_range.cursor;
+    cursor_place(range_cursor_box, range_cursor_inner,
+                 ui_lbl_range_rows[s_range.field], char_pos);
+}
+
+/* Highlights the active Y= row label in yellow; all others are white. */
+static void yeq_update_highlight(void)
+{
+    for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
+        lv_color_t col = (i == s_yeq.selected) ? lv_color_hex(COLOR_YELLOW)
+                                             : lv_color_hex(COLOR_WHITE);
+        lv_obj_set_style_text_color(ui_lbl_yeq_name[i], col, 0);
+    }
+}
+
+/*---------------------------------------------------------------------------
+ * Zoom preset helper
+ *---------------------------------------------------------------------------*/
+
+static void apply_zoom_preset(uint8_t preset)
+{
+    switch (preset) {
+    case 1: /* ZStandard */
+        graph_state.x_min = -10.0f; graph_state.x_max =  10.0f; graph_state.x_scl = 1.0f;
+        graph_state.y_min = -10.0f; graph_state.y_max =  10.0f; graph_state.y_scl = 1.0f;
+        break;
+    case 2: /* ZTrig */
+        graph_state.x_min = -6.2832f; graph_state.x_max = 6.2832f; graph_state.x_scl = 1.5708f;
+        graph_state.y_min =  -4.0f;   graph_state.y_max = 4.0f;    graph_state.y_scl = 1.0f;
+        break;
+    case 3: /* ZDecimal */
+        graph_state.x_min = -4.7f; graph_state.x_max = 4.7f; graph_state.x_scl = 0.5f;
+        graph_state.y_min = -3.1f; graph_state.y_max = 3.1f; graph_state.y_scl = 0.5f;
+        break;
+    case 4: /* ZSquare */
+        {
+            float xs = (graph_state.x_max - graph_state.x_min) / GRAPH_W;
+            float ys = (graph_state.y_max - graph_state.y_min) / GRAPH_H;
+            if (xs > ys) {
+                float yc = (graph_state.y_max + graph_state.y_min) * 0.5f;
+                float yh = xs * GRAPH_H * 0.5f;
+                graph_state.y_min = yc - yh;
+                graph_state.y_max = yc + yh;
+            } else {
+                float xc = (graph_state.x_max + graph_state.x_min) * 0.5f;
+                float xh = ys * GRAPH_W * 0.5f;
+                graph_state.x_min = xc - xh;
+                graph_state.x_max = xc + xh;
+            }
+        }
+        break;
+    case 5: /* ZInteger */
+        graph_state.x_min = -160.0f; graph_state.x_max = 159.0f; graph_state.x_scl = 10.0f;
+        graph_state.y_min = -110.0f; graph_state.y_max = 109.0f; graph_state.y_scl = 10.0f;
+        break;
+    default:
+        graph_state.x_min = -10.0f; graph_state.x_max =  10.0f; graph_state.x_scl = 1.0f;
+        graph_state.y_min = -10.0f; graph_state.y_max =  10.0f; graph_state.y_scl = 1.0f;
+        break;
+    }
+}
+
+/*---------------------------------------------------------------------------
+ * ZOOM display helper
+ *---------------------------------------------------------------------------*/
+
+void ui_update_zoom_display(void)
+{
+    lv_obj_add_flag(zoom_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(zoom_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
+
+    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
+        int idx = s_zoom.scroll_offset + i;
+        if (idx >= ZOOM_ITEM_COUNT) {
+            lv_label_set_text(zoom_item_labels[i], "");
+            continue;
+        }
+        bool more_below = (s_zoom.scroll_offset + MENU_VISIBLE_ROWS < ZOOM_ITEM_COUNT)
+                          && (i == MENU_VISIBLE_ROWS - 1);
+        bool more_above = (s_zoom.scroll_offset > 0) && (i == 0);
+        char buf[32];
+        if (more_below) {
+            snprintf(buf, sizeof(buf), "%d %s", idx + 1, zoom_item_names[idx]);
+            lv_label_set_text(zoom_scroll_ind[1], "\xE2\x86\x93");
+            lv_obj_clear_flag(zoom_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
+        } else if (more_above) {
+            snprintf(buf, sizeof(buf), "%d %s", idx + 1, zoom_item_names[idx]);
+            lv_label_set_text(zoom_scroll_ind[0], "\xE2\x86\x91");
+            lv_obj_clear_flag(zoom_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
+        } else {
+            snprintf(buf, sizeof(buf), "%d:%s", idx + 1, zoom_item_names[idx]);
+        }
+        lv_color_t col = (i == (int)s_zoom.item_cursor)
+            ? lv_color_hex(COLOR_YELLOW)
+            : lv_color_hex(COLOR_WHITE);
+        lv_obj_set_style_text_color(zoom_item_labels[i], col, 0);
+        lv_label_set_text(zoom_item_labels[i], buf);
+    }
+}
+
+/*---------------------------------------------------------------------------
+ * Graph/menu state helpers
+ *---------------------------------------------------------------------------*/
+
+static uint8_t find_first_active_eq(void)
+{
+    for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
+        if (strlen(graph_state.equations[i]) > 0)
+            return i;
+    }
+    return 0;
+}
+
+static void range_field_reset(void)
+{
+    s_range.field   = 0;
+    s_range.len     = 0;
+    s_range.buf[0]  = '\0';
+    s_range.cursor  = 0;
+}
+
+static void range_load_field(void)
+{
+    float vals[7] = {
+        graph_state.x_min, graph_state.x_max, graph_state.x_scl,
+        graph_state.y_min, graph_state.y_max, graph_state.y_scl,
+        graph_state.x_res
+    };
+    snprintf(s_range.buf, sizeof(s_range.buf), "%.4g", vals[s_range.field]);
+    s_range.len    = (uint8_t)strlen(s_range.buf);
+    s_range.cursor = 0;
+}
+
+static void zoom_menu_reset(void)
+{
+    s_zoom.scroll_offset = 0;
+    s_zoom.item_cursor   = 0;
+}
+
+/*---------------------------------------------------------------------------
+ * ZOOM action executor
+ *---------------------------------------------------------------------------*/
+
+static void zoom_execute_item(uint8_t item_num)
+{
+    zoom_menu_reset();
+    switch (item_num) {
+    case 1: /* Box */
+        s_zbox.px = GRAPH_W / 2; s_zbox.py = GRAPH_H / 2; s_zbox.corner1_set = false;
+        current_mode = MODE_GRAPH_ZBOX;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        Graph_SetVisible(true);
+        Graph_DrawZBox(s_zbox.px, s_zbox.py, 0, 0, false, angle_degrees);
+        lvgl_unlock();
+        break;
+    case 2: /* Zoom In */
+        {
+            float xc = (graph_state.x_min + graph_state.x_max) * 0.5f;
+            float yc = (graph_state.y_min + graph_state.y_max) * 0.5f;
+            float xh = (graph_state.x_max - graph_state.x_min) / (2.0f * s_zf.x_fact);
+            float yh = (graph_state.y_max - graph_state.y_min) / (2.0f * s_zf.y_fact);
+            graph_state.x_min = xc - xh; graph_state.x_max = xc + xh;
+            graph_state.y_min = yc - yh; graph_state.y_max = yc + yh;
+        }
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        lvgl_unlock();
+        break;
+    case 3: /* Zoom Out */
+        {
+            float xc = (graph_state.x_min + graph_state.x_max) * 0.5f;
+            float yc = (graph_state.y_min + graph_state.y_max) * 0.5f;
+            float xh = (graph_state.x_max - graph_state.x_min) * s_zf.x_fact / 2.0f;
+            float yh = (graph_state.y_max - graph_state.y_min) * s_zf.y_fact / 2.0f;
+            graph_state.x_min = xc - xh; graph_state.x_max = xc + xh;
+            graph_state.y_min = yc - yh; graph_state.y_max = yc + yh;
+        }
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        lvgl_unlock();
+        break;
+    case 4: /* Set Factors */
+        zoom_factors_reset();
+        zoom_factors_load_field();
+        current_mode = MODE_GRAPH_ZOOM_FACTORS;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_zoom_factors_display();
+        zoom_factors_update_highlight();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        break;
+    case 5: /* Square */
+        apply_zoom_preset(4);
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        lvgl_unlock();
+        break;
+    case 6: /* Standard */
+        apply_zoom_preset(1);
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        lvgl_unlock();
+        break;
+    case 7: /* Trig */
+        apply_zoom_preset(2);
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        lvgl_unlock();
+        break;
+    case 8: /* Integer */
+        apply_zoom_preset(5);
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        lvgl_unlock();
+        break;
+    default:
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        lvgl_unlock();
+        break;
+    }
+}
+
+/*---------------------------------------------------------------------------
+ * RANGE editor helpers
+ *---------------------------------------------------------------------------*/
+
+static void range_commit_field(void)
+{
+    if (s_range.len == 0)
+        return;
+    float val = strtof(s_range.buf, NULL);
+    switch (s_range.field) {
+    case 0: graph_state.x_min = val; break;
+    case 1: graph_state.x_max = val; break;
+    case 2: if (val > 0.0f) graph_state.x_scl = val; break;
+    case 3: graph_state.y_min = val; break;
+    case 4: graph_state.y_max = val; break;
+    case 5: if (val > 0.0f) graph_state.y_scl = val; break;
+    case 6: { int32_t iv = (int32_t)val; if (iv >= 1 && iv <= 8) graph_state.x_res = (float)iv; } break;
+    }
+}
+
+static void range_update_highlight(void)
+{
+    for (uint8_t i = 0; i < 7; i++) {
+        lv_obj_t *lbl = ui_lbl_range_rows[i];
+        if (lbl == NULL) continue;
+        lv_obj_set_style_text_color(lbl,
+            (i == s_range.field) ? lv_color_hex(COLOR_YELLOW)
+                                 : lv_color_hex(COLOR_WHITE),
+            0);
+    }
+}
+
+/*---------------------------------------------------------------------------
+ * ZOOM FACTORS editor helpers
+ *---------------------------------------------------------------------------*/
+
+static void zoom_factors_reset(void)
+{
+    s_zf.field  = 0;
+    s_zf.len    = 0;
+    s_zf.buf[0] = '\0';
+    s_zf.cursor = 0;
+}
+
+static void zoom_factors_load_field(void)
+{
+    float val = (s_zf.field == 0) ? s_zf.x_fact : s_zf.y_fact;
+    snprintf(s_zf.buf, sizeof(s_zf.buf), "%.4g", val);
+    s_zf.len    = (uint8_t)strlen(s_zf.buf);
+    s_zf.cursor = 0;
+}
+
+static void zoom_factors_commit_field(void)
+{
+    if (s_zf.len == 0) return;
+    float val = strtof(s_zf.buf, NULL);
+    if (val <= 0.0f) return;
+    if (s_zf.field == 0) s_zf.x_fact = val;
+    else                 s_zf.y_fact = val;
+}
+
+void ui_update_zoom_factors_display(void)
+{
+    char buf[32];
+    float vals[2] = { s_zf.x_fact, s_zf.y_fact };
+    for (int i = 0; i < 2; i++) {
+        if (ui_lbl_zoom_factors_rows[i] == NULL) continue;
+        if (i == (int)s_zf.field && s_zf.len > 0) {
+            snprintf(buf, sizeof(buf), "%s%s", zoom_factors_names[i], s_zf.buf);
+        } else {
+            char val_str[16];
+            snprintf(val_str, sizeof(val_str), "%.4g", vals[i]);
+            snprintf(buf, sizeof(buf), "%s%s", zoom_factors_names[i], val_str);
+        }
+        lv_label_set_text(ui_lbl_zoom_factors_rows[i], buf);
+    }
+}
+
+static void zoom_factors_update_highlight(void)
+{
+    for (int i = 0; i < 2; i++) {
+        if (ui_lbl_zoom_factors_rows[i] == NULL) continue;
+        lv_obj_set_style_text_color(ui_lbl_zoom_factors_rows[i],
+            (i == (int)s_zf.field) ? lv_color_hex(COLOR_YELLOW)
+                                   : lv_color_hex(COLOR_WHITE),
+            0);
+    }
+}
+
+/**
+ * @brief Positions the cursor over the active ZOOM FACTORS field.
+ *        Called from cursor_timer_cb — must NOT call lvgl_lock().
+ */
+void zoom_factors_cursor_update(void)
+{
+    if (zoom_factors_cursor_box == NULL) return;
+    if (ui_lbl_zoom_factors_rows[s_zf.field] == NULL) return;
+    uint32_t char_pos = (uint32_t)strlen(zoom_factors_names[s_zf.field])
+                      + s_zf.cursor;
+    cursor_place(zoom_factors_cursor_box, zoom_factors_cursor_inner,
+                 ui_lbl_zoom_factors_rows[s_zf.field], char_pos);
+}
+
+/*---------------------------------------------------------------------------
+ * Persist accessors
+ *---------------------------------------------------------------------------*/
+
+float graph_ui_get_zoom_x_fact(void) { return s_zf.x_fact; }
+float graph_ui_get_zoom_y_fact(void) { return s_zf.y_fact; }
+
+void graph_ui_set_zoom_facts(float x_fact, float y_fact)
+{
+    s_zf.x_fact = x_fact;
+    s_zf.y_fact = y_fact;
+}
+
+/*---------------------------------------------------------------------------
+ * Y= helpers called from calculator_core.c
+ *---------------------------------------------------------------------------*/
+
+/** Sync all Y= equation labels from graph_state after a persist load. */
+void graph_ui_sync_yeq_labels(void)
+{
+    for (int i = 0; i < GRAPH_NUM_EQ; i++)
+        lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+}
+
+/**
+ * @brief Insert @p ins into the active Y= equation at the cursor, restore
+ *        the Y= screen, and update the display.  Called from menu_insert_text,
+ *        math_menu_insert, and test_menu_insert in calculator_core.c when the
+ *        return mode is MODE_GRAPH_YEQ.
+ *
+ * Sets current_mode = MODE_GRAPH_YEQ and acquires lvgl_lock() internally.
+ */
+void graph_ui_yeq_insert(const char *ins)
+{
+    current_mode = MODE_GRAPH_YEQ;
+    char *eq = graph_state.equations[s_yeq.selected];
+    size_t ins_len = strlen(ins);
+    size_t eq_len  = strlen(eq);
+    if (eq_len + ins_len < 63) {
+        memmove(&eq[s_yeq.cursor_pos + ins_len], &eq[s_yeq.cursor_pos],
+                eq_len - s_yeq.cursor_pos + 1);
+        memcpy(&eq[s_yeq.cursor_pos], ins, ins_len);
+        s_yeq.cursor_pos += (uint8_t)ins_len;
+    }
+    lvgl_lock();
+    lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
+    yeq_reflow_rows();
+    yeq_cursor_update();
+    lvgl_unlock();
+}
+
+/*---------------------------------------------------------------------------
+ * nav_to — navigates to a graph-related screen from any current mode
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief Navigates to a graph-related screen from any current mode.
+ *
+ * Handles all hide/show/state-reset logic in one place.
+ * Pass MODE_NORMAL to press GRAPH: renders the graph canvas.
+ */
+void nav_to(CalcMode_t target)
+{
+    lvgl_lock();
+    hide_all_screens();
+    current_mode = target;
+
+    switch (target) {
+    case MODE_GRAPH_YEQ:
+        graph_state.active = false;
+        s_yeq.cursor_pos = (uint8_t)strlen(graph_state.equations[s_yeq.selected]);
+        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+        for (int i = 0; i < GRAPH_NUM_EQ; i++)
+            lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+        yeq_update_highlight();
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        break;
+
+    case MODE_GRAPH_RANGE:
+        graph_state.active = false;
+        range_field_reset();
+        range_load_field();
+        lv_obj_clear_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_range_display();
+        range_update_highlight();
+        range_cursor_update();
+        break;
+
+    case MODE_GRAPH_ZOOM:
+        graph_state.active = false;
+        zoom_menu_reset();
+        lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_zoom_display();
+        break;
+
+    case MODE_NORMAL:  /* TOKEN_GRAPH — show graph canvas and render */
+        graph_state.active = true;
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        break;
+
+    case MODE_GRAPH_TRACE:
+        graph_state.active = true;
+        s_trace.eq_idx = find_first_active_eq();
+        s_trace.x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
+        Graph_SetVisible(true);
+        Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
+        break;
+
+    default:
+        break;
+    }
+    lvgl_unlock();
+}
+
+/*---------------------------------------------------------------------------
+ * Per-mode token handlers
+ *---------------------------------------------------------------------------*/
+
+bool handle_yeq_mode(Token_t t)
+{
+    char *eq  = graph_state.equations[s_yeq.selected];
+    uint8_t eq_len = strlen(eq);
+    const char *append = NULL;
+    char num_buf[2] = {0, 0};
+
+    if (s_yeq.cursor_pos > eq_len) s_yeq.cursor_pos = eq_len;
+
+    switch (t) {
+    case TOKEN_GRAPH:
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_Y_EQUALS:
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return true;
+    case TOKEN_CLEAR:
+        eq[0]            = '\0';
+        s_yeq.cursor_pos = 0;
+        lvgl_lock();
+        lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_LEFT:
+        if (s_yeq.cursor_pos > 0) {
+            if (ExprUtil_MatrixTokenSizeBefore(eq, s_yeq.cursor_pos) == 3) {
+                s_yeq.cursor_pos -= 3;
+            } else {
+                do { s_yeq.cursor_pos--; }
+                while (s_yeq.cursor_pos > 0 &&
+                       ((uint8_t)eq[s_yeq.cursor_pos] & 0xC0) == 0x80);
+            }
+        }
+        lvgl_lock();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_RIGHT:
+        if (s_yeq.cursor_pos < eq_len) {
+            uint8_t mat = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, (uint8_t)eq_len);
+            if (mat) {
+                s_yeq.cursor_pos += mat;
+            } else {
+                uint8_t step = ExprUtil_Utf8CharSize(&eq[s_yeq.cursor_pos]);
+                s_yeq.cursor_pos += step ? step : 1;
+            }
+            if (s_yeq.cursor_pos > (uint8_t)eq_len) s_yeq.cursor_pos = (uint8_t)eq_len;
+        }
+        lvgl_lock();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_INS:
+        insert_mode = !insert_mode;
+        lvgl_lock();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_RANGE:
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_ZOOM:
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    case TOKEN_TRACE:
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    case TOKEN_DEL:
+        if (s_yeq.cursor_pos > 0) {
+            uint8_t prev;
+            uint8_t mat = ExprUtil_MatrixTokenSizeBefore(eq, s_yeq.cursor_pos);
+            if (mat) {
+                prev = s_yeq.cursor_pos - mat;
+            } else {
+                prev = s_yeq.cursor_pos;
+                do { prev--; }
+                while (prev > 0 && ((uint8_t)eq[prev] & 0xC0) == 0x80);
+            }
+            memmove(&eq[prev], &eq[s_yeq.cursor_pos],
+                    eq_len - s_yeq.cursor_pos + 1);
+            s_yeq.cursor_pos = prev;
+            lvgl_lock();
+            lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
+            yeq_reflow_rows();
+            yeq_cursor_update();
+            lvgl_unlock();
+        }
+        return true;
+    case TOKEN_UP:
+        if (s_yeq.selected > 0) s_yeq.selected--;
+        s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
+        lvgl_lock();
+        yeq_update_highlight();
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_ENTER:
+    case TOKEN_DOWN:
+        if (s_yeq.selected < GRAPH_NUM_EQ - 1) s_yeq.selected++;
+        s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
+        lvgl_lock();
+        yeq_update_highlight();
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_X_T:   append = "x";     break;
+    case TOKEN_0 ... TOKEN_9:
+        num_buf[0] = (char)((t - TOKEN_0) + '0');
+        append = num_buf;
+        break;
+    case TOKEN_DECIMAL: append = ".";     break;
+    case TOKEN_EE:      append = "*10^";  break;
+    case TOKEN_E_X:     append = "exp(";  break;
+    case TOKEN_TEN_X:   append = "10^(";  break;
+    case TOKEN_ADD:     append = "+";     break;
+    case TOKEN_SUB:     append = "-";     break;
+    case TOKEN_MULT:    append = "*";     break;
+    case TOKEN_DIV:     append = "/";     break;
+    case TOKEN_POWER:   append = "^";     break;
+    case TOKEN_L_PAR:   append = "(";     break;
+    case TOKEN_R_PAR:   append = ")";     break;
+    case TOKEN_SIN:     append = "sin(";  break;
+    case TOKEN_COS:     append = "cos(";  break;
+    case TOKEN_TAN:     append = "tan(";  break;
+    case TOKEN_ASIN:    append = "asin("; break;
+    case TOKEN_ACOS:    append = "acos("; break;
+    case TOKEN_ATAN:    append = "atan("; break;
+    case TOKEN_LN:      append = "ln(";   break;
+    case TOKEN_LOG:     append = "log(";  break;
+    case TOKEN_SQRT:    append = "\xE2\x88\x9A("; break;
+    case TOKEN_ABS:     append = "abs(";  break;
+    case TOKEN_SQUARE:  append = "^2";    break;
+    case TOKEN_PI:      append = "π";     break;
+    case TOKEN_NEG:     append = "-";     break;
+    case TOKEN_X_INV:   append = "^-1";   break;
+    case TOKEN_ANS:     append = "ANS";   break;
+    case TOKEN_MATH:
+        menu_open(TOKEN_MATH, MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_TEST:
+        menu_open(TOKEN_TEST, MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_MATRX:
+    case TOKEN_MTRX_A:
+    case TOKEN_MTRX_B:
+    case TOKEN_MTRX_C:
+        return true;
+    case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
+    case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
+    case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
+    case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
+    case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
+    case TOKEN_Z: {
+        static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        num_buf[0] = alpha_chars[t - TOKEN_A];
+        append = num_buf;
+        break;
+    }
+    default: break;
+    }
+
+    if (append != NULL) {
+        size_t len = strlen(append);
+        if (!insert_mode && len == 1 && s_yeq.cursor_pos < eq_len) {
+            uint8_t cur_size = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, (uint8_t)eq_len);
+            if (!cur_size) cur_size = ExprUtil_Utf8CharSize(&eq[s_yeq.cursor_pos]);
+            if (cur_size <= 1) {
+                eq[s_yeq.cursor_pos++] = append[0];
+            } else {
+                memmove(&eq[s_yeq.cursor_pos + 1],
+                        &eq[s_yeq.cursor_pos + cur_size],
+                        eq_len - s_yeq.cursor_pos - cur_size + 1);
+                eq[s_yeq.cursor_pos++] = append[0];
+            }
+            lvgl_lock();
+            lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
+            yeq_reflow_rows();
+            yeq_cursor_update();
+            lvgl_unlock();
+        } else if (eq_len + len < 63) {
+            memmove(&eq[s_yeq.cursor_pos + len], &eq[s_yeq.cursor_pos],
+                    eq_len - s_yeq.cursor_pos + 1);
+            memcpy(&eq[s_yeq.cursor_pos], append, len);
+            s_yeq.cursor_pos += (uint8_t)len;
+            lvgl_lock();
+            lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
+            yeq_reflow_rows();
+            yeq_cursor_update();
+            lvgl_unlock();
+        }
+    }
+    lvgl_lock();
+    ui_update_status_bar();
+    yeq_cursor_update();
+    lvgl_unlock();
+    return true;
+}
+
+bool handle_range_mode(Token_t t)
+{
+    switch (t) {
+    case TOKEN_0 ... TOKEN_9: {
+        char ch = (char)((t - TOKEN_0) + '0');
+        if (!insert_mode && s_range.cursor < s_range.len) {
+            s_range.buf[s_range.cursor++] = ch;
+        } else if (s_range.len < sizeof(s_range.buf) - 1) {
+            memmove(&s_range.buf[s_range.cursor + 1],
+                    &s_range.buf[s_range.cursor],
+                    s_range.len - s_range.cursor + 1);
+            s_range.buf[s_range.cursor++] = ch;
+            s_range.len++;
+        }
+        lvgl_lock();
+        ui_update_range_display();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+    }
+
+    case TOKEN_DECIMAL:
+        if (strchr(s_range.buf, '.') == NULL) {
+            char ch = '.';
+            if (!insert_mode && s_range.cursor < s_range.len) {
+                s_range.buf[s_range.cursor++] = ch;
+            } else if (s_range.len < sizeof(s_range.buf) - 1) {
+                memmove(&s_range.buf[s_range.cursor + 1],
+                        &s_range.buf[s_range.cursor],
+                        s_range.len - s_range.cursor + 1);
+                s_range.buf[s_range.cursor++] = ch;
+                s_range.len++;
+            }
+            lvgl_lock();
+            ui_update_range_display();
+            range_cursor_update();
+            lvgl_unlock();
+        }
+        return true;
+
+    case TOKEN_NEG:
+        if (s_range.len > 0 && s_range.buf[0] == '-') {
+            memmove(s_range.buf, s_range.buf + 1, s_range.len);
+            s_range.len--;
+        } else if (s_range.len < sizeof(s_range.buf) - 1) {
+            memmove(s_range.buf + 1, s_range.buf, s_range.len + 1);
+            s_range.buf[0] = '-';
+            s_range.len++;
+        }
+        s_range.cursor = s_range.len;
+        lvgl_lock();
+        ui_update_range_display();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_DEL:
+        if (s_range.cursor > 0) {
+            memmove(&s_range.buf[s_range.cursor - 1],
+                    &s_range.buf[s_range.cursor],
+                    s_range.len - s_range.cursor + 1);
+            s_range.len--;
+            s_range.cursor--;
+            lvgl_lock();
+            ui_update_range_display();
+            range_cursor_update();
+            lvgl_unlock();
+        }
+        return true;
+
+    case TOKEN_LEFT:
+        if (s_range.cursor > 0) s_range.cursor--;
+        lvgl_lock();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_RIGHT:
+        if (s_range.cursor < s_range.len) s_range.cursor++;
+        lvgl_lock();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_INS:
+        insert_mode = !insert_mode;
+        lvgl_lock();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_ENTER:
+    case TOKEN_DOWN:
+        range_commit_field();
+        if (s_range.field < 6) s_range.field++;
+        range_load_field();
+        lvgl_lock();
+        ui_update_range_display();
+        range_update_highlight();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_UP:
+        range_commit_field();
+        if (s_range.field > 0) s_range.field--;
+        range_load_field();
+        lvgl_lock();
+        ui_update_range_display();
+        range_update_highlight();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_ZOOM:
+        range_commit_field();
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+
+    case TOKEN_GRAPH:
+        range_commit_field();
+        nav_to(MODE_NORMAL);
+        return true;
+
+    case TOKEN_RANGE:
+        current_mode = MODE_NORMAL;
+        range_field_reset();
+        lvgl_lock();
+        hide_all_screens();
+        ui_update_range_display();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_CLEAR:
+        if (s_range.len > 0) {
+            s_range.len    = 0;
+            s_range.buf[0] = '\0';
+            s_range.cursor = 0;
+            lvgl_lock();
+            ui_update_range_display();
+            range_cursor_update();
+            lvgl_unlock();
+        } else {
+            current_mode = MODE_NORMAL;
+            range_field_reset();
+            lvgl_lock();
+            ui_update_range_display();
+            lv_obj_add_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
+            lvgl_unlock();
+        }
+        return true;
+
+    case TOKEN_Y_EQUALS:
+        range_commit_field();
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+
+    case TOKEN_TRACE:
+        range_commit_field();
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+
+    default:
+        lvgl_lock();
+        ui_update_status_bar();
+        range_cursor_update();
+        lvgl_unlock();
+        return true;
+    }
+}
+
+bool handle_zoom_mode(Token_t t)
+{
+    switch (t) {
+    case TOKEN_UP:
+        if (s_zoom.item_cursor > 0) {
+            s_zoom.item_cursor--;
+        } else if (s_zoom.scroll_offset > 0) {
+            s_zoom.scroll_offset--;
+        }
+        lvgl_lock();
+        ui_update_zoom_display();
+        lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if ((int)(s_zoom.scroll_offset + s_zoom.item_cursor) + 1 < ZOOM_ITEM_COUNT) {
+            if (s_zoom.item_cursor < MENU_VISIBLE_ROWS - 1)
+                s_zoom.item_cursor++;
+            else if (s_zoom.scroll_offset + MENU_VISIBLE_ROWS < ZOOM_ITEM_COUNT)
+                s_zoom.scroll_offset++;
+        }
+        lvgl_lock();
+        ui_update_zoom_display();
+        lvgl_unlock();
+        return true;
+    case TOKEN_ENTER:
+        zoom_execute_item((uint8_t)(s_zoom.scroll_offset + s_zoom.item_cursor + 1));
+        return true;
+    case TOKEN_CLEAR:
+    case TOKEN_ZOOM:
+        zoom_menu_reset();
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return true;
+    case TOKEN_Y_EQUALS:
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_GRAPH:
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_TRACE:
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    case TOKEN_1 ... TOKEN_9: {
+        uint8_t item = (uint8_t)(t - TOKEN_0);
+        if (item <= ZOOM_ITEM_COUNT)
+            zoom_execute_item(item);
+        return true;
+    }
+    default:
+        zoom_menu_reset();
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return false; /* fall through to main switch */
+    }
+}
+
+bool handle_zoom_factors_mode(Token_t t)
+{
+    switch (t) {
+    case TOKEN_0 ... TOKEN_9: {
+        char ch = (char)((t - TOKEN_0) + '0');
+        if (!insert_mode && s_zf.cursor < s_zf.len) {
+            s_zf.buf[s_zf.cursor++] = ch;
+        } else if (s_zf.len < sizeof(s_zf.buf) - 1) {
+            memmove(&s_zf.buf[s_zf.cursor + 1],
+                    &s_zf.buf[s_zf.cursor],
+                    s_zf.len - s_zf.cursor + 1);
+            s_zf.buf[s_zf.cursor++] = ch;
+            s_zf.len++;
+        }
+        lvgl_lock();
+        ui_update_zoom_factors_display();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+    }
+
+    case TOKEN_DECIMAL:
+        if (strchr(s_zf.buf, '.') == NULL) {
+            char ch = '.';
+            if (!insert_mode && s_zf.cursor < s_zf.len) {
+                s_zf.buf[s_zf.cursor++] = ch;
+            } else if (s_zf.len < sizeof(s_zf.buf) - 1) {
+                memmove(&s_zf.buf[s_zf.cursor + 1],
+                        &s_zf.buf[s_zf.cursor],
+                        s_zf.len - s_zf.cursor + 1);
+                s_zf.buf[s_zf.cursor++] = ch;
+                s_zf.len++;
+            }
+            lvgl_lock();
+            ui_update_zoom_factors_display();
+            zoom_factors_cursor_update();
+            lvgl_unlock();
+        }
+        return true;
+
+    case TOKEN_DEL:
+        if (s_zf.cursor > 0) {
+            memmove(&s_zf.buf[s_zf.cursor - 1],
+                    &s_zf.buf[s_zf.cursor],
+                    s_zf.len - s_zf.cursor + 1);
+            s_zf.len--;
+            s_zf.cursor--;
+            lvgl_lock();
+            ui_update_zoom_factors_display();
+            zoom_factors_cursor_update();
+            lvgl_unlock();
+        }
+        return true;
+
+    case TOKEN_LEFT:
+        if (s_zf.cursor > 0) s_zf.cursor--;
+        lvgl_lock();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_RIGHT:
+        if (s_zf.cursor < s_zf.len) s_zf.cursor++;
+        lvgl_lock();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_INS:
+        insert_mode = !insert_mode;
+        lvgl_lock();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_ENTER:
+    case TOKEN_DOWN:
+        zoom_factors_commit_field();
+        if (s_zf.field < 1) s_zf.field++;
+        zoom_factors_load_field();
+        lvgl_lock();
+        ui_update_zoom_factors_display();
+        zoom_factors_update_highlight();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_UP:
+        zoom_factors_commit_field();
+        if (s_zf.field > 0) s_zf.field--;
+        zoom_factors_load_field();
+        lvgl_lock();
+        ui_update_zoom_factors_display();
+        zoom_factors_update_highlight();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_ZOOM:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        zoom_menu_reset();
+        current_mode = MODE_GRAPH_ZOOM;
+        lvgl_lock();
+        hide_all_screens();
+        lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_zoom_display();
+        lvgl_unlock();
+        return true;
+
+    case TOKEN_CLEAR:
+        if (s_zf.len > 0) {
+            s_zf.len    = 0;
+            s_zf.buf[0] = '\0';
+            s_zf.cursor = 0;
+            lvgl_lock();
+            ui_update_zoom_factors_display();
+            zoom_factors_cursor_update();
+            lvgl_unlock();
+        } else {
+            zoom_factors_reset();
+            current_mode = MODE_GRAPH_ZOOM;
+            zoom_menu_reset();
+            lvgl_lock();
+            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+            ui_update_zoom_display();
+            lvgl_unlock();
+        }
+        return true;
+
+    case TOKEN_Y_EQUALS:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+
+    case TOKEN_RANGE:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+
+    case TOKEN_GRAPH:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        nav_to(MODE_NORMAL);
+        return true;
+
+    case TOKEN_TRACE:
+        zoom_factors_commit_field();
+        zoom_factors_reset();
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+
+    default:
+        lvgl_lock();
+        zoom_factors_cursor_update();
+        lvgl_unlock();
+        return true;
+    }
+}
+
+bool handle_zbox_mode(Token_t t)
+{
+    switch (t) {
+    case TOKEN_LEFT:
+        if (s_zbox.px > 0) s_zbox.px--;
+        lvgl_lock();
+        Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_RIGHT:
+        if (s_zbox.px < GRAPH_W - 1) s_zbox.px++;
+        lvgl_lock();
+        Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_UP:
+        if (s_zbox.py > 0) s_zbox.py--;
+        lvgl_lock();
+        Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if (s_zbox.py < GRAPH_H - 1) s_zbox.py++;
+        lvgl_lock();
+        Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_ENTER:
+        if (!s_zbox.corner1_set) {
+            s_zbox.px1         = s_zbox.px;
+            s_zbox.py1         = s_zbox.py;
+            s_zbox.corner1_set = true;
+            lvgl_lock();
+            Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set, angle_degrees);
+            lvgl_unlock();
+        } else {
+            int32_t x_lo = s_zbox.px1 < s_zbox.px ? s_zbox.px1 : s_zbox.px;
+            int32_t x_hi = s_zbox.px1 < s_zbox.px ? s_zbox.px  : s_zbox.px1;
+            int32_t y_lo = s_zbox.py1 < s_zbox.py ? s_zbox.py1 : s_zbox.py;
+            int32_t y_hi = s_zbox.py1 < s_zbox.py ? s_zbox.py  : s_zbox.py1;
+            if (x_hi > x_lo && y_hi > y_lo) {
+                float x_range   = graph_state.x_max - graph_state.x_min;
+                float y_range   = graph_state.y_max - graph_state.y_min;
+                float new_x_min = graph_state.x_min + (float)x_lo / (float)(GRAPH_W - 1) * x_range;
+                float new_x_max = graph_state.x_min + (float)x_hi / (float)(GRAPH_W - 1) * x_range;
+                float new_y_max = graph_state.y_max - (float)y_lo / (float)(GRAPH_H - 1) * y_range;
+                float new_y_min = graph_state.y_max - (float)y_hi / (float)(GRAPH_H - 1) * y_range;
+                graph_state.x_min = new_x_min;
+                graph_state.x_max = new_x_max;
+                graph_state.y_min = new_y_min;
+                graph_state.y_max = new_y_max;
+            }
+            current_mode       = MODE_NORMAL;
+            s_zbox.corner1_set = false;
+            lvgl_lock();
+            Graph_ClearTrace();
+            Graph_Render(angle_degrees);
+            lvgl_unlock();
+        }
+        return true;
+    case TOKEN_CLEAR:
+        s_zbox.corner1_set = false;
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return true;
+    case TOKEN_ZOOM:
+        s_zbox.corner1_set = false;
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_GRAPH:
+        s_zbox.corner1_set = false;
+        nav_to(MODE_NORMAL);
+        return true;
+    case TOKEN_Y_EQUALS:
+        s_zbox.corner1_set = false;
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        s_zbox.corner1_set = false;
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_TRACE:
+        s_zbox.corner1_set = false;
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    default:
+        s_zbox.corner1_set = false;
+        nav_to(MODE_NORMAL);
+        return false; /* fall through to main switch */
+    }
+}
+
+bool handle_trace_mode(Token_t t)
+{
+    float step = (graph_state.x_max - graph_state.x_min) / (float)(GRAPH_W - 1);
+    switch (t) {
+    case TOKEN_LEFT:
+        if (s_trace.x > graph_state.x_min) s_trace.x -= step;
+        lvgl_lock();
+        Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_RIGHT:
+        if (s_trace.x < graph_state.x_max) s_trace.x += step;
+        lvgl_lock();
+        Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_UP:
+        for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
+            uint8_t idx = (s_trace.eq_idx + GRAPH_NUM_EQ - i) % GRAPH_NUM_EQ;
+            if (strlen(graph_state.equations[idx]) > 0) {
+                s_trace.eq_idx = idx;
+                break;
+            }
+        }
+        lvgl_lock();
+        Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
+            uint8_t idx = (s_trace.eq_idx + i) % GRAPH_NUM_EQ;
+            if (strlen(graph_state.equations[idx]) > 0) {
+                s_trace.eq_idx = idx;
+                break;
+            }
+        }
+        lvgl_lock();
+        Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_TRACE:
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        Graph_ClearTrace();
+        Graph_Render(angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_Y_EQUALS:
+        Graph_ClearTrace();
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        Graph_ClearTrace();
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_ZOOM:
+        Graph_ClearTrace();
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    case TOKEN_GRAPH:
+        Graph_ClearTrace();
+        nav_to(MODE_NORMAL);
+        return true;
+    default:
+        current_mode = MODE_NORMAL;
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return false; /* fall through to main switch */
+    }
+}

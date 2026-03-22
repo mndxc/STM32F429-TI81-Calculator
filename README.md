@@ -44,9 +44,8 @@ STAT is not yet implemented.
 | Build and flash the firmware | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) |
 | Understand the architecture | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | Read the full technical reference | [docs/TECHNICAL.md](docs/TECHNICAL.md) |
-| Run the host tests | [docs/GETTING_STARTED.md § Host Tests](docs/GETTING_STARTED.md#5-host-tests) |
-| See open quality issues | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) |
-| See open source recommendations | [docs/OPEN_SOURCE_RECOMMENDATIONS.md](docs/OPEN_SOURCE_RECOMMENDATIONS.md) |
+| Run the host tests | [docs/GETTING_STARTED.md § Host Tests](docs/GETTING_STARTED.md#6-host-tests) |
+| See open quality & readiness issues | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) |
 | Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ### Datasheets

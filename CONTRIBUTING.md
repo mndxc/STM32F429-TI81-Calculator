@@ -51,7 +51,7 @@ To keep the codebase consistent, please follow these conventions:
     - Use `const` for immutable data to save RAM and improve safety.
 - **Documentation:**
     - Use Doxygen-style comments for public header functions.
-    - Keep `CLAUDE.md` and `TECHNICAL.md` updated with any architectural changes.
+    - Keep `CLAUDE.md`, `TECHNICAL.md`, and `docs/ARCHITECTURE.md` updated with any architectural changes.
 
 ## Feedback
 

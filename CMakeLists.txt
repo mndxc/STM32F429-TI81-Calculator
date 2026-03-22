@@ -86,6 +86,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Src/prgm_exec.c
     App/Src/ui_matrix.c
     App/Src/ui_prgm.c
+    App/Src/graph_ui.c
 
     # Add all LVGL Source files
     ${LVGL_SOURCES}

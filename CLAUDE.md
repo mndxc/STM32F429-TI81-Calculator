@@ -10,14 +10,57 @@ It also provides continuity for AI-assisted development sessions, summarising al
 
 **[QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md)** — read this before starting any significant work.
 
-It contains the results of a full professional code review (2026-03-20), a rated scorecard across
-10 dimensions, and 10 prioritised improvement items (P1–P10). When writing new code or refactoring
-existing code, check whether the change addresses or risks regressing any open item.
+It contains the results of full professional code reviews, a rated scorecard across 10 dimensions,
+17 prioritised items (P1–P17), and open-source readiness status. When writing new code or
+refactoring, check whether the change addresses or risks regressing any open item.
 
-Current overall rating: **80–88% production-ready** (up from 60–70%; see docs/QUALITY_TRACKER.md for full
-history). Key remaining gaps: PRGM backend incomplete (P10), `calculator_core.c` still dominant
-file (P2), scattered static state (P3), `-Werror` not yet enforced (P6). Key strengths:
-documentation, RTOS integration, FLASH/memory-safety correctness, 301-test host suite with CI.
+Current overall rating: **83–89% production-ready** (up from 60–70%; see docs/QUALITY_TRACKER.md
+for full history). Key remaining gaps: PRGM backend incomplete (P10), `calculator_core.c` still
+dominant file (P2), `-Werror` not yet enforced (P6), contributor docs missing (P12–P17). Key
+strengths: documentation, RTOS integration, FLASH/memory-safety correctness, 301-test host suite
+with CI.
+
+---
+
+## Complexity Management Requirement (standing rule — applies to every commit)
+
+**The codebase must not grow in complexity faster than it is simplified.** This is a hard constraint, not a guideline.
+
+### After every commit
+
+Before closing a session or presenting a commit as complete, perform a **complexity impact review**:
+
+1. **State what changed** — which files were touched, roughly how many lines were added/removed.
+2. **Rate the complexity delta** — one of:
+   - `neutral` — no net change in cognitive load (e.g. pure refactor, test addition, config change)
+   - `increase` — new logic, new state, new abstractions, or a file grew significantly
+   - `decrease` — logic removed, files split, dead code deleted, abstractions simplified
+3. **If `increase`:** immediately add one or more follow-up items to the "Next session priorities" list in this file describing exactly how to pay down the complexity debt introduced. Each item must be concrete and actionable (name the file, the function, the technique). Do not leave an `increase` commit without a follow-up plan.
+
+### What counts as a complexity increase
+
+- A file grows by more than ~100 lines without a corresponding extraction or removal elsewhere
+- A new module is added without a clear, bounded responsibility
+- New global or shared state is introduced
+- A function exceeds ~80–100 lines
+- A new conditional branch is added to an already-large switch or if-chain
+- A workaround or special-case is added rather than fixing the underlying model
+
+### What counts as paying down complexity
+
+- Extracting a cohesive group of functions into a new module (following the `ui_matrix.c` / `expr_util.c` pattern)
+- Replacing magic numbers or colours with named constants
+- Reducing a large switch to a dispatch table or handler chain
+- Deleting dead code or unused state
+- Splitting a multi-responsibility function into focused helpers
+
+### Format for the follow-up item
+
+Add to "Next session priorities" with a tag `[complexity]`:
+
+```
+**[complexity] <short title>** — <one sentence explaining what grew and why>. <one sentence describing the planned simplification>. Files: <file list>.
+```
 
 ---
 
@@ -87,8 +130,16 @@ A TI-81 calculator recreation running on an STM32F429I-DISC1 discovery board.
 
 ### Configure and build (command line)
 
-VSCode uses the `cube-cmake` wrapper from the stm32-cube-clangd extension, which sets up the toolchain automatically. In a plain terminal the toolchain must be on PATH first:
+VSCode uses the `cube-cmake` wrapper from the stm32-cube-clangd extension, which sets up the toolchain automatically. In a plain terminal the toolchain must be on PATH first.
 
+`CMakePresets.json` at the repo root wraps the toolchain file and generator, so the shorthand works:
+```bash
+export PATH="$HOME/Library/Application Support/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin:$PATH"
+cmake --preset Debug
+cmake --build build/Debug
+```
+
+Equivalent explicit form (same effect, no presets):
 ```bash
 export PATH="$HOME/Library/Application Support/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin:$PATH"
 cmake -B build/Debug \
@@ -120,7 +171,6 @@ OpenOCD uses the ST-Link on the discovery board directly. No PATH setup needed �
 
 **After flashing:** do a full USB power cycle (unplug/replug) if the display shows white after reset — the ILI9341 does not always recover cleanly from SWD reset alone.
 
-### No tests
 ### Host Tests
 
 ```bash
@@ -477,6 +527,47 @@ DRAW
 6:DrawF
 7:Shade(
 ```
+
+### PRGM editor sub-menus
+
+Accessible only while editing a program (PRGM → EDIT → select a slot). A three-tab bar
+(CTL / I/O / EXEC) replaces the standard calculator interface. Tab LEFT/RIGHT switches tabs;
+UP/DOWN highlights items; ENTER or a number key inserts the selected token at the cursor.
+Overflow indicator (↓/↑) overwrites the `:` prefix glyph, same as MATH and ZOOM menus.
+
+**CTL tab:**
+```
+CTL I/O EXEC
+1:Lbl
+2:Goto
+3:If
+4:IS>(
+5:DS<(
+6:Pause
+7↓End
+8:Stop
+```
+
+**I/O tab:**
+```
+CTL I/O EXEC
+1:Disp
+2:Input
+3:DispHome
+4:DispGraph
+5:ClrHome
+```
+
+**EXEC tab:**
+```
+CTL I/O EXEC
+1:Prgm1
+2:Prgm2
+…
+```
+Lists all 37 program slots with user-assigned names (same `N:PrgmN  USER_NAME` format as the
+main PRGM EXEC screen). Selecting a slot inserts a `prgm<name>` subroutine-call token at the
+cursor. Overflow indicators (↓/↑) overwrite the `:` prefix glyph when the list scrolls.
 
 ---
 

@@ -30,6 +30,12 @@ extern bool angle_degrees;
 extern lv_obj_t *ui_matrix_screen;
 extern lv_obj_t *ui_matrix_edit_screen;
 
+/* Graph screen pointers (defined in graph_ui.c) */
+extern lv_obj_t *ui_graph_yeq_screen;
+extern lv_obj_t *ui_graph_range_screen;
+extern lv_obj_t *ui_graph_zoom_screen;
+extern lv_obj_t *ui_graph_zoom_factors_screen;
+
 /* Shared UI functions */
 void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner, lv_obj_t *row_label, uint32_t char_pos);
 void cursor_box_create(lv_obj_t *parent, bool is_overlay, lv_obj_t **out_box, lv_obj_t **out_inner);
@@ -37,6 +43,10 @@ void hide_all_screens(void);
 void nav_to(CalcMode_t target);
 void Update_Calculator_Display(void);
 CalcMode_t menu_close(Token_t menu_token);
+void menu_open(Token_t menu_token, CalcMode_t return_to);
+void ui_update_status_bar(void);
+void graph_ui_yeq_insert(const char *ins);
+void ui_update_zoom_display(void);
 void lvgl_lock(void);
 void lvgl_unlock(void);
 lv_obj_t *screen_create(lv_obj_t *parent);

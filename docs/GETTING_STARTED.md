@@ -79,14 +79,14 @@ To compile the code and "flash" it onto the STM32, you need the right tools on y
 2.  **Install CMake** (3.22 or later) and **Ninja** (optional but faster):
     * macOS: `brew install cmake ninja`
     * Linux: `sudo apt install cmake ninja-build`
-3.  **Install ST-LINK tools** to flash the board:
-    * macOS: `brew install stlink`
-    * Linux: `sudo apt install stlink-tools`
+3.  **Install OpenOCD** to flash the board:
+    * macOS: `brew install open-ocd`
+    * Linux: `sudo apt install openocd`
 4.  **Install VSCode** and the **stm32-cube-clangd** extension for IntelliSense.
 
 ---
 
-## 4. Building the Project
+## 5. Building the Project
 Once your software is ready, follow these steps to get the Neo-81 firmware running:
 
 1.  **Clone the Repository:**
@@ -100,21 +100,30 @@ Once your software is ready, follow these steps to get the Neo-81 firmware runni
     * Install the **stm32-cube-clangd** extension for IntelliSense (disable the Microsoft C/C++ extension for this workspace if prompted).
 
 3.  **Build:**
+
+    The project includes a `CMakePresets.json` that configures the ARM toolchain automatically.
+
+    **VSCode (recommended):** Use the CMake build button in the status bar — the stm32-cube-clangd extension sets up the toolchain automatically.
+
+    **Command line** (ARM toolchain must be on PATH):
     ```bash
-    cmake -B build -DCMAKE_BUILD_TYPE=Debug
-    cmake --build build --parallel
+    export PATH="$HOME/Library/Application Support/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin:$PATH"
+    cmake --preset Debug
+    cmake --build build/Debug
     ```
 
 4.  **Flash:**
     * Connect your STM32F4-Discovery board via USB.
-    * Use the **Run and Debug** panel in VSCode, or flash manually with `st-flash`:
+    * Use the **Run and Debug** panel in VSCode, or flash manually with OpenOCD:
     ```bash
-    st-flash write build/*.bin 0x8000000
+    openocd \
+      -f /opt/homebrew/Cellar/open-ocd/0.12.0_1/share/openocd/scripts/board/stm32f429disc1.cfg \
+      -c "program build/Debug/STM32F429-TI81-Calculator.elf verify reset exit"
     ```
 
 ---
 
-## 5. Host Tests
+## 6. Host Tests
 
 The project includes a 301-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, and persistent storage round-trips.
 
@@ -129,9 +138,13 @@ All three executables exit `0` on a full pass. These tests run automatically on 
 
 ---
 
-## 6. Troubleshooting
-* **Screen is blank?** Check your SPI/Parallel wiring and ensure your configuration match your physical wiring.
-* **Keys not responding?** Verify that the ribbon cable is seated firmly and the GPIO pins in your configuration match your physical wiring.
+## 7. Troubleshooting
+
+* **Screen is white after flashing?** Do a full USB power cycle (unplug and replug). The ILI9341 in RGB interface mode does not always recover cleanly from an SWD reset alone.
+* **Float values show as empty strings?** The linker flag `-u _printf_float` is required when using `--specs=nano.specs`. Check that `CMakeLists.txt` still contains it — it can be silently lost during a CMake refactor.
+* **Keys not responding?** Verify that the ribbon cable is seated firmly. Use a multimeter in continuity mode to trace each ribbon wire to its key matrix row/column, then match it to the GPIO table in section 2 above.
+* **GDB can't connect after using 2nd+ON (power-off screen)?** The firmware blocks on the keypad queue rather than entering true Stop mode on the discovery board prototype. Press ON to wake it, then reconnect GDB.
+* **Build fails with "arm-none-eabi-gcc not found"?** The ARM toolchain must be on your PATH. If using the command-line build, run the `export PATH=...` step shown in section 5 first. If using VSCode, ensure the stm32-cube-clangd extension is installed — it manages the toolchain automatically.
 
 ---
 

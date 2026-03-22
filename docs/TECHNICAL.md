@@ -370,7 +370,7 @@ set(CMAKE_EXE_LINKER_FLAGS "... --specs=nano.specs -u _printf_float")
 - STM32CubeMX (to generate vendor library sources)
 - arm-none-eabi-gcc
 - CMake 3.22+
-- ST-LINK for flashing
+- OpenOCD for flashing
 
 ### Step 1 — Generate vendor sources
 
@@ -391,15 +391,23 @@ will reset them.
 
 ### Step 2 — Build
 
+The project includes a `CMakePresets.json` that configures the ARM toolchain automatically.
+
+**VSCode (recommended):** Use the CMake build button — the stm32-cube-clangd extension handles the toolchain.
+
+**Command line** (ARM toolchain must be on PATH):
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
+export PATH="$HOME/Library/Application Support/stm32cube/bundles/gnu-tools-for-stm32/14.3.1+st.2/bin:$PATH"
+cmake --preset Debug
+cmake --build build/Debug
 ```
 
 ### Step 3 — Flash
 
 ```bash
-st-flash write build/STM32F429-TI81-Calculator.bin 0x08000000
+openocd \
+  -f /opt/homebrew/Cellar/open-ocd/0.12.0_1/share/openocd/scripts/board/stm32f429disc1.cfg \
+  -c "program build/Debug/STM32F429-TI81-Calculator.elf verify reset exit"
 ```
 
 ---
