@@ -36,7 +36,7 @@
 | **CI & Testing** | |
 | Firmware CI build on push/PR | ✅ Done |
 | Host test suite (301 tests, 3 executables, 80.28% branch coverage) | ✅ Done — B+ rating; A requires property-based tests (P1) |
-| `-Werror` enabled | 🔴 Open — P6 |
+| `-Werror` enabled | ✅ Done — P6 resolved 2026-03-21 |
 | PRGM backend hardware validation | 🔴 Open — P10 |
 | **Code Quality** | |
 | `const` on `TI81_LookupTable` | ✅ Done |
@@ -51,12 +51,12 @@
 | STM32 GPIO wiring table | ✅ Done |
 | Physical TI-81 ribbon ↔ wire mapping | 🟡 Partial — P7 (ribbon pad mapping unverified) |
 | **Contributor Documentation** | |
-| Architecture diagram | 🔴 Open — P12 |
-| Testing guide (`docs/TESTING.md`) | 🔴 Open — P13 |
+| Architecture diagram | ✅ Done — P12 resolved 2026-03-21 |
+| Testing guide (`docs/TESTING.md`) | ✅ Done — P13 resolved 2026-03-21 |
 | PRGM completion roadmap | 🔴 Open — P14 |
 | Expression pipeline walkthrough | 🔴 Open — P15 |
 | FLASH sector map in onboarding docs | ✅ Done — P16 |
-| Troubleshooting guide | 🔴 Open — P17 |
+| Troubleshooting guide | ✅ Done — P17 resolved 2026-03-21 |
 
 ---
 
@@ -126,12 +126,12 @@ Two reference views over the open issues. Use these to decide what to tackle nex
 |---|---|---|---|
 | 1 | ~~P8 — Float printf guard~~ | ~~30 min~~ | ✅ Resolved 2026-03-21 |
 | 2 | ~~P16 — FLASH sector map in docs~~ | ~~30 min~~ | ✅ Resolved 2026-03-21 |
-| 3 | P17 — Troubleshooting guide | 1–2 hrs | Reorganise existing gotchas from `CLAUDE.md`; no new content needed |
-| 4 | P13 — Testing guide | 1–2 hrs | Material already exists in `CLAUDE.md` and test file headers |
-| 5 | P12 — Architecture diagram | 2–3 hrs | One Mermaid diagram; no code changes |
+| 3 | ~~P17 — Troubleshooting guide~~ | ~~1–2 hrs~~ | ✅ Resolved 2026-03-21 |
+| 4 | ~~P13 — Testing guide~~ | ~~1–2 hrs~~ | ✅ Resolved 2026-03-21 |
+| 5 | ~~P12 — Architecture diagram~~ | ~~2–3 hrs~~ | ✅ Resolved 2026-03-21 |
 | 6 | P15 — Expression pipeline walkthrough | 2–3 hrs | Worked example in `TECHNICAL.md`; requires careful reading of `calc_engine.c` |
 | 7 | P14 — PRGM completion roadmap | 2–4 hrs | Map backend gaps against 28-item test plan; planning doc only |
-| 8 | P6 — Enable `-Werror` | 2–8 hrs | Config change; unknown current warning count is the risk variable |
+| 8 | ~~P6 — Enable `-Werror`~~ | ~~2–8 hrs~~ | ✅ Resolved 2026-03-21 |
 | 9 | P1 — Test suite to A rating | 4–8 hrs | Property-based tests are well-scoped; PRGM arm blocked until backend complete |
 | 10 | ~~P2 — Extract `graph_ui.c`~~ | ~~4–8 hrs~~ | ✅ Resolved 2026-03-21 |
 | 11 | P3 — Handler state params (Phase 3) | 8–16 hrs | Every handler signature changes; high regression risk |
@@ -144,19 +144,19 @@ Two reference views over the open issues. Use these to decide what to tackle nex
 |---|---|---|---|
 | 1 | ~~P2 — Extract `graph_ui.c`~~ | ~~Code organisation B→B+~~ | ✅ Resolved 2026-03-21. Code organisation moved to B+. Function complexity unchanged at C+ (file reorganisation does not decompose long handlers). |
 | 2 | P10 — PRGM hardware validation | Testing; feature completeness | Largest remaining feature gap; validating the backend is the single biggest milestone |
-| 3 | P6 — Enable `-Werror` | CI quality gate | Structural gate: prevents all future warning regressions; protection value exceeds point gain |
+| 3 | ~~P6 — Enable `-Werror`~~ | ~~CI quality gate~~ | ✅ Resolved 2026-03-21 |
 | 4 | P1 — Test suite to A rating | Testing B+→A | Moves the only B+ to A; property-based tests harden expression engine edge cases |
 | 5 | P3 — Handler state params (Phase 3) | Code organisation; enables unit testing | Once handlers accept `State_t *`, they become host-testable in isolation — unlocks a new coverage tier |
-| 6 | P12 — Architecture diagram | Open-source onboarding | First thing a new contributor looks for; dramatically lowers the barrier to understanding RTOS/module structure |
+| 6 | ~~P12 — Architecture diagram~~ | ~~Open-source onboarding~~ | ✅ Resolved 2026-03-21 |
 | 7 | P14 — PRGM completion roadmap | Contributor enablement | Without a concrete task list, community effort cannot be directed at the largest incomplete feature |
-| 8 | P13 — Testing guide | Onboarding; test suite growth | Without it, contributors can read tests but cannot add them confidently |
+| 8 | ~~P13 — Testing guide~~ | ~~Onboarding; test suite growth~~ | ✅ Resolved 2026-03-21 |
 | 9 | P15 — Expression pipeline walkthrough | Contributor safety | Most algorithmically dense file; undocumented behaviour here is the most likely source of subtle community PR bugs |
 | 10 | ~~P16 — FLASH sector map in docs~~ | ~~Hardware safety~~ | ✅ Resolved 2026-03-21 |
-| 11 | P17 — Troubleshooting guide | First-contact friction | Reduces the most common new-builder failures; improves open-source engagement |
+| 11 | ~~P17 — Troubleshooting guide~~ | ~~First-contact friction~~ | ✅ Resolved 2026-03-21 |
 | 12 | ~~P8 — Float printf guard~~ | ~~Silent failure prevention~~ | ✅ Resolved 2026-03-21 |
 | 13 | P7 — Physical wiring table | Hardware replication | Relevant only to contributors replicating the physical build; STM32 GPIO side already documented |
 
-**Sweet spot** — highest impact for least effort: **P6, P12, P13, P17** — documentation and config items that close most open-source onboarding gaps and add a permanent CI quality gate. (P8, P16 resolved 2026-03-21.)
+**Sweet spot** — highest impact for least effort: (P6, P12, P13, P17, P8, P16 resolved 2026-03-21.)
 
 ---
 
@@ -312,7 +312,7 @@ Modify the 4 remaining handlers in `calculator_core.c` (`handle_math_menu`, `han
 2. Add `-Werror` in `CMakeLists.txt` (App sources only; suppress for CubeMX/LVGL sources via `target_compile_options`)
 3. Add `-DCMAKE_BUILD_TYPE=Debug` to the CI configure step
 
-**Status:** Partially resolved (2026-03-20 — `-Wall -Wextra` added; `-Werror` not yet set)
+**Status:** ✅ Resolved (2026-03-21 — `-Werror` applied selectively to `App/` sources via `set_source_files_properties` in `CMakeLists.txt`)
 
 ---
 
@@ -367,7 +367,7 @@ No visual diagram shows module dependencies, data flow, or RTOS task boundaries.
 
 Suitable for embedding in `README.md` or a standalone `docs/ARCHITECTURE.md`.
 
-**Status:** Open
+**Status:** ✅ Resolved (2026-03-21 — Mermaid diagrams for RTOS/module structure added to `docs/ARCHITECTURE.md`)
 
 ---
 
@@ -384,7 +384,7 @@ Suitable for embedding in `README.md` or a standalone `docs/ARCHITECTURE.md`.
 - Coverage expectations (>80% branch coverage on `calc_engine.c` required; run with `-DCOVERAGE=ON`)
 - Link to `prgm_manual_tests.md` for the PRGM hardware test protocol
 
-**Status:** Open
+**Status:** ✅ Resolved (2026-03-21 — `docs/TESTING.md` created covering host tests, manual PRGM protocol, and coverage)
 
 ---
 
@@ -433,7 +433,7 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 - GDB connection during Stop mode
 - OpenOCD not finding the board
 
-**Status:** Open
+**Status:** ✅ Resolved (2026-03-21 — `docs/TROUBLESHOOTING.md` created covering float printf, white screen, GDB, and keypad)
 
 ---
 
@@ -441,6 +441,10 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 
 | Item | Resolution | Date |
 |---|---|---|
+| P17 — Troubleshooting guide | `docs/TROUBLESHOOTING.md` created covering float printf, white screen, GDB, and keypad | 2026-03-21 |
+| P13 — Testing guide | `docs/TESTING.md` created covering host tests, manual PRGM protocol, and coverage | 2026-03-21 |
+| P12 — Architecture diagram | Mermaid diagrams for RTOS/module structure added to `docs/ARCHITECTURE.md` | 2026-03-21 |
+| P6 — Enable `-Werror` | `-Werror` applied selectively to `App/` sources via `set_source_files_properties` in `CMakeLists.txt`; one unused parameter fix in `lv_port_indev.c` | 2026-03-21 |
 | P2 — `calculator_core.c` too large | `graph_ui.c` (1,579 LOC) + `graph_ui.h` extracted. All 6 graph handler functions, `nav_to`, `ui_init_graph_screens`, ~20 private helpers, and 6 state structs moved. `calculator_core.c` reduced from 3,603 → 1,989 LOC (−45%); from 5,820 → 1,989 overall (−66%). Code organisation B → B+. Three minor architectural compromises documented in P2 issue entry above. 301/301 host tests pass. | 2026-03-21 |
 | P8 — Float printf runtime guard | Startup assertion in `App_DefaultTask_Run()`: `snprintf(buf, 8, "%.2f", 1.5f)` — halts with 10 Hz heartbeat LED blink if `-u _printf_float` is missing | 2026-03-21 |
 | P4 — Magic numbers: colours | `ui_palette.h` created with 14 named constants; inline hex literals replaced across `calculator_core.c`, `graph.c`, `app_init.c`, `ui_prgm.c`, `ui_matrix.c`; one intentional exception (trace crosshair green in `graph.c`) | 2026-03-21 |
@@ -472,3 +476,4 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 | 2026-03-21 | Antigravity AI | Session 6: `graph_ui.c` extraction (P2), float printf startup guard (P8), FLASH sector map docs (P16) resolved |
 | 2026-03-21 | Antigravity AI | Session 7: Project update procedure integrated (workflow, documents, guidelines) |
 | 2026-03-21 | Antigravity AI | Session 8/9: Global Hard QUIT navigation implemented; IDE/Build fixes (IntelliSense header fix, recursive include resolve, debug config fix, CMake build fix) |
+| 2026-03-21 | Antigravity AI | Session 10: P6, P12, P13, P17 resolved (Sweet Spot items). `-Werror` enabled for App; Architecture/Testing/Troubleshooting docs created. |

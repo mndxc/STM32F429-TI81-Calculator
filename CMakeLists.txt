@@ -19,7 +19,6 @@ set(CMAKE_C_EXTENSIONS ON)
 # Increase warning level for app code
 add_compile_options(-Wall -Wextra)
 
-
 # Define the build type
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Debug")
@@ -56,6 +55,26 @@ file(GLOB_RECURSE LVGL_SOURCES
     ${LVGL_ROOT_DIR}/src/*.c
 )
 
+# --- APP SOURCES ---
+set(APP_SOURCES
+    App/Fonts/jetbrains_mono_24.c
+    App/Fonts/jetbrains_mono_20.c
+    App/HW/Keypad/keypad.c
+    App/HW/Keypad/keypad_map.c
+    App/Src/app_init.c
+    App/Src/calculator_core.c
+    App/Src/calc_engine.c
+    App/Src/expr_util.c
+    App/Src/graph.c
+    App/Src/persist.c
+    App/Src/prgm_exec.c
+    App/Src/ui_matrix.c
+    App/Src/ui_prgm.c
+    App/Src/graph_ui.c
+    App/Display/lv_port_disp.c
+    App/Display/lv_port_indev.c
+)
+
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
@@ -69,30 +88,16 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     
     # --- FONT SOURCES ---
     Drivers/BSP/Components/Fonts/font24.c   # Required by BSP LCD driver (Font24 symbol)
-    App/Fonts/jetbrains_mono_24.c
-    App/Fonts/jetbrains_mono_20.c
-
-    # --- KEYPAD SOURCES ---
-    App/HW/Keypad/keypad.c
-    App/HW/Keypad/keypad_map.c
-
-    # --- LOGIC SOURCES ---
-    App/Src/app_init.c
-    App/Src/calculator_core.c
-    App/Src/calc_engine.c
-    App/Src/expr_util.c
-    App/Src/graph.c
-    App/Src/persist.c
-    App/Src/prgm_exec.c
-    App/Src/ui_matrix.c
-    App/Src/ui_prgm.c
-    App/Src/graph_ui.c
+    
+    # All App Source files
+    ${APP_SOURCES}
 
     # Add all LVGL Source files
     ${LVGL_SOURCES}
-    App/Display/lv_port_disp.c
-    App/Display/lv_port_indev.c
 )
+
+# Apply -Werror to App sources only
+set_source_files_properties(${APP_SOURCES} PROPERTIES COMPILE_OPTIONS "-Werror")
 
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE

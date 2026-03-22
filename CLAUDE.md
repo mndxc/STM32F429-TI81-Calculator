@@ -12,7 +12,7 @@
 
 **Purpose of QUALITY_TRACKER:** Permanent register for code quality reviews. Tracks a rated scorecard across 10 dimensions, P-numbered improvement items with effort/impact rankings, and full resolution history. It is the single source of truth for all quality, CI, refactoring, and contributor-docs work. Items are not duplicated in this file.
 
-Current overall rating: **85–90% production-ready** (up from 83–89%; see docs/QUALITY_TRACKER.md for full history). Key remaining gaps: PRGM backend incomplete (P10), `-Werror` not yet enforced (P6), contributor docs missing (P12–P17). Key strengths: documentation, RTOS integration, FLASH/memory-safety correctness, 301-test host suite with CI.
+Current overall rating: **88–92% production-ready** (up from 85–90%; gains from P6, P12, P13, P17 resolutions). Key remaining gaps: PRGM backend incomplete (P10), test suite A-rating (P1). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 301-test host suite with CI.
 
 ---
 
@@ -83,7 +83,7 @@ When the user asks to add something to the to-do list, place it in the correct l
 
 ---
 
-## Feature Completion Status (~65% of original TI-81, as of 2026-03-21)
+## Feature Completion Status (~70% of original TI-81, as of 2026-03-22)
 
 Sessions:
 - 2026-03-20: PRGM UI polish, colour palette extraction (`ui_palette.h`), PRGM module extraction to `ui_prgm.c`
@@ -92,6 +92,7 @@ Sessions:
 - 2026-03-21 (Session 7): Integrate project update procedure (workflow, documentation, guidelines)
 - 2026-03-21 (Session 8): Implement Global Hard QUIT (2nd+CLEAR) navigation
 - 2026-03-21 (Session 9): IDE/Build fixes (IntelliSense header fix, recursive include resolve, debug config fix, CMake build fix)
+- 2026-03-22 (Session 10): P6, P12, P13, P17 resolved (Sweet Spot items). -Werror enabled for App; Architecture/Testing/Troubleshooting docs created.
 
 ### Completed features
 
@@ -311,7 +312,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 ### Next session priorities (in order)
 
 > **Quality and refactoring items** are tracked in [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md), not here.
-> Open items: **P1, P3, P6, P7, P8, P10, P12–P17**. Highest ease-to-impact: P8, P6, P13, P12.
+> Open items: **P1, P3, P7, P10, P14, P15**. Highest ease-to-impact: P15, P14, P1.
 
 **1. Y= equation enable/disable toggle** — On the original TI-81, pressing LEFT from a Y= equation moves the cursor to the `=` sign; pressing ENTER there toggles whether that equation is plotted. The `=` should show its state visually — TI-81 used inverted colors; this project could use a distinct highlight color (e.g. amber) to make the active/inactive state obvious.
 - Files: `App/Src/calculator_core.c` (Y= cursor handling for `=` column), `App/Src/graph.c` (skip disabled equations in renderer)

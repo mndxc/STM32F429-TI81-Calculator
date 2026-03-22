@@ -54,6 +54,7 @@ void lv_port_indev_init(void)
  */
 static void keypad_read(lv_indev_t *indev, lv_indev_data_t *data)
 {
+    (void)indev;
     data->state = LV_INDEV_STATE_RELEASED;
     data->key   = 0;
 }

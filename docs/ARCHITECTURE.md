@@ -6,52 +6,69 @@ A 5-minute orientation for new contributors. For the full technical reference se
 
 ## Task Architecture
 
-Three FreeRTOS tasks run concurrently:
+The system is split into three main FreeRTOS tasks to ensure responsive UI and accurate keypad scanning.
 
+```mermaid
+graph TD
+    subgraph "FreeRTOS Tasks"
+        KT["KeypadTask (20ms)"]
+        CT["CalcCoreTask"]
+        DT["DefaultTask (Render Loop)"]
+    end
+
+    subgraph "Queues & Semaphores"
+        KQ["keypadQueueHandle"]
+        LM["xLVGL_Mutex"]
+    end
+
+    KT -- "Posts Token_t" --> KQ
+    KQ -- "Blocks on" --> CT
+    CT -- "Processes Token" --> CT
+    
+    CT -- "LVGL Calls (Locked)" --> DT
+    DT -- "lv_timer_handler()" --> DT
+    
+    LM -- "Protects" --> DT
+    LM -- "Protects" --> CT
 ```
-KeypadTask  (2048 word stack)
-  └─ Scans 7×8 key matrix every 20 ms
-  └─ Translates hardware key ID → Token_t via keypad_map.c
-  └─ Posts Token_t to keypadQueueHandle
 
-CalcCoreTask  (2048 word stack)
-  └─ Blocks on keypadQueueHandle
-  └─ Calls Execute_Token() → drives all calculator logic and UI
-
-DefaultTask  (8192 word stack)
-  └─ Initialises SDRAM, LTDC, LVGL
-  └─ Calls lv_task_handler() every 5 ms (LVGL render loop)
-  └─ Signals xLVGL_Ready when init is complete
-```
+- **KeypadTask**: Scans the 7×8 matrix every 20ms and generates tokens.
+- **CalcCoreTask**: The main logic processor. It waits for tokens from the queue and updates the calculator state and UI.
+- **DefaultTask**: Handles LVGL initialisation (SDRAM, LTDC) and the display refresh loop.
 
 **LVGL mutex rule:** all `lv_*` API calls must be wrapped with `lvgl_lock()` / `lvgl_unlock()`. Never call `lvgl_lock()` inside `cursor_timer_cb()` — it runs inside `lv_task_handler()` which DefaultTask already holds the lock for.
 
 ---
 
-## Module Dependency Graph
+## Module Hierarchy
 
-```
-calculator_core.c  ──► calc_engine.c      (expression evaluation)
-                   ──► graph.c            (graph rendering)
-                   ──► graph_ui.c         (graph screen UI)
-                   ──► persist.c          (FLASH save/load)
-                   ──► prgm_exec.c        (program FLASH save/load)
-                   ──► ui_matrix.c        (matrix editor UI)
-                   ──► ui_prgm.c          (program menu UI)
-                   ──► expr_util.c        (expression buffer helpers)
-                   ──► calc_internal.h    (shared internal state)
+The project follows a layered architecture to maximize host-testability.
 
-graph_ui.c         ──► calc_internal.h
-                   ──► graph.c
+```mermaid
+graph TD
+    subgraph "Hardware Layer"
+        HW_K["keypad.c"]
+        HW_D["lv_port_disp.c"]
+    end
 
-ui_matrix.c        ──► calc_internal.h
-ui_prgm.c          ──► calc_internal.h
-                   ──► prgm_exec.c
+    subgraph "Application Core (Host-Testable)"
+        CE["calc_engine.c (Math Engine)"]
+        EU["expr_util.c (Buffer Logic)"]
+        PE["persist.c (Serialization)"]
+    end
 
-app_init.c         ──► App/Display/lv_port_disp.c   (LVGL display port)
-                   ──► App/Display/lv_port_indev.c  (LVGL input port)
+    subgraph "UI Logic (Embedded Only)"
+        CC["calculator_core.c (Dispatcher)"]
+        GUI["graph_ui.c / ui_matrix.c / ui_prgm.c"]
+        G["graph.c (Renderer)"]
+    end
 
-App/HW/Keypad/keypad.c     ──► keypad_map.c  (key → token lookup)
+    HW_K --> CC
+    CC --> GUI
+    CC --> CE
+    CC --> EU
+    CC --> PE
+    GUI --> G
 ```
 
 `Core/` (CubeMX-generated) is a dependency of everything but is never modified by hand.
