@@ -89,11 +89,15 @@ void menu_insert_text(const char *ins, CalcMode_t *ret_mode);
 #define MAX_EXPR_LEN        96          /* Supports up to 4 wrapped display rows */
 #define MAX_RESULT_LEN      96   /* 32 for scalars; up to ~80 for 3×3 matrix rows */
 
+#define MATRIX_RING_COUNT   8   /* ring buffer slots for matrix history results */
+
 typedef struct {
-    char expression[MAX_EXPR_LEN];
-    char result[MAX_RESULT_LEN];     /* Scalar/error result string; empty for matrix results */
-    bool has_matrix;                 /* True when this entry holds a matrix result */
-    CalcMatrix_t matrix_data;        /* Copy of matrix at eval time; valid iff has_matrix */
+    char    expression[MAX_EXPR_LEN];
+    char    result[MAX_RESULT_LEN];   /* Scalar/error result; newline-separated rows for matrix fallback */
+    bool    has_matrix;               /* True when this entry holds a matrix result */
+    uint8_t matrix_ring_idx;         /* Ring slot index (0..MATRIX_RING_COUNT-1); valid iff has_matrix */
+    uint8_t matrix_ring_gen;         /* Expected generation at that slot; mismatch means evicted */
+    uint8_t matrix_rows_cache;       /* Cached row count; valid even after eviction */
 } HistoryEntry_t;
 
 extern HistoryEntry_t history[HISTORY_LINE_COUNT];

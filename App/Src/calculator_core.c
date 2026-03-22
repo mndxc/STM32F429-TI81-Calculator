@@ -125,6 +125,11 @@ uint8_t        history_count = 0;
 static int8_t  matrix_scroll_focus  = -1;   /* history slot index with scroll focus; -1=none */
 static uint8_t matrix_scroll_offset = 0;    /* horizontal character scroll offset */
 
+/* Matrix history ring buffer — stores CalcMatrix_t for the last MATRIX_RING_COUNT results */
+static CalcMatrix_t matrix_ring[MATRIX_RING_COUNT];
+static uint8_t      matrix_ring_gen_table[MATRIX_RING_COUNT]; /* generation written to each slot */
+static uint8_t      matrix_ring_write_count = 0;              /* total writes, wraps at 256 */
+
 /* Graph state */
 GraphState_t graph_state = {
     .equations = {{0}},
@@ -785,6 +790,15 @@ static void matrix_format_row(const CalcMatrix_t *m, int row_idx,
     buf[out] = '\0';
 }
 
+/** Returns the CalcMatrix_t for history entry @p e, or NULL if evicted from the ring. */
+static const CalcMatrix_t *history_get_matrix(const HistoryEntry_t *e)
+{
+    if (!e->has_matrix) return NULL;
+    uint8_t slot = e->matrix_ring_idx;
+    if (matrix_ring_gen_table[slot] != e->matrix_ring_gen) return NULL;
+    return &matrix_ring[slot];
+}
+
 /**
  * @brief Render one history result row onto @p label.
  *
@@ -798,10 +812,16 @@ static void render_result_row(lv_obj_t *label, const HistoryEntry_t *entry,
     char rbuf[MAX_RESULT_LEN];
     lv_obj_set_style_text_color(label, lv_color_hex(COLOR_WHITE), 0);
     if (entry->has_matrix) {
-        int off = (matrix_scroll_focus == (int8_t)(entry - history))
-                  ? (int)matrix_scroll_offset : 0;
-        matrix_format_row(&entry->matrix_data, result_line,
-                          off, (int)expr_chars_per_row, rbuf, sizeof(rbuf));
+        const CalcMatrix_t *m = history_get_matrix(entry);
+        if (m != NULL) {
+            int off = (matrix_scroll_focus == (int8_t)(entry - history))
+                      ? (int)matrix_scroll_offset : 0;
+            matrix_format_row(m, result_line,
+                              off, (int)expr_chars_per_row, rbuf, sizeof(rbuf));
+        } else {
+            /* Matrix evicted from ring — fall back to pre-formatted result string */
+            get_result_line(entry->result, result_line, rbuf, sizeof(rbuf));
+        }
         lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
     } else {
         get_result_line(entry->result, result_line, rbuf, sizeof(rbuf));
@@ -829,7 +849,7 @@ void ui_refresh_display(void)
         int elen = (int)strlen(history[idx].expression);
         int erows = (elen + cpr - 1) / cpr;
         int rlines = history[idx].has_matrix
-                     ? (int)history[idx].matrix_data.rows
+                     ? (int)history[idx].matrix_rows_cache
                      : count_result_lines(history[idx].result);
         total_history_lines += erows + rlines;
     }
@@ -857,7 +877,7 @@ void ui_refresh_display(void)
                 int elen  = (int)strlen(history[idx].expression);
                 int erows = (elen + cpr - 1) / cpr;
                 int rlines = history[idx].has_matrix
-                             ? (int)history[idx].matrix_data.rows
+                             ? (int)history[idx].matrix_rows_cache
                              : count_result_lines(history[idx].result);
 
                 if (li < line + erows) {
@@ -1623,10 +1643,16 @@ static void commit_history_entry(const char *expr, const char *result_str,
     history[idx].result[MAX_RESULT_LEN - 1] = '\0';
     history[idx].has_matrix = false;
     if (r->has_matrix) {
-        history[idx].has_matrix  = true;
-        history[idx].matrix_data = calc_matrices[r->matrix_idx];
-        matrix_scroll_focus      = (int8_t)idx;
-        matrix_scroll_offset     = 0;
+        uint8_t slot = (uint8_t)(matrix_ring_write_count % MATRIX_RING_COUNT);
+        matrix_ring[slot]           = calc_matrices[r->matrix_idx];
+        matrix_ring_gen_table[slot] = matrix_ring_write_count;
+        history[idx].has_matrix       = true;
+        history[idx].matrix_ring_idx  = slot;
+        history[idx].matrix_ring_gen  = matrix_ring_write_count;
+        history[idx].matrix_rows_cache = calc_matrices[r->matrix_idx].rows;
+        matrix_ring_write_count++;
+        matrix_scroll_focus  = (int8_t)idx;
+        matrix_scroll_offset = 0;
     } else {
         matrix_scroll_focus  = -1;
         matrix_scroll_offset = 0;
@@ -1643,7 +1669,7 @@ static void handle_history_nav(Token_t t)
 
     case TOKEN_LEFT:
         if (expr_len == 0 && matrix_scroll_focus >= 0 &&
-            history[matrix_scroll_focus].has_matrix) {
+            history_get_matrix(&history[matrix_scroll_focus]) != NULL) {
             if (matrix_scroll_offset > 0) {
                 matrix_scroll_offset--;
                 Update_Calculator_Display();
@@ -1655,15 +1681,16 @@ static void handle_history_nav(Token_t t)
         break;
 
     case TOKEN_RIGHT:
-        if (expr_len == 0 && matrix_scroll_focus >= 0 &&
-            history[matrix_scroll_focus].has_matrix) {
-            const CalcMatrix_t *m = &history[matrix_scroll_focus].matrix_data;
-            int total_w = matrix_row_total_width(m);
-            int max_off = (total_w > (int)expr_chars_per_row)
-                          ? (total_w - (int)expr_chars_per_row) : 0;
-            if ((int)matrix_scroll_offset < max_off) {
-                matrix_scroll_offset++;
-                Update_Calculator_Display();
+        if (expr_len == 0 && matrix_scroll_focus >= 0) {
+            const CalcMatrix_t *m = history_get_matrix(&history[matrix_scroll_focus]);
+            if (m != NULL) {
+                int total_w = matrix_row_total_width(m);
+                int max_off = (total_w > (int)expr_chars_per_row)
+                              ? (total_w - (int)expr_chars_per_row) : 0;
+                if ((int)matrix_scroll_offset < max_off) {
+                    matrix_scroll_offset++;
+                    Update_Calculator_Display();
+                }
             }
         } else if (cursor_pos < expr_len) {
             ExprUtil_MoveCursorRight(expression, expr_len, &cursor_pos);

@@ -2,8 +2,8 @@
 
 **Purpose:** Permanent register for code quality reviews, CI, refactoring, testing, and contributor-docs work. This is the single source of truth for all P-numbered improvement items. Feature work, bug fixes, and session planning live in `CLAUDE.md` — not here. Update this file when a quality item is opened, progressed, or resolved.
 
-**Last reviewed:** 2026-03-22 (Session 15: P18 function complexity reduction — all 10 CODE_REVIEW_PENDING items complete)
-**Reviewer:** Antigravity AI via full codebase static analysis
+**Last reviewed:** 2026-03-22 (Session 17: HistoryEntry_t matrix ring buffer refactor — complexity debt resolved, RAM 82.44% → 81.82%)
+**Reviewer:** Claude Code (claude-sonnet-4-6)
 
 ---
 
@@ -215,11 +215,9 @@ STM32 GPIO side is documented and cross-referenced against `keypad.h`. ✅
 ### P10 — PRGM system not hardware-validated
 
 **Rating impact:** Testing = D
-**Files:** `App/Src/ui_prgm.c` (PRGM handlers and execution interpreter), `docs/prgm_manual_tests.md`
+**Files:** `App/Src/ui_prgm.c` (PRGM menu and editor UI), `App/Src/prgm_exec.c` (execution interpreter), `docs/prgm_manual_tests.md`
 
-All 6 PRGM modes are dispatched from `Execute_Token`. The full UI (EXEC/EDIT/ERASE tabs, 37 slots, name entry, line editor, CTL/I/O sub-menus) is implemented in `ui_prgm.c`. The execution interpreter (`prgm_execute_line`, `prgm_run_loop`, `prgm_run_start`) is also in `ui_prgm.c` but has not been validated on hardware.
-
-Note: `prgm_execute_line` (322 L) currently lives in the UI file rather than `prgm_exec.c` — a module responsibility split that should be corrected as part of P18 item 4 before adding test coverage.
+All 6 PRGM modes are dispatched from `Execute_Token`. The full UI (EXEC/EDIT/ERASE tabs, 37 slots, name entry, line editor, CTL/I/O sub-menus) is implemented in `ui_prgm.c`. The execution interpreter (`prgm_execute_line`, `prgm_run_loop`, `prgm_run_start`) was moved to `prgm_exec.c` in Session 15 (P18) but has not been validated on hardware.
 
 See `prgm_manual_tests.md` for the 28-item hardware test plan. Until all 28 tests pass, PRGM should be treated as non-functional.
 
@@ -289,3 +287,5 @@ See `prgm_manual_tests.md` for the 28-item hardware test plan. Until all 28 test
 | 2026-03-22 | Antigravity AI | Session 13: Matrix history display — column-aligned rows, horizontal scroll, `HistoryEntry_t` matrix copy. RAM at 82.44% |
 | 2026-03-22 | Antigravity AI | Session 14: Periodic code review. P18 opened (function complexity). `docs/CODE_REVIEW_PENDING.md` created with 10 action items. No regressions detected. Rating 90–92% unchanged. |
 | 2026-03-22 | Antigravity AI | Session 15: P18 resolved — all 10 CODE_REVIEW_PENDING items complete. PRGM execution moved to `prgm_exec.c`; 7 over-100-line functions split; 3 doc quick-wins. Function complexity C+ → B. 301/301 tests pass. Rating 92–94%. |
+| 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 16: Graph render speed optimized — `MATH_VAR_X` token + `GraphEquation_t` postfix cache; `Graph_Render` parse cost 320× → 1× per equation per frame. Complexity delta: neutral. 301/301 tests pass. No P-items opened or closed. |
+| 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 17: `HistoryEntry_t` matrix ring buffer refactor — replaced embedded `CalcMatrix_t` (148 B) with 3-byte ring reference; 8-slot ring stores last 8 matrix results with generation-based eviction. RAM: 82.44% → 81.82%. Complexity delta: decrease. 301/301 tests pass. No P-items opened or closed. P10 description updated (stale prgm_exec.c reference fixed). |
