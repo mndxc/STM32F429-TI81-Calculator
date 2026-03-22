@@ -469,3 +469,5 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | P8 resolved: float printf startup assertion added in `App_DefaultTask_Run()`; 10 Hz heartbeat fault indicator |
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | P3 Phase 1+2: 10 named sub-structs, ~40 statics consolidated; Code organisation B-→B; rating 83–89% |
 | 2026-03-21 | Claude Code (claude-sonnet-4-6) | Document consolidation: `OPEN_SOURCE_RECOMMENDATIONS.md` merged into this file; P12–P17 added for onboarding gaps; governance added to Resolved Items |
+| 2026-03-21 | Antigravity AI | Session 6: `graph_ui.c` extraction (P2), float printf startup guard (P8), FLASH sector map docs (P16) resolved |
+| 2026-03-21 | Antigravity AI | Session 7: Project update procedure integrated (workflow, documents, guidelines) |

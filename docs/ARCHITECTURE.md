@@ -33,12 +33,16 @@ DefaultTask  (8192 word stack)
 ```
 calculator_core.c  ──► calc_engine.c      (expression evaluation)
                    ──► graph.c            (graph rendering)
+                   ──► graph_ui.c         (graph screen UI)
                    ──► persist.c          (FLASH save/load)
                    ──► prgm_exec.c        (program FLASH save/load)
                    ──► ui_matrix.c        (matrix editor UI)
                    ──► ui_prgm.c          (program menu UI)
                    ──► expr_util.c        (expression buffer helpers)
                    ──► calc_internal.h    (shared internal state)
+
+graph_ui.c         ──► calc_internal.h
+                   ──► graph.c
 
 ui_matrix.c        ──► calc_internal.h
 ui_prgm.c          ──► calc_internal.h
@@ -124,6 +128,7 @@ Complex sub-menus live in their own `ui_<feature>.c` + `ui_<feature>.h` modules:
 
 | Module | What it owns |
 |---|---|
+| `graph_ui.c` | Graph editor screens (MODE_GRAPH_YEQ, RANGE, ZOOM, TRACE, ZBox) |
 | `ui_matrix.c` | Matrix cell editor UI (MODE_MATRIX_EDIT, MODE_MATRIX_MENU) |
 | `ui_prgm.c` | Program menu and line editor UI (MODE_PRGM_*) |
 

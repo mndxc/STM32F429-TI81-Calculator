@@ -18,6 +18,7 @@ App/                            ← Custom application code (never touched by Cu
     calc_engine.c               Expression parser and evaluator (shunting-yard + RPN)
     expr_util.c                 Pure expression-buffer helpers (UTF-8, insert, delete, cursor)
     graph.c                     Graph canvas, axes, tick marks, curve renderer
+    graph_ui.c                  Graph screen UI and handlers (extracted module)
     persist.c                   FLASH sector 10 erase/write/load for calculator state
     prgm_exec.c                 Program storage — FLASH sector 11 erase/write/load
     ui_matrix.c                 Matrix cell editor UI (extracted module)
@@ -29,6 +30,7 @@ App/                            ← Custom application code (never touched by Cu
     calc_internal.h             Shared internal state for calculator UI modules
     expr_util.h                 Expression buffer utility API
     graph.h                     Graphing subsystem interface
+    graph_ui.h                  Graph screen UI interface
     persist.h                   Persistent storage API
     prgm_exec.h                 Program storage and FLASH persistence API
     ui_matrix.h                 Matrix editor UI interface

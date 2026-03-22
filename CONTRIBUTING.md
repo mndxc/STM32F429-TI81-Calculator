@@ -52,6 +52,7 @@ To keep the codebase consistent, please follow these conventions:
 - **Documentation:**
     - Use Doxygen-style comments for public header functions.
     - Keep `CLAUDE.md`, `TECHNICAL.md`, and `docs/ARCHITECTURE.md` updated with any architectural changes.
+    - **Sync Procedure:** after any significant session or feature completion, follow the tiered update rules in [docs/PROJECT_UPDATE_PROCEDURE.md](docs/PROJECT_UPDATE_PROCEDURE.md) to ensure all tracking files and public numbers are in sync.
 
 ## Feedback
 

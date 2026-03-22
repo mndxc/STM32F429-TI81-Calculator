@@ -12,10 +12,7 @@
 
 **Purpose of QUALITY_TRACKER:** Permanent register for code quality reviews. Tracks a rated scorecard across 10 dimensions, P-numbered improvement items with effort/impact rankings, and full resolution history. It is the single source of truth for all quality, CI, refactoring, and contributor-docs work. Items are not duplicated in this file.
 
-Current overall rating: **83–89% production-ready** (up from 60–70%; see docs/QUALITY_TRACKER.md
-for full history). Key remaining gaps: PRGM backend incomplete (P10), `-Werror` not yet enforced (P6), contributor docs missing (P12–P17). Key
-strengths: documentation, RTOS integration, FLASH/memory-safety correctness, 301-test host suite
-with CI.
+Current overall rating: **85–90% production-ready** (up from 83–89%; see docs/QUALITY_TRACKER.md for full history). Key remaining gaps: PRGM backend incomplete (P10), `-Werror` not yet enforced (P6), contributor docs missing (P12–P17). Key strengths: documentation, RTOS integration, FLASH/memory-safety correctness, 301-test host suite with CI.
 
 ---
 
@@ -78,11 +75,21 @@ When the user asks to add something to the to-do list, place it in the correct l
 
 ---
 
+## Project Maintenance
+
+**Project Update Procedure:** use [docs/PROJECT_UPDATE_PROCEDURE.md](docs/PROJECT_UPDATE_PROCEDURE.md) to sync documentation and status after any significant work.
+
+**Triggering Updates:** use the `/update-project` shortcut in Antigravity or follow the checklist in the procedure document.
+
+---
+
 ## Feature Completion Status (~65% of original TI-81, as of 2026-03-21)
 
 Sessions:
 - 2026-03-20: PRGM UI polish, colour palette extraction (`ui_palette.h`), PRGM module extraction to `ui_prgm.c`
 - 2026-03-21: `expr_util.c` extraction (9 pure functions), 301-test host suite, persist round-trip tests, HAL guards in `persist.c`, full quality review pass
+- 2026-03-21 (Session 6): `graph_ui.c` extraction (P2), float printf runtime guard (P8), FLASH sector map docs (P16)
+- 2026-03-21 (Session 7): Integrate project update procedure (workflow, documentation, guidelines)
 
 ### Well-implemented (60–100%)
 
@@ -229,7 +236,7 @@ A new contributor can reproduce the CubeMX base from scratch with a single non-d
 
 ---
 
-## Current Project State (as of 2026-03-20)
+## Current Project State (as of 2026-03-21)
 
 All custom application code lives under `App/`. `Core/` contains only CubeMX-generated files. The `main.c` touch points are `#include "app_init.h"` and `App_RTOS_Init()`.
 
@@ -279,6 +286,9 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - **`expr_util.c` extracted (Session 5)** — 9 pure expression-buffer functions moved from `calculator_core.c` to `App/Src/expr_util.c` + `App/Inc/expr_util.h`: `ExprUtil_Utf8CharSize`, `ExprUtil_Utf8ByteToGlyph`, `ExprUtil_MatrixTokenSizeBefore`, `ExprUtil_MatrixTokenSizeAt`, `ExprUtil_MoveCursorLeft`, `ExprUtil_MoveCursorRight`, `ExprUtil_InsertChar`, `ExprUtil_InsertStr`, `ExprUtil_DeleteAtCursor`, `ExprUtil_PrependAns`. Zero LVGL/HAL/RTOS dependencies — all state passed explicitly. Static functions in `calculator_core.c` are now thin wrappers; TOKEN_LEFT/RIGHT handlers simplified. 96-test suite (`test_expr_util.c`, 12 groups) covers all functions including UTF-8 multi-byte sequences, matrix token atomicity, insert/overwrite mode, and round-trip cursor navigation.
 - **`persist.c` host-testable (Session 5)** — `Persist_Checksum` and `Persist_Validate` exposed as public API (no FLASH dependency). HAL-dependent code (`Persist_Save`, `Persist_Load`, `persist_erase_sector`, `persist_write_block`) guarded with `#ifndef HOST_TEST`. Round-trip test suite (`test_persist_roundtrip.c`, 52 tests / 5 groups) validates checksum stability, valid/invalid block detection, 6 corruption patterns, field round-trip, and struct size/alignment. `PersistBlock_t` header-comment size corrected 856 → 860 B.
 - **301-test CI suite (Session 5)** — `App/Tests/CMakeLists.txt` now builds three executables (`test_calc_engine`, `test_expr_util`, `test_persist_roundtrip`). `.github/workflows/build.yml` `host-tests` job runs all three and reports gcov branch coverage across `calc_engine.c`, `expr_util.c`, and `persist.c`.
+- **`graph_ui.c` extracted (Session 6)** — Extracted 6 graph handler functions (`handle_yeq_mode`, `handle_range_mode`, `handle_zoom_mode`, `handle_zoom_factors_mode`, `handle_zbox_mode`, `handle_trace_mode`), `nav_to`, and `ui_init_graph_screens` into `App/Src/graph_ui.c` and `App/Inc/graph_ui.h`. `calculator_core.c` reduced from 3,603 to 1,989 LOC (−45%). P2 resolved.
+- **Float printf runtime guard (Session 6)** — Startup assertion in `App_DefaultTask_Run()` ensures `-u _printf_float` is linked. P8 resolved.
+- **FLASH sector map docs (Session 6)** — Detailed memory layout and sector mapping added to `TECHNICAL.md`. P16 resolved.
 - **UART debug retarget removed** — `_write()` syscall override in `app_init.c` deleted. No `printf` calls exist in App code; newlib's default stub (discards output) now applies. Saves ~640 bytes FLASH.
 
 ### Known issues
@@ -637,7 +647,8 @@ App/Src/                        ← application sources (custom, not CubeMX)
     calc_engine.c       — tokenizer, shunting-yard, RPN evaluator
     expr_util.c         — pure expression-buffer helpers (UTF-8, insert, delete, cursor)
     graph.c             — graph canvas, renderer, axes, curve plotting
-    persist.c           — FLASH erase/write/load for persistent state (.RamFunc routines)
+    graph_ui.c          — graph screen UI and handlers (extracted module)
+    persist.c           — FLASH erase/write/load for calculator state (.RamFunc routines)
     prgm_exec.c         — program storage — FLASH sector 11 erase/write/load
     ui_matrix.c         — matrix cell editor UI (extracted module)
     ui_prgm.c           — program menu and editor UI (extracted module)
@@ -648,6 +659,7 @@ App/Inc/                        ← application headers (custom, not CubeMX)
     calc_internal.h     — shared internal state for calculator UI modules
     expr_util.h         — expression buffer utility API
     graph.h             — graphing subsystem public API
+    graph_ui.h          — graph screen UI interface
     persist.h           — persistent storage API
     prgm_exec.h         — program storage and FLASH persistence API
     ui_matrix.h         — matrix editor UI interface
