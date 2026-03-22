@@ -18,7 +18,7 @@
 
 **Purpose of QUALITY_TRACKER:** Permanent register for code quality reviews. Tracks a rated scorecard across 10 dimensions, P-numbered improvement items with effort/impact rankings, and full resolution history. It is the single source of truth for all quality, CI, refactoring, and contributor-docs work. Items are not duplicated in this file.
 
-Current overall rating: **90–92% production-ready** (up from 88–92%; gain from P15 resolution and Session 11 stability). Key remaining gaps: PRGM backend incomplete (P10), test suite A-rating (P1). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 301-test host suite with CI.
+Current overall rating: **92–94% production-ready** (up from 90–92%; gain from P18 resolution: function complexity C+ → B). Key remaining gaps: PRGM backend incomplete (P10), test suite A-rating (P1). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 301-test host suite with CI.
 
 ---
 
@@ -102,6 +102,7 @@ Sessions:
 - 2026-03-22 (Session 11): Implement Y= equation enable/disable toggle functionality. Update graph renderer and persistence (v4). Fixed a startup crash and multiple trace/graph transition freezes in `graph.c` and `graph_ui.c` (guards for zero-scale ticks, loop clamping for singularities, and LVGL mutex synchronization).
 - 2026-03-22 (Session 12): [P15] Expression pipeline documented in `TECHNICAL.md` with "2 + sin(45)" worked example. `QUALITY_TRACKER.md` updated.
 - 2026-03-22 (Session 13): Matrix history display refactored — column-aligned rows, horizontal scroll via LEFT/RIGHT when expression is empty, `<`/`>` clip indicators. `HistoryEntry_t` now embeds `CalcMatrix_t` copy. Build at 82.44% RAM.
+- 2026-03-22 (Session 15): P18 resolved — all 10 CODE_REVIEW_PENDING items complete. PRGM execution logic moved from `ui_prgm.c` to `prgm_exec.c` (−545 L / +540 L). Over-100-line functions split: `ShuntingYard` (3 helpers), `handle_yeq_mode` (navigation+insertion), `ui_init_graph_screens` (4 per-screen), `handle_history_nav` (`commit_history_entry`), `ui_refresh_display` (`render_result_row`), `try_tokenize_number` (2 helpers). Docs: README links, ARCHITECTURE diagram, `calc_internal.h` scope comment. `CODE_REVIEW_PENDING.md` deleted. Function complexity C+ → B. 301/301 tests pass. **Complexity delta: `decrease`** — pure function extractions and module responsibility correction; no new logic, state, or abstractions introduced.
 
 ### Completed features
 
@@ -347,23 +348,27 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - **Note:** `<`/`>` were used instead of `…` (U+2026) because U+2026 is not in the current font. To use `…` instead, add `-r 0x2026` to the `lv_font_conv` regeneration commands in CLAUDE.md gotcha #14.
 - RAM impact: `HistoryEntry_t` grew from 192 B to ~344 B; 32×344=11 KB total history (up from 6 KB). Build RAM at 82.44% (up from ~68% as tracked in earlier sessions — CCMRAM is also now occupied by other statics; see item 12).
 
-**9. Verify cursor activity uniformity across all screens** — Audit cursor rendering, blink behaviour, position tracking, and mode-indicator logic across every screen (main calculator, Y=, RANGE, ZOOM FACTORS, MATRIX EDIT, PRGM editor). Note any inconsistencies and recommend a refactor to unify cursor handling.
-- Files: `App/Src/calculator_core.c` (cursor_update, cursor_timer_cb, mode-specific cursor boxes), `App/Inc/app_common.h` (CalcMode_t)
+**9. Verify cursor activity uniformity across all screens** — ✅ Resolved 2026-03-22
+- Audited all 6 cursor implementations (main, Y=, RANGE, ZOOM FACTORS, MATRIX EDIT, PRGM editor/new-name).
+- **Bug fixed:** `matrix_edit_cursor_update()` in `calculator_core.c` was a no-op stub that shadowed the real implementation in `ui_matrix.c`, preventing the matrix editor cursor from blinking. Fixed by removing the stub and forward decl from `calculator_core.c`, making `matrix_edit_cursor_update()` non-static in `ui_matrix.c`, and declaring it in `ui_matrix.h`.
+- Remaining architecture note (low severity): RANGE, ZOOM FACTORS, and PRGM editor use character offsets (ASCII assumed); Y= and main use byte offsets with UTF-8 conversion. No functional impact since those editors only accept ASCII digits and letters.
 
-**10. Verify menu user interaction uniformity across all screens** — Audit UP/DOWN/ENTER/number-key navigation, tab switching, overflow indicators, CLEAR/exit behaviour, and return-to-caller logic across MATH, TEST, MATRIX, ZOOM, and MODE menus. Note any irregularities and recommend resolution measures.
-- Files: `App/Src/calculator_core.c` (all menu mode handlers, menu_open/menu_close/tab_move helpers)
+**10. Verify menu user interaction uniformity across all screens** — ✅ Resolved 2026-03-22
+- Audited UP/DOWN/ENTER/number-key navigation, tab switching, overflow indicators, CLEAR/exit behaviour, and return-to-caller logic across MATH, TEST, MATRIX, ZOOM, and MODE menus.
+- **Bug fixed:** `handle_matrix_menu` TOKEN_ZOOM case (`ui_matrix.c`) returned `false` with a stale comment claiming `zoom_menu_reset()` was not exposed. In fact `nav_to(MODE_GRAPH_ZOOM)` calls `zoom_menu_reset()` internally. Replaced `return false` with `nav_to(MODE_GRAPH_ZOOM); return true;`, making it consistent with TOKEN_Y_EQUALS, TOKEN_RANGE, TOKEN_GRAPH, and TOKEN_TRACE in the same handler.
+- All other menu behaviours are uniform and correct: MATH/TEST/MATRIX use `menu_open`/`menu_close` with `return_mode`; ZOOM is a graph screen with no `return_mode` (by design); MODE uses inline early-exit (non-modal); overflow indicators (↑/↓) are present where needed (MATH, ZOOM — 8 items each); TEST (6 items) and MATRIX (6/3 items) fit the viewport without scrolling.
+- No further irregularities requiring action.
 
 **12. Review RAM usage — LVGL and video interface consumption** — Profile total RAM allocation: stack sizes, LVGL heap, framebuffer(s), static buffers. Determine how much RAM LVGL and the LTDC/ILI9341 video path consume vs. application data. Investigate why RAM limits are being approached given the MCU has 192 KB internal RAM + 64 KB CCMRAM + 64 MB SDRAM, far exceeding the original TI-81 hardware.
 - Files: `App/Src/app_init.c` (LVGL init, heap config), `App/Display/lv_conf.h` (LVGL buffer sizes), `Core/Src/main.c` (SDRAM layout), linker `.map` file in `build/Debug/`
 - Approach: check `build/Debug/*.map` for `.bss`/`.data` section sizes; review `lv_conf.h` draw buffer size; confirm `graph_buf`/`graph_buf_clean`/framebuffer are all in SDRAM (not internal RAM)
 
-**13. Audit and unify colour scheme between calculator screen and menu screens** — The main calculator screen (expression/history area) has a noticeably lighter background and darker text than the menu screens, reducing visual consistency and legibility. Audit all colour usages in `calculator_core.c` (history row colours `0x888888`/`0xFFFFFF`/`0xCCCCCC`, background `COLOR_BG`) against the menu colour constants in `ui_palette.h`. Decide on a unified palette and update `ui_palette.h` if new constants are needed; replace any inline hex literals that deviate from the palette. Goal: background darkness, text brightness, and contrast ratios should feel consistent whether the user is on the main screen or any menu.
-- Files: `App/Inc/ui_palette.h` (palette constants), `App/Src/calculator_core.c` (history/expression row colours, screen background), `App/Src/ui_matrix.c`, `App/Src/ui_prgm.c`, `App/Src/graph.c` (check for remaining inline literals)
-- Approach: compare `COLOR_BG` against the actual background used on the calculator screen; check whether expression grey (`0x888888`) and history result white (`0xFFFFFF`) are consistent with the text colours used in menus; adjust until both contexts feel visually unified
+**13. Audit and unify colour scheme between calculator screen and menu screens** — ✅ Resolved 2026-03-22
+- All files already used named `COLOR_*` constants — no bare hex literals found. The only inconsistency was the main screen background using `COLOR_BG` (0x1A1A1A) while all menu/graph screens used `COLOR_BLACK` (0x000000). Fixed by replacing both `COLOR_BG` usages in `calculator_core.c` (screen background style and cursor-inner text colour) with `COLOR_BLACK`, then removing the now-unused `COLOR_BG` constant from `ui_palette.h`. Result: background is uniformly pure black across the calculator screen and all menus; grey history-expression text (`COLOR_GREY_MED`) and live-expression text (`COLOR_GREY_LIGHT`) have improved contrast on the darker background.
 
-**17. Fix STO> to evaluate the current expression, not just store ANS** — `handle_sto_pending()` (`calculator_core.c:1432`) always stores the current `ans` value directly, ignoring whatever the user has typed. On the TI-81, STO> stores the *result of evaluating the current expression* into the destination variable. If the expression buffer is empty when STO> is pressed, it should auto-prepend `"ANS"` (matching the existing `expr_prepend_ans_if_empty()` pattern used by binary operators). The history entry should show `<expression>→<VAR>` on the expression line and the stored value as the result, not just the bare variable name.
-- Files: `App/Src/calculator_core.c` — `TOKEN_STO` handler (~line 1714): call `expr_prepend_ans_if_empty()` when `expr_len == 0`; `handle_sto_pending()` (~line 1432): call `Calc_Evaluate(expression, ...)` instead of using `ans` directly, then write `<expr>→<VAR>` into the history expression field and the formatted result into the history result field; update `ans` and `ans_is_matrix` from the evaluation result
-- Gotchas: `sto_pending` already forces the alpha key layer in `Process_Hardware_Key()` (line 1874) so the variable letter arrives correctly; the expression buffer should be cleared and cursor reset after a successful store, same as after ENTER; if `Calc_Evaluate` returns an error the store should be aborted and the error displayed in the result row instead of storing a garbage value
+**17. Fix STO> to evaluate the current expression, not just store ANS** — ✅ Resolved 2026-03-22
+- `TOKEN_STO` now calls `expr_prepend_ans_if_empty()` when `expr_len == 0`, so pressing STO on an empty line shows "ANS" before the STO prompt.
+- `handle_sto_pending()` now calls `Calc_Evaluate(expression, ...)` instead of storing `ans` directly. History expression shows `<expr>->A`; result shows the evaluated value. Expression buffer cleared after store (same as ENTER). Errors (syntax, data type for matrix results) abort the store and display the error string in the result row.
 
 **[complexity] Reduce HistoryEntry_t memory footprint** — Embedding `CalcMatrix_t` (148 B) in every one of 32 history entries cost ~4.8 KB of extra RAM (build now at 82.44%). The matrix data could instead be stored in a small separate ring buffer of up to ~8 entries and referenced by index, allowing most history entries to remain small. Alternatively, evaluate whether the matrix slot can be borrowed more cleverly (only the most recent result needs scroll support). Files: `App/Inc/calc_internal.h` (`HistoryEntry_t`), `App/Src/calculator_core.c` (scroll state management).
 
@@ -677,7 +682,7 @@ App/Src/                        ← application sources (custom, not CubeMX)
     graph.c             — graph canvas, renderer, axes, curve plotting
     graph_ui.c          — graph screen UI and handlers (extracted module)
     persist.c           — FLASH erase/write/load for calculator state (.RamFunc routines)
-    prgm_exec.c         — program storage — FLASH sector 11 erase/write/load
+    prgm_exec.c         — program execution interpreter + FLASH sector 11 storage (execution functions moved here from ui_prgm.c in Session 15)
     ui_matrix.c         — matrix cell editor UI (extracted module)
     ui_prgm.c           — program menu and editor UI (extracted module)
 App/Inc/                        ← application headers (custom, not CubeMX)
@@ -689,7 +694,7 @@ App/Inc/                        ← application headers (custom, not CubeMX)
     graph.h             — graphing subsystem public API
     graph_ui.h          — graph screen UI interface
     persist.h           — persistent storage API
-    prgm_exec.h         — program storage and FLASH persistence API
+    prgm_exec.h         — program execution API (prgm_run_start, prgm_run_loop, prgm_reset_execution_state) + storage API + shared execution types (CtrlFrame_t, CallFrame_t)
     ui_matrix.h         — matrix editor UI interface
     ui_prgm.h           — program menu UI interface
     ui_palette.h        — named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)

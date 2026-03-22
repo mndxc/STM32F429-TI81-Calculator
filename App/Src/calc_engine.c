@@ -107,36 +107,17 @@ static bool is_right_assoc(MathTokenType_t t)
  * Stage 1 — Tokenizer helpers
  *--------------------------------------------------------------------------*/
 
-/* Try to tokenize a numeric literal at *p.
- * Handles plain numbers (digit or '.') and the '-' after '^' special case.
- * Returns CALC_OK with *matched==true on success, CALC_OK with *matched==false
- * if *p is not a number, or an error code on overflow/syntax. */
-static CalcError_t try_tokenize_number(const char **p, TokenList_t *out, bool *matched)
+/* Handle the '-' after '^' special case: fold the sign into a negative number
+ * literal so shunting-yard never tries to pop '^' before its right operand is
+ * ready.  e.g. 2^-3 → tokens [2, ^, -3] rather than [2, ^, NEG, 3].
+ * Returns CALC_OK with *matched==true if it consumed the token, false otherwise. */
+static CalcError_t try_parse_neg_after_pow(const char **p, TokenList_t *out, bool *matched)
 {
     *matched = false;
-
-    /* Special case: '-' immediately after '^' before a digit or dot —
-       fold the sign into the number literal so shunting-yard never
-       tries to pop '^' before its right operand is ready.
-       e.g. 2^-3  →  tokens [2, ^, -3]  rather than [2, ^, NEG, 3]. */
-    if (**p == '-' &&
-        out->count > 0 &&
-        out->tokens[out->count - 1].type == MATH_OP_POW &&
-        (isdigit((unsigned char)(*p)[1]) || (*p)[1] == '.')) {
-        char *end;
-        float val = strtof(*p, &end);
-        if (end == *p) return CALC_ERR_SYNTAX;
-        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
-        out->tokens[out->count].type  = MATH_NUMBER;
-        out->tokens[out->count].value = val;
-        out->count++;
-        *p = end;
-        *matched = true;
-        return CALC_OK;
-    }
-
-    if (!isdigit((unsigned char)**p) && **p != '.')
-        return CALC_OK; /* no match */
+    if (**p != '-') return CALC_OK;
+    if (out->count == 0) return CALC_OK;
+    if (out->tokens[out->count - 1].type != MATH_OP_POW) return CALC_OK;
+    if (!isdigit((unsigned char)(*p)[1]) && (*p)[1] != '.') return CALC_OK;
 
     char *end;
     float val = strtof(*p, &end);
@@ -148,6 +129,39 @@ static CalcError_t try_tokenize_number(const char **p, TokenList_t *out, bool *m
     *p = end;
     *matched = true;
     return CALC_OK;
+}
+
+/* Parse a standard numeric literal (digit or leading '.') at *p using strtof.
+ * Returns CALC_OK with *matched==true if a number was consumed, false otherwise. */
+static CalcError_t try_parse_standard_number(const char **p, TokenList_t *out, bool *matched)
+{
+    *matched = false;
+    if (!isdigit((unsigned char)**p) && **p != '.') return CALC_OK;
+
+    char *end;
+    float val = strtof(*p, &end);
+    if (end == *p) return CALC_ERR_SYNTAX;
+    if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+    out->tokens[out->count].type  = MATH_NUMBER;
+    out->tokens[out->count].value = val;
+    out->count++;
+    *p = end;
+    *matched = true;
+    return CALC_OK;
+}
+
+/* Try to tokenize a numeric literal at *p.
+ * Handles plain numbers (digit or '.') and the '-' after '^' special case.
+ * Returns CALC_OK with *matched==true on success, CALC_OK with *matched==false
+ * if *p is not a number, or an error code on overflow/syntax. */
+static CalcError_t try_tokenize_number(const char **p, TokenList_t *out, bool *matched)
+{
+    CalcError_t err;
+
+    err = try_parse_neg_after_pow(p, out, matched);
+    if (err != CALC_OK || *matched) return err;
+
+    return try_parse_standard_number(p, out, matched);
 }
 
 /* Try to tokenize a named identifier or variable at *p.
@@ -449,6 +463,54 @@ static CalcError_t ImplicitMulPass(TokenList_t *list)
 }
 
 /*---------------------------------------------------------------------------
+ * Stage 2 — Shunting-yard helpers
+ *--------------------------------------------------------------------------*/
+
+/* Push a function token onto the operator stack. */
+static CalcError_t sy_push_function(const MathToken_t *tok,
+                                    MathToken_t *op_stack, int *op_top)
+{
+    if (*op_top >= CALC_MAX_STACK - 1) return CALC_ERR_OVERFLOW;
+    op_stack[++(*op_top)] = *tok;
+    return CALC_OK;
+}
+
+/* Pop higher-precedence operators from op_stack to out according to
+ * precedence and associativity rules, then push the current operator. */
+static CalcError_t sy_handle_operator(const MathToken_t *tok,
+                                      MathToken_t *op_stack, int *op_top,
+                                      TokenList_t *out)
+{
+    while (*op_top >= 0 &&
+           (is_function(op_stack[*op_top].type) ||
+            (is_operator(op_stack[*op_top].type) &&
+             (precedence(op_stack[*op_top].type) > precedence(tok->type) ||
+              (precedence(op_stack[*op_top].type) == precedence(tok->type) &&
+               !is_right_assoc(tok->type))) &&
+             op_stack[*op_top].type != MATH_PAREN_LEFT))) {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count++] = op_stack[(*op_top)--];
+    }
+    if (*op_top >= CALC_MAX_STACK - 1) return CALC_ERR_OVERFLOW;
+    op_stack[++(*op_top)] = *tok;
+    return CALC_OK;
+}
+
+/* Pop all remaining operators from op_stack to out at the end of the token
+ * stream.  Returns CALC_ERR_SYNTAX if an unmatched '(' is found. */
+static CalcError_t sy_drain_stack(MathToken_t *op_stack, int *op_top,
+                                  TokenList_t *out)
+{
+    while (*op_top >= 0) {
+        if (op_stack[*op_top].type == MATH_PAREN_LEFT)
+            return CALC_ERR_SYNTAX; /* Mismatched parentheses */
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count++] = op_stack[(*op_top)--];
+    }
+    return CALC_OK;
+}
+
+/*---------------------------------------------------------------------------
  * Stage 2 — Shunting-yard (infix -> postfix)
  *--------------------------------------------------------------------------*/
 
@@ -460,21 +522,19 @@ static CalcError_t ShuntingYard(const TokenList_t *in, TokenList_t *out)
 
     for (int i = 0; i < in->count; i++) {
         MathToken_t tok = in->tokens[i];
+        CalcError_t err;
 
         if (tok.type == MATH_NUMBER || tok.type == MATH_MATRIX_VAL) {
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
+            if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
             out->tokens[out->count++] = tok;
         }
         else if (is_function(tok.type)) {
-            if (op_top >= CALC_MAX_STACK - 1)
-                return CALC_ERR_OVERFLOW;
-            op_stack[++op_top] = tok;
+            err = sy_push_function(&tok, op_stack, &op_top);
+            if (err != CALC_OK) return err;
         }
         else if (tok.type == MATH_OP_FACT || tok.type == MATH_OP_TRANSPOSE) {
             /* Postfix unary: output immediately — applies to whatever is on top */
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
+            if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
             out->tokens[out->count++] = tok;
         }
         else if (tok.type == MATH_COMMA) {
@@ -482,64 +542,37 @@ static CalcError_t ShuntingYard(const TokenList_t *in, TokenList_t *out)
                The '(' stays on the op stack; comma is discarded (never in RPN). */
             while (op_top >= 0 &&
                    op_stack[op_top].type != MATH_PAREN_LEFT) {
-                if (out->count >= CALC_MAX_TOKENS)
-                    return CALC_ERR_OVERFLOW;
+                if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
                 out->tokens[out->count++] = op_stack[op_top--];
             }
-            if (op_top < 0)
-                return CALC_ERR_SYNTAX; /* Comma outside function call */
+            if (op_top < 0) return CALC_ERR_SYNTAX; /* Comma outside function call */
         }
         else if (is_operator(tok.type)) {
-            while (op_top >= 0 &&
-                   (is_function(op_stack[op_top].type) ||
-                    (is_operator(op_stack[op_top].type) &&
-                     (precedence(op_stack[op_top].type) > precedence(tok.type) ||
-                      (precedence(op_stack[op_top].type) == precedence(tok.type) &&
-                       !is_right_assoc(tok.type))) &&
-                     op_stack[op_top].type != MATH_PAREN_LEFT))) {
-                if (out->count >= CALC_MAX_TOKENS)
-                    return CALC_ERR_OVERFLOW;
-                out->tokens[out->count++] = op_stack[op_top--];
-            }
-            if (op_top >= CALC_MAX_STACK - 1)
-                return CALC_ERR_OVERFLOW;
-            op_stack[++op_top] = tok;
+            err = sy_handle_operator(&tok, op_stack, &op_top, out);
+            if (err != CALC_OK) return err;
         }
         else if (tok.type == MATH_PAREN_LEFT) {
-            if (op_top >= CALC_MAX_STACK - 1)
-                return CALC_ERR_OVERFLOW;
+            if (op_top >= CALC_MAX_STACK - 1) return CALC_ERR_OVERFLOW;
             op_stack[++op_top] = tok;
         }
         else if (tok.type == MATH_PAREN_RIGHT) {
             while (op_top >= 0 &&
                    op_stack[op_top].type != MATH_PAREN_LEFT) {
-                if (out->count >= CALC_MAX_TOKENS)
-                    return CALC_ERR_OVERFLOW;
+                if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
                 out->tokens[out->count++] = op_stack[op_top--];
             }
-            if (op_top < 0)
-                return CALC_ERR_SYNTAX; /* Mismatched parentheses */
+            if (op_top < 0) return CALC_ERR_SYNTAX; /* Mismatched parentheses */
             op_top--; /* Pop left paren */
 
             /* If top of stack is a function, pop it too */
             if (op_top >= 0 && is_function(op_stack[op_top].type)) {
-                if (out->count >= CALC_MAX_TOKENS)
-                    return CALC_ERR_OVERFLOW;
+                if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
                 out->tokens[out->count++] = op_stack[op_top--];
             }
         }
     }
 
-    /* Pop remaining operators */
-    while (op_top >= 0) {
-        if (op_stack[op_top].type == MATH_PAREN_LEFT)
-            return CALC_ERR_SYNTAX; /* Mismatched parentheses */
-        if (out->count >= CALC_MAX_TOKENS)
-            return CALC_ERR_OVERFLOW;
-        out->tokens[out->count++] = op_stack[op_top--];
-    }
-
-    return CALC_OK;
+    return sy_drain_stack(op_stack, &op_top, out);
 }
 
 /*---------------------------------------------------------------------------

@@ -133,19 +133,12 @@ static void zoom_factors_update_highlight(void);
 void zoom_factors_cursor_update(void);
 
 /*---------------------------------------------------------------------------
- * Initialisation
+ * Initialisation helpers (one per screen)
  *---------------------------------------------------------------------------*/
 
-/**
- * @brief Creates the Y=, RANGE, ZOOM, ZOOM FACTORS screens and graph canvas.
- *        Called once from StartCalcCoreTask under lvgl_lock().
- */
-void ui_init_graph_screens(void)
+static void ui_init_yeq_screen(lv_obj_t *parent)
 {
-    lv_obj_t *scr = lv_scr_act();
-
-    /* --- Y= editor screen --- */
-    ui_graph_yeq_screen = lv_obj_create(scr);
+    ui_graph_yeq_screen = lv_obj_create(parent);
     lv_obj_set_size(ui_graph_yeq_screen, DISPLAY_W, DISPLAY_H);
     lv_obj_set_pos(ui_graph_yeq_screen, 0, 0);
     lv_obj_set_style_bg_color(ui_graph_yeq_screen,
@@ -183,9 +176,11 @@ void ui_init_graph_screens(void)
     }
 
     cursor_box_create(ui_graph_yeq_screen, true, &yeq_cursor_box, &yeq_cursor_inner);
+}
 
-    /* --- RANGE screen --- */
-    ui_graph_range_screen = lv_obj_create(scr);
+static void ui_init_range_screen(lv_obj_t *parent)
+{
+    ui_graph_range_screen = lv_obj_create(parent);
     lv_obj_set_size(ui_graph_range_screen, DISPLAY_W, DISPLAY_H);
     lv_obj_set_pos(ui_graph_range_screen, 0, 0);
     lv_obj_set_style_bg_color(ui_graph_range_screen,
@@ -212,9 +207,11 @@ void ui_init_graph_screens(void)
     }
 
     cursor_box_create(ui_graph_range_screen, true, &range_cursor_box, &range_cursor_inner);
+}
 
-    /* --- ZOOM menu screen --- */
-    ui_graph_zoom_screen = lv_obj_create(scr);
+static void ui_init_zoom_screen(lv_obj_t *parent)
+{
+    ui_graph_zoom_screen = lv_obj_create(parent);
     lv_obj_set_size(ui_graph_zoom_screen, DISPLAY_W, DISPLAY_H);
     lv_obj_set_pos(ui_graph_zoom_screen, 0, 0);
     lv_obj_set_style_bg_color(ui_graph_zoom_screen, lv_color_hex(COLOR_BLACK), 0);
@@ -249,9 +246,11 @@ void ui_init_graph_screens(void)
         lv_label_set_text(zoom_scroll_ind[i], "");
         lv_obj_add_flag(zoom_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
     }
+}
 
-    /* --- ZOOM FACTORS sub-screen --- */
-    ui_graph_zoom_factors_screen = lv_obj_create(scr);
+static void ui_init_zoom_factors_screen(lv_obj_t *parent)
+{
+    ui_graph_zoom_factors_screen = lv_obj_create(parent);
     lv_obj_set_size(ui_graph_zoom_factors_screen, DISPLAY_W, DISPLAY_H);
     lv_obj_set_pos(ui_graph_zoom_factors_screen, 0, 0);
     lv_obj_set_style_bg_color(ui_graph_zoom_factors_screen, lv_color_hex(COLOR_BLACK), 0);
@@ -276,6 +275,24 @@ void ui_init_graph_screens(void)
 
     cursor_box_create(ui_graph_zoom_factors_screen, true,
                       &zoom_factors_cursor_box, &zoom_factors_cursor_inner);
+}
+
+/*---------------------------------------------------------------------------
+ * Initialisation
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief Creates the Y=, RANGE, ZOOM, ZOOM FACTORS screens and graph canvas.
+ *        Called once from StartCalcCoreTask under lvgl_lock().
+ */
+void ui_init_graph_screens(void)
+{
+    lv_obj_t *scr = lv_scr_act();
+
+    ui_init_yeq_screen(scr);
+    ui_init_range_screen(scr);
+    ui_init_zoom_screen(scr);
+    ui_init_zoom_factors_screen(scr);
 
     /* Init graph canvas */
     Graph_Init(scr);
@@ -831,14 +848,18 @@ void nav_to(CalcMode_t target)
  * Per-mode token handlers
  *---------------------------------------------------------------------------*/
 
-bool handle_yeq_mode(Token_t t)
+/**
+ * @brief Handles cursor navigation tokens within the Y= editor.
+ *
+ * Covers: LEFT, RIGHT, UP, DOWN, DEL, CLEAR, ENTER, INS, and graph
+ * navigation keys (RANGE, ZOOM, TRACE, GRAPH, Y_EQUALS).
+ *
+ * @return true if the token was consumed, false otherwise.
+ */
+static bool handle_yeq_navigation(Token_t t)
 {
-    char *eq  = graph_state.equations[s_yeq.selected];
-    uint8_t eq_len = strlen(eq);
-    const char *append = NULL;
-    char num_buf[2] = {0, 0};
-
-    if (s_yeq.cursor_pos > eq_len) s_yeq.cursor_pos = eq_len;
+    char *eq     = graph_state.equations[s_yeq.selected];
+    uint8_t eq_len = (uint8_t)strlen(eq);
 
     switch (t) {
     case TOKEN_GRAPH:
@@ -881,14 +902,14 @@ bool handle_yeq_mode(Token_t t)
             s_yeq.on_equal = false;
             s_yeq.cursor_pos = 0;
         } else if (s_yeq.cursor_pos < eq_len) {
-            uint8_t mat = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, (uint8_t)eq_len);
+            uint8_t mat = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, eq_len);
             if (mat) {
                 s_yeq.cursor_pos += mat;
             } else {
                 uint8_t step = ExprUtil_Utf8CharSize(&eq[s_yeq.cursor_pos]);
                 s_yeq.cursor_pos += step ? step : 1;
             }
-            if (s_yeq.cursor_pos > (uint8_t)eq_len) s_yeq.cursor_pos = (uint8_t)eq_len;
+            if (s_yeq.cursor_pos > eq_len) s_yeq.cursor_pos = eq_len;
         }
         lvgl_lock();
         yeq_cursor_update();
@@ -960,6 +981,27 @@ bool handle_yeq_mode(Token_t t)
         yeq_cursor_update();
         lvgl_unlock();
         return true;
+    default:
+        return false;
+    }
+}
+
+/**
+ * @brief Handles character and token insertion tokens within the Y= editor.
+ *
+ * Covers: digit keys, operator keys, function keys (sin/cos/etc.), letter
+ * keys (ALPHA layer), and other tokens that append text to the equation.
+ *
+ * @return true if the token was consumed, false otherwise.
+ */
+static bool handle_yeq_insertion(Token_t t)
+{
+    char *eq     = graph_state.equations[s_yeq.selected];
+    uint8_t eq_len = (uint8_t)strlen(eq);
+    const char *append = NULL;
+    char num_buf[2] = {0, 0};
+
+    switch (t) {
     case TOKEN_X_T:   append = "x";     break;
     case TOKEN_0 ... TOKEN_9:
         num_buf[0] = (char)((t - TOKEN_0) + '0');
@@ -991,12 +1033,6 @@ bool handle_yeq_mode(Token_t t)
     case TOKEN_NEG:     append = "-";     break;
     case TOKEN_X_INV:   append = "^-1";   break;
     case TOKEN_ANS:     append = "ANS";   break;
-    case TOKEN_MATH:
-        menu_open(TOKEN_MATH, MODE_GRAPH_YEQ);
-        return true;
-    case TOKEN_TEST:
-        menu_open(TOKEN_TEST, MODE_GRAPH_YEQ);
-        return true;
     case TOKEN_MATRX:
     case TOKEN_MTRX_A:
     case TOKEN_MTRX_B:
@@ -1013,13 +1049,13 @@ bool handle_yeq_mode(Token_t t)
         append = num_buf;
         break;
     }
-    default: break;
+    default: return false;
     }
 
     if (append != NULL && !s_yeq.on_equal) {
         size_t len = strlen(append);
         if (!insert_mode && len == 1 && s_yeq.cursor_pos < eq_len) {
-            uint8_t cur_size = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, (uint8_t)eq_len);
+            uint8_t cur_size = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, eq_len);
             if (!cur_size) cur_size = ExprUtil_Utf8CharSize(&eq[s_yeq.cursor_pos]);
             if (cur_size <= 1) {
                 eq[s_yeq.cursor_pos++] = append[0];
@@ -1046,6 +1082,39 @@ bool handle_yeq_mode(Token_t t)
             lvgl_unlock();
         }
     }
+    return true;
+}
+
+bool handle_yeq_mode(Token_t t)
+{
+    if (s_yeq.cursor_pos > (uint8_t)strlen(graph_state.equations[s_yeq.selected]))
+        s_yeq.cursor_pos = (uint8_t)strlen(graph_state.equations[s_yeq.selected]);
+
+    if (handle_yeq_navigation(t)) {
+        lvgl_lock();
+        ui_update_status_bar();
+        lvgl_unlock();
+        return true;
+    }
+
+    /* Menu-open tokens handled inline */
+    if (t == TOKEN_MATH) {
+        menu_open(TOKEN_MATH, MODE_GRAPH_YEQ);
+        return true;
+    }
+    if (t == TOKEN_TEST) {
+        menu_open(TOKEN_TEST, MODE_GRAPH_YEQ);
+        return true;
+    }
+
+    if (handle_yeq_insertion(t)) {
+        lvgl_lock();
+        ui_update_status_bar();
+        yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    }
+
     lvgl_lock();
     ui_update_status_bar();
     yeq_cursor_update();

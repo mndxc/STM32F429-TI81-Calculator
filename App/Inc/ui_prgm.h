@@ -21,17 +21,26 @@
 
 #include "app_common.h"
 #include "lvgl.h"
+#include "prgm_exec.h"
 #include <stdint.h>
 #include <stdbool.h>
 
 extern lv_obj_t *ui_prgm_editor_screen;
 extern lv_obj_t *ui_prgm_new_screen;
 
+/* Shared editor working buffer — also used by the execution engine */
+extern char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
+extern uint8_t prgm_edit_num_lines;
+
+/* Helpers used by both the editor and the execution engine */
+void prgm_parse_from_store(uint8_t idx);
+void prgm_slot_id_str(uint8_t slot, char *out);
+bool prgm_slot_is_used(uint8_t slot);
+
 void ui_init_prgm_screens(void);
-void prgm_reset_execution_state(void);
+/* prgm_reset_execution_state, prgm_run_start, prgm_run_loop declared in prgm_exec.h */
 void hide_prgm_screens(void);
 void prgm_reset_state(CalcMode_t target_mode);
-void prgm_run_start(uint8_t idx);
 
 bool handle_prgm_menu(Token_t t);
 bool handle_prgm_new_name(Token_t t);

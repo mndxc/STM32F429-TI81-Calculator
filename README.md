@@ -62,6 +62,8 @@ All 301 tests pass on plain x86/ARM Linux and macOS with any standard C compiler
 | Run the host tests | [docs/TESTING.md](docs/TESTING.md) |
 | Troubleshoot common issues | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) |
 | See open quality & readiness issues | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) |
+| Understand display stability and power-off behaviour | [docs/DISPLAY_STABILITY.md](docs/DISPLAY_STABILITY.md) |
+| Understand power management and Stop mode | [docs/POWER_MANAGEMENT.md](docs/POWER_MANAGEMENT.md) |
 | Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
 ### Datasheets

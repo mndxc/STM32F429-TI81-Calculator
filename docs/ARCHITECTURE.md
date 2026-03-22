@@ -55,6 +55,7 @@ graph TD
         CE["calc_engine.c (Math Engine)"]
         EU["expr_util.c (Buffer Logic)"]
         PE["persist.c (Serialization)"]
+        PRE["prgm_exec.c (Execution + Storage)"]
     end
 
     subgraph "UI Logic (Embedded Only)"
@@ -68,6 +69,7 @@ graph TD
     CC --> CE
     CC --> EU
     CC --> PE
+    CC --> PRE
     GUI --> G
 ```
 
@@ -80,6 +82,7 @@ graph TD
 ```
 App/
   Src/            Custom application sources — all calculator logic lives here
+    prgm_exec.c   Program execution interpreter (prgm_run_start/loop/execute_line) + FLASH sector 11 storage; analogous to persist.c for sector 10
   Inc/            Custom headers — public API for each App/Src module
   HW/             Hardware drivers — the only files that touch GPIO directly
     Keypad/         keypad.c: key matrix scanner; keypad_map.c: token-to-key lookup table

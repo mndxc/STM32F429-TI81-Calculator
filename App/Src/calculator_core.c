@@ -251,7 +251,6 @@ static MatrixMenuState_t s_matrix_menu = {0};
 static void ui_update_mode_display(void);
 static void ui_update_math_display(void);
 static void ui_update_test_display(void);
-static void matrix_edit_cursor_update(void);
 
 /* Per-mode token handler forward declarations */
 static bool handle_mode_screen(Token_t t);
@@ -376,7 +375,7 @@ static void ui_init_styles(void)
 {
     /* Background */
     lv_style_init(&style_bg);
-    lv_style_set_bg_color(&style_bg, lv_color_hex(COLOR_BG));
+    lv_style_set_bg_color(&style_bg, lv_color_hex(COLOR_BLACK));
     lv_style_set_bg_opa(&style_bg, LV_OPA_COVER);
     lv_style_set_border_width(&style_bg, 0);
     lv_style_set_pad_all(&style_bg, 0);
@@ -399,7 +398,7 @@ void cursor_box_create(lv_obj_t *parent, bool start_hidden,
 
     lv_obj_t *inner = lv_label_create(box);
     lv_obj_set_style_text_font(inner, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(inner, lv_color_hex(COLOR_BG), 0);
+    lv_obj_set_style_text_color(inner, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_center(inner);
     lv_label_set_text(inner, "");
 
@@ -786,6 +785,31 @@ static void matrix_format_row(const CalcMatrix_t *m, int row_idx,
     buf[out] = '\0';
 }
 
+/**
+ * @brief Render one history result row onto @p label.
+ *
+ * Sets the label colour to COLOR_WHITE, then either formats a matrix row
+ * (column-aligned, left-aligned, with horizontal scroll applied) or a scalar
+ * result line (right-aligned), and sets the label text.
+ */
+static void render_result_row(lv_obj_t *label, const HistoryEntry_t *entry,
+                               int result_line)
+{
+    char rbuf[MAX_RESULT_LEN];
+    lv_obj_set_style_text_color(label, lv_color_hex(COLOR_WHITE), 0);
+    if (entry->has_matrix) {
+        int off = (matrix_scroll_focus == (int8_t)(entry - history))
+                  ? (int)matrix_scroll_offset : 0;
+        matrix_format_row(&entry->matrix_data, result_line,
+                          off, (int)expr_chars_per_row, rbuf, sizeof(rbuf));
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
+    } else {
+        get_result_line(entry->result, result_line, rbuf, sizeof(rbuf));
+        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, 0);
+    }
+    lv_label_set_text(label, rbuf);
+}
+
 void ui_refresh_display(void)
 {
     if (disp_rows[0] == NULL) return;
@@ -858,22 +882,7 @@ void ui_refresh_display(void)
                 if (li < line + rlines) {
                     /* Result line for this history entry */
                     int result_line = li - line;
-                    char rbuf[MAX_RESULT_LEN];
-                    lv_obj_set_style_text_color(disp_rows[row],
-                                                lv_color_hex(COLOR_WHITE), 0);
-                    if (history[idx].has_matrix) {
-                        /* Column-aligned matrix row with horizontal scroll support */
-                        int off = (matrix_scroll_focus == (int8_t)idx)
-                                  ? (int)matrix_scroll_offset : 0;
-                        matrix_format_row(&history[idx].matrix_data, result_line,
-                                          off, cpr, rbuf, sizeof(rbuf));
-                        lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
-                    } else {
-                        get_result_line(history[idx].result, result_line,
-                                        rbuf, sizeof(rbuf));
-                        lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_RIGHT, 0);
-                    }
-                    lv_label_set_text(disp_rows[row], rbuf);
+                    render_result_row(disp_rows[row], &history[idx], result_line);
                     break;
                 }
                 line += rlines;
@@ -1114,21 +1123,6 @@ static void ui_update_test_display(void)
     }
 }
 
-
-/**
- * @brief Positions the flashing cursor in the MATRIX EDIT screen.
- *
- * Dim mode (cursor == -1): cursor sits on the rows digit (dim_field 0) or
- *   cols digit (dim_field 1) within the title label "[X] RxC".
- *   Character positions: [=0, X=1, ]=2, ' '=3, R=4, x=5, C=6.
- *
- * Cell mode (cursor >= 0): cursor sits after the '=' in the active list row
- *   label "r,c=VALUE", advancing as the user types.
- */
-static void matrix_edit_cursor_update(void)
-{
-    /* No-op, matrix functionality removed */
-}
 
 /*---------------------------------------------------------------------------
  * Token execution
@@ -1523,22 +1517,46 @@ static bool handle_test_menu(Token_t t)
 static bool handle_sto_pending(Token_t t)
 {
     if (t >= TOKEN_A && t <= TOKEN_Z) {
-        calc_variables[t - TOKEN_A] = ans;
         sto_pending = false;
         static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        char val_buf[16];
-        Calc_FormatResult(ans, val_buf, sizeof(val_buf));
+        uint8_t var_idx = t - TOKEN_A;
+
+        CalcResult_t result = Calc_Evaluate(expression, ans, ans_is_matrix, angle_degrees);
+
+        char result_str[MAX_RESULT_LEN];
+        char expr_hist[MAX_EXPR_LEN + 4];  /* expression + "->A\0" */
+        snprintf(expr_hist, sizeof(expr_hist), "%s->%c", expression, var_names[var_idx]);
+
+        if (result.error != CALC_OK) {
+            strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
+            result_str[MAX_RESULT_LEN - 1] = '\0';
+        } else if (result.has_matrix) {
+            strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
+            result_str[MAX_RESULT_LEN - 1] = '\0';
+        } else {
+            calc_variables[var_idx] = result.value;
+            ans = result.value;
+            ans_is_matrix = false;
+            Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
+        }
+
         uint8_t idx = history_count % HISTORY_LINE_COUNT;
-        char var_str[3] = { var_names[t - TOKEN_A], '\0', '\0' };
-        strncpy(history[idx].expression, var_str, MAX_EXPR_LEN - 1);
+        strncpy(history[idx].expression, expr_hist, MAX_EXPR_LEN - 1);
         history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
-        strncpy(history[idx].result, val_buf, MAX_RESULT_LEN - 1);
+        strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
         history[idx].result[MAX_RESULT_LEN - 1] = '\0';
         history[idx].has_matrix = false;
         matrix_scroll_focus  = -1;
         matrix_scroll_offset = 0;
         history_count++;
+
+        expr_len              = 0;
+        cursor_pos            = 0;
+        expression[0]         = '\0';
+        history_recall_offset = 0;
+
         lvgl_lock();
+        ui_update_history();
         ui_update_status_bar();
         lvgl_unlock();
         return true;
@@ -1583,6 +1601,40 @@ static void handle_arithmetic_op(Token_t t)
     default: break;
     }
     Update_Calculator_Display();
+}
+
+/**
+ * @brief Write a completed evaluation into the next history slot and refresh the display.
+ *
+ * Stores @p expr and @p result_str into history[history_count % HISTORY_LINE_COUNT],
+ * copies matrix data when @p r->has_matrix is set, advances history_count, and
+ * triggers a UI update under the LVGL mutex.
+ *
+ * The caller is responsible for any expression-buffer reset and history_recall_offset
+ * update that should happen after the commit.
+ */
+static void commit_history_entry(const char *expr, const char *result_str,
+                                 const CalcResult_t *r)
+{
+    uint8_t idx = history_count % HISTORY_LINE_COUNT;
+    strncpy(history[idx].expression, expr, MAX_EXPR_LEN - 1);
+    history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
+    strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
+    history[idx].result[MAX_RESULT_LEN - 1] = '\0';
+    history[idx].has_matrix = false;
+    if (r->has_matrix) {
+        history[idx].has_matrix  = true;
+        history[idx].matrix_data = calc_matrices[r->matrix_idx];
+        matrix_scroll_focus      = (int8_t)idx;
+        matrix_scroll_offset     = 0;
+    } else {
+        matrix_scroll_focus  = -1;
+        matrix_scroll_offset = 0;
+    }
+    history_count++;
+    lvgl_lock();
+    ui_update_history();
+    lvgl_unlock();
 }
 
 static void handle_history_nav(Token_t t)
@@ -1658,26 +1710,8 @@ static void handle_history_nav(Token_t t)
                                                 ans, ans_is_matrix, angle_degrees);
             char result_str[MAX_RESULT_LEN];
             format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
-            uint8_t idx = history_count % HISTORY_LINE_COUNT;
-            strncpy(history[idx].expression, history[last_idx].expression, MAX_EXPR_LEN - 1);
-            history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
-            strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
-            history[idx].result[MAX_RESULT_LEN - 1] = '\0';
-            history[idx].has_matrix = false;
-            if (result.has_matrix) {
-                history[idx].has_matrix  = true;
-                history[idx].matrix_data = calc_matrices[result.matrix_idx];
-                matrix_scroll_focus      = (int8_t)idx;
-                matrix_scroll_offset     = 0;
-            } else {
-                matrix_scroll_focus  = -1;
-                matrix_scroll_offset = 0;
-            }
-            history_count++;
+            commit_history_entry(history[last_idx].expression, result_str, &result);
             history_recall_offset = 0;
-            lvgl_lock();
-            ui_update_history();
-            lvgl_unlock();
             break;
         }
         if (expr_len > 0) {
@@ -1685,32 +1719,12 @@ static void handle_history_nav(Token_t t)
                                                 angle_degrees);
             char result_str[MAX_RESULT_LEN];
             format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
-
-            uint8_t idx = history_count % HISTORY_LINE_COUNT;
-            strncpy(history[idx].expression, expression, MAX_EXPR_LEN - 1);
-            history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
-            strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
-            history[idx].result[MAX_RESULT_LEN - 1] = '\0';
-            history[idx].has_matrix = false;
-            if (result.has_matrix) {
-                history[idx].has_matrix  = true;
-                history[idx].matrix_data = calc_matrices[result.matrix_idx];
-                matrix_scroll_focus      = (int8_t)idx;
-                matrix_scroll_offset     = 0;
-            } else {
-                matrix_scroll_focus  = -1;
-                matrix_scroll_offset = 0;
-            }
-            history_count++;
+            commit_history_entry(expression, result_str, &result);
 
             expr_len              = 0;
             cursor_pos            = 0;
             expression[0]         = '\0';
             history_recall_offset = 0;
-
-            lvgl_lock();
-            ui_update_history();
-            lvgl_unlock();
         }
         break;
 
@@ -1872,6 +1886,10 @@ void handle_normal_mode(Token_t t)
         break;
 
     case TOKEN_STO:
+        if (expr_len == 0) {
+            expr_prepend_ans_if_empty();
+            Update_Calculator_Display();
+        }
         sto_pending = true;
         lvgl_lock();
         ui_update_status_bar();

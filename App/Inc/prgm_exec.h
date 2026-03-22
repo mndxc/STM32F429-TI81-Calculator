@@ -1,6 +1,6 @@
 /**
  * @file    prgm_exec.h
- * @brief   Program storage and persistence for the TI-81 PRGM system.
+ * @brief   Program storage, persistence, and execution for the TI-81 PRGM system.
  *
  * Provides 37 fixed program slots matching original TI-81 capacity.
  * Slot identifiers: 1–9, 0, A–Z, θ (indices 0–36).
@@ -31,6 +31,34 @@
 #define PRGM_MAX_PROGRAMS   37          /**< Fixed slots: 1–9,0,A–Z,θ (TI-81) */
 #define PRGM_NAME_LEN        8          /**< Max program name chars (no null) */
 #define PRGM_BODY_LEN      512          /**< Max program body bytes incl null */
+
+/* Executor limits */
+#define PRGM_CTRL_DEPTH     8           /**< Max nested If/While/For depth */
+#define PRGM_CALL_DEPTH     4           /**< Max subroutine call depth */
+
+/* Editor / execution shared working buffer limits */
+#define PRGM_MAX_LINES     64           /**< Max lines in one program */
+#define PRGM_MAX_LINE_LEN  48           /**< Max chars per line (incl null) */
+
+/*---------------------------------------------------------------------------
+ * Execution control-flow types
+ *---------------------------------------------------------------------------*/
+
+typedef enum { CF_IF = 0, CF_WHILE, CF_FOR } CtrlType_t;
+
+typedef struct {
+    CtrlType_t  type;
+    uint16_t    origin_line;   /**< While: condition line; For: For( line */
+    float       for_limit;
+    float       for_step;
+    char        for_var;
+} CtrlFrame_t;
+
+typedef struct {
+    uint8_t  idx;        /**< caller program index in g_prgm_store */
+    uint16_t pc;         /**< return address (line after the prgm call) */
+    uint8_t  num_lines;  /**< caller's total line count */
+} CallFrame_t;
 
 /*---------------------------------------------------------------------------
  * FLASH target
@@ -108,5 +136,29 @@ bool Prgm_Save(void);
  * @return true on success, false if blank or corrupt.
  */
 bool Prgm_Load(void);
+
+/*---------------------------------------------------------------------------
+ * Execution API (defined in prgm_exec.c, called from calculator_core.c and
+ * ui_prgm.c)
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief  Initialise executor state and start running program @p idx.
+ *         Sets current_mode to MODE_PRGM_RUNNING and enters the run loop.
+ */
+void prgm_run_start(uint8_t idx);
+
+/**
+ * @brief  Main synchronous execution loop.
+ *         Runs lines from prgm_run_pc until a pause point or end of program.
+ *         Re-entered via handle_prgm_running on ENTER after Pause/Input/Prompt.
+ */
+void prgm_run_loop(void);
+
+/**
+ * @brief  Reset all executor state variables to their initial (idle) values.
+ *         Called on TOKEN_ON (save/power) and hard QUIT to prevent stale state.
+ */
+void prgm_reset_execution_state(void);
 
 #endif /* PRGM_EXEC_H */

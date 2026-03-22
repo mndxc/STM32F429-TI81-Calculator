@@ -6,6 +6,31 @@
 #ifndef APP_CALC_INTERNAL_H
 #define APP_CALC_INTERNAL_H
 
+/*
+ * UI Module Shared State — intentionally broad scope
+ *
+ * This header is the single shared-state contract for the multi-file UI module
+ * set.  It is intended to be included ONLY by the following translation units:
+ *
+ *   calculator_core.c   — dispatcher, main screen, token handling
+ *   graph_ui.c          — graph editor screens (Y=, RANGE, ZOOM, TRACE, ZBox)
+ *   ui_matrix.c         — matrix cell editor and MATRIX menu
+ *   ui_prgm.c           — program menu, line editor, and CTL/I/O sub-menus
+ *
+ * These four files form a single logical "super-module" that was split purely
+ * to keep individual translation units at a manageable size.  They share
+ * calculator state (current_mode, ans, history, expression, …) and LVGL object
+ * pointers as if they were one file, which is why the externs here are numerous.
+ *
+ * Do NOT narrow the scope of this header in an attempt to "hide" state.  The
+ * broad sharing is the correct pattern for the multi-file UI extraction — any
+ * attempt to split it further would require either a deep refactor of the
+ * ownership model or additional accessor indirection that adds complexity without
+ * benefit.  If you are adding a genuinely new module that is not part of the
+ * UI super-module, do not include this header; expose only what you need via a
+ * dedicated public API header instead.
+ */
+
 #include "app_common.h"
 #include "lvgl.h"
 #include "calc_engine.h"

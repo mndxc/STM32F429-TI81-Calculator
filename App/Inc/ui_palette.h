@@ -14,10 +14,8 @@
  * Core palette
  * -------------------------------------------------------------------------*/
 
-/** Pure black — overlay backgrounds, graph canvas background */
+/** Pure black — all screen backgrounds, overlay backgrounds, graph canvas */
 #define COLOR_BLACK         0x000000
-/** Near-black — main calculator screen background */
-#define COLOR_BG            0x1A1A1A
 /** White — result text, menu item default text, Y= equation text */
 #define COLOR_WHITE         0xFFFFFF
 /** Yellow — selected/highlighted menu items, active field labels */

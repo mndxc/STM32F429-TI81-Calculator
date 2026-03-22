@@ -54,7 +54,7 @@ extern void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
 /*---------------------------------------------------------------------------
  * Internal helpers
  *---------------------------------------------------------------------------*/
-static void matrix_edit_cursor_update(void)
+void matrix_edit_cursor_update(void)
 {
     if (matrix_edit_cursor_box == NULL) return;
 
@@ -326,11 +326,8 @@ bool handle_matrix_menu(Token_t t)
         matrix_return_mode = MODE_NORMAL;
         matrix_tab         = 0;
         matrix_item_cursor = 0;
-        /* Note: zoom_menu_reset() must be called, but we don't have it exposed.
-           It's simpler to let the Token_t fall through to normal mode processing,
-           which will nav_to correctly. Wait, we can't fall through inside the menu
-           handler unless we return false. */
-        return false;
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
     case TOKEN_GRAPH:
         matrix_return_mode = MODE_NORMAL;
         matrix_tab         = 0;

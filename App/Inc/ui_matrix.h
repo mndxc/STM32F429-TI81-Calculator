@@ -14,6 +14,7 @@ void ui_init_matrix_screen(void);
 /* UI Display Updates */
 void ui_update_matrix_display(void);
 void ui_update_matrix_edit_display(void);
+void matrix_edit_cursor_update(void);
 
 /* Token Handlers */
 bool handle_matrix_menu(Token_t t);
