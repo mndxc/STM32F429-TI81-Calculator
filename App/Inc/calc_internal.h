@@ -66,7 +66,9 @@ void menu_insert_text(const char *ins, CalcMode_t *ret_mode);
 
 typedef struct {
     char expression[MAX_EXPR_LEN];
-    char result[MAX_RESULT_LEN];
+    char result[MAX_RESULT_LEN];     /* Scalar/error result string; empty for matrix results */
+    bool has_matrix;                 /* True when this entry holds a matrix result */
+    CalcMatrix_t matrix_data;        /* Copy of matrix at eval time; valid iff has_matrix */
 } HistoryEntry_t;
 
 extern HistoryEntry_t history[HISTORY_LINE_COUNT];

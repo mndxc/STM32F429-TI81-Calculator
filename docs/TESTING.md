@@ -8,6 +8,8 @@ The most robust part of the test suite runs on your development machine (Linux/m
 
 ### Running Tests
 
+Run these commands from the **repo root** (the directory containing `CMakeLists.txt`):
+
 ```bash
 cmake -S App/Tests -B build/tests
 cmake --build build/tests
@@ -31,7 +33,7 @@ cmake --build build/tests
 
 ### Code Coverage
 
-To check coverage on the host:
+To check coverage on the host (run from repo root):
 ```bash
 cmake -S App/Tests -B build/tests -DCOVERAGE=ON
 cmake --build build/tests

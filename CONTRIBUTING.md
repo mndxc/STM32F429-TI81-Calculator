@@ -54,6 +54,42 @@ To keep the codebase consistent, please follow these conventions:
     - Keep `CLAUDE.md`, `TECHNICAL.md`, and `docs/ARCHITECTURE.md` updated with any architectural changes.
     - **Sync Procedure:** after any significant session or feature completion, follow the tiered update rules in [docs/PROJECT_UPDATE_PROCEDURE.md](docs/PROJECT_UPDATE_PROCEDURE.md) to ensure all tracking files and public numbers are in sync.
 
+## Complexity Management
+
+**The codebase must not grow in complexity faster than it is simplified.** After every commit, rate the complexity delta:
+
+- `neutral` — no net change (e.g. pure refactor, test addition, config change)
+- `increase` — new logic, new state, new abstractions, or a file grew significantly
+- `decrease` — logic removed, files split, dead code deleted, abstractions simplified
+
+If a commit is rated `increase`, add a follow-up item to the `Next session priorities` list in `CLAUDE.md` describing exactly how to pay down the debt introduced. Name the file, the function, and the technique. Do not leave an `increase` commit without a follow-up plan.
+
+**What counts as a complexity increase:**
+- A file grows by more than ~100 lines without a corresponding extraction or removal elsewhere
+- A new module is added without a clear, bounded responsibility
+- New global or shared state is introduced
+- A function exceeds ~80–100 lines
+- A workaround or special-case is added rather than fixing the underlying model
+
+---
+
+## Where to File Work Items
+
+When adding a to-do item, place it in the correct location — never duplicate it in both files.
+
+| Item type | Where it goes |
+|---|---|
+| **Feature work** — new calculator behaviour, UI improvements | `Next session priorities` in `CLAUDE.md` |
+| **Bug fix** — incorrect behaviour, crashes, display glitches | `Next session priorities` in `CLAUDE.md` |
+| **Complexity debt** — introduced by a commit that needs paying down | `Next session priorities` in `CLAUDE.md` (tag `[complexity]`) |
+| **Code quality** — compiler warnings, CI gates, refactoring, static analysis | `docs/QUALITY_TRACKER.md` as a new P-item |
+| **Testing** — new test coverage, test infrastructure, coverage targets | `docs/QUALITY_TRACKER.md` as a new P-item |
+| **Contributor/open-source docs** — architecture diagrams, guides, onboarding | `docs/QUALITY_TRACKER.md` as a new P-item |
+
+**Rule of thumb:** if the item is about *what the calculator does*, it goes in `CLAUDE.md`. If it is about *how the code is structured, validated, or documented for contributors*, it goes in `QUALITY_TRACKER.md`.
+
+---
+
 ## Feedback
 
 If you have questions or need help, feel free to open a "Question" issue or reach out to the maintainers.

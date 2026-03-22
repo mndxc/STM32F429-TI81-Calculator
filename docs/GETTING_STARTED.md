@@ -115,9 +115,18 @@ Once your software is ready, follow these steps to get the Neo-81 firmware runni
 4.  **Flash:**
     * Connect your STM32F4-Discovery board via USB.
     * Use the **Run and Debug** panel in VSCode, or flash manually with OpenOCD:
+
+    **macOS:**
     ```bash
     openocd \
-      -f /opt/homebrew/Cellar/open-ocd/0.12.0_1/share/openocd/scripts/board/stm32f429disc1.cfg \
+      -f $(brew --prefix open-ocd)/share/openocd/scripts/board/stm32f429disc1.cfg \
+      -c "program build/Debug/STM32F429-TI81-Calculator.elf verify reset exit"
+    ```
+
+    **Linux:**
+    ```bash
+    openocd \
+      -f /usr/share/openocd/scripts/board/stm32f429disc1.cfg \
       -c "program build/Debug/STM32F429-TI81-Calculator.elf verify reset exit"
     ```
 
@@ -126,6 +135,8 @@ Once your software is ready, follow these steps to get the Neo-81 firmware runni
 ## 6. Host Tests
 
 The project includes a 301-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, and persistent storage round-trips.
+
+Run these commands from the **repo root** (the directory containing `CMakeLists.txt`):
 
 ```bash
 cmake -S App/Tests -B build/tests && cmake --build build/tests

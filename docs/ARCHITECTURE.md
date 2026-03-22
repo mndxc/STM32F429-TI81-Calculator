@@ -81,7 +81,8 @@ graph TD
 App/
   Src/            Custom application sources — all calculator logic lives here
   Inc/            Custom headers — public API for each App/Src module
-  HW/Keypad/      Hardware driver: key matrix scanner + token map
+  HW/             Hardware drivers — the only files that touch GPIO directly
+    Keypad/         keypad.c: key matrix scanner; keypad_map.c: token-to-key lookup table
   Display/        LVGL port layer: display flush + input device
   Fonts/          JetBrains Mono LVGL bitmap fonts (24px, 20px)
   Tests/          Host-compiled test suites (301 tests, no HAL/RTOS needed)
@@ -100,8 +101,8 @@ The key distinction: **`App/` is yours, `Core/` is CubeMX's.** Never place custo
 ## Memory Layout
 
 ```
-Internal RAM   192 KB  @ 0x20000000   ~68% used (FreeRTOS heap, stacks, app state)
-CCMRAM          64 KB  @ 0x10000000   0% used — available for future use
+Internal RAM   192 KB  @ 0x20000000   ~82% used (FreeRTOS heap, stacks, app state)
+CCMRAM          64 KB  @ 0x10000000   partial use — investigation pending (see CLAUDE.md item 12)
 FLASH            2 MB  @ 0x08000000   ~33% used (firmware image)
 SDRAM           64 MB  @ 0xD0000000   external IS42S16400J
 

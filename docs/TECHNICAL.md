@@ -193,6 +193,14 @@ per row is measured at runtime from the glyph width.
 | `MODE_MATH_MENU`           | MATH/NUM/HYP/PRB function menu                          |
 | `MODE_GRAPH_ZOOM_FACTORS`  | ZOOM FACTORS sub-screen (XFact/YFact editing)           |
 | `MODE_TEST_MENU`           | TEST comparison-operator menu                           |
+| `MODE_MATRIX_MENU`         | MATRIX/EDIT tab menu                                    |
+| `MODE_MATRIX_EDIT`         | Matrix cell editor ([A]/[B]/[C])                        |
+| `MODE_PRGM_MENU`           | PRGM EXEC/EDIT/ERASE tab selection                      |
+| `MODE_PRGM_EDITOR`         | Program line editor                                     |
+| `MODE_PRGM_CTL_MENU`       | PRGM CTL sub-menu (If, For, While…)                     |
+| `MODE_PRGM_IO_MENU`        | PRGM I/O sub-menu (Disp, Input…)                        |
+| `MODE_PRGM_RUNNING`        | Program execution in progress                           |
+| `MODE_PRGM_NEW_NAME`       | Name-entry dialog for new program                       |
 
 Pressing 2nd or ALPHA a second time cancels the modifier (toggle). `STO→` sets
 a pending flag and automatically enters ALPHA mode for the next keypress so the
@@ -450,8 +458,8 @@ openocd \
 ## Memory Layout
 
 ```
-RAM:     192 KB @ 0x20000000   (~68% used)
-CCMRAM:   64 KB @ 0x10000000   (0% used — available for matrix storage or large buffers)
+RAM:     192 KB @ 0x20000000   (~82% used)
+CCMRAM:   64 KB @ 0x10000000   (partial — see item 12 in CLAUDE.md next-session priorities)
 FLASH:     2 MB @ 0x08000000   (~33% used)
 SDRAM:    64 MB @ 0xD0000000   (external, IS42S16400J)
 ```

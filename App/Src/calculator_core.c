@@ -32,25 +32,12 @@
  * Constants
  *---------------------------------------------------------------------------*/
 
-#define DISPLAY_W           320
-#define DISPLAY_H           240
-
-#define DISP_ROW_COUNT      8           /* Visible text rows on the main screen */
-#define DISP_ROW_H          30          /* Pixels per row */
-#define CURSOR_BLINK_MS     530         /* Cursor blink interval */
-
-#define HISTORY_LINE_COUNT  32          /* Expression+result pairs stored in history */
-#define MAX_EXPR_LEN        96          /* Supports up to 4 wrapped display rows */
-#define MAX_RESULT_LEN      96   /* 32 for scalars; up to ~80 for 3×3 matrix rows */
-
 /* Scrollable menu geometry */
-#define MENU_VISIBLE_ROWS   7           /* Item rows visible below tab bar (8 rows - 1 tab) */
 #define MODE_ROW_COUNT      8           /* Rows in the MODE screen */
 #define MODE_MAX_COLS       11          /* Max options per MODE row (row 1 has 11) */
 #define MATH_TAB_COUNT      4           /* MATH menu tabs: MATH NUM HYP PRB */
 #define TEST_ITEM_COUNT     6           /* TEST menu items: = ≠ > ≥ < ≤ */
 
-#define MATRIX_COUNT        3           /* Number of matrices: [A], [B], [C] */
 #define MATRIX_MAX_DIM      CALC_MATRIX_MAX_DIM  /* alias — actual size in calc_engine.h */
 #define MATRIX_LIST_VISIBLE 7                    /* visible cell rows in the list editor */
 #define MATRIX_TAB_COUNT    2           /* MATRX and EDIT tabs */
@@ -135,6 +122,8 @@ static bool         sto_pending    = false;  /* True after STO — next alpha st
 HistoryEntry_t history[HISTORY_LINE_COUNT];
 uint8_t        history_count = 0;
     int8_t         history_recall_offset = 0; /* 0=not recalling; N=Nth-most-recent entry */
+static int8_t  matrix_scroll_focus  = -1;   /* history slot index with scroll focus; -1=none */
+static uint8_t matrix_scroll_offset = 0;    /* horizontal character scroll offset */
 
 /* Graph state */
 GraphState_t graph_state = {
@@ -269,6 +258,12 @@ static bool handle_mode_screen(Token_t t);
 static bool handle_math_menu(Token_t t);
 static bool handle_test_menu(Token_t t);
 static bool handle_sto_pending(Token_t t);
+
+/* handle_normal_mode sub-handlers */
+static void handle_digit_key(Token_t t);
+static void handle_arithmetic_op(Token_t t);
+static void handle_history_nav(Token_t t);
+static void handle_function_insert(Token_t t);
 
 /*---------------------------------------------------------------------------
  * Persistent storage helpers
@@ -712,6 +707,85 @@ static bool get_result_line(const char *src, int line_idx, char *buf, int buf_si
     return true;
 }
 
+/* Compute the maximum formatted-cell width for each column of matrix m. */
+static void matrix_col_widths(const CalcMatrix_t *m,
+                               uint8_t widths[CALC_MATRIX_MAX_DIM])
+{
+    for (int c = 0; c < CALC_MATRIX_MAX_DIM; c++) widths[c] = 0;
+    for (int r = 0; r < (int)m->rows; r++) {
+        for (int c = 0; c < (int)m->cols; c++) {
+            char cell[12];
+            Calc_FormatResult(m->data[r][c], cell, sizeof(cell));
+            cell[8] = '\0';
+            uint8_t len = (uint8_t)strlen(cell);
+            if (len > widths[c]) widths[c] = len;
+        }
+    }
+}
+
+/* Total characters needed for one formatted row: [ col0 col1 … coln ] */
+static int matrix_row_total_width(const CalcMatrix_t *m)
+{
+    uint8_t widths[CALC_MATRIX_MAX_DIM];
+    matrix_col_widths(m, widths);
+    int total = 2; /* [ and ] */
+    for (int c = 0; c < (int)m->cols; c++) {
+        if (c > 0) total++; /* space separator */
+        total += widths[c];
+    }
+    return total;
+}
+
+/*
+ * Build a display string for one row of matrix m with horizontal scroll applied.
+ *
+ * display_cols: number of character columns visible (typically expr_chars_per_row).
+ * Shows '>' at the right edge when more content is to the right.
+ * Shows '<' at the left edge when scrolled past content.
+ * buf must be at least display_cols + 2 bytes.
+ */
+static void matrix_format_row(const CalcMatrix_t *m, int row_idx,
+                               int scroll_offset, int display_cols,
+                               char *buf, int buf_size)
+{
+    uint8_t widths[CALC_MATRIX_MAX_DIM];
+    matrix_col_widths(m, widths);
+
+    /* Build the full unclipped row string */
+    char full[80];
+    int pos = 0;
+    full[pos++] = '[';
+    for (int c = 0; c < (int)m->cols && pos < (int)sizeof(full) - 2; c++) {
+        if (c > 0) full[pos++] = ' ';
+        char cell[12];
+        Calc_FormatResult(m->data[row_idx][c], cell, sizeof(cell));
+        cell[8] = '\0';
+        int cl = (int)strlen(cell);
+        int cw = (int)widths[c];
+        /* Right-pad cell to column width */
+        for (int p = 0; p < cw && pos < (int)sizeof(full) - 1; p++)
+            full[pos++] = (p < cl) ? cell[p] : ' ';
+    }
+    if (pos < (int)sizeof(full) - 1) full[pos++] = ']';
+    full[pos] = '\0';
+    int full_len = pos;
+
+    bool clip_left  = (scroll_offset > 0);
+    bool clip_right = (scroll_offset + display_cols < full_len);
+
+    /* Source range: shrink by 1 char on each clipped side for the indicator */
+    int src_start = scroll_offset + (clip_left  ? 1 : 0);
+    int src_end   = scroll_offset + display_cols - (clip_right ? 1 : 0);
+    if (src_end > full_len) src_end = full_len;
+
+    int out = 0;
+    if (clip_left  && out < buf_size - 1) buf[out++] = '<';
+    for (int src = src_start; src < src_end && out < buf_size - 2; src++)
+        buf[out++] = full[src];
+    if (clip_right && out < buf_size - 1) buf[out++] = '>';
+    buf[out] = '\0';
+}
+
 void ui_refresh_display(void)
 {
     if (disp_rows[0] == NULL) return;
@@ -730,7 +804,9 @@ void ui_refresh_display(void)
         int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
         int elen = (int)strlen(history[idx].expression);
         int erows = (elen + cpr - 1) / cpr;
-        int rlines = count_result_lines(history[idx].result);
+        int rlines = history[idx].has_matrix
+                     ? (int)history[idx].matrix_data.rows
+                     : count_result_lines(history[idx].result);
         total_history_lines += erows + rlines;
     }
 
@@ -756,7 +832,9 @@ void ui_refresh_display(void)
                 int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
                 int elen  = (int)strlen(history[idx].expression);
                 int erows = (elen + cpr - 1) / cpr;
-                int rlines = count_result_lines(history[idx].result);
+                int rlines = history[idx].has_matrix
+                             ? (int)history[idx].matrix_data.rows
+                             : count_result_lines(history[idx].result);
 
                 if (li < line + erows) {
                     /* Expression sub-row */
@@ -778,13 +856,23 @@ void ui_refresh_display(void)
                 line += erows;
 
                 if (li < line + rlines) {
-                    /* Result line for this history entry (may be multi-line for matrices) */
+                    /* Result line for this history entry */
                     int result_line = li - line;
                     char rbuf[MAX_RESULT_LEN];
-                    get_result_line(history[idx].result, result_line, rbuf, sizeof(rbuf));
                     lv_obj_set_style_text_color(disp_rows[row],
                                                 lv_color_hex(COLOR_WHITE), 0);
-                    lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_RIGHT, 0);
+                    if (history[idx].has_matrix) {
+                        /* Column-aligned matrix row with horizontal scroll support */
+                        int off = (matrix_scroll_focus == (int8_t)idx)
+                                  ? (int)matrix_scroll_offset : 0;
+                        matrix_format_row(&history[idx].matrix_data, result_line,
+                                          off, cpr, rbuf, sizeof(rbuf));
+                        lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
+                    } else {
+                        get_result_line(history[idx].result, result_line,
+                                        rbuf, sizeof(rbuf));
+                        lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_RIGHT, 0);
+                    }
                     lv_label_set_text(disp_rows[row], rbuf);
                     break;
                 }
@@ -1446,6 +1534,9 @@ static bool handle_sto_pending(Token_t t)
         history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
         strncpy(history[idx].result, val_buf, MAX_RESULT_LEN - 1);
         history[idx].result[MAX_RESULT_LEN - 1] = '\0';
+        history[idx].has_matrix = false;
+        matrix_scroll_focus  = -1;
+        matrix_scroll_offset = 0;
         history_count++;
         lvgl_lock();
         ui_update_status_bar();
@@ -1466,53 +1557,63 @@ static bool handle_sto_pending(Token_t t)
     return false;
 }
 
-void handle_normal_mode(Token_t t)
+static void handle_digit_key(Token_t t)
+{
+    if (t == TOKEN_DECIMAL) {
+        expr_insert_char('.');
+    } else {
+        expr_insert_char((char)((t - TOKEN_0) + '0'));
+    }
+    Update_Calculator_Display();
+}
+
+static void handle_arithmetic_op(Token_t t)
+{
+    switch (t) {
+    case TOKEN_ADD:    expr_prepend_ans_if_empty(); expr_insert_char('+');      break;
+    case TOKEN_SUB:    expr_prepend_ans_if_empty(); expr_insert_char('-');      break;
+    case TOKEN_MULT:   expr_prepend_ans_if_empty(); expr_insert_char('*');      break;
+    case TOKEN_DIV:    expr_prepend_ans_if_empty(); expr_insert_char('/');      break;
+    case TOKEN_SQUARE: expr_prepend_ans_if_empty(); expr_insert_str("^2");      break;
+    case TOKEN_X_INV:  expr_prepend_ans_if_empty(); expr_insert_str("^-1");     break;
+    case TOKEN_POWER:  expr_prepend_ans_if_empty(); expr_insert_char('^');      break;
+    case TOKEN_L_PAR:  expr_insert_char('(');                                   break;
+    case TOKEN_R_PAR:  expr_insert_char(')');                                   break;
+    case TOKEN_NEG:    expr_insert_char('-');                                   break;
+    default: break;
+    }
+    Update_Calculator_Display();
+}
+
+static void handle_history_nav(Token_t t)
 {
     switch (t) {
 
-    case TOKEN_0 ... TOKEN_9:
-        expr_insert_char((char)((t - TOKEN_0) + '0'));
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_DECIMAL:
-        expr_insert_char('.');
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_ADD:
-        expr_prepend_ans_if_empty();
-        expr_insert_char('+');
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_SUB:
-        expr_prepend_ans_if_empty();
-        expr_insert_char('-');
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_MULT:
-        expr_prepend_ans_if_empty();
-        expr_insert_char('*');
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_DIV:
-        expr_prepend_ans_if_empty();
-        expr_insert_char('/');
-        Update_Calculator_Display();
-        break;
-
     case TOKEN_LEFT:
-        if (cursor_pos > 0) {
+        if (expr_len == 0 && matrix_scroll_focus >= 0 &&
+            history[matrix_scroll_focus].has_matrix) {
+            if (matrix_scroll_offset > 0) {
+                matrix_scroll_offset--;
+                Update_Calculator_Display();
+            }
+        } else if (cursor_pos > 0) {
             ExprUtil_MoveCursorLeft(expression, &cursor_pos);
             Update_Calculator_Display();
         }
         break;
 
     case TOKEN_RIGHT:
-        if (cursor_pos < expr_len) {
+        if (expr_len == 0 && matrix_scroll_focus >= 0 &&
+            history[matrix_scroll_focus].has_matrix) {
+            const CalcMatrix_t *m = &history[matrix_scroll_focus].matrix_data;
+            int total_w = matrix_row_total_width(m);
+            int max_off = (total_w > (int)expr_chars_per_row)
+                          ? (total_w - (int)expr_chars_per_row) : 0;
+            if ((int)matrix_scroll_offset < max_off) {
+                matrix_scroll_offset++;
+                Update_Calculator_Display();
+            }
+        } else if (cursor_pos < expr_len) {
             ExprUtil_MoveCursorRight(expression, expr_len, &cursor_pos);
             Update_Calculator_Display();
         }
@@ -1562,6 +1663,16 @@ void handle_normal_mode(Token_t t)
             history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
             strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
             history[idx].result[MAX_RESULT_LEN - 1] = '\0';
+            history[idx].has_matrix = false;
+            if (result.has_matrix) {
+                history[idx].has_matrix  = true;
+                history[idx].matrix_data = calc_matrices[result.matrix_idx];
+                matrix_scroll_focus      = (int8_t)idx;
+                matrix_scroll_offset     = 0;
+            } else {
+                matrix_scroll_focus  = -1;
+                matrix_scroll_offset = 0;
+            }
             history_count++;
             history_recall_offset = 0;
             lvgl_lock();
@@ -1580,6 +1691,16 @@ void handle_normal_mode(Token_t t)
             history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
             strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
             history[idx].result[MAX_RESULT_LEN - 1] = '\0';
+            history[idx].has_matrix = false;
+            if (result.has_matrix) {
+                history[idx].has_matrix  = true;
+                history[idx].matrix_data = calc_matrices[result.matrix_idx];
+                matrix_scroll_focus      = (int8_t)idx;
+                matrix_scroll_offset     = 0;
+            } else {
+                matrix_scroll_focus  = -1;
+                matrix_scroll_offset = 0;
+            }
             history_count++;
 
             expr_len              = 0;
@@ -1591,6 +1712,98 @@ void handle_normal_mode(Token_t t)
             ui_update_history();
             lvgl_unlock();
         }
+        break;
+
+    case TOKEN_ENTRY:
+        if (history_count > 0) {
+            history_recall_offset = 1;
+            uint8_t idx = (history_count - 1) % HISTORY_LINE_COUNT;
+            strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
+            expression[MAX_EXPR_LEN - 1] = '\0';
+            expr_len   = (uint8_t)strlen(expression);
+            cursor_pos = expr_len;
+            Update_Calculator_Display();
+        }
+        break;
+
+    default: break;
+    }
+}
+
+static void handle_function_insert(Token_t t)
+{
+    switch (t) {
+    case TOKEN_MTRX_A: expr_insert_str("[A]"); break;
+    case TOKEN_MTRX_B: expr_insert_str("[B]"); break;
+    case TOKEN_MTRX_C: expr_insert_str("[C]"); break;
+
+    case TOKEN_SIN:   expr_insert_str("sin(");  break;
+    case TOKEN_COS:   expr_insert_str("cos(");  break;
+    case TOKEN_TAN:   expr_insert_str("tan(");  break;
+    case TOKEN_ASIN:  expr_insert_str("asin("); break;
+    case TOKEN_ACOS:  expr_insert_str("acos("); break;
+    case TOKEN_ATAN:  expr_insert_str("atan("); break;
+    case TOKEN_ABS:   expr_insert_str("abs(");  break;
+    case TOKEN_LN:    expr_insert_str("ln(");   break;
+    case TOKEN_LOG:   expr_insert_str("log(");  break;
+    case TOKEN_SQRT:  expr_insert_str("\xE2\x88\x9A("); break;
+    case TOKEN_EE:    expr_insert_str("*10^");  break;
+    case TOKEN_E_X:   expr_insert_str("exp(");  break;
+    case TOKEN_TEN_X: expr_insert_str("10^(");  break;
+    case TOKEN_PI:    expr_insert_str("π");     break;
+    case TOKEN_ANS:   expr_insert_str("ANS");   break;
+    case TOKEN_THETA: expr_insert_str("θ");     break;
+    case TOKEN_SPACE: expr_insert_char(' ');    break;
+    case TOKEN_COMMA: expr_insert_char(',');    break;
+    case TOKEN_QUOTES: expr_insert_char('"');   break;
+    case TOKEN_QSTN_M: expr_insert_char('?');   break;
+
+    case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
+    case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
+    case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
+    case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
+    case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
+    case TOKEN_Z: {
+        static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        char ch[2] = { alpha_chars[t - TOKEN_A], '\0' };
+        expr_insert_str(ch);
+        break;
+    }
+
+    default: break;
+    }
+    Update_Calculator_Display();
+}
+
+void handle_normal_mode(Token_t t)
+{
+    switch (t) {
+
+    case TOKEN_0 ... TOKEN_9:
+    case TOKEN_DECIMAL:
+        handle_digit_key(t);
+        break;
+
+    case TOKEN_ADD:
+    case TOKEN_SUB:
+    case TOKEN_MULT:
+    case TOKEN_DIV:
+    case TOKEN_SQUARE:
+    case TOKEN_X_INV:
+    case TOKEN_POWER:
+    case TOKEN_L_PAR:
+    case TOKEN_R_PAR:
+    case TOKEN_NEG:
+        handle_arithmetic_op(t);
+        break;
+
+    case TOKEN_LEFT:
+    case TOKEN_RIGHT:
+    case TOKEN_UP:
+    case TOKEN_DOWN:
+    case TOKEN_ENTER:
+    case TOKEN_ENTRY:
+        handle_history_nav(t);
         break;
 
     case TOKEN_CLEAR:
@@ -1642,77 +1855,21 @@ void handle_normal_mode(Token_t t)
         menu_open(TOKEN_PRGM, MODE_NORMAL);
         break;
 
-    case TOKEN_MTRX_A: expr_insert_str("[A]"); Update_Calculator_Display(); break;
-    case TOKEN_MTRX_B: expr_insert_str("[B]"); Update_Calculator_Display(); break;
-    case TOKEN_MTRX_C: expr_insert_str("[C]"); Update_Calculator_Display(); break;
-
-    case TOKEN_SIN:     expr_insert_str("sin(");  Update_Calculator_Display(); break;
-    case TOKEN_COS:     expr_insert_str("cos(");  Update_Calculator_Display(); break;
-    case TOKEN_TAN:     expr_insert_str("tan(");  Update_Calculator_Display(); break;
-    case TOKEN_ASIN:    expr_insert_str("asin("); Update_Calculator_Display(); break;
-    case TOKEN_ACOS:    expr_insert_str("acos("); Update_Calculator_Display(); break;
-    case TOKEN_ATAN:    expr_insert_str("atan("); Update_Calculator_Display(); break;
-    case TOKEN_ABS:     expr_insert_str("abs(");  Update_Calculator_Display(); break;
-    case TOKEN_LN:      expr_insert_str("ln(");   Update_Calculator_Display(); break;
-    case TOKEN_LOG:     expr_insert_str("log(");  Update_Calculator_Display(); break;
-    case TOKEN_SQRT:    expr_insert_str("\xE2\x88\x9A("); Update_Calculator_Display(); break;
-    case TOKEN_EE:      expr_insert_str("*10^");  Update_Calculator_Display(); break;
-    case TOKEN_E_X:     expr_insert_str("exp(");  Update_Calculator_Display(); break;
-    case TOKEN_TEN_X:   expr_insert_str("10^(");  Update_Calculator_Display(); break;
-    case TOKEN_PI:      expr_insert_str("π");     Update_Calculator_Display(); break;
-    case TOKEN_ANS:     expr_insert_str("ANS");   Update_Calculator_Display(); break;
-    case TOKEN_THETA:   expr_insert_str("θ");     Update_Calculator_Display(); break;
-    case TOKEN_SPACE:   expr_insert_char(' ');    Update_Calculator_Display(); break;
-    case TOKEN_COMMA:   expr_insert_char(',');    Update_Calculator_Display(); break;
-    case TOKEN_QUOTES:  expr_insert_char('"');    Update_Calculator_Display(); break;
-    case TOKEN_QSTN_M:  expr_insert_char('?');    Update_Calculator_Display(); break;
-
-    case TOKEN_SQUARE:
-        expr_prepend_ans_if_empty();
-        expr_insert_str("^2");
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_X_INV:
-        expr_prepend_ans_if_empty();
-        expr_insert_str("^-1");
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_POWER:
-        expr_prepend_ans_if_empty();
-        expr_insert_char('^');
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_L_PAR:   expr_insert_char('('); Update_Calculator_Display(); break;
-    case TOKEN_R_PAR:   expr_insert_char(')'); Update_Calculator_Display(); break;
-    case TOKEN_NEG:     expr_insert_char('-'); Update_Calculator_Display(); break;
-
-    case TOKEN_ENTRY:
-        if (history_count > 0) {
-            history_recall_offset = 1;
-            uint8_t idx = (history_count - 1) % HISTORY_LINE_COUNT;
-            strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
-            expression[MAX_EXPR_LEN - 1] = '\0';
-            expr_len   = (uint8_t)strlen(expression);
-            cursor_pos = expr_len;
-            Update_Calculator_Display();
-        }
-        break;
-
+    case TOKEN_MTRX_A: case TOKEN_MTRX_B: case TOKEN_MTRX_C:
+    case TOKEN_SIN: case TOKEN_COS: case TOKEN_TAN:
+    case TOKEN_ASIN: case TOKEN_ACOS: case TOKEN_ATAN:
+    case TOKEN_ABS: case TOKEN_LN: case TOKEN_LOG: case TOKEN_SQRT:
+    case TOKEN_EE: case TOKEN_E_X: case TOKEN_TEN_X:
+    case TOKEN_PI: case TOKEN_ANS: case TOKEN_THETA:
+    case TOKEN_SPACE: case TOKEN_COMMA: case TOKEN_QUOTES: case TOKEN_QSTN_M:
     case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
     case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
     case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
     case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
     case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
-    case TOKEN_Z: {
-        static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        char ch[2] = { alpha_chars[t - TOKEN_A], '\0' };
-        expr_insert_str(ch);
-        Update_Calculator_Display();
+    case TOKEN_Z:
+        handle_function_insert(t);
         break;
-    }
 
     case TOKEN_STO:
         sto_pending = true;

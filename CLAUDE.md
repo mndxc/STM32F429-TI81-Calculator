@@ -101,6 +101,7 @@ Sessions:
 - 2026-03-22 (Session 10): P6, P12, P13, P17 resolved (Sweet Spot items). -Werror enabled for App; Architecture/Testing/Troubleshooting docs created.
 - 2026-03-22 (Session 11): Implement Y= equation enable/disable toggle functionality. Update graph renderer and persistence (v4). Fixed a startup crash and multiple trace/graph transition freezes in `graph.c` and `graph_ui.c` (guards for zero-scale ticks, loop clamping for singularities, and LVGL mutex synchronization).
 - 2026-03-22 (Session 12): [P15] Expression pipeline documented in `TECHNICAL.md` with "2 + sin(45)" worked example. `QUALITY_TRACKER.md` updated.
+- 2026-03-22 (Session 13): Matrix history display refactored — column-aligned rows, horizontal scroll via LEFT/RIGHT when expression is empty, `<`/`>` clip indicators. `HistoryEntry_t` now embeds `CalcMatrix_t` copy. Build at 82.44% RAM.
 
 ### Completed features
 
@@ -339,10 +340,12 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **7. QUIT (2nd+CLEAR) always exits to main calculator screen** — ✅ Resolved 2026-03-22
 
-**8. Matrix result display — left-aligned columns with horizontal scroll** — When a matrix result is shown in history, columns should be left-aligned (all cells in a column share the same left-edge x position, determined by the widest cell in that column) for easy visual parsing. For wide matrices that exceed the display width, the result should be horizontally scrollable: LEFT/RIGHT arrow keys pan the view, with an ellipsis (`…`) shown at the right edge when content is clipped to the right, and at the left edge when content is clipped to the left. Scrolling is active only while the matrix result row has focus; any input other than LEFT/RIGHT (digit, operator, function key, etc.) exits scroll mode and is processed normally.
-- Files: `App/Src/calculator_core.c` (history entry rendering; LEFT/RIGHT handler when a matrix result row is focused), `App/Src/calc_engine.c` (`Calc_FormatResult` or a new `Calc_FormatMatrix` that pre-formats column-aligned rows into a buffer)
-- Approach: pre-format the matrix into a fixed-width-per-column string at evaluation time and store it alongside the history entry; display a 320px-wide window into that string; track a `matrix_scroll_offset` (in characters or pixels) per history entry; reset offset to 0 on any non-scroll input
-- Gotchas: `MAX_RESULT_LEN` is currently 96 — a 6×6 matrix with 8-char cells needs up to ~300 chars per display row; either increase the buffer or format on-the-fly from the `CalcMatrix_t` stored in `calc_matrices[3]`; consider whether the ANS matrix slot survives enough history entries before being overwritten
+**8. Matrix result display — left-aligned columns with horizontal scroll** — ✅ Resolved 2026-03-22
+- `HistoryEntry_t` now embeds a `CalcMatrix_t matrix_data` copy + `bool has_matrix` flag. Matrix data is copied from `calc_matrices[result.matrix_idx]` at evaluation time so it survives beyond ANS slot reuse.
+- `matrix_format_row()` builds column-aligned rows on-the-fly using per-column max widths; `<`/`>` ASCII indicators show clip edges. History scroll state (`matrix_scroll_focus`, `matrix_scroll_offset`) set on each matrix ENTER result.
+- LEFT/RIGHT when `expr_len==0` and scroll focus is active pan the matrix view; all other keys use normal expression cursor logic.
+- **Note:** `<`/`>` were used instead of `…` (U+2026) because U+2026 is not in the current font. To use `…` instead, add `-r 0x2026` to the `lv_font_conv` regeneration commands in CLAUDE.md gotcha #14.
+- RAM impact: `HistoryEntry_t` grew from 192 B to ~344 B; 32×344=11 KB total history (up from 6 KB). Build RAM at 82.44% (up from ~68% as tracked in earlier sessions — CCMRAM is also now occupied by other statics; see item 12).
 
 **9. Verify cursor activity uniformity across all screens** — Audit cursor rendering, blink behaviour, position tracking, and mode-indicator logic across every screen (main calculator, Y=, RANGE, ZOOM FACTORS, MATRIX EDIT, PRGM editor). Note any inconsistencies and recommend a refactor to unify cursor handling.
 - Files: `App/Src/calculator_core.c` (cursor_update, cursor_timer_cb, mode-specific cursor boxes), `App/Inc/app_common.h` (CalcMode_t)
@@ -361,6 +364,8 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 **17. Fix STO> to evaluate the current expression, not just store ANS** — `handle_sto_pending()` (`calculator_core.c:1432`) always stores the current `ans` value directly, ignoring whatever the user has typed. On the TI-81, STO> stores the *result of evaluating the current expression* into the destination variable. If the expression buffer is empty when STO> is pressed, it should auto-prepend `"ANS"` (matching the existing `expr_prepend_ans_if_empty()` pattern used by binary operators). The history entry should show `<expression>→<VAR>` on the expression line and the stored value as the result, not just the bare variable name.
 - Files: `App/Src/calculator_core.c` — `TOKEN_STO` handler (~line 1714): call `expr_prepend_ans_if_empty()` when `expr_len == 0`; `handle_sto_pending()` (~line 1432): call `Calc_Evaluate(expression, ...)` instead of using `ans` directly, then write `<expr>→<VAR>` into the history expression field and the formatted result into the history result field; update `ans` and `ans_is_matrix` from the evaluation result
 - Gotchas: `sto_pending` already forces the alpha key layer in `Process_Hardware_Key()` (line 1874) so the variable letter arrives correctly; the expression buffer should be cleared and cursor reset after a successful store, same as after ENTER; if `Calc_Evaluate` returns an error the store should be aborted and the error displayed in the result row instead of storing a garbage value
+
+**[complexity] Reduce HistoryEntry_t memory footprint** — Embedding `CalcMatrix_t` (148 B) in every one of 32 history entries cost ~4.8 KB of extra RAM (build now at 82.44%). The matrix data could instead be stored in a small separate ring buffer of up to ~8 entries and referenced by index, allowing most history entries to remain small. Alternatively, evaluate whether the matrix slot can be borrowed more cleverly (only the most recent result needs scroll support). Files: `App/Inc/calc_internal.h` (`HistoryEntry_t`), `App/Src/calculator_core.c` (scroll state management).
 
 ---
 
@@ -627,8 +632,8 @@ Without `-u _printf_float`, `%f`, `%g`, and `%e` produce empty strings silently.
 
 ### Memory regions
 ```
-RAM:     192 KB @ 0x20000000   (~68% used)
-CCMRAM:   64 KB @ 0x10000000   (0% used — graph_buf moved to SDRAM)
+RAM:     192 KB @ 0x20000000   (~82% used)
+CCMRAM:   64 KB @ 0x10000000   (partial use — investigation pending; see item 12)
 FLASH:     2 MB @ 0x08000000   (~33% used)
 SDRAM:    64 MB @ 0xD0000000   (external, initialised in main.c)
 ```
@@ -752,7 +757,13 @@ typedef enum {
     MODE_GRAPH_ZOOM_FACTORS, // ZOOM FACTORS sub-screen (XFact/YFact editing)
     MODE_TEST_MENU,          // TEST comparison-operator menu active
     MODE_MATRIX_MENU,        // MATRIX menu active (MATRX/EDIT tabs)
-    MODE_MATRIX_EDIT         // MATRIX cell editor active ([A]/[B]/[C])
+    MODE_MATRIX_EDIT,        // MATRIX cell editor active ([A]/[B]/[C])
+    MODE_PRGM_MENU,          // PRGM EXEC/EDIT/NEW tab selection
+    MODE_PRGM_EDITOR,        // Program line editor
+    MODE_PRGM_CTL_MENU,      // PRGM CTL sub-menu (If, For, While…)
+    MODE_PRGM_IO_MENU,       // PRGM I/O sub-menu (Disp, Input…)
+    MODE_PRGM_RUNNING,       // Program execution in progress
+    MODE_PRGM_NEW_NAME,      // Name-entry dialog for new program
 } CalcMode_t;
 ```
 
@@ -853,6 +864,7 @@ GraphState_t graph_state;   // defined in calculator_core.c, extern in app_commo
 
 typedef struct {
     char    equations[GRAPH_NUM_EQ][64];
+    bool    enabled[GRAPH_NUM_EQ];       // true if equation is plotted
     float   x_min, x_max, y_min, y_max;
     float   x_scl, y_scl;
     float   x_res;   // render step (1 = every pixel column, integer 1–8)
@@ -1066,7 +1078,7 @@ Middlewares/ST/
 2. **nano.specs drops float printf** — always include `-u _printf_float`
 3. **LVGL calls outside mutex** — hard faults or display corruption
 4. **Never call lvgl_lock() inside cursor_timer_cb** — deadlock (already holds mutex)
-5. **CCMRAM is 0% used (64 KB free)** — `graph_buf` was moved to SDRAM; CCMRAM is available for matrix storage or other large working buffers
+5. **CCMRAM is partially used** — `graph_buf` was moved to SDRAM. Some statics now occupy CCMRAM; the full breakdown requires a build map inspection (see item 12 in Next session priorities). Do not assume CCMRAM is fully free.
 6. **SDRAM must be initialised before use** — happens in `main.c` before tasks start
 7. **White screen after flash** — usually stale binary; power cycle the board
 8. **`%.6g` unreliable on ARM newlib-nano** — use `%.6f` with manual trimming
@@ -1095,3 +1107,4 @@ Middlewares/ST/
 17. **ON button EXTI is on EXTI9_5_IRQn** — `EXTI9_5_IRQHandler` is defined in `app_init.c`, not in the CubeMX-generated `stm32f4xx_it.c`. If CubeMX ever regenerates `stm32f4xx_it.c` and adds a duplicate `EXTI9_5_IRQHandler`, there will be a linker error. Keep the handler in `app_init.c` and ensure `stm32f4xx_it.c` does not define it. PE6 is not configured in the `.ioc` — `on_button_init()` sets it up entirely in App code using `KEYPAD_ON_PIN` / `KEYPAD_ON_PORT` from `keypad.h`.
 18. **Keypad pin constants live in `keypad.h`, not `main.h`** — `Matrix*_Pin` / `Matrix*_GPIO_Port` macros in the CubeMX-generated `main.h` are now redundant (the `.ioc` still has them until a CubeMX cleanup pass is done, but App code no longer depends on them). All keypad wiring is authoritative in `keypad.h`: `KEYPAD_A1_PORT/PIN` … `KEYPAD_B8_PORT/PIN`, `KEYPAD_ON_PORT/PIN`. Do not add new keypad-pin references to `main.h`.
 19. **Power_EnterStop LTDC/SDRAM order** — LTDC must be disabled BEFORE SDRAM enters self-refresh. In RGB interface mode LTDC continuously reads from the SDRAM framebuffer; if SDRAM enters self-refresh while LTDC is still active, LTDC receives bus errors and drives random pixels to the display. Correct order: zero framebuffer → delay 20 ms → disable LTDC → BSP_LCD_DisplayOff → SDRAM self-refresh → HAL_SuspendTick → WFI.
+20. **VSCode build button — `cube-cmake` PATH must include build-cmake extension** — The workspace `.vscode/settings.json` sets `cmake.environment.PATH`, which overrides user-level settings. This PATH must include BOTH the core extension binaries (`stm32cube-ide-core-.../resources/binaries/darwin/aarch64`) AND the cmake extension binary (`stm32cube-ide-build-cmake-.../resources/cube-cmake/darwin/aarch64`). If only the core path is present, `cube-cmake` is not found and CMake configure fails. If the `stm32cube-ide-build-cmake` extension is updated, the version number in this path must be updated too. The ARM toolchain path (`gnu-tools-for-stm32/14.3.1+st.2/bin`) must also be present.

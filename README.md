@@ -37,6 +37,21 @@ STAT is not yet implemented.
 
 ---
 
+## No hardware? No problem.
+
+You can build and run the full test suite on any machine — no STM32 board required.
+
+```bash
+git clone https://github.com/mndxc/STM32F429-TI81-Calculator.git
+cd STM32F429-TI81-Calculator
+cmake -S App/Tests -B build/tests && cmake --build build/tests
+./build/tests/test_calc_engine && ./build/tests/test_expr_util && ./build/tests/test_persist_roundtrip
+```
+
+All 301 tests pass on plain x86/ARM Linux and macOS with any standard C compiler. No toolchain, no board, no USB cable needed.
+
+---
+
 ## Documentation
 
 | I want to… | Go here |

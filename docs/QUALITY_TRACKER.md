@@ -462,6 +462,7 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 | persist.c HAL guards | FLASH sector 7 guard added; versioned header | 2026-03-21 |
 | Y= Toggle implemented | Equation enable/disable toggle from Y= editor; persistence v4 | 2026-03-22 |
 | Graph stability fixes | Resolved startup white screen, coordinate overlap, and trace/graph transition freezes (mutex sync, math guards, loop clamping) | 2026-03-22 |
+| P15 — Expression pipeline walkthrough | Worked example ("2 + sin(45)") added to `docs/TECHNICAL.md` covering tokenize → shunting-yard → RPN → result | 2026-03-22 |
 
 ---
 
@@ -485,3 +486,5 @@ Common pitfalls are documented in `CLAUDE.md` as gotchas but not in `GETTING_STA
 | 2026-03-21 | Antigravity AI | Session 8/9: Global Hard QUIT navigation implemented; IDE/Build fixes (IntelliSense header fix, recursive include resolve, debug config fix, CMake build fix) |
 | 2026-03-21 | Antigravity AI | Session 10: P6, P12, P13, P17 resolved (Sweet Spot items). `-Werror` enabled for App; Architecture/Testing/Troubleshooting docs created. |
 | 2026-03-22 | Antigravity AI | Session 11: Y= toggle implemented in `graph_ui.c`. Persistence version bumped to 4. Build/Flash success. Multiple stability fixes for graph rendering and coordinate layout. |
+| 2026-03-22 | Antigravity AI | Session 12: P15 resolved — expression pipeline worked example ("2 + sin(45)") added to `docs/TECHNICAL.md`. `test_persist_roundtrip.c` size assertion updated 860 → 864 B. |
+| 2026-03-22 | Antigravity AI | Session 13: Matrix history display refactored — column-aligned rows, horizontal scroll via LEFT/RIGHT, `<`/`>` clip indicators. `HistoryEntry_t` embeds `CalcMatrix_t` copy. RAM at 82.44% (up from ~68%). |

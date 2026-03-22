@@ -104,6 +104,276 @@ static bool is_right_assoc(MathTokenType_t t)
 }
 
 /*---------------------------------------------------------------------------
+ * Stage 1 — Tokenizer helpers
+ *--------------------------------------------------------------------------*/
+
+/* Try to tokenize a numeric literal at *p.
+ * Handles plain numbers (digit or '.') and the '-' after '^' special case.
+ * Returns CALC_OK with *matched==true on success, CALC_OK with *matched==false
+ * if *p is not a number, or an error code on overflow/syntax. */
+static CalcError_t try_tokenize_number(const char **p, TokenList_t *out, bool *matched)
+{
+    *matched = false;
+
+    /* Special case: '-' immediately after '^' before a digit or dot —
+       fold the sign into the number literal so shunting-yard never
+       tries to pop '^' before its right operand is ready.
+       e.g. 2^-3  →  tokens [2, ^, -3]  rather than [2, ^, NEG, 3]. */
+    if (**p == '-' &&
+        out->count > 0 &&
+        out->tokens[out->count - 1].type == MATH_OP_POW &&
+        (isdigit((unsigned char)(*p)[1]) || (*p)[1] == '.')) {
+        char *end;
+        float val = strtof(*p, &end);
+        if (end == *p) return CALC_ERR_SYNTAX;
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_NUMBER;
+        out->tokens[out->count].value = val;
+        out->count++;
+        *p = end;
+        *matched = true;
+        return CALC_OK;
+    }
+
+    if (!isdigit((unsigned char)**p) && **p != '.')
+        return CALC_OK; /* no match */
+
+    char *end;
+    float val = strtof(*p, &end);
+    if (end == *p) return CALC_ERR_SYNTAX;
+    if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+    out->tokens[out->count].type  = MATH_NUMBER;
+    out->tokens[out->count].value = val;
+    out->count++;
+    *p = end;
+    *matched = true;
+    return CALC_OK;
+}
+
+/* Try to tokenize a named identifier or variable at *p.
+ * Covers: ANS, X, matrix refs [A/B/C], T-transpose, pi, rand, named
+ * functions (sin/cos/…), the 'e' constant, and user variables A–Z.
+ * Returns CALC_OK with *matched==true on success, CALC_OK with *matched==false
+ * if *p is not a known identifier, or an error code on overflow. */
+static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
+                                            float ans, bool ans_is_matrix,
+                                            float x_val, bool *matched)
+{
+    *matched = false;
+
+    /* ANS */
+    if (strncmp(*p, "ANS", 3) == 0) {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        if (ans_is_matrix) {
+            out->tokens[out->count].type  = MATH_MATRIX_VAL;
+            out->tokens[out->count].value = 3.0f; /* ANS matrix slot */
+        } else {
+            out->tokens[out->count].type  = MATH_NUMBER;
+            out->tokens[out->count].value = ans;
+        }
+        out->count++;
+        *p += 3;
+        *matched = true;
+        return CALC_OK;
+    }
+
+    /* X variable */
+    if (**p == 'x' || **p == 'X') {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_NUMBER;
+        out->tokens[out->count].value = x_val;
+        out->count++;
+        *p += 1;
+        *matched = true;
+        return CALC_OK;
+    }
+
+    /* Matrix references [A], [B], [C] — must be checked before the
+       uppercase variable handler so 'A'/'B'/'C' are not consumed first. */
+    if ((*p)[0] == '[' &&
+        ((*p)[1] == 'A' || (*p)[1] == 'B' || (*p)[1] == 'C') &&
+        (*p)[2] == ']') {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_MATRIX_VAL;
+        out->tokens[out->count].value = (float)((*p)[1] - 'A');
+        out->count++;
+        *p += 3;
+        *matched = true;
+        return CALC_OK;
+    }
+
+    /* T immediately after a matrix value or ')' → transpose postfix operator.
+       Must be checked before the uppercase variable handler; otherwise 'T'
+       is consumed as user variable T. */
+    if (**p == 'T' && out->count > 0) {
+        MathTokenType_t prev = out->tokens[out->count - 1].type;
+        if (prev == MATH_MATRIX_VAL || prev == MATH_PAREN_RIGHT) {
+            if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+            out->tokens[out->count].type  = MATH_OP_TRANSPOSE;
+            out->tokens[out->count].value = 0;
+            out->count++;
+            (*p)++;
+            *matched = true;
+            return CALC_OK;
+        }
+    }
+
+    /* pi constant — accept both ASCII "pi" and UTF-8 π (0xCF 0x80) */
+    if (strncmp(*p, "pi", 2) == 0 ||
+        ((unsigned char)(*p)[0] == 0xCFu && (unsigned char)(*p)[1] == 0x80u)) {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_NUMBER;
+        out->tokens[out->count].value = 3.14159265358979f;
+        out->count++;
+        *p += 2; /* "pi" and UTF-8 π (0xCF 0x80) are both 2 bytes */
+        *matched = true;
+        return CALC_OK;
+    }
+
+    /* rand — zero-argument: evaluate immediately to a random [0, 1) number */
+    if (strncmp(*p, "rand", 4) == 0) {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_NUMBER;
+        out->tokens[out->count].value = (float)rand() / ((float)RAND_MAX + 1.0f);
+        out->count++;
+        *p += 4;
+        *matched = true;
+        return CALC_OK;
+    }
+
+    /* Named functions and binary-operator keywords.
+       Longer names that share a prefix must appear first.
+       Do NOT include '(' in the name — it is tokenized separately as
+       MATH_PAREN_LEFT, which ShuntingYard needs to pop on ')'. */
+    static const struct { const char *name; MathTokenType_t type; } funcs[] = {
+        { "sin",     MATH_FUNC_SIN      },
+        { "cos",     MATH_FUNC_COS      },
+        { "tan",     MATH_FUNC_TAN      },
+        { "asin",    MATH_FUNC_ASIN     },
+        { "acos",    MATH_FUNC_ACOS     },
+        { "atan",    MATH_FUNC_ATAN     },
+        { "ln",      MATH_FUNC_LN       },
+        { "log",     MATH_FUNC_LOG      },
+        { "\xE2\x88\x9A", MATH_FUNC_SQRT },
+        { "abs",     MATH_FUNC_ABS      },
+        { "exp",     MATH_FUNC_EXP      },
+        { "round",   MATH_FUNC_ROUND    },
+        { "iPart",   MATH_FUNC_IPART    },
+        { "fPart",   MATH_FUNC_FPART    },
+        { "int",     MATH_FUNC_INT      },
+        { "nPr",     MATH_OP_NPR        },
+        { "nCr",     MATH_OP_NCR        },
+        /* Matrix functions — "*row+" must precede "*row" (longer match wins) */
+        { "*row+",   MATH_FUNC_MROWPLUS },
+        { "*row",    MATH_FUNC_MROW     },
+        { "rowSwap", MATH_FUNC_ROWSWAP  },
+        { "row+",    MATH_FUNC_ROWPLUS  },
+        { "det",     MATH_FUNC_DET      },
+    };
+
+    for (int i = 0; i < (int)(sizeof(funcs)/sizeof(funcs[0])); i++) {
+        size_t len = strlen(funcs[i].name);
+        if (strncmp(*p, funcs[i].name, len) == 0) {
+            if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+            out->tokens[out->count].type  = funcs[i].type;
+            out->tokens[out->count].value = 0;
+            out->count++;
+            *p += len;
+            *matched = true;
+            return CALC_OK;
+        }
+    }
+
+    /* e constant — Euler's number (must be after named-function check so
+       "exp" is consumed above before we reach here) */
+    if (**p == 'e') {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_NUMBER;
+        out->tokens[out->count].value = 2.71828182845905f;
+        out->count++;
+        (*p)++;
+        *matched = true;
+        return CALC_OK;
+    }
+
+    /* User variables A–Z (uppercase; skip X — handled above as graph var) */
+    if (isupper((unsigned char)**p) && **p != 'X') {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_NUMBER;
+        out->tokens[out->count].value = calc_variables[**p - 'A'];
+        out->count++;
+        (*p)++;
+        *matched = true;
+        return CALC_OK;
+    }
+
+    return CALC_OK; /* no match */
+}
+
+/* Try to tokenize an operator at *p.
+ * Covers UTF-8 multi-byte comparison operators and single-character operators.
+ * Returns CALC_OK with *matched==true on success, CALC_OK with *matched==false
+ * if *p is not a known operator, or an error code on overflow. */
+static CalcError_t try_tokenize_operator(const char **p, TokenList_t *out, bool *matched)
+{
+    *matched = false;
+
+    /* UTF-8 multi-byte comparison operators (must be checked before single-char) */
+    static const struct { const char *seq; MathTokenType_t type; } cmp3[] = {
+        { "\xE2\x89\xA0", MATH_OP_NEQ }, /* U+2260 ≠ */
+        { "\xE2\x89\xA5", MATH_OP_GTE }, /* U+2265 ≥ */
+        { "\xE2\x89\xA4", MATH_OP_LTE }, /* U+2264 ≤ */
+    };
+    for (int i = 0; i < 3; i++) {
+        if (strncmp(*p, cmp3[i].seq, 3) == 0) {
+            if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+            out->tokens[out->count].type  = cmp3[i].type;
+            out->tokens[out->count].value = 0.0f;
+            out->count++;
+            *p += 3;
+            *matched = true;
+            return CALC_OK;
+        }
+    }
+
+    /* Single-character operators */
+    MathTokenType_t op_type;
+    switch (**p) {
+    case '+': op_type = MATH_OP_ADD;      break;
+    case '=': op_type = MATH_OP_EQ;       break;
+    case '>': op_type = MATH_OP_GT;       break;
+    case '<': op_type = MATH_OP_LT;       break;
+    case '-':
+        /* Unary negation if at start or after operator/left paren */
+        if (out->count == 0 ||
+            is_operator(out->tokens[out->count - 1].type) ||
+            out->tokens[out->count - 1].type == MATH_PAREN_LEFT) {
+            op_type = MATH_OP_NEG;
+        } else {
+            op_type = MATH_OP_SUB;
+        }
+        break;
+    case '*': op_type = MATH_OP_MUL;      break;
+    case '/': op_type = MATH_OP_DIV;      break;
+    case '^': op_type = MATH_OP_POW;      break;
+    case '!': op_type = MATH_OP_FACT;     break;
+    case '(': op_type = MATH_PAREN_LEFT;  break;
+    case ')': op_type = MATH_PAREN_RIGHT; break;
+    case ',': op_type = MATH_COMMA;       break;
+    default:
+        return CALC_OK; /* no match */
+    }
+
+    if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+    out->tokens[out->count].type  = op_type;
+    out->tokens[out->count].value = 0;
+    out->count++;
+    (*p)++;
+    *matched = true;
+    return CALC_OK;
+}
+
+/*---------------------------------------------------------------------------
  * Stage 1 — Tokenizer
  *--------------------------------------------------------------------------*/
 
@@ -114,258 +384,24 @@ static CalcError_t Tokenize(const char *expr, float ans, bool ans_is_matrix,
     const char *p = expr;
 
     while (*p != '\0') {
+        if (isspace((unsigned char)*p)) { p++; continue; }
 
-        /* Skip whitespace */
-        if (isspace((unsigned char)*p)) {
-            p++;
-            continue;
-        }
+        bool matched;
+        CalcError_t err;
 
-        /* Number */
-        if (isdigit((unsigned char)*p) || *p == '.') {
-            char   *end;
-            float   val = strtof(p, &end);
-            if (end == p)
-                return CALC_ERR_SYNTAX;
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = MATH_NUMBER;
-            out->tokens[out->count].value = val;
-            out->count++;
-            p = end;
-            continue;
-        }
-
-        /* ANS variable */
-        if (strncmp(p, "ANS", 3) == 0) {
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
-            if (ans_is_matrix) {
-                out->tokens[out->count].type  = MATH_MATRIX_VAL;
-                out->tokens[out->count].value = 3.0f; /* ANS matrix slot */
-            } else {
-                out->tokens[out->count].type  = MATH_NUMBER;
-                out->tokens[out->count].value = ans;
-            }
-            out->count++;
-            p += 3;
-            continue;
-        }
-
-        /* X variable */
-        if (*p == 'x' || *p == 'X') {
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = MATH_NUMBER;
-            out->tokens[out->count].value = x_val;
-            out->count++;
-            p += 1;
-            continue;
-        }
-
-        /* Matrix references [A], [B], [C] — must be checked before the
-           uppercase variable handler so 'A'/'B'/'C' are not consumed first. */
-        if (p[0] == '[' && (p[1] == 'A' || p[1] == 'B' || p[1] == 'C') && p[2] == ']') {
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = MATH_MATRIX_VAL;
-            out->tokens[out->count].value = (float)(p[1] - 'A');
-            out->count++;
-            p += 3;
-            continue;
-        }
-
-        /* T immediately after a matrix value or ')' → transpose postfix operator.
-           Must be checked before the uppercase variable handler; otherwise 'T'
-           is consumed as user variable T. */
-        if (*p == 'T' && out->count > 0) {
-            MathTokenType_t prev = out->tokens[out->count - 1].type;
-            if (prev == MATH_MATRIX_VAL || prev == MATH_PAREN_RIGHT) {
-                if (out->count >= CALC_MAX_TOKENS)
-                    return CALC_ERR_OVERFLOW;
-                out->tokens[out->count].type  = MATH_OP_TRANSPOSE;
-                out->tokens[out->count].value = 0;
-                out->count++;
-                p++;
-                continue;
-            }
-        }
-
-        /* User variables A–Z (uppercase; skip X — handled above as graph var) */
-        if (isupper((unsigned char)*p) && *p != 'X') {
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = MATH_NUMBER;
-            out->tokens[out->count].value = calc_variables[*p - 'A'];
-            out->count++;
-            p += 1;
-            continue;
-        }
-
-        /* pi constant — accept both ASCII "pi" and UTF-8 π (0xCF 0x80) */
-        if (strncmp(p, "pi", 2) == 0 ||
-            ((unsigned char)p[0] == 0xCFu && (unsigned char)p[1] == 0x80u)) {
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = MATH_NUMBER;
-            out->tokens[out->count].value = 3.14159265358979f;
-            out->count++;
-            p += 2;  /* "pi" and UTF-8 π (0xCF 0x80) are both 2 bytes */
-            continue;
-        }
-
-        /* rand — zero-argument: evaluate immediately to a random [0, 1) number */
-        if (strncmp(p, "rand", 4) == 0) {
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = MATH_NUMBER;
-            out->tokens[out->count].value = (float)rand() / ((float)RAND_MAX + 1.0f);
-            out->count++;
-            p += 4;
-            continue;
-        }
-
-        /* Named functions and binary-operator keywords.
-           Longer names that share a prefix must appear first.
-           Do NOT include '(' in the name — it is tokenized separately as
-           MATH_PAREN_LEFT, which ShuntingYard needs to pop on ')'. */
-        struct { const char *name; MathTokenType_t type; } funcs[] = {
-            { "sin",     MATH_FUNC_SIN      },
-            { "cos",     MATH_FUNC_COS      },
-            { "tan",     MATH_FUNC_TAN      },
-            { "asin",    MATH_FUNC_ASIN     },
-            { "acos",    MATH_FUNC_ACOS     },
-            { "atan",    MATH_FUNC_ATAN     },
-            { "ln",      MATH_FUNC_LN       },
-            { "log",     MATH_FUNC_LOG      },
-            { "\xE2\x88\x9A", MATH_FUNC_SQRT },
-            { "abs",     MATH_FUNC_ABS      },
-            { "exp",     MATH_FUNC_EXP      },
-            { "round",   MATH_FUNC_ROUND    },
-            { "iPart",   MATH_FUNC_IPART    },
-            { "fPart",   MATH_FUNC_FPART    },
-            { "int",     MATH_FUNC_INT      },
-            { "nPr",     MATH_OP_NPR        },
-            { "nCr",     MATH_OP_NCR        },
-            /* Matrix functions — "*row+" must precede "*row" (longer match wins) */
-            { "*row+",   MATH_FUNC_MROWPLUS },
-            { "*row",    MATH_FUNC_MROW     },
-            { "rowSwap", MATH_FUNC_ROWSWAP  },
-            { "row+",    MATH_FUNC_ROWPLUS  },
-            { "det",     MATH_FUNC_DET      },
-        };
-
-        bool matched = false;
-        for (int i = 0; i < (int)(sizeof(funcs)/sizeof(funcs[0])); i++) {
-            size_t len = strlen(funcs[i].name);
-            if (strncmp(p, funcs[i].name, len) == 0) {
-                if (out->count >= CALC_MAX_TOKENS)
-                    return CALC_ERR_OVERFLOW;
-                out->tokens[out->count].type  = funcs[i].type;
-                out->tokens[out->count].value = 0;
-                out->count++;
-                p += len;
-                matched = true;
-                break;
-            }
-        }
+        err = try_tokenize_number(&p, out, &matched);
+        if (err != CALC_OK) return err;
         if (matched) continue;
 
-        /* e constant — Euler's number (must be after named-function check so
-           "exp" is consumed above before we reach here) */
-        if (*p == 'e') {
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = MATH_NUMBER;
-            out->tokens[out->count].value = 2.71828182845905f;
-            out->count++;
-            p++;
-            continue;
-        }
+        err = try_tokenize_identifier(&p, out, ans, ans_is_matrix, x_val, &matched);
+        if (err != CALC_OK) return err;
+        if (matched) continue;
 
-        /* Special case: '-' immediately after '^' before a digit or dot —
-           fold the sign into the number literal so shunting-yard never
-           tries to pop '^' before its right operand is ready.
-           e.g. 2^-3  →  tokens [2, ^, -3]  rather than [2, ^, NEG, 3]. */
-        if (*p == '-' &&
-            out->count > 0 &&
-            out->tokens[out->count - 1].type == MATH_OP_POW &&
-            (isdigit((unsigned char)p[1]) || p[1] == '.')) {
-            char *end;
-            float val = strtof(p, &end);
-            if (end == p) return CALC_ERR_SYNTAX;
-            if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = MATH_NUMBER;
-            out->tokens[out->count].value = val;
-            out->count++;
-            p = end;
-            continue;
-        }
+        err = try_tokenize_operator(&p, out, &matched);
+        if (err != CALC_OK) return err;
+        if (matched) continue;
 
-        /* UTF-8 multi-byte comparison operators (must be checked before single-char) */
-        {
-            struct { const char *seq; MathTokenType_t type; } cmp3[] = {
-                { "\xE2\x89\xA0", MATH_OP_NEQ }, /* U+2260 ≠ */
-                { "\xE2\x89\xA5", MATH_OP_GTE }, /* U+2265 ≥ */
-                { "\xE2\x89\xA4", MATH_OP_LTE }, /* U+2264 ≤ */
-            };
-            bool cmp_matched = false;
-            for (int i = 0; i < 3; i++) {
-                if (strncmp(p, cmp3[i].seq, 3) == 0) {
-                    if (out->count >= CALC_MAX_TOKENS)
-                        return CALC_ERR_OVERFLOW;
-                    out->tokens[out->count].type  = cmp3[i].type;
-                    out->tokens[out->count].value = 0.0f;
-                    out->count++;
-                    p += 3;
-                    cmp_matched = true;
-                    break;
-                }
-            }
-            if (cmp_matched) continue;
-        }
-
-        /* Single character tokens */
-        MathTokenType_t op_type;
-        bool is_op = true;
-
-        switch (*p) {
-        case '+': op_type = MATH_OP_ADD;      break;
-        case '=': op_type = MATH_OP_EQ;       break;
-        case '>': op_type = MATH_OP_GT;       break;
-        case '<': op_type = MATH_OP_LT;       break;
-        case '-':
-            /* Unary negation if at start or after operator/left paren */
-            if (out->count == 0 ||
-                is_operator(out->tokens[out->count - 1].type) ||
-                out->tokens[out->count - 1].type == MATH_PAREN_LEFT) {
-                op_type = MATH_OP_NEG;
-            } else {
-                op_type = MATH_OP_SUB;
-            }
-            break;
-        case '*': op_type = MATH_OP_MUL;      break;
-        case '/': op_type = MATH_OP_DIV;      break;
-        case '^': op_type = MATH_OP_POW;      break;
-        case '!': op_type = MATH_OP_FACT;     break;
-        case '(': op_type = MATH_PAREN_LEFT;  break;
-        case ')': op_type = MATH_PAREN_RIGHT; break;
-        case ',': op_type = MATH_COMMA;       break;
-        default:  is_op   = false;             break;
-        }
-
-        if (is_op) {
-            if (out->count >= CALC_MAX_TOKENS)
-                return CALC_ERR_OVERFLOW;
-            out->tokens[out->count].type  = op_type;
-            out->tokens[out->count].value = 0;
-            out->count++;
-            p++;
-            continue;
-        }
-
-        /* Unknown character */
-        return CALC_ERR_SYNTAX;
+        return CALC_ERR_SYNTAX; /* Unknown character */
     }
 
     return CALC_OK;
@@ -675,6 +711,265 @@ static void mat_scale(float k, const CalcMatrix_t *m, CalcMatrix_t *dst)
 }
 
 /*---------------------------------------------------------------------------
+ * Stage 3 — RPN evaluator dispatch helpers
+ *--------------------------------------------------------------------------*/
+
+static inline void rpn_set_error(CalcResult_t *res, CalcError_t code, const char *msg)
+{
+    res->error = code;
+    strncpy(res->error_msg, msg, sizeof(res->error_msg) - 1);
+    res->error_msg[sizeof(res->error_msg) - 1] = '\0';
+}
+
+static inline bool rpn_push(float *stack, bool *is_matrix, int *top,
+                             float val, bool mat, CalcResult_t *res)
+{
+    if (*top >= CALC_MAX_STACK - 1) {
+        rpn_set_error(res, CALC_ERR_OVERFLOW, "Stack overflow");
+        return false;
+    }
+    stack[++(*top)] = val;
+    is_matrix[*top] = mat;
+    return true;
+}
+
+/* Matrix-specific operations: transpose, det, row ops, round, matrix arithmetic. */
+static bool eval_matrix_func(MathTokenType_t type,
+                              float *stack, bool *is_matrix, int *top,
+                              CalcResult_t *res)
+{
+#define MERR(code, msg) do { rpn_set_error(res, (code), (msg)); return false; } while(0)
+
+    if (type == MATH_OP_TRANSPOSE) {
+        if (*top < 0 || !is_matrix[*top]) MERR(CALC_ERR_SYNTAX, "Syntax error");
+        int idx = (int)roundf(stack[*top]);
+        if (idx < 0 || idx >= CALC_MATRIX_COUNT) MERR(CALC_ERR_DOMAIN, "Bad matrix index");
+        mat_transpose(&calc_matrices[idx], &calc_matrices[3]);
+        stack[*top] = 3.0f; is_matrix[*top] = true;
+        return true;
+    }
+    if (type == MATH_FUNC_DET) {
+        if (*top < 0 || !is_matrix[*top]) MERR(CALC_ERR_SYNTAX, "Syntax error");
+        int idx = (int)roundf(stack[*top]);
+        if (idx < 0 || idx >= CALC_MATRIX_COUNT) MERR(CALC_ERR_DOMAIN, "Bad matrix index");
+        const CalcMatrix_t *dm = &calc_matrices[idx];
+        if (dm->rows != dm->cols) MERR(CALC_ERR_DOMAIN, "det: need square");
+        stack[*top] = mat_det(dm); is_matrix[*top] = false;
+        return true;
+    }
+    if (type == MATH_FUNC_ROWSWAP) {
+        if (*top < 2) MERR(CALC_ERR_SYNTAX, "Syntax error");
+        int r2 = (int)roundf(stack[(*top)--]) - 1; /* 1-based → 0-based */
+        int r1 = (int)roundf(stack[(*top)--]) - 1;
+        int idx = (int)roundf(stack[*top]);
+        if (!is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
+            r1 < 0 || r1 >= calc_matrices[idx].rows ||
+            r2 < 0 || r2 >= calc_matrices[idx].rows)
+            MERR(CALC_ERR_DOMAIN, "Bad row index");
+        mat_rowswap(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
+        stack[*top] = 3.0f; is_matrix[*top] = true;
+        return true;
+    }
+    if (type == MATH_FUNC_ROWPLUS) {
+        if (*top < 2) MERR(CALC_ERR_SYNTAX, "Syntax error");
+        int r2 = (int)roundf(stack[(*top)--]) - 1;
+        int r1 = (int)roundf(stack[(*top)--]) - 1;
+        int idx = (int)roundf(stack[*top]);
+        if (!is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
+            r1 < 0 || r1 >= calc_matrices[idx].rows ||
+            r2 < 0 || r2 >= calc_matrices[idx].rows)
+            MERR(CALC_ERR_DOMAIN, "Bad row index");
+        mat_rowplus(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
+        stack[*top] = 3.0f; is_matrix[*top] = true;
+        return true;
+    }
+    if (type == MATH_FUNC_MROW) {
+        if (*top < 2) MERR(CALC_ERR_SYNTAX, "Syntax error");
+        int   r   = (int)roundf(stack[(*top)--]) - 1;
+        int   idx = (int)roundf(stack[(*top)--]);
+        float k   = stack[*top];
+        if (is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
+            r < 0 || r >= calc_matrices[idx].rows)
+            MERR(CALC_ERR_DOMAIN, "Bad row index");
+        mat_mrow(k, &calc_matrices[idx], r, &calc_matrices[3]);
+        stack[*top] = 3.0f; is_matrix[*top] = true;
+        return true;
+    }
+    if (type == MATH_FUNC_MROWPLUS) {
+        if (*top < 3) MERR(CALC_ERR_SYNTAX, "Syntax error");
+        int   r2  = (int)roundf(stack[(*top)--]) - 1;
+        int   r1  = (int)roundf(stack[(*top)--]) - 1;
+        int   idx = (int)roundf(stack[(*top)--]);
+        float k   = stack[*top];
+        if (is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
+            r1 < 0 || r1 >= calc_matrices[idx].rows ||
+            r2 < 0 || r2 >= calc_matrices[idx].rows)
+            MERR(CALC_ERR_DOMAIN, "Bad row index");
+        mat_mrowplus(k, &calc_matrices[idx], r1, r2, &calc_matrices[3]);
+        stack[*top] = 3.0f; is_matrix[*top] = true;
+        return true;
+    }
+    if (type == MATH_FUNC_ROUND) {
+        if (*top < 1) MERR(CALC_ERR_SYNTAX, "Syntax error");
+        float decimals = stack[(*top)--];
+        float factor   = powf(10.0f, decimals);
+        if (is_matrix[*top]) {
+            int idx = (int)roundf(stack[*top]);
+            if (idx < 0 || idx >= CALC_MATRIX_COUNT) MERR(CALC_ERR_DOMAIN, "Bad matrix index");
+            const CalcMatrix_t *src = &calc_matrices[idx];
+            CalcMatrix_t       *dst = &calc_matrices[3];
+            dst->rows = src->rows; dst->cols = src->cols;
+            for (int r = 0; r < src->rows; r++)
+                for (int c = 0; c < src->cols; c++)
+                    dst->data[r][c] = roundf(src->data[r][c] * factor) / factor;
+            stack[*top] = 3.0f; /* is_matrix[*top] stays true */
+        } else {
+            stack[*top] = roundf(stack[*top] * factor) / factor;
+            is_matrix[*top] = false;
+        }
+        return true;
+    }
+
+    /* Matrix arithmetic: ADD, SUB, MUL when at least one operand is a matrix */
+    if (*top < 1) MERR(CALC_ERR_SYNTAX, "Syntax error");
+    bool  b_mat = is_matrix[*top];
+    bool  a_mat = is_matrix[*top - 1];
+    float bv = stack[(*top)--];
+    float av = stack[*top];
+    CalcMatrix_t *dst = &calc_matrices[3];
+    if (a_mat && b_mat) {
+        int ia = (int)roundf(av), ib = (int)roundf(bv);
+        if (ia < 0 || ia >= CALC_MATRIX_COUNT || ib < 0 || ib >= CALC_MATRIX_COUNT)
+            MERR(CALC_ERR_DOMAIN, "Bad matrix index");
+        bool ok = (type == MATH_OP_ADD) ? mat_add(&calc_matrices[ia], &calc_matrices[ib], dst)
+                : (type == MATH_OP_SUB) ? mat_sub(&calc_matrices[ia], &calc_matrices[ib], dst)
+                :                         mat_mul(&calc_matrices[ia], &calc_matrices[ib], dst);
+        if (!ok) MERR(CALC_ERR_DOMAIN, "Dimension mismatch");
+    } else if (type == MATH_OP_MUL) {
+        float k   = a_mat ? bv : av;
+        int   idx = (int)roundf(a_mat ? av : bv);
+        if (idx < 0 || idx >= CALC_MATRIX_COUNT) MERR(CALC_ERR_DOMAIN, "Bad matrix index");
+        mat_scale(k, &calc_matrices[idx], dst);
+    } else {
+        MERR(CALC_ERR_DOMAIN, "Matrix op error");
+    }
+    stack[*top] = 3.0f;
+#undef MERR
+    is_matrix[*top] = true;
+    return true;
+}
+
+/* Scalar unary operators and single-argument math functions. */
+static bool eval_unary_func(MathTokenType_t type,
+                             float *stack, bool *is_matrix, int *top,
+                             float deg_factor, CalcResult_t *res)
+{
+#define MERR(code, msg) do { rpn_set_error(res, (code), (msg)); return false; } while(0)
+    if (*top < 0) MERR(CALC_ERR_SYNTAX, "Syntax error");
+    float a = stack[*top];
+    switch (type) {
+    case MATH_OP_NEG:      stack[*top] = -a;                      break;
+    case MATH_OP_FACT: {
+        int n = (int)roundf(a);
+        if (n < 0) MERR(CALC_ERR_DOMAIN, "Domain error: n!");
+        stack[*top] = calc_factorial(n);
+        break;
+    }
+    case MATH_FUNC_SIN:    stack[*top] = sinf(a * deg_factor);    break;
+    case MATH_FUNC_COS:    stack[*top] = cosf(a * deg_factor);    break;
+    case MATH_FUNC_TAN:    stack[*top] = tanf(a * deg_factor);    break;
+    case MATH_FUNC_ASIN:
+        if (a < -1.0f || a > 1.0f) MERR(CALC_ERR_DOMAIN, "Domain error: asin");
+        stack[*top] = asinf(a) / deg_factor;
+        break;
+    case MATH_FUNC_ACOS:
+        if (a < -1.0f || a > 1.0f) MERR(CALC_ERR_DOMAIN, "Domain error: acos");
+        stack[*top] = acosf(a) / deg_factor;
+        break;
+    case MATH_FUNC_ATAN:   stack[*top] = atanf(a) / deg_factor;  break;
+    case MATH_FUNC_LN:
+        if (a <= 0.0f) MERR(CALC_ERR_DOMAIN, "Domain error: ln");
+        stack[*top] = logf(a);
+        break;
+    case MATH_FUNC_LOG:
+        if (a <= 0.0f) MERR(CALC_ERR_DOMAIN, "Domain error: log");
+        stack[*top] = log10f(a);
+        break;
+    case MATH_FUNC_SQRT:
+        if (a < 0.0f) MERR(CALC_ERR_DOMAIN, "Domain error: sqrt");
+        stack[*top] = sqrtf(a);
+        break;
+    case MATH_FUNC_ABS:    stack[*top] = fabsf(a);               break;
+    case MATH_FUNC_EXP:    stack[*top] = expf(a);                break;
+    case MATH_FUNC_IPART:  stack[*top] = truncf(a);              break;
+    case MATH_FUNC_FPART:  stack[*top] = a - truncf(a);          break;
+    case MATH_FUNC_INT:    stack[*top] = floorf(a);              break;
+    default:               break;
+    }
+#undef MERR
+    is_matrix[*top] = false;
+    return true;
+}
+
+/* Comparison operators: =, ≠, >, ≥, <, ≤ — always return 0.0 or 1.0. */
+static bool eval_comparison(MathTokenType_t type,
+                             float *stack, bool *is_matrix, int *top,
+                             CalcResult_t *res)
+{
+    if (*top < 1) { rpn_set_error(res, CALC_ERR_SYNTAX, "Syntax error"); return false; }
+    float b = stack[(*top)--];
+    float a = stack[*top];
+    switch (type) {
+    case MATH_OP_EQ:  stack[*top] = (a == b) ? 1.0f : 0.0f; break;
+    case MATH_OP_NEQ: stack[*top] = (a != b) ? 1.0f : 0.0f; break;
+    case MATH_OP_GT:  stack[*top] = (a >  b) ? 1.0f : 0.0f; break;
+    case MATH_OP_GTE: stack[*top] = (a >= b) ? 1.0f : 0.0f; break;
+    case MATH_OP_LT:  stack[*top] = (a <  b) ? 1.0f : 0.0f; break;
+    case MATH_OP_LTE: stack[*top] = (a <= b) ? 1.0f : 0.0f; break;
+    default:          break;
+    }
+    is_matrix[*top] = false;
+    return true;
+}
+
+/* Scalar binary arithmetic: +, -, *, /, ^, nPr, nCr. */
+static bool eval_binary_op(MathTokenType_t type,
+                            float *stack, bool *is_matrix, int *top,
+                            CalcResult_t *res)
+{
+#define MERR(code, msg) do { rpn_set_error(res, (code), (msg)); return false; } while(0)
+    if (*top < 1) MERR(CALC_ERR_SYNTAX, "Syntax error");
+    float b = stack[(*top)--];
+    float a = stack[*top];
+    switch (type) {
+    case MATH_OP_ADD:  stack[*top] = a + b; break;
+    case MATH_OP_SUB:  stack[*top] = a - b; break;
+    case MATH_OP_MUL:  stack[*top] = a * b; break;
+    case MATH_OP_DIV:
+        if (b == 0.0f) MERR(CALC_ERR_DIV_ZERO, "Division by zero");
+        stack[*top] = a / b;
+        break;
+    case MATH_OP_POW:  stack[*top] = powf(a, b); break;
+    case MATH_OP_NPR: {
+        float v = calc_npr((int)roundf(a), (int)roundf(b));
+        if (isnan(v)) MERR(CALC_ERR_DOMAIN, "Domain error: nPr");
+        stack[*top] = v;
+        break;
+    }
+    case MATH_OP_NCR: {
+        float v = calc_ncr((int)roundf(a), (int)roundf(b));
+        if (isnan(v)) MERR(CALC_ERR_DOMAIN, "Domain error: nCr");
+        stack[*top] = v;
+        break;
+    }
+    default: break;
+    }
+#undef MERR
+    is_matrix[*top] = false;
+    return true;
+}
+
+/*---------------------------------------------------------------------------
  * Stage 3 — RPN evaluator
  *--------------------------------------------------------------------------*/
 
@@ -682,288 +977,57 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, bool angle_degrees)
 {
     CalcResult_t res = { 0.0f, CALC_OK, "", false, 0 };
 
-    float        stack[CALC_MAX_STACK];
-    bool         is_matrix[CALC_MAX_STACK]; /* parallel flag: true when slot holds a matrix index */
-    int          top = -1;
+    float stack[CALC_MAX_STACK];
+    bool  is_matrix[CALC_MAX_STACK];
+    int   top = -1;
 
     float deg_factor = angle_degrees ? (3.14159265358979f / 180.0f) : 1.0f;
 
-/* Helper macros for clean error returns */
-#define RPNERR(code, msg) do { res.error = (code); \
-    strncpy(res.error_msg, (msg), sizeof(res.error_msg) - 1); return res; } while(0)
-#define PUSH(v, mat) do { if (top >= CALC_MAX_STACK - 1) RPNERR(CALC_ERR_OVERFLOW, "Stack overflow"); \
-    stack[++top] = (v); is_matrix[top] = (mat); } while(0)
-
     for (int i = 0; i < rpn->count; i++) {
-        MathToken_t tok = rpn->tokens[i];
+        MathToken_t     tok = rpn->tokens[i];
+        MathTokenType_t tt  = tok.type;
 
-        /* Numbers and matrix references — push to stack */
-        if (tok.type == MATH_NUMBER) {
-            PUSH(tok.value, false);
+        if (tt == MATH_NUMBER) {
+            if (!rpn_push(stack, is_matrix, &top, tok.value, false, &res)) return res;
             continue;
         }
-        if (tok.type == MATH_MATRIX_VAL) {
-            PUSH(tok.value, true);
-            continue;
-        }
-
-        /* ---- Matrix operations ----------------------------------------- */
-
-        /* Transpose: postfix unary, one matrix operand */
-        if (tok.type == MATH_OP_TRANSPOSE) {
-            if (top < 0 || !is_matrix[top])
-                RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-            int idx = (int)roundf(stack[top]);
-            if (idx < 0 || idx >= CALC_MATRIX_COUNT)
-                RPNERR(CALC_ERR_DOMAIN, "Bad matrix index");
-            mat_transpose(&calc_matrices[idx], &calc_matrices[3]);
-            stack[top] = 3.0f;
-            is_matrix[top] = true;
+        if (tt == MATH_MATRIX_VAL) {
+            if (!rpn_push(stack, is_matrix, &top, tok.value, true, &res)) return res;
             continue;
         }
 
-        /* det(: one matrix argument → scalar */
-        if (tok.type == MATH_FUNC_DET) {
-            if (top < 0 || !is_matrix[top])
-                RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-            int idx = (int)roundf(stack[top]);
-            if (idx < 0 || idx >= CALC_MATRIX_COUNT)
-                RPNERR(CALC_ERR_DOMAIN, "Bad matrix index");
-            const CalcMatrix_t *dm = &calc_matrices[idx];
-            if (dm->rows != dm->cols)
-                RPNERR(CALC_ERR_DOMAIN, "det: need square");
-            stack[top] = mat_det(dm);
-            is_matrix[top] = false;
-            continue;
+        /* Route ADD/SUB/MUL to matrix handler when either operand is a matrix */
+        bool mat_arith = (tt == MATH_OP_ADD || tt == MATH_OP_SUB || tt == MATH_OP_MUL)
+                         && top >= 1 && (is_matrix[top] || is_matrix[top - 1]);
+
+        bool ok;
+        if (tt == MATH_OP_TRANSPOSE || tt == MATH_FUNC_DET     ||
+            tt == MATH_FUNC_ROWSWAP || tt == MATH_FUNC_ROWPLUS  ||
+            tt == MATH_FUNC_MROW    || tt == MATH_FUNC_MROWPLUS ||
+            tt == MATH_FUNC_ROUND   || mat_arith)
+        {
+            ok = eval_matrix_func(tt, stack, is_matrix, &top, &res);
+        } else if (tt == MATH_OP_NEG || tt == MATH_OP_FACT || is_function(tt)) {
+            ok = eval_unary_func(tt, stack, is_matrix, &top, deg_factor, &res);
+        } else if (tt == MATH_OP_EQ  || tt == MATH_OP_NEQ || tt == MATH_OP_GT  ||
+                   tt == MATH_OP_GTE || tt == MATH_OP_LT  || tt == MATH_OP_LTE) {
+            ok = eval_comparison(tt, stack, is_matrix, &top, &res);
+        } else {
+            ok = eval_binary_op(tt, stack, is_matrix, &top, &res);
         }
 
-        /* rowSwap([M], r1, r2): three arguments, matrix stays bottom */
-        if (tok.type == MATH_FUNC_ROWSWAP) {
-            if (top < 2) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-            int r2  = (int)roundf(stack[top--]) - 1; /* 1-based → 0-based */
-            int r1  = (int)roundf(stack[top--]) - 1;
-            int idx = (int)roundf(stack[top]);
-            if (!is_matrix[top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-                r1 < 0 || r1 >= calc_matrices[idx].rows ||
-                r2 < 0 || r2 >= calc_matrices[idx].rows)
-                RPNERR(CALC_ERR_DOMAIN, "Bad row index");
-            mat_rowswap(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
-            stack[top] = 3.0f;
-            is_matrix[top] = true;
-            continue;
-        }
-
-        /* row+([M], r1, r2): add row[r2] into row[r1] */
-        if (tok.type == MATH_FUNC_ROWPLUS) {
-            if (top < 2) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-            int r2  = (int)roundf(stack[top--]) - 1;
-            int r1  = (int)roundf(stack[top--]) - 1;
-            int idx = (int)roundf(stack[top]);
-            if (!is_matrix[top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-                r1 < 0 || r1 >= calc_matrices[idx].rows ||
-                r2 < 0 || r2 >= calc_matrices[idx].rows)
-                RPNERR(CALC_ERR_DOMAIN, "Bad row index");
-            mat_rowplus(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
-            stack[top] = 3.0f;
-            is_matrix[top] = true;
-            continue;
-        }
-
-        /* *row(k, [M], r): scale row[r] by k */
-        if (tok.type == MATH_FUNC_MROW) {
-            if (top < 2) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-            int   r   = (int)roundf(stack[top--]) - 1;
-            int   idx = (int)roundf(stack[top--]);
-            float k   = stack[top];
-            if (is_matrix[top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-                r < 0 || r >= calc_matrices[idx].rows)
-                RPNERR(CALC_ERR_DOMAIN, "Bad row index");
-            mat_mrow(k, &calc_matrices[idx], r, &calc_matrices[3]);
-            stack[top] = 3.0f;
-            is_matrix[top] = true;
-            continue;
-        }
-
-        /* *row+(k, [M], r1, r2): add k*row[r2] into row[r1] */
-        if (tok.type == MATH_FUNC_MROWPLUS) {
-            if (top < 3) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-            int   r2  = (int)roundf(stack[top--]) - 1;
-            int   r1  = (int)roundf(stack[top--]) - 1;
-            int   idx = (int)roundf(stack[top--]);
-            float k   = stack[top];
-            if (is_matrix[top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-                r1 < 0 || r1 >= calc_matrices[idx].rows ||
-                r2 < 0 || r2 >= calc_matrices[idx].rows)
-                RPNERR(CALC_ERR_DOMAIN, "Bad row index");
-            mat_mrowplus(k, &calc_matrices[idx], r1, r2, &calc_matrices[3]);
-            stack[top] = 3.0f;
-            is_matrix[top] = true;
-            continue;
-        }
-
-        /* round(value, #decimals): 2-argument function; value may be a matrix */
-        if (tok.type == MATH_FUNC_ROUND) {
-            if (top < 1) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-            float decimals = stack[top--];
-            float factor   = powf(10.0f, decimals);
-            if (is_matrix[top]) {
-                int idx = (int)roundf(stack[top]);
-                if (idx < 0 || idx >= CALC_MATRIX_COUNT)
-                    RPNERR(CALC_ERR_DOMAIN, "Bad matrix index");
-                const CalcMatrix_t *src = &calc_matrices[idx];
-                CalcMatrix_t       *dst = &calc_matrices[3];
-                dst->rows = src->rows;
-                dst->cols = src->cols;
-                for (int r = 0; r < src->rows; r++)
-                    for (int c = 0; c < src->cols; c++)
-                        dst->data[r][c] = roundf(src->data[r][c] * factor) / factor;
-                stack[top] = 3.0f;
-                /* is_matrix[top] stays true */
-            } else {
-                stack[top] = roundf(stack[top] * factor) / factor;
-                is_matrix[top] = false;
-            }
-            continue;
-        }
-
-        /* ---- Scalar unary operators and functions ----------------------- */
-        if (tok.type == MATH_OP_NEG || tok.type == MATH_OP_FACT ||
-            is_function(tok.type)) {
-            if (top < 0) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-            float a = stack[top];
-
-            switch (tok.type) {
-            case MATH_OP_NEG:      stack[top] = -a;                      break;
-            case MATH_OP_FACT: {
-                int n = (int)roundf(a);
-                if (n < 0) RPNERR(CALC_ERR_DOMAIN, "Domain error: n!");
-                stack[top] = calc_factorial(n);
-                break;
-            }
-            case MATH_FUNC_SIN:    stack[top] = sinf(a * deg_factor);    break;
-            case MATH_FUNC_COS:    stack[top] = cosf(a * deg_factor);    break;
-            case MATH_FUNC_TAN:    stack[top] = tanf(a * deg_factor);    break;
-            case MATH_FUNC_ASIN:
-                if (a < -1.0f || a > 1.0f) RPNERR(CALC_ERR_DOMAIN, "Domain error: asin");
-                stack[top] = asinf(a) / deg_factor;
-                break;
-            case MATH_FUNC_ACOS:
-                if (a < -1.0f || a > 1.0f) RPNERR(CALC_ERR_DOMAIN, "Domain error: acos");
-                stack[top] = acosf(a) / deg_factor;
-                break;
-            case MATH_FUNC_ATAN:   stack[top] = atanf(a) / deg_factor;  break;
-            case MATH_FUNC_LN:
-                if (a <= 0.0f) RPNERR(CALC_ERR_DOMAIN, "Domain error: ln");
-                stack[top] = logf(a);
-                break;
-            case MATH_FUNC_LOG:
-                if (a <= 0.0f) RPNERR(CALC_ERR_DOMAIN, "Domain error: log");
-                stack[top] = log10f(a);
-                break;
-            case MATH_FUNC_SQRT:
-                if (a < 0.0f) RPNERR(CALC_ERR_DOMAIN, "Domain error: sqrt");
-                stack[top] = sqrtf(a);
-                break;
-            case MATH_FUNC_ABS:    stack[top] = fabsf(a);               break;
-            case MATH_FUNC_EXP:    stack[top] = expf(a);                break;
-            case MATH_FUNC_IPART:  stack[top] = truncf(a);              break;
-            case MATH_FUNC_FPART:  stack[top] = a - truncf(a);          break;
-            case MATH_FUNC_INT:    stack[top] = floorf(a);              break;
-            default:               break;
-            }
-            is_matrix[top] = false; /* all scalar functions return scalar */
-            continue;
-        }
-
-        /* ---- Matrix binary operators (+, -, *) ----------------------------- */
-        if (tok.type == MATH_OP_ADD || tok.type == MATH_OP_SUB ||
-            tok.type == MATH_OP_MUL) {
-            if (top < 1) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-            bool b_mat = is_matrix[top];
-            bool a_mat = is_matrix[top - 1];
-            if (a_mat || b_mat) {
-                float bv = stack[top--];
-                float av = stack[top];
-                CalcMatrix_t *dst = &calc_matrices[3];
-                if (a_mat && b_mat) {
-                    int ia = (int)roundf(av), ib = (int)roundf(bv);
-                    if (ia < 0 || ia >= CALC_MATRIX_COUNT ||
-                        ib < 0 || ib >= CALC_MATRIX_COUNT)
-                        RPNERR(CALC_ERR_DOMAIN, "Bad matrix index");
-                    bool ok;
-                    if (tok.type == MATH_OP_ADD)
-                        ok = mat_add(&calc_matrices[ia], &calc_matrices[ib], dst);
-                    else if (tok.type == MATH_OP_SUB)
-                        ok = mat_sub(&calc_matrices[ia], &calc_matrices[ib], dst);
-                    else
-                        ok = mat_mul(&calc_matrices[ia], &calc_matrices[ib], dst);
-                    if (!ok) RPNERR(CALC_ERR_DOMAIN, "Dimension mismatch");
-                } else if (tok.type == MATH_OP_MUL) {
-                    /* scalar * [M] or [M] * scalar */
-                    float k   = a_mat ? bv : av;
-                    int   idx = (int)roundf(a_mat ? av : bv);
-                    if (idx < 0 || idx >= CALC_MATRIX_COUNT)
-                        RPNERR(CALC_ERR_DOMAIN, "Bad matrix index");
-                    mat_scale(k, &calc_matrices[idx], dst);
-                } else {
-                    RPNERR(CALC_ERR_DOMAIN, "Matrix op error");
-                }
-                stack[top] = 3.0f;
-                is_matrix[top] = true;
-                continue;
-            }
-        }
-
-        /* ---- Scalar binary operators ------------------------------------ */
-        if (top < 1) RPNERR(CALC_ERR_SYNTAX, "Syntax error");
-        float b = stack[top--];
-        float a = stack[top];
-
-        switch (tok.type) {
-        case MATH_OP_ADD:  stack[top] = a + b; break;
-        case MATH_OP_SUB:  stack[top] = a - b; break;
-        case MATH_OP_MUL:  stack[top] = a * b; break;
-        case MATH_OP_DIV:
-            if (b == 0.0f) RPNERR(CALC_ERR_DIV_ZERO, "Division by zero");
-            stack[top] = a / b;
-            break;
-        case MATH_OP_POW:  stack[top] = powf(a, b); break;
-        case MATH_OP_EQ:   stack[top] = (a == b) ? 1.0f : 0.0f; break;
-        case MATH_OP_NEQ:  stack[top] = (a != b) ? 1.0f : 0.0f; break;
-        case MATH_OP_GT:   stack[top] = (a >  b) ? 1.0f : 0.0f; break;
-        case MATH_OP_GTE:  stack[top] = (a >= b) ? 1.0f : 0.0f; break;
-        case MATH_OP_LT:   stack[top] = (a <  b) ? 1.0f : 0.0f; break;
-        case MATH_OP_LTE:  stack[top] = (a <= b) ? 1.0f : 0.0f; break;
-        case MATH_OP_NPR: {
-            float v = calc_npr((int)roundf(a), (int)roundf(b));
-            if (isnan(v)) RPNERR(CALC_ERR_DOMAIN, "Domain error: nPr");
-            stack[top] = v;
-            break;
-        }
-        case MATH_OP_NCR: {
-            float v = calc_ncr((int)roundf(a), (int)roundf(b));
-            if (isnan(v)) RPNERR(CALC_ERR_DOMAIN, "Domain error: nCr");
-            stack[top] = v;
-            break;
-        }
-        default: break;
-        }
-        is_matrix[top] = false;
+        if (!ok) return res;
     }
-
-#undef RPNERR
-#undef PUSH
 
     if (top != 0) {
         res.error = CALC_ERR_SYNTAX;
-        strncpy(res.error_msg, "Syntax error",
-                sizeof(res.error_msg) - 1);
+        strncpy(res.error_msg, "Syntax error", sizeof(res.error_msg) - 1);
         return res;
     }
 
     if (is_matrix[0]) {
-        res.has_matrix  = true;
-        res.matrix_idx  = (uint8_t)(int)roundf(stack[0]);
+        res.has_matrix = true;
+        res.matrix_idx = (uint8_t)(int)roundf(stack[0]);
     } else {
         res.value = stack[0];
     }

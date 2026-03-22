@@ -243,9 +243,10 @@ static void test_block_properties(void)
     /* Block must be a multiple of 4 bytes (for word-aligned FLASH writes) */
     EXPECT_EQ(sizeof(PersistBlock_t) % 4, 0, "PersistBlock_t size multiple of 4");
 
-    /* Expected total size: 860 bytes (4+4+104+4+8+4+4+256+28+1+3+3+1+432+4).
-     * Note: the header comment originally said 856 — corrected here. */
-    EXPECT_EQ((int)sizeof(PersistBlock_t), 860, "PersistBlock_t is 860 bytes");
+    /* Expected total size: 864 bytes (4+4+104+4+8+4+4+256+28+1+3+3+4+1+432+4).
+     * Grew from 860 → 864 in PERSIST_VERSION 4 when enabled[4] (Y= equation
+     * enable/disable flags) was added for the Y= toggle feature. */
+    EXPECT_EQ((int)sizeof(PersistBlock_t), 864, "PersistBlock_t is 864 bytes");
 }
 
 /* -------------------------------------------------------------------------- */
