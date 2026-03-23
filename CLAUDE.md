@@ -108,6 +108,7 @@ Sessions:
 - 2026-03-22 (Session 18): RAM audit (P12) — root cause: LVGL heap (`work_mem_int`, 64 KB) and FreeRTOS heap (`ucHeap`, 64 KB) = 128 KB = 65% of 192 KB internal RAM; SDRAM had 63.5 MB free. Fix: `SDRAM` region added to linker script (`0xD0070800`), `.sdram (NOLOAD)` section, `LV_ATTRIBUTE_LARGE_RAM_ARRAY` redirects LVGL heap to SDRAM. RAM: 81.82% → 48.49%. 301/301 tests pass. **Complexity delta: `neutral`** — two-line config change and linker extension; no new logic or state.
 - 2026-03-22 (Session 19): PRGM system feature-complete — stale warning comments updated (`ui_prgm.c`/`ui_prgm.h`); `IS>(` and `DS<(` implemented in `prgm_exec.c` + CTL menu (items 13–14); `DispHome` and `DispGraph` implemented; `Output(row,col,"str")` implemented with `ui_output_row()` helper in `calculator_core.c`; `Menu("title","opt",Lbl,…)` fully implemented with dedicated LVGL overlay screen (`ui_prgm_menu_screen`) and UP/DOWN/1–9/ENTER/CLEAR key handling during execution. All 5 tasks from `docs/PRGM_COMPLETION.md` resolved. PRGM: ~50% → ~95% (hardware validation pending, P10). 301/301 tests pass. **Complexity delta: `neutral`** — all new handlers follow existing patterns; new `ui_prgm_menu_screen` follows the same LVGL screen creation pattern as all other PRGM screens.
 - 2026-03-22 (Session 20): PRGM command reference created — `docs/PRGM_COMMANDS.md` documents all 14 CTL commands (If/Then/Else/End/While/For/Goto/Lbl/Pause/Stop/Return/prgm/IS>/DS<), all 6 I/O commands, Output(, Menu(, expr->VAR, and expression lines with syntax, edge cases, and limits table. `docs/PRGM_COMPLETION.md` deleted (all tasks resolved; pre-flight checklist folded into QUALITY_TRACKER.md P10; file list coverage moved to `PRGM_COMMANDS.md`). 301/301 tests pass. **Complexity delta: `neutral`** — documentation only; no code changes.
+- 2026-03-22 (Session 21): Periodic code review — structural scan + Phase 2 direct reads. P19 (`prgm_execute_line` dispatch table, 495-line hotspot) and P20 (prgm exec host tests, ~80 tests) opened. `docs/CODE_REVIEW_PENDING.md` re-created with 7 action items. VARS/Y-VARS menu specs added to CLAUDE.md. Cross-reference audit clean. **Complexity delta: `neutral`** — documentation and review only; no code changes.
 
 ### Completed features
 
@@ -596,6 +597,121 @@ DRAW
 6:DrawF
 7:Shade(
 ```
+
+---
+
+### VARS menu (VARS key)
+
+Five tabs: XY / Σ / LR / DIM / RNG. Tab LEFT/RIGHT; item UP/DOWN or number key; ENTER inserts the variable name at the cursor.
+
+> **Font note:** x̄ (U+0305 combining overline), ȳ (U+0233), and Σ used as tab label all require font additions before display. Σ (U+03A3) is already in the font; x̄ and ȳ must be added (e.g. `-r 0x0078,0x0233` / combining overline approach or dedicated glyphs).
+
+**XY tab** (statistics summary variables):
+```
+XY Σ LR DIM RNG
+1:n
+2:x̄
+3:Sx
+4:σx
+5:ȳ
+6:Sy
+7↓σy     (↓ = overflow indicator; list continues)
+```
+
+**Σ tab** (summation variables):
+```
+XY Σ LR DIM RNG
+1:Σx
+2:Σx²
+3:Σy
+4:Σy²
+5:Σxy
+```
+
+**LR tab** (linear regression variables):
+```
+XY Σ LR DIM RNG
+1:a
+2:b
+3:r
+4:RegEQ
+```
+
+**DIM tab** (matrix dimension variables):
+```
+XY Σ LR DIM RNG
+1:Arow
+2:Acol
+3:Brow
+4:Bcol
+5:Crow
+6:Ccol
+7:Dim{x}
+```
+
+**RNG tab** (window range variables):
+```
+XY Σ LR DIM RNG
+1:Xmin
+2:Xmax
+3:Xscl
+4:Ymin
+5:Ymax
+6:Yscl
+7↓Xres   (↓ = overflow indicator; list continues)
+  8:Tmin
+  9:Tmax
+  0:Tstep
+```
+
+---
+
+### Y-VARS menu (2nd+VARS)
+
+Three tabs: Y / ON / OFF. Tab LEFT/RIGHT; item UP/DOWN or number key. Y tab inserts equation reference into expression; ON/OFF tabs turn named equations on or off directly (no insertion).
+
+**Y tab** (equation references):
+```
+Y ON OFF
+1:Y1
+2:Y2
+3:Y3
+4:Y4
+5:X1t
+6:Y1t
+7↓X2t   (↓ = overflow indicator; list continues)
+  8:Y2t
+  9:X3t
+  0:Y3t
+```
+
+**ON tab** (enable equations):
+```
+Y ON OFF
+1:All-On
+2:Y1-On
+3:Y2-On
+4:Y3-On
+5:Y4-On
+6:X1t-On
+7↓X2t-On   (↓ = overflow indicator; list continues)
+  8:X3t-On
+```
+
+**OFF tab** (disable equations):
+```
+Y ON OFF
+1:All-Off
+2:Y1-Off
+3:Y2-Off
+4:Y3-Off
+5:Y4-Off
+6:X1t-Off
+7↓X2t-Off   (↓ = overflow indicator; list continues)
+  8:X3t-Off
+```
+
+---
 
 ### PRGM editor sub-menus
 
