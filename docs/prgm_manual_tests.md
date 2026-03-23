@@ -3,7 +3,7 @@
 Hardware: STM32F429I-DISC1. Run after flashing the latest build.
 Pass criterion listed for each test. Mark ✅ / ❌ / ⚠️.
 
-Last updated: 2026-03-20 (reflects session-2 executor + session-3 UI fixes)
+Last updated: 2026-03-22 (reflects sessions 2–23: full executor, dispatch-table refactor, all I/O commands)
 
 ---
 
@@ -68,12 +68,14 @@ Type `TEST` (T, E, S, T on ALPHA layer). Then ENTER.
 **Expected:** Characters appear on the current (yellow-highlighted) line as `:A+1`. Cursor advances with each keypress.
 
 ### T13 — CTL sub-menu inserts keyword
-**Steps:** In editor, press MATH (opens CTL menu). Navigate to `1:If ` and press ENTER.
-**Expected:** CTL menu closes (yellow cursor highlight on selected item). Editor line now contains `:If ` with cursor after it.
+**Steps:** In editor, press PRGM (opens CTL sub-menu). Navigate to `3:If ` and press ENTER (or press `3`).
+**Expected:** CTL menu closes. Editor line now contains `:If ` with cursor after it.
+Also verify: CTL menu has 14 items total (items 1–8 visible; items 9–14 require scrolling). Items 13 `IS>(` and 14 `DS<(` are visible after scrolling down past item 7.
 
 ### T14 — I/O sub-menu inserts keyword
-**Steps:** In editor, press TEST (opens I/O menu). Select `3:Disp `.
+**Steps:** In editor, press PRGM (CTL sub-menu opens). Press LEFT or RIGHT to switch to I/O tab. Navigate to `3:Disp ` and press ENTER (or press `3`).
 **Expected:** I/O menu closes. Editor line contains `:Disp ` with cursor after it.
+I/O menu has 6 items: `1:Input`, `2:Prompt`, `3:Disp`, `4:ClrHome`, `5:DispHome`, `6:DispGraph`. All 6 fit without scrolling.
 
 ### T15 — Multi-line editing and scroll
 **Steps:** In editor, press ENTER six times to create 7+ lines. Keep pressing DOWN.
@@ -159,21 +161,197 @@ While `X` rows are appearing, press CLEAR.
 
 ---
 
+## Executor — Advanced Control Flow
+
+### T25 — While loop
+**Steps:** Create and run program:
+```
+1->I
+While I<=3
+Disp I
+I+1->I
+End
+```
+**Expected:** History shows `1`, `2`, `3` in order. Mode returns to normal after.
+
+### T26 — For( with negative step (count-down)
+**Steps:** Create and run program:
+```
+For(I,5,1,-1)
+Disp I
+End
+```
+**Expected:** History shows `5`, `4`, `3`, `2`, `1` in order.
+
+### T27 — While with false initial condition (body never runs)
+**Steps:** Create and run program:
+```
+While 0
+Disp "NO"
+End
+Disp "DONE"
+```
+**Expected:** `NO` never appears. `DONE` appears once. No lockup.
+
+### T28 — Goto/Lbl jump
+**Steps:** Create and run program:
+```
+Goto END
+Disp "SKIP"
+Lbl END
+Disp "DONE"
+```
+**Expected:** `SKIP` does not appear. `DONE` appears once.
+
+### T29 — Pause halts and resumes on ENTER
+**Steps:** Create and run program:
+```
+Disp "WAIT"
+Pause
+Disp "RESUMED"
+```
+**Expected:** `WAIT` appears. Execution halts. Pressing ENTER displays `RESUMED` and returns to normal mode.
+
+### T30 — Stop terminates early
+**Steps:** Create and run program:
+```
+Disp "A"
+Stop
+Disp "B"
+```
+**Expected:** `A` appears. `B` does not appear. Mode returns to normal after `Stop`.
+
+### T31 — IS>( increment and skip
+**Steps:** Create and run program:
+```
+1->I
+IS>(I,2)
+Disp "SKP"
+Disp I
+```
+**Expected:** `I` starts at 1; IS>( increments to 2; 2 is NOT > 2, so `SKP` is NOT skipped and appears. `I` displays as `2`.
+Run again but pre-set I=2: change `1->I` to `2->I`. Now IS>( increments I to 3; 3 > 2, so `SKP` is skipped. Only `I` (showing `3`) appears.
+
+### T32 — DS<( decrement and skip
+**Steps:** Create and run program:
+```
+3->I
+DS<(I,3)
+Disp "SKP"
+Disp I
+```
+**Expected:** `I` starts at 3; DS<( decrements to 2; 2 < 3, so `SKP` IS skipped. Only `I` (showing `2`) appears.
+
+### T33 — Subroutine call (prgm) and Return
+**Steps:** Create program in slot 2 with body:
+```
+Disp "SUB"
+Return
+```
+Create program in slot 1 with body:
+```
+Disp "MAIN"
+prgm2
+Disp "BACK"
+```
+Run slot 1.
+**Expected:** History shows `MAIN`, then `SUB`, then `BACK` in order.
+
+### T34 — Nested subroutine (2 levels deep)
+**Steps:** Create slot 3:
+```
+Disp "DEEP"
+```
+Create slot 2:
+```
+prgm3
+Disp "MID"
+```
+Create slot 1:
+```
+prgm2
+Disp "TOP"
+```
+Run slot 1.
+**Expected:** History shows `DEEP`, `MID`, `TOP` in order.
+
+---
+
+## Executor — I/O Commands
+
+### T35 — Prompt command
+**Steps:** Create and run program:
+```
+Prompt B
+Disp B
+```
+When `B=?` appears, type `42` and ENTER.
+**Expected:** Behavior identical to `Input B`. `B=?` prompt shown; `42` displayed; B=42 after.
+
+### T36 — ClrHome clears history
+**Steps:** Create and run program:
+```
+Disp "LINE1"
+Disp "LINE2"
+ClrHome
+Disp "AFTER"
+```
+**Expected:** After `ClrHome`, `LINE1` and `LINE2` are cleared from the display. Only `AFTER` remains visible.
+
+### T37 — DispGraph switches to graph view
+**Steps:** Ensure at least one Y= equation is entered (e.g. `Y1=X`). Create and run program:
+```
+DispGraph
+Pause
+DispHome
+```
+**Expected:** Graph canvas appears after `DispGraph`. Pressing ENTER at `Pause` switches back to the calculator home screen via `DispHome`.
+
+### T38 — Output( writes at position
+**Steps:** Create and run program:
+```
+Output(1,1,"HELLO")
+Output(4,5,"WORLD")
+Pause
+```
+**Expected:** `HELLO` appears at the top-left of the display (row 1, col 1). `WORLD` appears further down (row 4, col 5). Pause holds the display until ENTER.
+
+### T39 — Menu( interactive selection
+**Steps:** Create and run program:
+```
+Menu("PICK","YES",YS,"NO",NS)
+Lbl YS
+Disp "YES"
+Goto DONE
+Lbl NS
+Disp "NO"
+Lbl DONE
+Stop
+```
+Run twice: once select option 1 (`YES`), once select option 2 (`NO`).
+**Expected:** First run: menu overlay shows title `PICK` with `1:YES` and `2:NO`; selecting 1 (UP/ENTER or key `1`) jumps to `Lbl YS` and displays `YES`. Second run: selecting 2 displays `NO`.
+
+### T40 — Menu( CLEAR aborts program
+**Steps:** While a `Menu(` overlay is visible (mid-execution of T39 program), press CLEAR.
+**Expected:** Menu overlay closes. Program execution halts. Calculator returns to normal home screen. No lockup.
+
+---
+
 ## Cursor Behavior in PRGM Screens
 
-### T25 — Cursor blinks in editor
+### T41 — Cursor blinks in editor
 **Steps:** Open any program in the editor. Observe the cursor for ~2 seconds without pressing any key.
 **Expected:** Cursor block blinks at ~530 ms interval on the current line.
 
-### T26 — 2nd mode reflected in editor cursor
+### T42 — 2nd mode reflected in editor cursor
 **Steps:** With editor open, press 2nd.
 **Expected:** Cursor immediately turns **amber** with `^` inside. Pressing any non-modifier key returns cursor to white block (2nd mode consumed).
 
-### T27 — ALPHA mode reflected in editor cursor
+### T43 — ALPHA mode reflected in editor cursor
 **Steps:** With editor open, press ALPHA.
 **Expected:** Cursor immediately turns **green** with `A` inside. Pressing a letter key inserts the letter and cursor returns to white. Pressing ALPHA again cancels ALPHA mode.
 
-### T28 — Cursor blinks in name-entry screen
+### T44 — Cursor blinks in name-entry screen
 **Steps:** Open name-entry screen (EDIT tab → empty slot → ENTER). Observe for ~2 seconds.
 **Expected:** Cursor on name-entry screen blinks at ~530 ms interval.
 
@@ -187,5 +365,9 @@ While `X` rows are appearing, press CLEAR.
 - T16 ERASE: only named programs (non-empty `names[]`) appear in the ERASE tab. A program edited via T07 (no user name) will NOT appear in ERASE even if it has body code.
 - T19 empty-slot execution: the executor receives an empty body string and terminates immediately; this should be silent with no output or error.
 - T24 may produce several `X` rows before CLEAR is processed (queue latency); that is acceptable.
-- T17 requires a full power cycle (USB unplug/replug), not just SWD reset, to verify FLASH persistence.
+- T17 requires a full power cycle (USB unplug/replug), not just SWD reset, to verify FLASH persistence. 2nd+ON saves state first.
+- T13 CTL sub-menu: opened with the PRGM key from the editor (not MATH). 14 items total; items 9–14 require scrolling below the 7th row. Overflow indicators (↑/↓) apply.
+- T14 I/O sub-menu: reached by pressing LEFT or RIGHT from within the CTL sub-menu. 6 items fit without scrolling.
+- T33/T34 subroutine: maximum call stack depth is 4; exceeding it causes the `prgm` call to be treated as a no-op (no crash).
+- T38 Output(: `row` and `col` are 1-based. `row` must be 1–8; `col` 1–N. Out-of-range values clip silently.
 - Keypad alpha-layer mapping: T=key for X position, E=key for LOG position, etc. Verify against physical keypad sticker if uncertain.

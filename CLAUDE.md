@@ -651,7 +651,7 @@ XY Σ LR DIM RNG
 4:σx
 5:ȳ
 6:Sy
-7↓σy     (↓ = overflow indicator; list continues)
+7:σy    
 ```
 
 **Σ tab** (summation variables):
@@ -709,42 +709,42 @@ Three tabs: Y / ON / OFF. Tab LEFT/RIGHT; item UP/DOWN or number key. Y tab inse
 **Y tab** (equation references):
 ```
 Y ON OFF
-1:Y1
-2:Y2
-3:Y3
-4:Y4
-5:X1t
-6:Y1t
-7↓X2t   (↓ = overflow indicator; list continues)
-  8:Y2t
-  9:X3t
-  0:Y3t
+1:Y₁
+2:Y₂
+3:Y₃
+4:Y₄
+5:X₁t
+6:Y₁t
+7↓X₂t   (↓ = overflow indicator; list continues)
+  8:Y₂t
+  9:X₃t
+  0:Y₃t
 ```
 
 **ON tab** (enable equations):
 ```
 Y ON OFF
 1:All-On
-2:Y1-On
-3:Y2-On
-4:Y3-On
-5:Y4-On
-6:X1t-On
-7↓X2t-On   (↓ = overflow indicator; list continues)
-  8:X3t-On
+2:Y₁-On
+3:Y₂-On
+4:Y₃-On
+5:Y₄-On
+6:X₁t-On
+7↓X₂t-On   (↓ = overflow indicator; list continues)
+  8:X₃t-On
 ```
 
 **OFF tab** (disable equations):
 ```
 Y ON OFF
 1:All-Off
-2:Y1-Off
-3:Y2-Off
-4:Y3-Off
-5:Y4-Off
-6:X1t-Off
-7↓X2t-Off   (↓ = overflow indicator; list continues)
-  8:X3t-Off
+2:Y₁-Off
+3:Y₂-Off
+4:Y₃-Off
+5:Y₄-Off
+6:X₁t-Off
+7↓X₂t-Off   (↓ = overflow indicator; list continues)
+  8:X₃t-Off
 ```
 
 ---
