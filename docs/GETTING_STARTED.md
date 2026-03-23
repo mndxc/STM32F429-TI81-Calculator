@@ -134,7 +134,7 @@ Once your software is ready, follow these steps to get the Neo-81 firmware runni
 
 ## 6. Host Tests
 
-The project includes a 301-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, and persistent storage round-trips.
+The project includes a 422-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, persistent storage round-trips, and PRGM execution control flow.
 
 Run these commands from the **repo root** (the directory containing `CMakeLists.txt`):
 

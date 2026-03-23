@@ -47,6 +47,7 @@ jobs:
           ./build/tests/test_calc_engine
           ./build/tests/test_expr_util
           ./build/tests/test_persist_roundtrip
+          ./build/tests/test_prgm_exec
 
       - name: Branch coverage report
         run: |
@@ -54,6 +55,7 @@ jobs:
             --filter 'App/Src/calc_engine\.c' \
             --filter 'App/Src/expr_util\.c' \
             --filter 'App/Src/persist\.c' \
+            --filter 'App/Src/prgm_exec\.c' \
             --branch \
             --print-summary \
             build/tests

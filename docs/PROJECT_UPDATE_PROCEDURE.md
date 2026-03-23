@@ -74,10 +74,10 @@ These are mandatory, per the complexity management rule already in CLAUDE.md.
 
 13. **TECHNICAL.md → Supported functions table**: If a new math function was wired, add it.
 
-14. **GETTING_STARTED.md → Host Tests section**: Update all three test counts
-    (e.g. `153 tests` → new number) and the total (e.g. `301 total`).
+14. **GETTING_STARTED.md → Host Tests section**: Update all four test counts
+    (e.g. `153 tests` → new number) and the total (e.g. `422 total`).
 
-15. **CLAUDE.md → "Host Tests" section**: Update the same three counts and total to match.
+15. **CLAUDE.md → "Host Tests" section**: Update the same four counts and total to match.
 
 16. **QUALITY_TRACKER.md → P1 table**: Update the per-executable test counts and branch
     coverage % if changed.
@@ -112,9 +112,10 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 ./build/tests/test_calc_engine
 ./build/tests/test_expr_util
 ./build/tests/test_persist_roundtrip
+./build/tests/test_prgm_exec
 ```
 
-All three must exit `0` (full pass). The output lines show the exact test counts — copy these
+All four must exit `0` (full pass). The output lines show the exact test counts — copy these
 into the docs. Never estimate. If a test fails, fix it before proceeding.
 
 ### Step 2 — Capture the session anchor

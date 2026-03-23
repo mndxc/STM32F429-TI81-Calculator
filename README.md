@@ -27,11 +27,9 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 ## Status
 
-**Y= Toggle is 100% complete:** Equation enable/disable functionality is fully implemented with visual feedback and persistence (v4). Critical graphing stability issues (startup crash, transition freezes) have been resolved.
+**PRGM is feature-complete and host-tested (hardware validation pending):** The full text interpreter is implemented — `If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `IS>(`, `DS<(`, `Pause`, `Stop`, `Return`, subroutine calls (depth 4), `Disp`, `Input`, `Prompt`, `ClrHome`, `Output(`, `Menu(`, `DispHome`, `DispGraph`, assignment, and expression lines. Programs persist in FLASH. A 121-test host suite (`test_prgm_exec`) validates all 22 command handlers and control-flow paths — including a bug fix in the Stop/Return/Goto-abort exit path. Hardware validation (P10) is the only remaining gate.
 
 MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, FLASH persistence, and column-aligned history display with horizontal scroll.
-
-**PRGM is coded but not yet hardware-validated — treat as non-functional until testing is complete.** The UI (EXEC/EDIT/ERASE menu, all 37 slots, name entry, line editor, CTL/I/O sub-menus) and a full text interpreter (`If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `Pause`, `Stop`, `Return`, subroutine calls, `Disp`, `Input`, `Prompt`, `ClrHome`, assignment, expression lines) are implemented and programs persist in FLASH. None of this has been run on hardware yet — see `docs/prgm_manual_tests.md` for the 28-test validation plan that must pass before PRGM is considered functional.
 
 STAT is not yet implemented.
 
@@ -45,10 +43,11 @@ You can build and run the full test suite on any machine — no STM32 board requ
 git clone https://github.com/mndxc/STM32F429-TI81-Calculator.git
 cd STM32F429-TI81-Calculator
 cmake -S App/Tests -B build/tests && cmake --build build/tests
-./build/tests/test_calc_engine && ./build/tests/test_expr_util && ./build/tests/test_persist_roundtrip
+./build/tests/test_calc_engine && ./build/tests/test_expr_util && \
+./build/tests/test_persist_roundtrip && ./build/tests/test_prgm_exec
 ```
 
-All 301 tests pass on plain x86/ARM Linux and macOS with any standard C compiler. No toolchain, no board, no USB cable needed.
+All 422 tests pass on plain x86/ARM Linux and macOS with any standard C compiler. No toolchain, no board, no USB cable needed.
 
 ---
 

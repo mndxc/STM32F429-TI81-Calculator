@@ -88,7 +88,7 @@ App/
     Keypad/         keypad.c: key matrix scanner; keypad_map.c: token-to-key lookup table
   Display/        LVGL port layer: display flush + input device
   Fonts/          JetBrains Mono LVGL bitmap fonts (24px, 20px)
-  Tests/          Host-compiled test suites (301 tests, no HAL/RTOS needed)
+  Tests/          Host-compiled test suites (422 tests, no HAL/RTOS needed)
 
 Core/             CubeMX-generated: HAL init, FreeRTOS stubs, interrupt handlers
 Drivers/          ST BSP + HAL + CMSIS (gitignored — regenerate via CubeMX)

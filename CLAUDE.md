@@ -18,7 +18,7 @@
 
 **Purpose of QUALITY_TRACKER:** Permanent register for code quality reviews. Tracks a rated scorecard across 10 dimensions, P-numbered improvement items with effort/impact rankings, and full resolution history. It is the single source of truth for all quality, CI, refactoring, and contributor-docs work. Items are not duplicated in this file.
 
-Current overall rating: **92–94% production-ready** (up from 90–92%; gain from P18 resolution: function complexity C+ → B). Key remaining gaps: PRGM hardware validation pending (P10), test suite A-rating (P1). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 301-test host suite with CI.
+Current overall rating: **93–95% production-ready** (up from 92–94%; gain from P20 resolution: testing B+ → A-). Key remaining gaps: PRGM hardware validation pending (P10). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 422-test host suite with CI.
 
 ---
 
@@ -855,10 +855,12 @@ App/Display/
     lv_port_disp.c/h    — LVGL display driver (LTDC port layer)
     lv_port_indev.c/h   — LVGL input driver (keypad port layer)
 App/Tests/
-    CMakeLists.txt      — host test build (3 executables, 301 tests total)
+    CMakeLists.txt      — host test build (4 executables, 422 tests total)
     test_calc_engine.c  — 153 tests: tokenizer, shunting-yard, RPN, matrix
     test_expr_util.c    — 96 tests: UTF-8 cursor, insert/delete, matrix atomicity
     test_persist_roundtrip.c — 52 tests: PersistBlock_t checksum and round-trip
+    test_prgm_exec.c    — 121 tests: all 22 command handlers, control flow, subroutine call
+    prgm_exec_test_stubs.h — inline stubs for host-compilation of prgm_exec.c
 Core/Inc/                       ← CubeMX generated (regenerated from .ioc)
     main.h, stm32f4xx_hal_conf.h, stm32f4xx_it.h, FreeRTOSConfig.h
 Core/Src/                       ← CubeMX generated (regenerated from .ioc)
