@@ -61,8 +61,28 @@ if(COVERAGE)
     target_link_options(test_persist_roundtrip PRIVATE --coverage)
 endif()
 
+# --- test_prgm_exec ---
+# Program executor host tests; HOST_TEST guards out LVGL/HAL/RTOS code.
+
+add_executable(test_prgm_exec
+    test_prgm_exec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/prgm_exec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+)
+
+# Tests/ directory must be on the path so prgm_exec.c finds prgm_exec_test_stubs.h
+target_include_directories(test_prgm_exec PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_compile_options(test_prgm_exec PRIVATE -Wall -Wextra -DHOST_TEST=1)
+
+if(COVERAGE)
+    target_compile_options(test_prgm_exec PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_prgm_exec PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
 add_test(NAME expr_util         COMMAND test_expr_util)
 add_test(NAME persist_roundtrip COMMAND test_persist_roundtrip)
+add_test(NAME prgm_exec         COMMAND test_prgm_exec)

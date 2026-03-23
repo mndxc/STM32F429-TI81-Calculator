@@ -53,17 +53,10 @@
   order). Function shrinks from 154 lines to ~40 lines. No behaviour change (same token
   outputs for same inputs). File: `App/Src/calc_engine.c:172–325`.
 
-- [ ] **7. Extract `prgm_execute_line` command handlers + dispatch table** — **Critical
-  hotspot.** At 495 lines it is the single largest function in the codebase, violating
-  the 100-line guideline by 5×. The function is a long if/else chain over 16+ distinct
-  PRGM command types (Lbl, Goto, If/Then/Else/End, While, For, Pause, Stop, Return,
-  prgm, Disp, Input, Prompt, ClrHome, DispHome, DispGraph, Output, Menu, IS>, DS<).
-  Extract each command type as a static handler function (~20–50 lines each). Replace
-  the if/else chain with a dispatch table keyed on command-name prefix. The interpreter
-  loop (`prgm_execute_line` itself) shrinks to ~60 lines: parse the leading command
-  name, look it up in the table, call the handler. No behaviour change — all handlers
-  contain the existing logic verbatim. This is the highest-complexity item in the
-  codebase. File: `App/Src/prgm_exec.c:207–701`.
+- [x] **7. Extract `prgm_execute_line` command handlers + dispatch table** — ✅ Resolved
+  2026-03-22 (Session 22). 22 static `cmd_*` handlers extracted (3–50 lines each);
+  `parse_incdec_args` shared helper; `CmdEntry_t` dispatch table; `prgm_execute_line`
+  body ~30 lines. P19 resolved. 301/301 tests pass.
 
 ---
 
@@ -88,7 +81,7 @@
 
 - `app_common.h` CalcMode_t (21 values) — matches CLAUDE.md "Input Mode System" ✅
 - `app_common.h` GraphState_t (11 fields) — matches CLAUDE.md "Graphing System → State" ✅
-- Test counts 153/96/52 (301 total) — consistent across CLAUDE.md, GETTING_STARTED.md ✅
+- Test counts 153/96/52/121 (422 total) — consistent across CLAUDE.md, GETTING_STARTED.md ✅
 - ARCHITECTURE.md memory layout (~49% RAM) — consistent with CLAUDE.md (48.49%) ✅
 - `prgm_exec.c` listed in ARCHITECTURE.md module diagram — present ✅
 - All `docs/` files linked from README.md exist on disk ✅

@@ -22,7 +22,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "stm32f4xx_hal.h"
+#ifndef HOST_TEST
+#  include "stm32f4xx_hal.h"
+#endif
 
 /*---------------------------------------------------------------------------
  * Limits and layout
@@ -67,7 +69,9 @@ typedef struct {
 #define PRGM_MAGIC        0xCA1C512EU   /**< "calc p12e" — unique from persist */
 #define PRGM_VERSION      2U            /**< v2: 37 fixed slots, no count field */
 #define PRGM_FLASH_ADDR   0x080E0000U   /**< Sector 11, 128 KB */
-#define PRGM_SECTOR       FLASH_SECTOR_11
+#ifndef HOST_TEST
+#  define PRGM_SECTOR       FLASH_SECTOR_11
+#endif
 
 /*---------------------------------------------------------------------------
  * Data structures

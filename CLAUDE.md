@@ -109,6 +109,8 @@ Sessions:
 - 2026-03-22 (Session 19): PRGM system feature-complete — stale warning comments updated (`ui_prgm.c`/`ui_prgm.h`); `IS>(` and `DS<(` implemented in `prgm_exec.c` + CTL menu (items 13–14); `DispHome` and `DispGraph` implemented; `Output(row,col,"str")` implemented with `ui_output_row()` helper in `calculator_core.c`; `Menu("title","opt",Lbl,…)` fully implemented with dedicated LVGL overlay screen (`ui_prgm_menu_screen`) and UP/DOWN/1–9/ENTER/CLEAR key handling during execution. All 5 tasks from `docs/PRGM_COMPLETION.md` resolved. PRGM: ~50% → ~95% (hardware validation pending, P10). 301/301 tests pass. **Complexity delta: `neutral`** — all new handlers follow existing patterns; new `ui_prgm_menu_screen` follows the same LVGL screen creation pattern as all other PRGM screens.
 - 2026-03-22 (Session 20): PRGM command reference created — `docs/PRGM_COMMANDS.md` documents all 14 CTL commands (If/Then/Else/End/While/For/Goto/Lbl/Pause/Stop/Return/prgm/IS>/DS<), all 6 I/O commands, Output(, Menu(, expr->VAR, and expression lines with syntax, edge cases, and limits table. `docs/PRGM_COMPLETION.md` deleted (all tasks resolved; pre-flight checklist folded into QUALITY_TRACKER.md P10; file list coverage moved to `PRGM_COMMANDS.md`). 301/301 tests pass. **Complexity delta: `neutral`** — documentation only; no code changes.
 - 2026-03-22 (Session 21): Periodic code review — structural scan + Phase 2 direct reads. P19 (`prgm_execute_line` dispatch table, 495-line hotspot) and P20 (prgm exec host tests, ~80 tests) opened. `docs/CODE_REVIEW_PENDING.md` re-created with 7 action items. VARS/Y-VARS menu specs added to CLAUDE.md. Cross-reference audit clean. **Complexity delta: `neutral`** — documentation and review only; no code changes.
+- 2026-03-22 (Session 22): P19 resolved — `prgm_execute_line` dispatch table refactor. 22 static `cmd_*` handler functions extracted (3–50 lines each); `parse_incdec_args` shared helper eliminates IS>/DS< duplication; `CmdHandler_t`/`CmdEntry_t` dispatch table replaces 495-line if/else chain; `prgm_execute_line` body reduced to ~30 lines. Zero logic changes. `docs/CODE_REVIEW_PENDING.md` item 7 resolved. Function complexity "at risk" qualifier removed. 301/301 tests pass. **Complexity delta: `decrease`** — pure mechanical extraction; no new logic, state, or abstractions.
+- 2026-03-22 (Session 23): P20 resolved — program execution host test suite. `#ifndef HOST_TEST` guards added throughout `prgm_exec.c`/`.h` to strip LVGL/HAL/FreeRTOS dependencies. `App/Tests/prgm_exec_test_stubs.h` provides inline stubs for `prgm_parse_from_store`, `prgm_slot_is_used`, `prgm_slot_id_str`, `format_calc_result`. `App/Tests/test_prgm_exec.c`: 121 tests / 14 groups covering all command types (Goto/Lbl, If, Then/Else/End, While, For, IS>/DS<, Stop/Pause/Return, STO, Disp, Input/Prompt, ClrHome, subroutine call, complex programs). Bug fixed: `prgm_run_loop` Stop/Return/Goto-abort path did not reset `current_mode = MODE_NORMAL` — fixed by separating `!prgm_run_active` and `prgm_waiting_input` early-exit paths. Testing B+ → A-. 422/422 tests pass. **Complexity delta: `neutral`** — guards and test file; no new logic; bug fix is a one-line correction in the run loop.
 
 ### Completed features
 
@@ -232,9 +234,10 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 ./build/tests/test_calc_engine        # 153 tests: tokenizer, shunting-yard, RPN, matrix, edge cases
 ./build/tests/test_expr_util          # 96 tests:  UTF-8 cursor, insert/delete, matrix token atomicity
 ./build/tests/test_persist_roundtrip  # 52 tests:  PersistBlock_t checksum, validation, field round-trip
+./build/tests/test_prgm_exec          # 121 tests: all 22 command handlers, control flow, subroutine call
 ```
 
-All three executables exit 0 on full pass (301 total tests). CI runs them automatically on every push/PR with gcov branch coverage measurement. Enable coverage locally with `-DCOVERAGE=ON`.
+All four executables exit 0 on full pass (422 total tests). CI runs them automatically on every push/PR with gcov branch coverage measurement. Enable coverage locally with `-DCOVERAGE=ON`.
 
 ---
 
@@ -331,7 +334,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 ### Next session priorities (in order)
 
 > **Quality and refactoring items** are tracked in [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md), not here.
-> Open items: **P1, P3, P7, P10, P14**. Highest ease-to-impact: P14, P1.
+> Open items: **P1, P3, P7, P10**. Highest ease-to-impact: P10 (hardware validation), P1 (property-based tests).
 
 **1. Y= equation enable/disable toggle** — ✅ Resolved 2026-03-22
 
@@ -386,6 +389,16 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 - `handle_sto_pending()` now calls `Calc_Evaluate(expression, ...)` instead of storing `ans` directly. History expression shows `<expr>->A`; result shows the evaluated value. Expression buffer cleared after store (same as ENTER). Errors (syntax, data type for matrix results) abort the store and display the error string in the result row.
 
 **[complexity] Reduce HistoryEntry_t memory footprint** — ✅ Resolved 2026-03-22. Replaced `CalcMatrix_t matrix_data` (148 B) in `HistoryEntry_t` with a 3-byte ring reference (`matrix_ring_idx`, `matrix_ring_gen`, `matrix_rows_cache`). An 8-slot `CalcMatrix_t matrix_ring[]` holds the last 8 matrix results; generation-based eviction detection falls back to the pre-formatted `result` string. RAM: 82.44% → 81.82%. 301/301 tests pass. **Complexity delta: `decrease`** — no new logic; pure data layout improvement.
+
+**18. Expand font glyph set for VARS/STAT display** — Regenerate both LVGL font files adding the following codepoints to the `lv_font_conv` commands in gotcha #14:
+- ȳ — U+0233 (`-r 0x0233`)
+- x̄ — no precomposed codepoint; requires combining macron U+0304 (`-r 0x0304`). Test LVGL rendering of x (U+0078, already ASCII) + U+0304 combining sequence; if LVGL does not compose correctly, substitute a dedicated glyph or use "xbar" ASCII workaround
+- Subscripts ₁₂₃₄ — U+2081–U+2084 (`-r 0x2081-0x2084`)
+- Subscript t — ₜ U+209C (`-r 0x209C`); note: subscript capital T does not exist in Unicode — ₜ (lowercase) is the only option
+- Superscript T — ᵀ U+1D40 (`-r 0x1D40`)
+- Superscript minus — ⁻ U+207B (`-r 0x207B`); pair with ¹ (U+00B9, already in font) to display x⁻¹. No single precomposed ⁻¹ codepoint exists in Unicode — evaluate whether the two-character sequence looks acceptable at 20/24px, or whether it is worth adding a custom single-glyph ⁻¹ to the TTF (e.g. via a Private Use Area codepoint) so it renders as one tight unit
+- **Already in font — no change needed:** ¹ (U+00B9), ² (U+00B2), ³ (U+00B3), Σ (U+03A3), σ (U+03C3)
+- Files: `App/Fonts/jetbrains_mono_24.c`, `App/Fonts/jetbrains_mono_20.c`, `CLAUDE.md` gotcha #14 (update `-r` ranges to include new codepoints)
 
 ---
 

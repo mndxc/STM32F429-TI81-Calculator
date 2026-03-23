@@ -143,9 +143,10 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 ./build/tests/test_calc_engine        # 153 tests
 ./build/tests/test_expr_util          # 96 tests
 ./build/tests/test_persist_roundtrip  # 52 tests
+./build/tests/test_prgm_exec          # 121 tests
 ```
 
-All three executables exit `0` on a full pass. These tests run automatically on every push via CI — running them locally before opening a PR is strongly recommended.
+All four executables exit `0` on a full pass (422 total). These tests run automatically on every push via CI — running them locally before opening a PR is strongly recommended.
 
 ---
 
