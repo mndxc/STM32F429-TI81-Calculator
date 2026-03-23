@@ -1021,9 +1021,9 @@ static bool handle_yeq_insertion(Token_t t)
     case TOKEN_SIN:     append = "sin(";  break;
     case TOKEN_COS:     append = "cos(";  break;
     case TOKEN_TAN:     append = "tan(";  break;
-    case TOKEN_ASIN:    append = "asin("; break;
-    case TOKEN_ACOS:    append = "acos("; break;
-    case TOKEN_ATAN:    append = "atan("; break;
+    case TOKEN_ASIN:    append = "sin\xEE\x80\x81("; break;   /* sin⁻¹( */
+    case TOKEN_ACOS:    append = "cos\xEE\x80\x81("; break;   /* cos⁻¹( */
+    case TOKEN_ATAN:    append = "tan\xEE\x80\x81("; break;   /* tan⁻¹( */
     case TOKEN_LN:      append = "ln(";   break;
     case TOKEN_LOG:     append = "log(";  break;
     case TOKEN_SQRT:    append = "\xE2\x88\x9A("; break;

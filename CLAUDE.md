@@ -165,6 +165,7 @@ Behaviours that differ from the original hardware by design:
 |---------|---------------|---------------------|
 | History scroll | Not present — `2nd+ENTRY` recalled last entry only | UP/DOWN arrows scroll backward/forward through history |
 | `2nd+ENTRY` | Recalled the single most recent entry | Recalls most recent entry AND positions `history_recall_offset` at 1, so UP/DOWN continue working from there |
+| Menu vs. expression glyph inconsistency | Menu labels and expression buffer used the same internal token glyphs throughout | **Known inconsistency:** menu labels now display proper Unicode glyphs (³, ³√(, sin⁻¹( etc.) but the expression buffer still renders the underlying ASCII/multi-char insert strings (`^3`, `^(1/3)`, `^-1`). Consequence: selecting ³√( from the MATH menu inserts `^(1/3)` into the expression, while pressing `2nd`+√ inserts `√(` — the two paths produce visually different expression text even though both evaluate correctly. The root cause is that menu display labels were separated from insert strings (cosmetic fix) but the expression buffer has no glyph-substitution layer. Full resolution requires either a token-based expression renderer (replaces raw string display with rendered glyphs per token) or a post-insert rewrite pass that maps ASCII sequences to their Unicode equivalents. This is a known gap, not a regression. |
 
 ---
 
@@ -392,13 +393,35 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **18. Expand font glyph set for VARS/STAT display** — Regenerate both LVGL font files adding the following codepoints to the `lv_font_conv` commands in gotcha #14:
 - ȳ — U+0233 (`-r 0x0233`)
-- x̄ — no precomposed codepoint; requires combining macron U+0304 (`-r 0x0304`). Test LVGL rendering of x (U+0078, already ASCII) + U+0304 combining sequence; if LVGL does not compose correctly, substitute a dedicated glyph or use "xbar" ASCII workaround
+- x̄ — **resolved via custom PUA glyph U+E000** in `JetBrainsMono-Regular-Custom.ttf`. No precomposed Unicode codepoint exists; the custom TTF adds a dedicated x-with-macron glyph at U+E000 (Private Use Area), counterpart to U+0233 ȳ. Use `\uE000` in code to render x̄.
 - Subscripts ₁₂₃₄ — U+2081–U+2084 (`-r 0x2081-0x2084`)
-- Subscript t — ₜ U+209C (`-r 0x209C`); note: subscript capital T does not exist in Unicode — ₜ (lowercase) is the only option
-- Superscript T — ᵀ U+1D40 (`-r 0x1D40`)
-- Superscript minus — ⁻ U+207B (`-r 0x207B`); pair with ¹ (U+00B9, already in font) to display x⁻¹. No single precomposed ⁻¹ codepoint exists in Unicode — evaluate whether the two-character sequence looks acceptable at 20/24px, or whether it is worth adding a custom single-glyph ⁻¹ to the TTF (e.g. via a Private Use Area codepoint) so it renders as one tight unit
+- Subscript t — ₜ U+209C (`-r 0x209C`); note: subscript capital T does not exist in Unicode — ₜ (lowercase) is the only option. **Not present in the custom TTF** — requires further font editing.
+- Superscript T — ᵀ U+1D40 (`-r 0x1D40`). **Not present in the custom TTF** — requires further font editing.
+- Superscript ⁻ alone — U+207B **not present in the custom TTF**; use U+E001 (see below) for the combined ⁻¹ glyph instead.
+- Superscript ⁻¹ — **resolved via custom PUA glyph U+E001** in `JetBrainsMono-Regular-Custom.ttf`. No single precomposed ⁻¹ codepoint exists in Unicode; the custom TTF adds a dedicated superscript-negative-one glyph at U+E001 (Private Use Area). Use `\uE001` in code wherever ⁻¹ is needed (e.g. cos⁻¹, sin⁻¹, tan⁻¹). Renders as one tight unit at both 20 and 24 px.
 - **Already in font — no change needed:** ¹ (U+00B9), ² (U+00B2), ³ (U+00B3), Σ (U+03A3), σ (U+03C3)
+- **Source font:** use `JetBrainsMono-Regular-Custom.ttf` (not the stock TTF) for all regeneration — it contains the two PUA glyphs above in addition to all standard JetBrains Mono glyphs.
 - Files: `App/Fonts/jetbrains_mono_24.c`, `App/Fonts/jetbrains_mono_20.c`, `CLAUDE.md` gotcha #14 (update `-r` ranges to include new codepoints)
+- **Follow-up — known ASCII workaround replacement sites** (scan, replace, flash-verify each):
+
+  | UI location | Item(s) | Current ASCII | Target display | Codepoint(s) | In font? |
+  |---|---|---|---|---|---|
+  | 2nd+SIN key label | — | `sin^-1(` | `sin⁻¹(` | U+E001 | ✅ |
+  | 2nd+COS key label | — | `cos^-1(` | `cos⁻¹(` | U+E001 | ✅ |
+  | 2nd+TAN key label | — | `tan^-1(` | `tan⁻¹(` | U+E001 | ✅ |
+  | x⁻¹ key label | — | `x^-1` | `x⁻¹` | U+E001 | ✅ |
+  | MATH tab | item 3 | `^3` | `³` (cubed) | U+00B3 | ✅ already |
+  | MATH tab | item 4 | `3sqrt(` | `³√(` (cube root) | U+00B3 + U+221A | ✅ already |
+  | MATH HYP tab | items 4–6 | `asinh(` / `acosh(` / `atanh(` | `sinh⁻¹(` / `cosh⁻¹(` / `tanh⁻¹(` | U+E001 | ✅ |
+  | VARS XY tab | item 2 | `x-bar` / `xbar` | `x̄` | U+E000 | ✅ |
+  | VARS XY tab | item 4 | `ox` / `sigmax` | `σx` | U+03C3 + ASCII x | ✅ already |
+  | VARS XY tab | item 5 | `y-bar` / `ybar` | `ȳ` | U+0233 | ✅ |
+  | VARS XY tab | item 7 | `oy` / `sigmay` | `σy` | U+03C3 + ASCII y | ✅ already |
+  | VARS Σ tab | items 1–5 | `Ex` / `Ex2` / `Ey` / `Ey2` / `Exy` | `Σx` / `Σx²` / `Σy` / `Σy²` / `Σxy` | U+03A3 + U+00B2 where needed | ✅ already |
+  | Y-VARS Y/ON/OFF tabs | items 1–4+ | `Y1` / `Y2` / `Y3` / `Y4` | `Y₁` / `Y₂` / `Y₃` / `Y₄` | U+2081–U+2084 | ✅ |
+  | Y= menu equation labels | Y1–Y4 rows | `Y1` / `Y2` / `Y3` / `Y4` | `Y₁` / `Y₂` / `Y₃` / `Y₄` | U+2081–U+2084 | ✅ |
+
+  After all replacements: build, flash to hardware, visually verify each glyph at the relevant font size (menu items use 20px; key labels / Y= labels use 24px).
 
 ---
 
@@ -1239,21 +1262,30 @@ Middlewares/ST/
 11. **strncpy does not null-terminate** — always add `buf[n-1] = '\0'` after strncpy
 12. **MODE_GRAPH_TRACE falls through** — after exiting trace mode, execution continues into the main switch to process the triggering key normally. This is intentional.
 13. **UTF-8 cursor integrity** — `cursor_pos` in the main expression is a byte offset. Any code that moves or edits at `cursor_pos` must account for multi-byte characters (π=2B, √/≠/≥/≤=3B). Stepping by 1 byte can land inside a sequence; LVGL silently skips invalid UTF-8 so the display looks fine but `Tokenize()` returns `CALC_ERR_SYNTAX`. Rules: LEFT steps back past all `10xxxxxx` continuation bytes; RIGHT steps forward past the full sequence; DEL walks back to the start byte and removes all N bytes; overwrite uses `utf8_char_size()` to remove the full char before writing the replacement. The Y= cursor (`yeq_cursor_pos`) was correct already — use it as the reference implementation.
-14. **Font regeneration** — the LVGL `.c` font files are generated from `App/Fonts/JetBrainsMono-Regular.ttf` using `lv_font_conv` (install: `npm i -g lv_font_conv`). Regenerate both sizes with:
+14. **Font regeneration** — the LVGL `.c` font files are generated from `App/Fonts/JetBrainsMono-Regular-Custom.ttf` using `lv_font_conv` (install: `npm i -g lv_font_conv`). **Always use the Custom TTF** — it contains two additional Private Use Area glyphs not present in the stock JetBrains Mono: U+E000 (x̄, xbar) and U+E001 (⁻¹, superscript negative one). Regenerate both sizes with:
     ```bash
-    lv_font_conv --font App/Fonts/JetBrainsMono-Regular.ttf \
-      -r 0x20-0x7E -r 0x00B0,0x00B2,0x00B3,0x00B9 \
+    lv_font_conv --font App/Fonts/JetBrainsMono-Regular-Custom.ttf \
+      -r 0x20-0x7E \
+      -r 0x00B0,0x00B2,0x00B3,0x00B9 \
+      -r 0x0233 \
       -r 0x03A3,0x03B8,0x03C0,0x03C3 \
+      -r 0x2081-0x2084 \
       -r 0x221A -r 0x25B6 -r 0x2191,0x2193 -r 0x2260,0x2264,0x2265 \
+      -r 0xE000,0xE001 \
       --size 24 --format lvgl --bpp 4 -o App/Fonts/jetbrains_mono_24.c --no-compress
 
-    lv_font_conv --font App/Fonts/JetBrainsMono-Regular.ttf \
-      -r 0x20-0x7E -r 0x00B0,0x00B2,0x00B3,0x00B9 \
+    lv_font_conv --font App/Fonts/JetBrainsMono-Regular-Custom.ttf \
+      -r 0x20-0x7E \
+      -r 0x00B0,0x00B2,0x00B3,0x00B9 \
+      -r 0x0233 \
       -r 0x03A3,0x03B8,0x03C0,0x03C3 \
+      -r 0x2081-0x2084 \
       -r 0x221A -r 0x25B6 -r 0x2191,0x2193 -r 0x2260,0x2264,0x2265 \
+      -r 0xE000,0xE001 \
       --size 20 --format lvgl --bpp 4 -o App/Fonts/jetbrains_mono_20.c --no-compress
     ```
-    Current Unicode ranges included: ASCII (0x20–0x7E), °²³¹ (superscripts/degree), Σθπσ (Greek), √ ▶ ↑↓ (math/UI), ≠≤≥ (TEST operators).
+    Current Unicode ranges included: ASCII (0x20–0x7E), °²³¹ (superscripts/degree), ȳ (U+0233), Σθπσ (Greek), ₁₂₃₄ (U+2081–2084), √ ▶ ↑↓ (math/UI), ≠≤≥ (TEST operators), U+E000 x̄ / U+E001 ⁻¹ (custom PUA glyphs).
+    **Not in custom TTF (requires further font editing before they can be included):** ᵀ U+1D40 (superscript T), ⁻ U+207B (superscript minus), ₜ U+209C (subscript t).
 15. **FLASH sector map — FLASH_SECTOR_7 is NOT 0x080C0000** — On STM32F429ZIT6 (2MB, 12 sectors per bank), the sector layout is: sectors 0–3 = 16 KB, sector 4 = 64 KB, sectors 5–11 = 128 KB. `FLASH_SECTOR_7` is at **0x08060000** (inside the firmware for a ~684 KB image). The persist sector is `FLASH_SECTOR_10` at **0x080C0000**. Never use `FLASH_SECTOR_7` for user data — it will erase firmware code, causing a HardFault loop and a board that fails to boot until reflashed.
 16. **Never call lv_timer_handler() from CalcCoreTask while holding xLVGL_Mutex** — `xLVGL_Mutex` is a standard (non-recursive) FreeRTOS mutex. Calling `lv_timer_handler()` inside `lvgl_lock()` from CalcCoreTask will deadlock: LVGL's internal flush handshake waits for `lv_disp_flush_ready()` which only fires when DefaultTask runs — but DefaultTask is blocked on the same mutex. Pattern to show UI feedback before a long operation: `lvgl_lock(); /* create label */; lvgl_unlock(); osDelay(20); /* DefaultTask renders */; /* long operation */`.
 17. **ON button EXTI is on EXTI9_5_IRQn** — `EXTI9_5_IRQHandler` is defined in `app_init.c`, not in the CubeMX-generated `stm32f4xx_it.c`. If CubeMX ever regenerates `stm32f4xx_it.c` and adds a duplicate `EXTI9_5_IRQHandler`, there will be a linker error. Keep the handler in `app_init.c` and ensure `stm32f4xx_it.c` does not define it. PE6 is not configured in the `.ioc` — `on_button_init()` sets it up entirely in App code using `KEYPAD_ON_PIN` / `KEYPAD_ON_PORT` from `keypad.h`.

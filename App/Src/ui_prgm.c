@@ -635,9 +635,9 @@ static const char *prgm_token_to_str(Token_t t)
     case TOKEN_SIN:     return "sin(";
     case TOKEN_COS:     return "cos(";
     case TOKEN_TAN:     return "tan(";
-    case TOKEN_ASIN:    return "asin(";
-    case TOKEN_ACOS:    return "acos(";
-    case TOKEN_ATAN:    return "atan(";
+    case TOKEN_ASIN:    return "sin\xEE\x80\x81(";   /* sin⁻¹( */
+    case TOKEN_ACOS:    return "cos\xEE\x80\x81(";   /* cos⁻¹( */
+    case TOKEN_ATAN:    return "tan\xEE\x80\x81(";   /* tan⁻¹( */
     case TOKEN_ABS:     return "abs(";
     case TOKEN_LN:      return "ln(";
     case TOKEN_LOG:     return "log(";

@@ -192,8 +192,8 @@ static const MenuItem_t math_menu_items[MATH_TAB_COUNT][8] = {
     { /* MATH tab */
         {"R>P(",    "R>P("},
         {"P>R(",    "P>R("},
-        {"^3",      "^3"},
-        {"^(1/3)",  "^(1/3)"},
+        {"\xC2\xB3",                    "^3"},       /* ³  U+00B3  — display only; engine reads ^3 */
+        {"\xC2\xB3\xE2\x88\x9A(",      "^(1/3)"},   /* ³√( U+00B3+U+221A — display only */
         {"!",       "!"},
         {"deg",     "\xC2\xB0"},
         {"rad",     "r"},
@@ -210,9 +210,9 @@ static const MenuItem_t math_menu_items[MATH_TAB_COUNT][8] = {
         {"sinh(",   "sinh("},
         {"cosh(",   "cosh("},
         {"tanh(",   "tanh("},
-        {"asinh(",  "asinh("},
-        {"acosh(",  "acosh("},
-        {"atanh(",  "atanh("},
+        {"sinh\xEE\x80\x81(",  "asinh("},   /* sinh⁻¹( — display; engine reads asinh( */
+        {"cosh\xEE\x80\x81(",  "acosh("},   /* cosh⁻¹( — display; engine reads acosh( */
+        {"tanh\xEE\x80\x81(",  "atanh("},   /* tanh⁻¹( — display; engine reads atanh( */
         {NULL, NULL}, {NULL, NULL},
     },
     { /* PRB tab */
@@ -1793,9 +1793,9 @@ static void handle_function_insert(Token_t t)
     case TOKEN_SIN:   expr_insert_str("sin(");  break;
     case TOKEN_COS:   expr_insert_str("cos(");  break;
     case TOKEN_TAN:   expr_insert_str("tan(");  break;
-    case TOKEN_ASIN:  expr_insert_str("asin("); break;
-    case TOKEN_ACOS:  expr_insert_str("acos("); break;
-    case TOKEN_ATAN:  expr_insert_str("atan("); break;
+    case TOKEN_ASIN:  expr_insert_str("sin\xEE\x80\x81("); break;   /* sin⁻¹( */
+    case TOKEN_ACOS:  expr_insert_str("cos\xEE\x80\x81("); break;   /* cos⁻¹( */
+    case TOKEN_ATAN:  expr_insert_str("tan\xEE\x80\x81("); break;   /* tan⁻¹( */
     case TOKEN_ABS:   expr_insert_str("abs(");  break;
     case TOKEN_LN:    expr_insert_str("ln(");   break;
     case TOKEN_LOG:   expr_insert_str("log(");  break;

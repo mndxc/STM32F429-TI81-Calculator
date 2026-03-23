@@ -260,6 +260,11 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
        Do NOT include '(' in the name — it is tokenized separately as
        MATH_PAREN_LEFT, which ShuntingYard needs to pop on ')'. */
     static const struct { const char *name; MathTokenType_t type; } funcs[] = {
+        /* Inverse trig — U+E001 (PUA \xEE\x80\x81) aliases must precede the
+           plain "sin"/"cos"/"tan" entries (longer-prefix-first rule). */
+        { "sin\xEE\x80\x81", MATH_FUNC_ASIN },  /* sin⁻¹( inserted by 2nd+SIN */
+        { "cos\xEE\x80\x81", MATH_FUNC_ACOS },  /* cos⁻¹( inserted by 2nd+COS */
+        { "tan\xEE\x80\x81", MATH_FUNC_ATAN },  /* tan⁻¹( inserted by 2nd+TAN */
         { "sin",     MATH_FUNC_SIN      },
         { "cos",     MATH_FUNC_COS      },
         { "tan",     MATH_FUNC_TAN      },
