@@ -3,7 +3,7 @@
 Hardware: STM32F429I-DISC1. Run after flashing the latest build.
 Pass criterion listed for each test. Mark ✅ / ❌ / ⚠️.
 
-Last updated: 2026-03-25 (Session 26: CTL/IO menus reduced to spec, prgmNAME execution model, ERASE shows all slots, UI bug fixes)
+Last updated: 2026-03-25 (Session 27: complete rewrite; targets Session 26 regression fixes)
 
 ---
 
@@ -42,23 +42,35 @@ Type `TEST` (T, E, S, T on ALPHA layer). Then ENTER.
 
 ### T07 — Create new program — skip name (name is optional)
 **Steps:** PRGM → RIGHT (EDIT tab) → select an empty slot → ENTER → immediately press ENTER again (no name typed).
-**Expected:** Editor opens with title `Prgm<N>` (no user name). The slot does NOT appear in the ERASE tab since it has no user name yet. Program body can be edited normally.
+**Expected:** Editor opens with title `Prgm<N>` (no user name). The slot still appears in the ERASE tab (all 37 slots are always shown). Program body can be edited normally.
 
 ### T08 — Digits allowed in program name
 **Steps:** PRGM → RIGHT (EDIT tab) → select an empty slot → ENTER → type `A1B2` (ALPHA+A, then 1, then ALPHA+B, then 2) → ENTER.
 **Expected:** Each character appended: `A`, `1`, `B`, `2`. Digits `1` and `2` typed without requiring ALPHA. On ENTER, editor opens with title showing `A1B2` as the user name.
 
 ### T09 — Name entry DEL
-**Steps:** From name-entry screen with letters typed, press DEL.
-**Expected:** Last character removed. Cursor moves back. ALPHA re-engages after each letter so the next keypress continues as a letter by default.
+**Steps:** From name-entry screen, type two or three letters, then press DEL.
+**Expected:** Last character removed with the **first** DEL press (not the second). Cursor moves back. ALPHA mode re-engages. Next keypress continues inserting a letter without re-pressing ALPHA.
 
-### T10 — Cancel name entry
-**Steps:** From name-entry screen, press CLEAR.
+### T09b — ENTER works on first press after name
+**Steps:** From name-entry screen, type a name (e.g. `MYTEST`). Press ENTER exactly once.
+**Expected:** Editor opens on the **first** ENTER press. A second ENTER press is not required.
+
+### T09c — CLEAR works on first press in name entry
+**Steps:** From name-entry screen with letters typed (alpha mode engaged), press CLEAR.
+**Expected:** Returns to PRGM menu on EDIT tab on the **first** CLEAR press. No name or body saved. A second CLEAR press is not required.
+
+### T10 — Cancel name entry (empty)
+**Steps:** From name-entry screen (no letters typed), press CLEAR.
 **Expected:** Returns to PRGM menu on EDIT tab. No name or body saved.
 
 ### T11 — Open existing program from EDIT tab
 **Steps:** With at least one named program, open PRGM → EDIT tab → navigate to that slot (shows `N:PrgmN  NAME`) → ENTER.
 **Expected:** Editor opens directly (no name-entry screen). Title shows `PrgmN  NAME`.
+
+### T11b — EDIT tab digit shortcut
+**Steps:** Open PRGM → RIGHT (EDIT tab). Press `1` without pressing UP/DOWN.
+**Expected:** The editor for slot 1 (Prgm1) opens immediately. A second keypress or ENTER is not required.
 
 ---
 
@@ -67,6 +79,10 @@ Type `TEST` (T, E, S, T on ALPHA layer). Then ENTER.
 ### T12 — Editor cursor and character input
 **Steps:** Open editor for any program slot. Type `A+1` (TOKEN_A in ALPHA layer, TOKEN_ADD, TOKEN_1).
 **Expected:** Characters appear on the current (yellow-highlighted) line as `:A+1`. Cursor advances with each keypress.
+
+### T12b — Insert mode off by default
+**Steps:** Open any program in the editor. Without pressing INS, type a character at a non-end cursor position (navigate LEFT first).
+**Expected:** The character at the cursor is **overwritten** (not inserted), matching the default overwrite behavior of the main calculator entry. The cursor does not push following characters to the right unless INS was pressed.
 
 ### T13 — CTL sub-menu inserts keyword
 **Steps:** In editor, press PRGM (opens CTL sub-menu). Navigate to `3:If ` and press ENTER (or press `3`).
@@ -88,6 +104,10 @@ I/O menu has exactly **5 items**, all fitting without scrolling:
 **Steps:** Go to PRGM → RIGHT RIGHT (ERASE tab). All 37 slots are visible. Navigate to any slot (named or unnamed) → ENTER.
 **Expected:** Confirmation dialog appears showing the slot title and `1:Do not erase` / `2:Erase`. Press `2` directly — the slot is erased **immediately** (no extra ENTER required). Press `1` directly to cancel immediately. Program body and name cleared; slot shows bare `N:PrgmN` format again.
 
+### T16b — ERASE shows all 37 slots (not just named ones)
+**Steps:** Ensure some program slots have names and others are empty. Open PRGM → ERASE tab.
+**Expected:** All 37 slots are visible — both named and unnamed. Named slots show `N:PrgmN  NAME`; unnamed slots show only `N:PrgmN`. Slot count does not change between EXEC, EDIT, and ERASE tabs.
+
 ---
 
 ## Persistence
@@ -100,17 +120,19 @@ I/O menu has exactly **5 items**, all fitting without scrolling:
 
 ## Executor — Basic Execution
 
-### T18 — Run a Disp program
-**Steps:** In EXEC tab, navigate to a slot containing:
+### T18 — Run a Disp program via prgmNAME model
+**Steps:** Ensure slot 1 has a program named `HELLO` with body:
 ```
 Disp "HELLO"
 ```
-Press ENTER.
-**Expected:** PRGM menu closes, calculator home shows `HELLO` as a result row. Mode returns to normal.
+From calculator home, open PRGM → EXEC tab → navigate to slot 1 → ENTER.
+**Expected:** PRGM menu closes. Calculator home shows `prgmHELLO` in the expression buffer (left-aligned, grey text). Press ENTER.
+**Expected (after ENTER):** `HELLO` appears in history output. History expression row shows `prgmHELLO` (grey, left-aligned). After execution, `Done` appears as the result row (white, right-aligned). Mode returns to normal.
 
 ### T19 — Run an empty slot (no-op)
 **Steps:** In EXEC tab, navigate to a slot with no body (shows `N:PrgmN` with no user name column). Press ENTER.
-**Expected:** PRGM menu closes, calculator returns to home. Nothing displayed (empty program = no output). No crash or lockup.
+**Expected:** PRGM menu closes. Calculator home shows `prgmN` in the expression buffer. Press ENTER.
+**Expected:** `Done` appears as result row. No error. No crash or lockup.
 
 ### T20 — Expression evaluation and ANS
 **Steps:** Create and run program:
@@ -141,7 +163,7 @@ Disp "DONE"
 
 ### T23 — EXEC number-key shortcut
 **Steps:** Open PRGM menu on EXEC tab. Press `1` without using UP/DOWN.
-**Expected:** Slot 1 (Prgm1) is selected immediately and the prgm call is inserted into the expression — same as navigating to slot 1 and pressing ENTER.
+**Expected:** PRGM menu closes. Calculator home shows `prgm1` (or `prgmNAME` if slot 1 is named) in the expression buffer — same as navigating to slot 1 and pressing ENTER.
 
 ### T24 — CLEAR aborts execution
 **Steps:** Create and run program:
@@ -261,10 +283,14 @@ Run slot 1.
 
 ## Executor — I/O Commands
 
-### T35 — prgmNAME execution model
+### T35 — prgmNAME execution model (named program)
 **Steps:** Open PRGM → EXEC tab → navigate to a named program (e.g. `1:Prgm1  TEST`) → ENTER.
 **Expected:** PRGM menu closes. Calculator home screen shows `prgmTEST` in the expression buffer (left-aligned, live input). Press ENTER.
 **Expected (after ENTER):** Program executes. History shows `prgmTEST` as expression row (grey, left-aligned). After execution completes, `Done` appears as the result row (white, right-aligned). Mode returns to normal.
+
+### T35b — prgmNAME execution model (unnamed slot)
+**Steps:** Open PRGM → EXEC tab → navigate to an unnamed slot (e.g. `3:Prgm3`, no user name) → ENTER.
+**Expected:** PRGM menu closes. Calculator home shows `prgm3` (the canonical slot ID, not a user name). Press ENTER. Program executes (or is silent if empty). `Done` appears as result row.
 
 ### T36 — ClrHome clears history
 **Steps:** Create and run program:
@@ -283,11 +309,11 @@ DispGraph
 Pause
 DispHome
 ```
-**Expected:** Graph canvas appears after `DispGraph`. Pressing ENTER at `Pause` switches back to the calculator home screen via `DispHome`.
+**Expected:** Graph canvas appears after `DispGraph` **without a lockup or hardware reset**. Pressing ENTER at `Pause` switches back to the calculator home screen via `DispHome`.
 
 ---
 
-## Cursor Behavior in PRGM Screens
+## Editor Alpha Behavior
 
 ### T41 — Cursor blinks in editor
 **Steps:** Open any program in the editor. Observe the cursor for ~2 seconds without pressing any key.
@@ -297,9 +323,13 @@ DispHome
 **Steps:** With editor open, press 2nd.
 **Expected:** Cursor immediately turns **amber** with `^` inside. Pressing any non-modifier key returns cursor to white block (2nd mode consumed).
 
-### T43 — ALPHA mode reflected in editor cursor
-**Steps:** With editor open, press ALPHA.
-**Expected:** Cursor immediately turns **green** with `A` inside. Pressing a letter key inserts the letter and cursor returns to white. Pressing ALPHA again cancels ALPHA mode.
+### T43 — ALPHA mode (single) in editor
+**Steps:** With editor open, press ALPHA once.
+**Expected:** Cursor turns **green** with `A` inside. Pressing a letter key inserts the letter into the program body (not the calculator expression) and cursor returns to white. Pressing ALPHA again cancels ALPHA mode.
+
+### T43b — ALPHA_LOCK mode in editor
+**Steps:** With editor open, press 2nd then ALPHA (engages ALPHA_LOCK).
+**Expected:** Cursor shows green `A`. Multiple letter keys pressed in sequence all insert letters into the **program body** (not the calculator expression). ALPHA_LOCK remains active until ALPHA is pressed again to cancel it. Digits can be typed without exiting ALPHA_LOCK.
 
 ### T44 — Cursor blinks in name-entry screen
 **Steps:** Open name-entry screen (EDIT tab → empty slot → ENTER). Observe for ~2 seconds.
@@ -307,17 +337,34 @@ DispHome
 
 ---
 
+## Editor Body Behavior
+
+### T45 — Body-only slot opens editor directly
+**Steps:** Open the editor for any slot, type some program content (e.g. `Disp "HI"`), then close without saving a name (press CLEAR from name-entry to skip the name). Reopen PRGM → EDIT tab → navigate to that same slot.
+**Expected:** The slot has body content but no user name. Pressing ENTER opens the editor directly — the name-entry screen does NOT appear. Existing body content is preserved.
+
+### T46 — Tab wrap in sub-menus
+**Steps:** While in the editor, press PRGM to open the CTL sub-menu. Press LEFT from the CTL tab.
+**Expected:** Navigation wraps from CTL to the rightmost tab (EXEC or I/O, whichever is last). Pressing RIGHT at the last tab wraps back to CTL.
+
+---
+
 ## Notes
 
 - All tab and item highlights are **yellow** (`0xFFFF00`). Scroll indicators are **amber** (`0xFFAA00`). If you see amber on a tab or item cursor (not an arrow), that is a regression.
-- T08 digit entry: digits are typed without ALPHA (normal key layer). ALPHA re-engages after each digit so the next key can be a letter without re-pressing ALPHA.
-- T07 / T10 distinction: T07 skips the name but opens the editor; T10 cancels and returns to the menu. Both discard any partially-typed name.
-- T16 ERASE: all 37 slots are visible regardless of whether they have a name or body. Digit keys `1` or `2` execute immediately without requiring ENTER.
-- T19 empty-slot execution: the executor receives an empty body string and terminates immediately; this should be silent with `Done` displayed and no error.
-- T24 may produce several `X` rows before CLEAR is processed (queue latency); that is acceptable.
+- T09/T09b/T09c: The A2 fix ensures ENTER, DEL, and CLEAR act on their primary function on the **first** keypress even when ALPHA mode is auto-engaged. If any of these require two presses, the fix is not working.
+- T11b: Digit shortcuts in EDIT tab were added in Session 26 (A3 fix). Keys `1`–`9` map to slots 0–8; `0` maps to slot 9.
+- T12b: Insert mode was on by default in the editor before Session 26 (D1 bug). Default must be overwrite (no shift-right behavior).
+- T16/T16b: ERASE tab shows all 37 slots (A1 fix). Before Session 26, it showed only named slots. The immediate-confirmation fix (A4) means digit keys `1` or `2` execute immediately without ENTER.
+- T22 If-single-line: The `If` command skips exactly one following line when the condition is false. There is no `Then/Else/End` block structure — those commands were removed from this implementation.
+- T35/T35b prgmNAME: Execution model change in Session 26 (C1). Programs are no longer run automatically on EXEC selection; they are inserted into the expression buffer first.
+- T37 DispGraph: Session 26 (A5) fixed the LVGL deadlock. This test should complete without a hardware reset.
+- T43b ALPHA_LOCK: Session 26 (A6) fixed routing so ALPHA_LOCK keystrokes go to the program editor, not the calculator. Before the fix, letters typed in ALPHA_LOCK went to the calculator expression.
+- T45 body-only: Session 26 (D3) fixed detection — a slot with body content but no user name should open the editor directly, not the name-entry screen.
+- T25 Lbl/Goto: Session 26 (B4) enforces single-character labels in the editor input handler. Attempting to type a second label character after `Lbl A` is silently ignored.
+- CTL menu has exactly **8 items**: `Lbl`, `Goto`, `If`, `IS>(`, `DS<(`, `Pause`, `End`, `Stop`. `Then`, `Else`, `While`, `For(`, `Return`, and `prgm` are **not present** — if seen, that is a regression.
+- I/O menu has exactly **5 items**: `Disp`, `Input`, `DispHome`, `DispGraph`, `ClrHome`. `Prompt`, `Output(`, and `Menu(` are **not present** — if seen, that is a regression.
 - T17 requires a full power cycle (USB unplug/replug), not just SWD reset, to verify FLASH persistence. 2nd+ON saves state first.
-- T13 CTL sub-menu: opened with the PRGM key from the editor (not MATH). Exactly 8 items; all fit without scrolling. LEFT/RIGHT switches between CTL and I/O tabs.
-- T14 I/O sub-menu: reached by pressing LEFT or RIGHT from within the CTL sub-menu. Exactly 5 items fit without scrolling.
 - T33/T34 subroutine: maximum call stack depth is 4; exceeding it causes the `prgm` call to be treated as a no-op (no crash). There is no explicit Return command — subroutines auto-return on the last line.
-- T35 prgmNAME: if the program has a user name, the expression shows `prgmNAME`. If unnamed, it shows `prgmN` (slot canonical ID). The expression can be edited before pressing ENTER.
+- T24 may produce several `X` rows before CLEAR is processed (queue latency); that is acceptable.
 - Keypad alpha-layer mapping: T=key for X position, E=key for LOG position, etc. Verify against physical keypad sticker if uncertain.
