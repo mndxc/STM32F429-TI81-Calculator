@@ -82,13 +82,22 @@ graph TD
 ```
 App/
   Src/            Custom application sources — all calculator logic lives here
-    prgm_exec.c   Program execution interpreter (prgm_run_start/loop/execute_line) + FLASH sector 11 storage; analogous to persist.c for sector 10
+    app_init.c        RTOS objects, hardware bring-up, LVGL init, render loop, power management
+    calculator_core.c Token dispatcher, all UI screens, calculator state, Execute_Token()
+    calc_engine.c     Tokenizer, shunting-yard, RPN evaluator, matrix ops (host-testable)
+    expr_util.c       Pure expression-buffer helpers: UTF-8 cursor, insert, delete (host-testable)
+    graph.c           Graph canvas, renderer, axes, tick marks, trace, ZBox
+    graph_ui.c        Graph screen handlers: Y=, RANGE, ZOOM, ZBox, Trace
+    persist.c         FLASH erase/write/load for calculator state — sector 10 (host-testable)
+    prgm_exec.c       Program execution interpreter + FLASH sector 11 storage (host-testable)
+    ui_matrix.c       Matrix cell editor UI and scrolling dim-mode
+    ui_prgm.c         Program menu, editor, CTL/I/O sub-menus UI
   Inc/            Custom headers — public API for each App/Src module
   HW/             Hardware drivers — the only files that touch GPIO directly
     Keypad/         keypad.c: key matrix scanner; keypad_map.c: token-to-key lookup table
   Display/        LVGL port layer: display flush + input device
   Fonts/          JetBrains Mono LVGL bitmap fonts (24px, 20px)
-  Tests/          Host-compiled test suites (422 tests, no HAL/RTOS needed)
+  Tests/          Host-compiled test suites (378 tests, no HAL/RTOS needed)
 
 Core/             CubeMX-generated: HAL init, FreeRTOS stubs, interrupt handlers
 Drivers/          ST BSP + HAL + CMSIS (gitignored — regenerate via CubeMX)

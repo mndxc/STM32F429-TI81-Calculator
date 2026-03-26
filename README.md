@@ -27,7 +27,7 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 ## Status
 
-**PRGM is feature-complete and host-tested (hardware validation pending):** The full text interpreter is implemented — `If/Then/Else/End`, `While`, `For(`, `Goto/Lbl`, `IS>(`, `DS<(`, `Pause`, `Stop`, `Return`, subroutine calls (depth 4), `Disp`, `Input`, `Prompt`, `ClrHome`, `Output(`, `Menu(`, `DispHome`, `DispGraph`, assignment, and expression lines. Programs persist in FLASH. A 121-test host suite (`test_prgm_exec`) validates all 22 command handlers and control-flow paths — including a bug fix in the Stop/Return/Goto-abort exit path. Hardware validation (P10) is the only remaining gate.
+**PRGM is feature-complete and host-tested (hardware validation pending):** The text interpreter implements the TI-81 PRGM spec — `If` (single-line), `Goto/Lbl`, `IS>(`, `DS<(`, `Pause`, `Stop`, subroutine calls (depth 4), `Disp`, `Input`, `ClrHome`, `DispHome`, `DispGraph`, assignment, and expression lines. Execution model: entering `prgmNAME` runs the program and displays `Done`. Programs persist in FLASH. A 77-test host suite (`test_prgm_exec`) validates all active command handlers and control-flow paths. Hardware validation (P10) is the only remaining gate.
 
 MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, FLASH persistence, and column-aligned history display with horizontal scroll.
 
@@ -47,7 +47,7 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 ./build/tests/test_persist_roundtrip && ./build/tests/test_prgm_exec
 ```
 
-All 422 tests pass on plain x86/ARM Linux and macOS with any standard C compiler. No toolchain, no board, no USB cable needed.
+All 378 tests pass on plain x86/ARM Linux and macOS with any standard C compiler. No toolchain, no board, no USB cable needed.
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Purpose:** Permanent register for code quality reviews, CI, refactoring, testing, and contributor-docs work. This is the single source of truth for all P-numbered improvement items. Feature work, bug fixes, and session planning live in `CLAUDE.md` — not here. Update this file when a quality item is opened, progressed, or resolved.
 
-**Last reviewed:** 2026-03-22 (Session 23: P20 resolved — 121-test executor suite; `prgm_run_loop` Stop/Return/Goto-abort bug fixed; testing B+ → A-)
+**Last reviewed:** 2026-03-25 (Session 27: PRGM manual test plan expanded to 50 tests; Session 26: PRGM hardware test fixes — removed Then/Else/While/For/Return/Prompt/Output(/Menu( per TI-81 spec; 44 tests removed)
 **Reviewer:** Claude Code (claude-sonnet-4-6)
 
 ---
@@ -18,11 +18,11 @@
 > all 7 over-100-line functions split, and 3 quick-win doc/comment items fixed. P19 (Session 22)
 > resolved the `prgm_execute_line` hotspot: 22 static command handlers extracted, `parse_incdec_args`
 > shared helper added, `cmd_table` dispatch table replaces 495-line if/else chain; function body
-> reduced to ~30 lines. P20 (Session 23) added a 121-test executor host suite across 14 groups:
-> Goto/Lbl, If, If/Then/Else/End, While, For, IS>/DS<, Stop/Pause/Return, STO, Disp, Input/Prompt,
-> ClrHome, subroutine call, and complex programs. Tests also caught a pre-existing bug in
-> `prgm_run_loop`: Stop/Return/Goto-abort did not reset `current_mode` to `MODE_NORMAL` — fixed.
-> Total test suite: 422 tests across 4 executables.
+> reduced to ~30 lines. P20 (Session 23) added a 121-test executor host suite across 14 groups
+> covering all command types and caught a pre-existing `prgm_run_loop` bug. Session 26 aligned PRGM
+> to the actual TI-81 spec: Then/Else/While/For/Return/Prompt/Output(/Menu( removed; CTL menu
+> trimmed to 8 items; I/O to 5. This removed 44 tests — suite now 77 tests / 11 groups.
+> Total test suite: 378 tests across 4 executables.
 
 **Estimated production readiness:** 93–95%
 *(P20 resolved — prgm execution now host-tested; testing B+ → A-)*
@@ -40,7 +40,7 @@
 | README badges (Build, License, PRs Welcome) | ✅ Done |
 | **CI & Testing** | |
 | Firmware CI build on push/PR | ✅ Done |
-| Host test suite (422 tests, 4 executables, 80.28%+ branch coverage) | ✅ Done — A- rating; A requires property-based tests for calc_engine (P1) |
+| Host test suite (378 tests, 4 executables, 80.28%+ branch coverage) | ✅ Done — A- rating; A requires property-based tests for calc_engine (P1) |
 | `-Werror` enabled | ✅ Done — P6 resolved 2026-03-21 |
 | PRGM backend hardware validation | 🔴 Open — P10 |
 | **Code Quality** | |
@@ -63,7 +63,7 @@
 | Expression pipeline walkthrough | ✅ Done — P15 resolved 2026-03-22 |
 | FLASH sector map in onboarding docs | ✅ Done — P16 |
 | Troubleshooting guide | ✅ Done — P17 resolved 2026-03-21 |
-| Periodic code review checklist | 🟡 Open — 7 action items in `docs/CODE_REVIEW_PENDING.md` (Session 21, 2026-03-22) |
+| Function complexity (secondary handlers) | 🟡 Open — P21–P24 (range/zoom_factors helper, normal_mode split, yeq_navigation split, try_tokenize_identifier table) |
 | `prgm_execute_line` complexity (P19) | ✅ Done — 22 handlers + dispatch table; function body ~30 lines (2026-03-22) |
 | Program execution host tests (P20) | ✅ Done — 121 tests across 14 groups; bug fixed in `prgm_run_loop` (2026-03-22) |
 
@@ -131,7 +131,11 @@ badges — all in place. No further action needed.
 | 3 | P19 — `prgm_execute_line` dispatch table | ✅ Resolved | 22 handlers + dispatch table; body ~30 lines |
 | 4 | P3 — Handler state params (Phase 3) | 8–16 hrs | Every handler signature changes; high regression risk |
 | 5 | P20 — Program execution host tests | ✅ Resolved | 121 tests / 14 groups; `prgm_run_loop` Stop/Return/Goto-abort bug fixed |
-| 6 | P7 — Physical wiring table | Indefinite | Requires donor board, multimeter, photography; cannot be done in software |
+| 6 | P21 — Shared field-editor helper | 2–4 hrs | Extract common digit/DEL/cursor logic from `handle_range_mode` + `handle_zoom_factors_mode` |
+| 7 | P24 — `try_tokenize_identifier` dispatch table | 1–2 hrs | Replace 157-line switch with parallel name/token arrays; function shrinks to ~40 lines |
+| 8 | P22 — `handle_normal_mode` sub-handler split | 1–2 hrs | Already delegates heavily; split remaining inline clusters |
+| 9 | P23 — `handle_yeq_navigation` split | 1–2 hrs | Extract cursor-move and row-switch helpers |
+| 10 | P7 — Physical wiring table | Indefinite | Requires donor board, multimeter, photography; cannot be done in software |
 
 ### By Impact of Resolution
 
@@ -141,8 +145,10 @@ badges — all in place. No further action needed.
 | 2 | P19 — `prgm_execute_line` dispatch table | ✅ Resolved | Function complexity "at risk" qualifier removed; body ~30 lines; P20 now unblocked |
 | 3 | P20 — Program execution host tests | ✅ Resolved | 121 tests; testing B+ → A-; `prgm_run_loop` bug fixed |
 | 4 | P1 — Test suite to A rating | Testing B+→A | Hardens expression engine edge cases via property-based tests |
-| 5 | P3 — Handler state params (Phase 3) | Code organisation; enables unit testing | Handlers that accept `State_t *` become host-testable in isolation |
-| 6 | P7 — Physical wiring table | Hardware replication | Relevant only to contributors replicating the physical build |
+| 5 | P21 — Shared field-editor helper | Code organisation; function complexity | Deduplicates ~300 lines of identical digit/DEL/cursor logic across two large handlers |
+| 6 | P24 — `try_tokenize_identifier` table | Code organisation; function complexity | 157-line switch → ~40-line table scan; no logic change |
+| 7 | P3 — Handler state params (Phase 3) | Code organisation; enables unit testing | Handlers that accept `State_t *` become host-testable in isolation |
+| 8 | P7 — Physical wiring table | Hardware replication | Relevant only to contributors replicating the physical build |
 
 ---
 
@@ -165,7 +171,7 @@ badges — all in place. No further action needed.
 | `test_calc_engine` | 153 / 20 groups | Tokenizer, shunting-yard, RPN evaluator, matrix ops, boundary cases; **80.28% branch coverage** on `calc_engine.c` |
 | `test_expr_util` | 96 / 12 groups | UTF-8 cursor movement, insert/delete/overwrite, matrix token atomicity |
 | `test_persist_roundtrip` | 52 / 5 groups | `PersistBlock_t` checksum stability, valid/invalid block detection, field round-trip, struct size/alignment |
-| `test_prgm_exec` | 121 / 14 groups | Goto/Lbl, If single-line, If/Then/Else/End (nested), While, For (step/neg/skip), IS>/DS<, Stop/Pause/Return, STO, general expr, Disp, Input/Prompt, ClrHome, subroutine call/return, complex programs |
+| `test_prgm_exec` | 77 / 11 groups | Goto/Lbl, If single-line, IS>/DS<, Stop/Pause/Return, STO, general expr, Disp, Input/Prompt, ClrHome, subroutine call/return, complex programs (Then/Else/While/For/Return removed per TI-81 spec in Session 26) |
 
 All four executables run on the build host with no embedded dependencies. CI runs them on every push/PR with gcov branch coverage summary.
 
@@ -175,7 +181,7 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 ./build/tests/test_calc_engine        # 153 tests
 ./build/tests/test_expr_util          # 96 tests
 ./build/tests/test_persist_roundtrip  # 52 tests
-./build/tests/test_prgm_exec          # 121 tests
+./build/tests/test_prgm_exec          # 77 tests
 ```
 
 **Improvement path to A rating:**
@@ -183,7 +189,7 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 | Target | Requirements |
 |---|---|
 | **B+** ✅ | Pure logic extracted and tested on host; `persist.c` round-trip; CI pipeline |
-| **A-** ✅ | + PRGM execution host tests (P20 resolved — 121 tests, 14 groups) |
+| **A-** ✅ | + PRGM execution host tests (P20 resolved — 77 tests, 11 groups after Session 26 spec alignment) |
 | **A** | + Property-based invariant tests (e.g. sin²+cos²=1 for 1,000 x values) |
 
 **Remaining gaps:** `Calc_FormatResult` scientific notation not checked byte-for-byte. Property-based tests for `calc_engine.c` not yet written.
@@ -230,16 +236,16 @@ STM32 GPIO side is documented and cross-referenced against `keypad.h`. ✅
 **Rating impact:** Testing = D
 **Files:** `App/Src/ui_prgm.c` (PRGM menu and editor UI), `App/Src/prgm_exec.c` (execution interpreter), `docs/prgm_manual_tests.md`
 
-All 6 PRGM modes are dispatched from `Execute_Token`. The full UI (EXEC/EDIT/ERASE tabs, 37 slots, name entry, line editor, CTL/I/O sub-menus) is implemented in `ui_prgm.c`. The execution interpreter (`prgm_execute_line`, `prgm_run_loop`, `prgm_run_start`) was moved to `prgm_exec.c` in Session 15 (P18). All implementation gaps (IS>(, DS<(, DispHome, DispGraph, Output(, Menu() were resolved in Session 19. A full command reference is in `docs/PRGM_COMMANDS.md`.
+All 6 PRGM modes are dispatched from `Execute_Token`. The full UI (EXEC/EDIT/ERASE tabs, 37 slots, name entry, line editor, CTL/I/O sub-menus) is implemented in `ui_prgm.c`. The execution interpreter (`prgm_execute_line`, `prgm_run_loop`, `prgm_run_start`) is in `prgm_exec.c`. Session 26 aligned the PRGM implementation to the actual TI-81 spec: Then/Else/While/For/Return/Prompt/Output(/Menu( removed; CTL menu = 8 items (Lbl/Goto/If/IS>/DS</Pause/End/Stop); I/O menu = 5 items (Disp/Input/DispHome/DispGraph/ClrHome). Execution model: EXEC inserts `prgmNAME` into expression; ENTER runs and shows `Done`. Session 26 executed Groups A–E of the manual test plan and fixed all regressions found. Session 27 expanded the plan to 50 tests targeting those regressions. A full command reference is in `docs/PRGM_COMMANDS.md`.
 
-**Ready for hardware validation.** Execute the 28-item test plan in `docs/prgm_manual_tests.md`.
+**Ready for hardware validation.** Execute all 50 tests in `docs/prgm_manual_tests.md`.
 
 Pre-flight checklist:
 1. `cmake --preset Debug && cmake --build build/Debug` — firmware builds with 0 errors.
-2. All 422 host tests pass: `cmake -S App/Tests -B build/tests && cmake --build build/tests && ./build/tests/test_calc_engine && ./build/tests/test_expr_util && ./build/tests/test_persist_roundtrip && ./build/tests/test_prgm_exec`
+2. All 378 host tests pass: `cmake -S App/Tests -B build/tests && cmake --build build/tests && ./build/tests/test_calc_engine && ./build/tests/test_expr_util && ./build/tests/test_persist_roundtrip && ./build/tests/test_prgm_exec`
 3. Flash via OpenOCD and power-cycle (USB unplug/replug) before starting tests.
 
-When all 28 tests pass, mark P10 resolved with the date and add a Review History row.
+When all 50 tests pass, mark P10 resolved with the date and add a Review History row.
 
 **Status:** Open — implementation complete; hardware validation pending
 
@@ -263,7 +269,7 @@ Replace the if/else chain with a dispatch table keyed on command-name prefix
 (e.g. `{ "If", exec_if }, { "Disp", exec_disp }, …`). The interpreter loop shrinks to
 ~60 lines: parse leading command name → table lookup → call handler. Zero logic change.
 
-See `docs/CODE_REVIEW_PENDING.md` item 7 for full specification.
+Full specification was tracked in `docs/CODE_REVIEW_PENDING.md` item 7 (file retired 2026-03-25).
 
 **Status:** ✅ Resolved (2026-03-22, Session 22) — 22 static `cmd_*` handler functions extracted (3–50 lines each); `parse_incdec_args` shared helper eliminates duplication between IS>( and DS<(; `CmdEntry_t` dispatch table replaces if/else chain; `prgm_execute_line` body reduced from 495 to ~30 lines. Zero logic changes. 301/301 tests pass.
 
@@ -295,6 +301,76 @@ untested code in the codebase.
 **Status:** ✅ Resolved (2026-03-22, Session 23). `#ifndef HOST_TEST` guards added to `prgm_exec.c`/`prgm_exec.h` to strip LVGL/HAL/FreeRTOS dependencies. `App/Tests/prgm_exec_test_stubs.h` provides inline stubs for `prgm_parse_from_store`, `prgm_slot_is_used`, `prgm_slot_id_str`, and `format_calc_result`. `App/Tests/test_prgm_exec.c`: 121 tests / 14 groups covering all command types and complex programs. Also fixed a pre-existing bug in `prgm_run_loop`: when Stop/Return/Goto-abort set `prgm_run_active = false` mid-execution, `current_mode` was not reset to `MODE_NORMAL` — fixed by separating the `!prgm_run_active` and `prgm_waiting_input` early-exit paths. 422/422 host tests pass. Firmware builds clean.
 
 ---
+
+---
+
+### P21 — Extract shared field-editor helper from `handle_range_mode` + `handle_zoom_factors_mode`
+
+**Rating impact:** Function complexity B → B+
+**Files:** `App/Src/graph_ui.c` (`handle_range_mode` lines ~1125–1360, `handle_zoom_factors_mode` lines ~1360–1521)
+
+**Problem:** Both functions (~235 and ~161 lines) implement identical logic: map UP/DOWN to field
+selection, map digit/DEL to buffer editing, commit on ENTER/UP/DOWN, track cursor position. The
+duplication is mechanical — same state variables, same key cases, same commit pattern.
+
+**Fix:** Extract a static helper
+`field_editor_handle(token, buf, len, cursor, fields, count) → bool` that encodes this logic once.
+Both handlers shrink to ~40 lines of setup + one call. Zero logic change.
+
+**Status:** Open
+
+---
+
+### P22 — Split `handle_normal_mode` into focused sub-handlers
+
+**Rating impact:** Function complexity B → B (removes a borderline case)
+**File:** `App/Src/calculator_core.c` (`handle_normal_mode` lines ~1848–1978, ~130 lines)
+
+**Problem:** The function exceeds the 100-line guideline. Although it already delegates the
+main clusters (digit, arithmetic, history) to sub-helpers, ~40 lines of inline token handling
+remain (TOKEN_CLEAR, TOKEN_MODE, TOKEN_STO, graph navigation tokens).
+
+**Fix:** Extract the remaining inline clusters as dedicated static functions so `handle_normal_mode`
+reduces to a ~40-line pure switch dispatcher. Zero logic change.
+
+**Note:** Resolving P22 is a prerequisite for adding UI token dispatch host tests (~50 tests
+for mode transitions, history navigation, expression edit correctness).
+
+**Status:** Open
+
+---
+
+### P23 — Split `handle_yeq_navigation` into cursor-move and row-switch helpers
+
+**Rating impact:** Function complexity B → B (removes a borderline case)
+**File:** `App/Src/graph_ui.c` (`handle_yeq_navigation` lines ~859–987, ~128 lines)
+
+**Problem:** At 128 lines the function mixes three concerns: cursor LEFT/RIGHT byte stepping,
+UP/DOWN row switching, and MATH/TEST menu re-entry. Each is independently testable once extracted.
+
+**Fix:** Extract `yeq_cursor_move(dir)` (~30 lines) and `yeq_row_switch(dir)` (~25 lines) as
+static helpers. `handle_yeq_navigation` reduces to a ~40-line dispatcher. Zero logic change.
+
+**Note:** Resolving P23 is a prerequisite for the UI token dispatch host tests (same as P22).
+
+**Status:** Open
+
+---
+
+### P24 — Replace `try_tokenize_identifier` character switch with a dispatch table
+
+**Rating impact:** Function complexity B → B (removes the largest remaining switch)
+**File:** `App/Src/calc_engine.c` (`try_tokenize_identifier` lines ~172–329, ~157 lines)
+
+**Problem:** The function is a large sequential `if/strncmp` chain over every possible function
+name prefix (sin, cos, tan, asin, …, rowSwap, row+, det, ANS, A–Z, X, E, pi, theta). The
+pattern is pure data — each entry maps a string prefix to a `Token_t` and an advance count.
+
+**Fix:** Replace with a static `const struct { const char *name; Token_t tok; }` array and a
+linear scan (or `bsearch` for alphabetical order). Function shrinks from ~157 lines to ~40 lines.
+Zero behaviour change — same token outputs for same inputs.
+
+**Status:** Open
 
 ---
 
@@ -357,3 +433,6 @@ untested code in the codebase.
 | 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 21: Periodic code review (structural scan + all Phase 2 direct reads). Key findings: `prgm_execute_line` (495 lines) is critical hotspot — created in P18 but never split; 4 medium handlers still over 100 lines (`handle_range_mode` 171, `handle_zoom_factors_mode` 162, `handle_normal_mode` 131, `handle_yeq_navigation` 129); zero host tests for program execution. P19 (dispatch table refactor) and P20 (prgm exec tests) opened. `docs/CODE_REVIEW_PENDING.md` re-created with 7 action items (2 quick wins, 5 refactoring). All cross-references verified clean. Function complexity scorecard annotation updated to "B (at risk)". Rating unchanged at 92–94%. |
 | 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 22: P19 resolved — `prgm_execute_line` dispatch table refactor. 22 static `cmd_*` handler functions extracted; `parse_incdec_args` shared helper; `CmdEntry_t` dispatch table; function body 495 → ~30 lines. Function complexity "at risk" qualifier removed. `docs/CODE_REVIEW_PENDING.md` item 7 checked off. Complexity delta: decrease. 301/301 tests pass. Rating stable at 92–94%. |
 | 2026-03-22 | Claude Code (claude-sonnet-4-6) | Session 23: P20 resolved — 121-test executor host suite. `#ifndef HOST_TEST` guards added throughout `prgm_exec.c`/`.h`; `prgm_exec_test_stubs.h` created with inline stubs; `test_prgm_exec.c` covers all 22 command handlers across 14 groups. Bug discovered and fixed: `prgm_run_loop` early-exit for Stop/Return/Goto-abort did not reset `current_mode = MODE_NORMAL`, leaving calculator stuck in `MODE_PRGM_RUNNING`. Also updated CI pre-flight checklist in P10 to include `test_prgm_exec`. Testing B+ → A-. Complexity delta: neutral. 422/422 tests pass. Rating 93–95%. |
+| 2026-03-25 | Claude Code (claude-sonnet-4-6) | Session 26: PRGM hardware test fixes — all 5 groups (A–E) from manual test plan executed on hardware. Group A: ERASE all 37 slots, ALPHA fallback fix, EXEC/EDIT digit shortcuts, ERASE confirm on digit key, DispGraph mutex fix, ALPHA_LOCK routes to editor. Group B (spec alignment): CTL menu trimmed to 8 items (Lbl/Goto/If/IS>/DS</Pause/End/Stop); I/O menu trimmed to 5 items (Disp/Input/DispHome/DispGraph/ClrHome); Then/Else/While/For/Return/Prompt/Output(/Menu( handlers removed; prgm_ctrl_stack eliminated; single-char Lbl/Goto constraint. Group C: EXEC inserts `prgmNAME`; TOKEN_ENTER detects prgm prefix, runs, shows `Done`; `prgm_lookup_slot` added. Group D: insert_mode=false on open; tab wrap; body-only slots open editor directly. Group E: Disp strings left-aligned; variables right-aligned. 44 tests removed for removed commands — suite now 378/378 (77 in test_prgm_exec). Complexity delta: decrease (843 lines deleted vs 258 inserted). Rating 93–95% unchanged. |
+| 2026-03-25 | Claude Code (claude-sonnet-4-6) | Session 28: `docs/CODE_REVIEW_PENDING.md` retired. Item 1 (README) already resolved. Item 2 (ARCHITECTURE.md Dir Map) fixed directly — all 10 `App/Src/*.c` files now listed with one-line descriptions. Items 3–6 (refactoring) promoted to P21–P24. Item 7 already resolved (P19). Future P-item for UI token dispatch tests captured as prerequisites in P22/P23. |
+| 2026-03-25 | Claude Code (claude-sonnet-4-6) | Session 27: PRGM manual test plan rewrite — expanded `docs/prgm_manual_tests.md` from 40 to 50 tests targeting Session 26 regressions. Added T09b/T09c (ENTER/CLEAR first-press in alpha name-entry), T11b (EDIT digit shortcut), T12b (insert mode default), T16b (ERASE all 37 slots), T35b (prgmNAME unnamed slot), T43b (ALPHA_LOCK editor), T45 (body-only editor open), T46 (sub-menu tab wrap). Notes section cross-references each Session 26 fix. Documentation only; no code changes. Complexity delta: neutral. 378/378 tests pass. P10 remains open — 50-item test plan ready for full hardware re-validation. Rating 93–95% unchanged. |

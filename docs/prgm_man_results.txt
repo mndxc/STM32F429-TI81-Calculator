@@ -1,0 +1,59 @@
+PRGM manual test results
+Test one pass 
+test two fail we want the erase menu tab to show all names like the other two tabs show 
+test three pass 
+test four pass 
+test five pass 
+test six pass 
+test seven pass
+Test eight pass 
+test nine fail in the entry screen delete enter and all other keys hit the alpha lock limitation you must hit enter two times to exit the field 
+test 10 pass 
+test 11 fail in the program edit tab you’re unable to use the shortcut key. You must navigate using arrows and the enter key 
+test 12 pass 
+test 13 pass 
+test 14 pass 
+test 15 pass 
+test 16 fail you’re unable to delete using the shortcut key. It requires you to press enter after selecting the delete item 
+test 17 pass 
+test 18 pass 
+test 19 pass 
+test 20 pass 
+test 21 pass 
+test 22 fail remove this feature 
+test 23 fail remove this feature 
+test 24 fail remove this feature 
+test 25 fail remove this feature 
+test 26 fail remove this feature 
+test 27 fail remove this feature 
+test 28 pass with note labels should require a single character only 
+test 29 pass 
+test 30 pass 
+test 31 pass 
+test 32 pass 
+test 33 pass with note there is no return function remove that feature 
+test 34 pass 
+test 35 pass 
+test 36 pass 
+test 37 fail there’s a full lock up that requires a hardware reset 
+test 38 fail remove this feature 
+test 39 fail remove this feature 
+test 40 fail remove this feature 
+test 41 pass 
+test 42 pass 
+test 43 fail while the cursor does show alpha mode it only succeeds with the single alpha key entry alpha lock fails to display and output is sent to the Calculator. 
+Test 44 pass.
+
+
+Additional notes: 
+Some features were left untested because they need to be removed to follow original calculator interaction those are noted as fail with a remark to remove the feature
+shortcut keys are inoperable in some of menus you must use arrows and the enter key
+When complete after entering program name, the enter key doesn’t work upon first key press, it will work second press. Suspect an alpha lock issue
+When entering a program name normal text entry rules are not followed. We are unable to use arrow keys for navigation within the text entry field.
+The current menus are inconsistent with the original TI 81 for exist. For instance, inside the editor menu items are spurious and disordered. Use the menus as directed in CLAUDE.md for the in-editor PRGM menus
+Menu items are numbered using multiple characters, causing them to be unreachable with shortcuts
+Some menus allow tab navigation to loop around the screen edge. This is desirable and should be applied on all tabbed screens.
+Alpha lock does not work in edit mode. Single shifted alpha does work, but the output goes to the Calculator otherwise
+Insert mode is on by default in edit mode with no cursor indicator of that status. use default similar to the calculator entry rules.
+Programs without a username, do not appear to save when a name is added later content becomes visible
+Change how programs are executed. Programs selected in the execute menu are forwarded to the Calculator screen and allowed to run by pressing enter they do not automatically run when selected from the execute menu program output from the display command is left side aligned when text and right side aligned when numeric value of a variable
