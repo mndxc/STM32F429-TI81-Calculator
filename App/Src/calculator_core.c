@@ -1754,6 +1754,23 @@ static void handle_history_nav(Token_t t)
             break;
         }
         if (expr_len > 0) {
+            /* C1: detect prgmNAME expression and run program */
+            if (strncmp(expression, "prgm", 4) == 0) {
+                int8_t slot = prgm_lookup_slot(expression + 4);
+                uint8_t hidx = history_count % HISTORY_LINE_COUNT;
+                strncpy(history[hidx].expression, expression, MAX_EXPR_LEN - 1);
+                history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
+                history[hidx].result[0] = '\0';
+                history_count++;
+                expr_len              = 0;
+                cursor_pos            = 0;
+                expression[0]         = '\0';
+                history_recall_offset = 0;
+                Update_Calculator_Display();
+                if (slot >= 0)
+                    prgm_run_start((uint8_t)slot);
+                break;
+            }
             CalcResult_t result = Calc_Evaluate(expression, ans, ans_is_matrix,
                                                 angle_degrees);
             char result_str[MAX_RESULT_LEN];
@@ -2042,7 +2059,10 @@ void Execute_Token(Token_t t)
     if (current_mode == MODE_MATRIX_EDIT)         { handle_matrix_edit(t); return; }
     if (current_mode == MODE_PRGM_MENU)           { if (handle_prgm_menu(t))          return; }
     if (current_mode == MODE_PRGM_NEW_NAME)       { if (handle_prgm_new_name(t))      return; }
-    if (current_mode == MODE_PRGM_EDITOR)         { if (handle_prgm_editor(t))        return; }
+    /* A6: ALPHA_LOCK in editor — current_mode stays MODE_ALPHA_LOCK; route by return_mode */
+    if (current_mode == MODE_PRGM_EDITOR ||
+        (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_EDITOR))
+                                                  { if (handle_prgm_editor(t))        return; }
     if (current_mode == MODE_PRGM_CTL_MENU)       { if (handle_prgm_ctl_menu(t))      return; }
     if (current_mode == MODE_PRGM_IO_MENU)        { if (handle_prgm_io_menu(t))       return; }
 
@@ -2085,10 +2105,14 @@ void Process_Hardware_Key(uint8_t key_id)
         current_mode   = return_mode;   /* restore the mode that was active before ALPHA */
         return_mode    = MODE_NORMAL;
         if (token_to_send == TOKEN_NONE) {
-            lvgl_lock();
-            ui_update_status_bar();
-            lvgl_unlock();
-            return;
+            /* A2: fall back to normal function (e.g. ENTER/DEL/CLEAR in name-entry) */
+            token_to_send = key.normal;
+            if (token_to_send == TOKEN_NONE) {
+                lvgl_lock();
+                ui_update_status_bar();
+                lvgl_unlock();
+                return;
+            }
         }
     } else if (current_mode == MODE_ALPHA_LOCK) {
         if (key.normal == TOKEN_ALPHA) {

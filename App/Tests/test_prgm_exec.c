@@ -173,138 +173,6 @@ static void test_if_single(void)
 }
 
 /* -------------------------------------------------------------------------
- * Group 3: If/Then/Else/End (7 tests)
- * ---------------------------------------------------------------------- */
-static void test_if_then_else(void)
-{
-    printf("Group 3: If/Then/Else/End\n");
-
-    /* 1. Condition true: Then-body executes, Else skipped */
-    reset_state();
-    run_program("1->A\nIf A\nThen\n5->B\nElse\n9->B\nEnd\n10->C");
-    CHECK(NEAR(calc_variables['B'-'A'], 5.0f), "if-then-else: true picks Then");
-    CHECK(NEAR(calc_variables['C'-'A'], 10.0f), "if-then-else: continues after End");
-
-    /* 2. Condition false: Else-body executes, Then skipped */
-    reset_state();
-    run_program("0->A\nIf A\nThen\n5->B\nElse\n9->B\nEnd");
-    CHECK(NEAR(calc_variables['B'-'A'], 9.0f), "if-then-else: false picks Else");
-
-    /* 3. Condition true, no Else */
-    reset_state();
-    run_program("1->A\nIf A\nThen\n5->B\nEnd\n10->C");
-    CHECK(NEAR(calc_variables['B'-'A'], 5.0f), "if-then: true body runs");
-    CHECK(NEAR(calc_variables['C'-'A'], 10.0f), "if-then: continues after End");
-
-    /* 4. Condition false, no Else: body skipped */
-    reset_state();
-    run_program("0->A\nIf A\nThen\n5->B\nEnd\n10->C");
-    CHECK(NEAR(calc_variables['B'-'A'], 0.0f), "if-then: false body skipped");
-    CHECK(NEAR(calc_variables['C'-'A'], 10.0f), "if-then: continues after End");
-
-    /* 5. Nested If true/true */
-    reset_state();
-    run_program("1->A\n1->B\nIf A\nThen\nIf B\nThen\n5->C\nEnd\nEnd");
-    CHECK(NEAR(calc_variables['C'-'A'], 5.0f), "if-nested: both true");
-
-    /* 6. Nested If true/false */
-    reset_state();
-    run_program("1->A\n0->B\nIf A\nThen\nIf B\nThen\n5->C\nEnd\n7->D\nEnd");
-    CHECK(NEAR(calc_variables['C'-'A'], 0.0f), "if-nested: inner false skips");
-    CHECK(NEAR(calc_variables['D'-'A'], 7.0f), "if-nested: outer continues");
-
-    /* 7. Multiple statements in Then */
-    reset_state();
-    run_program("1->A\nIf A\nThen\n1->B\n2->C\n3->D\nEnd");
-    CHECK(NEAR(calc_variables['B'-'A'], 1.0f), "if-then: multi-stmt 1");
-    CHECK(NEAR(calc_variables['C'-'A'], 2.0f), "if-then: multi-stmt 2");
-    CHECK(NEAR(calc_variables['D'-'A'], 3.0f), "if-then: multi-stmt 3");
-}
-
-/* -------------------------------------------------------------------------
- * Group 4: While (5 tests)
- * ---------------------------------------------------------------------- */
-static void test_while(void)
-{
-    printf("Group 4: While\n");
-
-    /* 1. While false on first check: body not executed */
-    reset_state();
-    run_program("0->A\nWhile A\n5->B\nEnd");
-    CHECK(NEAR(calc_variables['B'-'A'], 0.0f), "while: false body not run");
-
-    /* 2. While loop executes correct number of times */
-    reset_state();
-    run_program("0->A\nWhile A<3\nA+1->A\nEnd");
-    CHECK(NEAR(calc_variables['A'-'A'], 3.0f), "while: loop 3 times");
-
-    /* 3. While accumulates sum */
-    reset_state();
-    run_program("1->I\n0->S\nWhile I<6\nS+I->S\nI+1->I\nEnd");
-    CHECK(NEAR(calc_variables['S'-'A'], 15.0f), "while: sum 1..5=15");
-
-    /* 4. While updates variable and stops */
-    reset_state();
-    run_program("10->A\nWhile A>0\nA-3->A\nEnd\n9->B");
-    /* 10 → 7 → 4 → 1 → -2 (stops: -2 > 0 is false) */
-    CHECK(NEAR(calc_variables['A'-'A'], -2.0f), "while: stops at negative");
-    CHECK(NEAR(calc_variables['B'-'A'], 9.0f), "while: continues after End");
-
-    /* 5. While single iteration */
-    reset_state();
-    run_program("1->A\nWhile A\n0->A\nEnd\n5->B");
-    CHECK(NEAR(calc_variables['A'-'A'], 0.0f), "while: single iter");
-    CHECK(NEAR(calc_variables['B'-'A'], 5.0f), "while: after End");
-}
-
-/* -------------------------------------------------------------------------
- * Group 5: For (7 tests)
- * ---------------------------------------------------------------------- */
-static void test_for(void)
-{
-    printf("Group 5: For\n");
-
-    /* 1. Basic For 1 to 5 step 1 */
-    reset_state();
-    run_program("0->S\nFor(I,1,5,1)\nS+I->S\nEnd");
-    CHECK(NEAR(calc_variables['S'-'A'], 15.0f), "for: sum 1..5=15");
-
-    /* 2. For with step 2 */
-    reset_state();
-    run_program("0->S\nFor(I,1,9,2)\nS+1->S\nEnd");
-    /* I = 1,3,5,7,9 → 5 iterations */
-    CHECK(NEAR(calc_variables['S'-'A'], 5.0f), "for: step 2 count=5");
-
-    /* 3. For with negative step */
-    reset_state();
-    run_program("0->S\nFor(I,5,1,-1)\nS+1->S\nEnd");
-    CHECK(NEAR(calc_variables['S'-'A'], 5.0f), "for: neg step 5 iters");
-
-    /* 4. For: loop variable has correct value after loop */
-    reset_state();
-    run_program("For(I,1,3,1)\nEnd");
-    /* After For(1,3,1): loop runs I=1,2,3; End increments to 4 which > 3 → done */
-    CHECK(calc_variables['I'-'A'] > 3.0f, "for: var past limit after loop");
-
-    /* 5. For: begin == end executes once */
-    reset_state();
-    run_program("0->S\nFor(I,5,5,1)\nS+1->S\nEnd");
-    CHECK(NEAR(calc_variables['S'-'A'], 1.0f), "for: begin==end one iteration");
-
-    /* 6. For: begin > end with positive step skips body */
-    reset_state();
-    run_program("0->S\nFor(I,10,1,1)\nS+1->S\nEnd");
-    /* I is set to begin_v=10 then body is skipped */
-    CHECK(NEAR(calc_variables['S'-'A'], 0.0f), "for: begin>end pos step skips");
-    CHECK(NEAR(calc_variables['I'-'A'], 10.0f), "for: I set to begin even when skipped");
-
-    /* 7. For continues after End */
-    reset_state();
-    run_program("For(I,1,3,1)\nEnd\n99->R");
-    CHECK(NEAR(calc_variables['R'-'A'], 99.0f), "for: execution continues after loop");
-}
-
-/* -------------------------------------------------------------------------
  * Group 6: IS> / DS< (6 tests)
  * ---------------------------------------------------------------------- */
 static void test_is_ds(void)
@@ -379,13 +247,7 @@ static void test_stop_pause_return(void)
     CHECK(current_mode == MODE_PRGM_RUNNING, "pause: mode is RUNNING");
     CHECK(NEAR(calc_variables['A'-'A'], 3.0f), "pause: A=3 before pause");
 
-    /* 3. Return from empty call stack ends program */
-    reset_state();
-    run_program("5->A\nReturn\n9->A");
-    CHECK(current_mode == MODE_NORMAL, "return: ends on empty call stack");
-    CHECK(NEAR(calc_variables['A'-'A'], 5.0f), "return: A=5");
-
-    /* 4. Stop after some computation */
+    /* 3. Stop after some computation */
     reset_state();
     run_program("1->A\n2->B\nStop\n3->C");
     CHECK(NEAR(calc_variables['A'-'A'], 1.0f), "stop: A set");
@@ -481,12 +343,12 @@ static void test_disp(void)
 {
     printf("Group 10: Disp\n");
 
-    /* 1. Disp "string" adds history entry with empty expression */
+    /* 1. Disp "string" adds history entry: string in expression (left-aligned) */
     reset_state();
     run_program("Disp \"hello\"");
     CHECK(history_count == 1, "disp: history_count=1");
-    CHECK(strcmp(history[0].result, "hello") == 0, "disp: result=hello");
-    CHECK(history[0].expression[0] == '\0', "disp: expression empty");
+    CHECK(strcmp(history[0].expression, "hello") == 0, "disp: expression=hello");
+    CHECK(history[0].result[0] == '\0', "disp: result empty");
 
     /* 2. Disp variable: displays its formatted value */
     reset_state();
@@ -505,10 +367,10 @@ static void test_disp(void)
     run_program("Disp \"a\"\nDisp \"b\"\nDisp \"c\"");
     CHECK(history_count == 3, "disp: three calls = count 3");
 
-    /* 5. Disp string with trailing quote stripped correctly */
+    /* 5. Disp string: text in expression row (E1 left-aligned) */
     reset_state();
     run_program("Disp \"test\"");
-    CHECK(strcmp(history[0].result, "test") == 0, "disp: quotes stripped");
+    CHECK(strcmp(history[0].expression, "test") == 0, "disp: quotes stripped to expression");
 }
 
 /* -------------------------------------------------------------------------
@@ -532,15 +394,6 @@ static void test_input_prompt(void)
           strstr(history[0].expression, "?") != NULL,
           "input: prompt in history");
 
-    /* 3. Prompt suspends execution */
-    reset_state();
-    run_program("Prompt C");
-    CHECK(current_mode == MODE_PRGM_RUNNING, "prompt: suspends (RUNNING)");
-
-    /* 4. Prompt adds a prompt history entry */
-    reset_state();
-    run_program("Prompt D");
-    CHECK(history_count == 1, "prompt: history entry added");
 }
 
 /* -------------------------------------------------------------------------
@@ -607,13 +460,6 @@ static void test_subroutine(void)
     run_program("prgm2");
     CHECK(NEAR(calc_variables['A'-'A'], 6.0f), "call: sub doubles A");
 
-    /* 5. Subroutine Return exits back to caller */
-    reset_state();
-    strncpy(g_prgm_store.names[1], "S", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.bodies[1], "1->B\nReturn\n99->B", PRGM_BODY_LEN - 1);
-    run_program("prgm2\n5->C");
-    CHECK(NEAR(calc_variables['B'-'A'], 1.0f), "call: Return stops sub");
-    CHECK(NEAR(calc_variables['C'-'A'], 5.0f), "call: caller resumes after Return");
 }
 
 /* -------------------------------------------------------------------------
@@ -623,39 +469,7 @@ static void test_complex_programs(void)
 {
     printf("Group 14: Complex programs\n");
 
-    /* 1. Compute factorial 5! = 120 using For */
-    reset_state();
-    run_program("1->R\nFor(I,1,5,1)\nR*I->R\nEnd");
-    CHECK(NEAR(calc_variables['R'-'A'], 120.0f), "complex: 5! = 120");
-
-    /* 2. Fibonacci: F(7) = 13 */
-    reset_state();
-    run_program(
-        "1->A\n1->B\nFor(I,3,7,1)\nA+B->C\nB->A\nC->B\nEnd"
-    );
-    CHECK(NEAR(calc_variables['B'-'A'], 13.0f), "complex: fib(7)=13");
-
-    /* 3. Count down from 5 to 0 using While */
-    reset_state();
-    run_program("5->A\n0->S\nWhile A>0\nS+1->S\nA-1->A\nEnd");
-    CHECK(NEAR(calc_variables['S'-'A'], 5.0f), "complex: countdown 5 iters");
-    CHECK(NEAR(calc_variables['A'-'A'], 0.0f), "complex: A=0 at end");
-
-    /* 4. Sum of squares 1..4 = 30 */
-    reset_state();
-    run_program("0->S\nFor(I,1,4,1)\nS+I*I->S\nEnd");
-    CHECK(NEAR(calc_variables['S'-'A'], 30.0f), "complex: sum sq 1..4=30");
-
-    /* 5. If inside While: collect even sum 2+4+6+8+10=30 */
-    reset_state();
-    run_program(
-        "1->I\n0->S\nWhile I<11\n"
-        "If I/2=int(I/2)\nThen\nS+I->S\nEnd\n"
-        "I+1->I\nEnd"
-    );
-    CHECK(NEAR(calc_variables['S'-'A'], 30.0f), "complex: even sum=30");
-
-    /* 6. Goto-based loop: compute 2^8=256 */
+    /* 1. Goto-based loop: compute 2^8=256 */
     reset_state();
     run_program(
         "1->R\n0->I\n"
@@ -667,32 +481,6 @@ static void test_complex_programs(void)
         "Lbl E"
     );
     CHECK(NEAR(calc_variables['R'-'A'], 256.0f), "complex: 2^8=256 goto loop");
-
-    /* 7. Nested For: multiplication table sum */
-    reset_state();
-    run_program(
-        "0->S\n"
-        "For(I,1,3,1)\n"
-        "For(J,1,3,1)\n"
-        "S+I*J->S\n"
-        "End\n"
-        "End"
-    );
-    /* sum i*j for i,j in 1..3: (1+2+3)*(1+2+3) = 36 */
-    CHECK(NEAR(calc_variables['S'-'A'], 36.0f), "complex: nested for sum=36");
-
-    /* 8. Program with multiple command types */
-    reset_state();
-    run_program(
-        "3->A\n"
-        "2->B\n"
-        "If A>B\nThen\nA-B->C\nElse\nB-A->C\nEnd\n"
-        "C*2->D\n"
-        "Disp \"done\""
-    );
-    CHECK(NEAR(calc_variables['C'-'A'], 1.0f), "complex: multi |A-B|=1");
-    CHECK(NEAR(calc_variables['D'-'A'], 2.0f), "complex: multi D=2");
-    CHECK(history_count == 1, "complex: Disp adds history");
 }
 
 /* -------------------------------------------------------------------------
@@ -705,9 +493,6 @@ int main(void)
 
     test_goto_lbl();
     test_if_single();
-    test_if_then_else();
-    test_while();
-    test_for();
     test_is_ds();
     test_stop_pause_return();
     test_sto();

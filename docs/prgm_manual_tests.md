@@ -3,7 +3,7 @@
 Hardware: STM32F429I-DISC1. Run after flashing the latest build.
 Pass criterion listed for each test. Mark ✅ / ❌ / ⚠️.
 
-Last updated: 2026-03-22 (reflects sessions 2–23: full executor, dispatch-table refactor, all I/O commands)
+Last updated: 2026-03-25 (Session 26: CTL/IO menus reduced to spec, prgmNAME execution model, ERASE shows all slots, UI bug fixes)
 
 ---
 
@@ -13,9 +13,10 @@ Last updated: 2026-03-22 (reflects sessions 2–23: full executor, dispatch-tabl
 **Steps:** From calculator home, press PRGM.
 **Expected:** PRGM menu opens showing `EXEC  EDIT  ERASE` tab bar. EXEC tab highlighted **yellow**. All 37 program slots listed in format `1:Prgm1`, `2:Prgm2`, … `9:Prgm9`, `0:Prgm0`, `A:PrgmA`, … `θ:Prgmθ`. Programs that have been given a user name show it in a second column: `1:Prgm1  MYNAME`.
 
-### T02 — Tab navigation
+### T02 — Tab navigation (with wrap)
 **Steps:** With PRGM menu open, press RIGHT twice.
-**Expected:** Active tab advances: EXEC → EDIT → ERASE. Pressing LEFT returns. Tab highlight (yellow) moves. EXEC and EDIT both show all 37 slots in the same `N:PrgmN` format; ERASE shows only slots that have a user name or body.
+**Expected:** Active tab advances: EXEC → EDIT → ERASE. Tab highlight (yellow) moves. EXEC, EDIT, and ERASE all show all 37 slots in the same `N:PrgmN` format (with optional user name column). Named slots show `N:PrgmN  NAME` in all three tabs.
+Also verify wrap: pressing LEFT at EXEC wraps to ERASE; pressing RIGHT at ERASE wraps to EXEC.
 
 ### T03 — Scroll indicators on EXEC/EDIT
 **Steps:** Open PRGM menu on EXEC or EDIT tab. Press DOWN repeatedly past the 7th visible slot.
@@ -70,20 +71,22 @@ Type `TEST` (T, E, S, T on ALPHA layer). Then ENTER.
 ### T13 — CTL sub-menu inserts keyword
 **Steps:** In editor, press PRGM (opens CTL sub-menu). Navigate to `3:If ` and press ENTER (or press `3`).
 **Expected:** CTL menu closes. Editor line now contains `:If ` with cursor after it.
-Also verify: CTL menu has 14 items total (items 1–8 visible; items 9–14 require scrolling). Items 13 `IS>(` and 14 `DS<(` are visible after scrolling down past item 7.
+Also verify: CTL menu has exactly **8 items**, all fitting without scrolling:
+`1:Lbl`, `2:Goto`, `3:If`, `4:IS>(`, `5:DS<(`, `6:Pause`, `7:End`, `8:Stop`.
 
 ### T14 — I/O sub-menu inserts keyword
-**Steps:** In editor, press PRGM (CTL sub-menu opens). Press LEFT or RIGHT to switch to I/O tab. Navigate to `3:Disp ` and press ENTER (or press `3`).
+**Steps:** In editor, press PRGM (CTL sub-menu opens). Press LEFT or RIGHT to switch to I/O tab. Navigate to `1:Disp ` and press ENTER (or press `1`).
 **Expected:** I/O menu closes. Editor line contains `:Disp ` with cursor after it.
-I/O menu has 6 items: `1:Input`, `2:Prompt`, `3:Disp`, `4:ClrHome`, `5:DispHome`, `6:DispGraph`. All 6 fit without scrolling.
+I/O menu has exactly **5 items**, all fitting without scrolling:
+`1:Disp`, `2:Input`, `3:DispHome`, `4:DispGraph`, `5:ClrHome`.
 
 ### T15 — Multi-line editing and scroll
 **Steps:** In editor, press ENTER six times to create 7+ lines. Keep pressing DOWN.
 **Expected:** `↓` amber indicator appears on the last visible line when lines extend beyond 7 rows. `↑` appears when scrolled past row 0. Title stays fixed. Lines scroll correctly.
 
 ### T16 — Erase a program via ERASE tab
-**Steps:** With at least one named program, go to PRGM → RIGHT RIGHT (ERASE tab) → select the program → ENTER.
-**Expected:** Confirmation dialog appears showing `Prgm<N>  <NAME>` title, then `1:Do not erase` (yellow) and `2:Erase` (white). Press `2` or DOWN+ENTER to confirm. Program disappears from EXEC, EDIT (no longer shows user name), and ERASE lists.
+**Steps:** Go to PRGM → RIGHT RIGHT (ERASE tab). All 37 slots are visible. Navigate to any slot (named or unnamed) → ENTER.
+**Expected:** Confirmation dialog appears showing the slot title and `1:Do not erase` / `2:Erase`. Press `2` directly — the slot is erased **immediately** (no extra ENTER required). Press `1` directly to cancel immediately. Program body and name cleared; slot shows bare `N:PrgmN` format again.
 
 ---
 
@@ -126,28 +129,19 @@ Disp A
 When `A=?` prompt appears, type `7` and press ENTER.
 **Expected:** `A=?` shown as expression row. After ENTER, `7` shown as result. `7` displayed by Disp. A=7 in variable store after.
 
-### T22 — For( loop
+### T22 — If single-line skip
 **Steps:** Create and run program:
 ```
-For(N,1,5,1)
-Disp N
-End
+0->A
+If A=1
+Disp "YES"
+Disp "DONE"
 ```
-**Expected:** Five history rows appear showing `1`, `2`, `3`, `4`, `5` in order. Returns to normal mode.
+**Expected:** `YES` does NOT appear (condition false → next line skipped). `DONE` appears. Mode returns to normal.
 
-### T23 — If/Then/Else/End
-**Steps:** Create and run program:
-```
-Input A
-If A>0
-Then
-Disp "POS"
-Else
-Disp "NEG"
-End
-```
-Run twice: once enter `3`, once enter `-1`.
-**Expected:** First run shows `POS`; second run shows `NEG`.
+### T23 — EXEC number-key shortcut
+**Steps:** Open PRGM menu on EXEC tab. Press `1` without using UP/DOWN.
+**Expected:** Slot 1 (Prgm1) is selected immediately and the prgm call is inserted into the expression — same as navigating to slot 1 and pressing ENTER.
 
 ### T24 — CLEAR aborts execution
 **Steps:** Create and run program:
@@ -163,35 +157,24 @@ While `X` rows are appearing, press CLEAR.
 
 ## Executor — Advanced Control Flow
 
-### T25 — While loop
-**Steps:** Create and run program:
-```
-1->I
-While I<=3
-Disp I
-I+1->I
-End
-```
-**Expected:** History shows `1`, `2`, `3` in order. Mode returns to normal after.
+### T25 — Lbl/Goto single-char label enforcement
+**Steps:** In editor, insert `Lbl ` from CTL menu. Type one letter (e.g. `A`). Try to type a second letter.
+**Expected:** Only the first character is accepted. Typing a second character on the same line is ignored. Line reads `:Lbl A`.
 
-### T26 — For( with negative step (count-down)
+### T26 — Disp string alignment (left)
 **Steps:** Create and run program:
 ```
-For(I,5,1,-1)
-Disp I
-End
+Disp "HELLO"
 ```
-**Expected:** History shows `5`, `4`, `3`, `2`, `1` in order.
+**Expected:** `HELLO` appears **left-aligned** (in the expression row, grey text). No result row below it.
 
-### T27 — While with false initial condition (body never runs)
+### T27 — Disp variable alignment (right)
 **Steps:** Create and run program:
 ```
-While 0
-Disp "NO"
-End
-Disp "DONE"
+5->A
+Disp A
 ```
-**Expected:** `NO` never appears. `DONE` appears once. No lockup.
+**Expected:** `5` (or `5.000000` formatted) appears **right-aligned** (in the result row, white text). No expression row above the result for the Disp output.
 
 ### T28 — Goto/Lbl jump
 **Steps:** Create and run program:
@@ -242,11 +225,10 @@ Disp I
 ```
 **Expected:** `I` starts at 3; DS<( decrements to 2; 2 < 3, so `SKP` IS skipped. Only `I` (showing `2`) appears.
 
-### T33 — Subroutine call (prgm) and Return
+### T33 — Subroutine auto-return at end of body
 **Steps:** Create program in slot 2 with body:
 ```
 Disp "SUB"
-Return
 ```
 Create program in slot 1 with body:
 ```
@@ -255,7 +237,7 @@ prgm2
 Disp "BACK"
 ```
 Run slot 1.
-**Expected:** History shows `MAIN`, then `SUB`, then `BACK` in order.
+**Expected:** History shows `MAIN`, then `SUB`, then `BACK` in order. The subroutine returns automatically when its last line is reached (no explicit Return needed).
 
 ### T34 — Nested subroutine (2 levels deep)
 **Steps:** Create slot 3:
@@ -273,20 +255,16 @@ prgm2
 Disp "TOP"
 ```
 Run slot 1.
-**Expected:** History shows `DEEP`, `MID`, `TOP` in order.
+**Expected:** History shows `DEEP`, `MID`, `TOP` in order. Each subroutine auto-returns when its body is exhausted.
 
 ---
 
 ## Executor — I/O Commands
 
-### T35 — Prompt command
-**Steps:** Create and run program:
-```
-Prompt B
-Disp B
-```
-When `B=?` appears, type `42` and ENTER.
-**Expected:** Behavior identical to `Input B`. `B=?` prompt shown; `42` displayed; B=42 after.
+### T35 — prgmNAME execution model
+**Steps:** Open PRGM → EXEC tab → navigate to a named program (e.g. `1:Prgm1  TEST`) → ENTER.
+**Expected:** PRGM menu closes. Calculator home screen shows `prgmTEST` in the expression buffer (left-aligned, live input). Press ENTER.
+**Expected (after ENTER):** Program executes. History shows `prgmTEST` as expression row (grey, left-aligned). After execution completes, `Done` appears as the result row (white, right-aligned). Mode returns to normal.
 
 ### T36 — ClrHome clears history
 **Steps:** Create and run program:
@@ -306,34 +284,6 @@ Pause
 DispHome
 ```
 **Expected:** Graph canvas appears after `DispGraph`. Pressing ENTER at `Pause` switches back to the calculator home screen via `DispHome`.
-
-### T38 — Output( writes at position
-**Steps:** Create and run program:
-```
-Output(1,1,"HELLO")
-Output(4,5,"WORLD")
-Pause
-```
-**Expected:** `HELLO` appears at the top-left of the display (row 1, col 1). `WORLD` appears further down (row 4, col 5). Pause holds the display until ENTER.
-
-### T39 — Menu( interactive selection
-**Steps:** Create and run program:
-```
-Menu("PICK","YES",YS,"NO",NS)
-Lbl YS
-Disp "YES"
-Goto DONE
-Lbl NS
-Disp "NO"
-Lbl DONE
-Stop
-```
-Run twice: once select option 1 (`YES`), once select option 2 (`NO`).
-**Expected:** First run: menu overlay shows title `PICK` with `1:YES` and `2:NO`; selecting 1 (UP/ENTER or key `1`) jumps to `Lbl YS` and displays `YES`. Second run: selecting 2 displays `NO`.
-
-### T40 — Menu( CLEAR aborts program
-**Steps:** While a `Menu(` overlay is visible (mid-execution of T39 program), press CLEAR.
-**Expected:** Menu overlay closes. Program execution halts. Calculator returns to normal home screen. No lockup.
 
 ---
 
@@ -362,12 +312,12 @@ Run twice: once select option 1 (`YES`), once select option 2 (`NO`).
 - All tab and item highlights are **yellow** (`0xFFFF00`). Scroll indicators are **amber** (`0xFFAA00`). If you see amber on a tab or item cursor (not an arrow), that is a regression.
 - T08 digit entry: digits are typed without ALPHA (normal key layer). ALPHA re-engages after each digit so the next key can be a letter without re-pressing ALPHA.
 - T07 / T10 distinction: T07 skips the name but opens the editor; T10 cancels and returns to the menu. Both discard any partially-typed name.
-- T16 ERASE: only named programs (non-empty `names[]`) appear in the ERASE tab. A program edited via T07 (no user name) will NOT appear in ERASE even if it has body code.
-- T19 empty-slot execution: the executor receives an empty body string and terminates immediately; this should be silent with no output or error.
+- T16 ERASE: all 37 slots are visible regardless of whether they have a name or body. Digit keys `1` or `2` execute immediately without requiring ENTER.
+- T19 empty-slot execution: the executor receives an empty body string and terminates immediately; this should be silent with `Done` displayed and no error.
 - T24 may produce several `X` rows before CLEAR is processed (queue latency); that is acceptable.
 - T17 requires a full power cycle (USB unplug/replug), not just SWD reset, to verify FLASH persistence. 2nd+ON saves state first.
-- T13 CTL sub-menu: opened with the PRGM key from the editor (not MATH). 14 items total; items 9–14 require scrolling below the 7th row. Overflow indicators (↑/↓) apply.
-- T14 I/O sub-menu: reached by pressing LEFT or RIGHT from within the CTL sub-menu. 6 items fit without scrolling.
-- T33/T34 subroutine: maximum call stack depth is 4; exceeding it causes the `prgm` call to be treated as a no-op (no crash).
-- T38 Output(: `row` and `col` are 1-based. `row` must be 1–8; `col` 1–N. Out-of-range values clip silently.
+- T13 CTL sub-menu: opened with the PRGM key from the editor (not MATH). Exactly 8 items; all fit without scrolling. LEFT/RIGHT switches between CTL and I/O tabs.
+- T14 I/O sub-menu: reached by pressing LEFT or RIGHT from within the CTL sub-menu. Exactly 5 items fit without scrolling.
+- T33/T34 subroutine: maximum call stack depth is 4; exceeding it causes the `prgm` call to be treated as a no-op (no crash). There is no explicit Return command — subroutines auto-return on the last line.
+- T35 prgmNAME: if the program has a user name, the expression shows `prgmNAME`. If unnamed, it shows `prgmN` (slot canonical ID). The expression can be edited before pressing ENTER.
 - Keypad alpha-layer mapping: T=key for X position, E=key for LOG position, etc. Verify against physical keypad sticker if uncertain.

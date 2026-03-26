@@ -165,4 +165,10 @@ void prgm_run_loop(void);
  */
 void prgm_reset_execution_state(void);
 
+/**
+ * @brief  Find a program slot by slot-ID string (e.g. "1","A") or user name.
+ * @return 0-based slot index, or -1 if not found.
+ */
+int8_t prgm_lookup_slot(const char *id);
+
 #endif /* PRGM_EXEC_H */

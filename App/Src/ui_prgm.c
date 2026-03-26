@@ -23,8 +23,8 @@
 
 /* PRGM menu/editor geometry */
 #define PRGM_TAB_COUNT          3   /* EXEC, EDIT, NEW */
-#define PRGM_CTL_ITEM_COUNT    14   /* CTL sub-menu items */
-#define PRGM_IO_ITEM_COUNT      6   /* I/O sub-menu items */
+#define PRGM_CTL_ITEM_COUNT     8   /* CTL sub-menu items */
+#define PRGM_IO_ITEM_COUNT      5   /* I/O sub-menu items */
 #define PRGM_EDITOR_VISIBLE     7   /* Visible editor rows (matches MENU_VISIBLE_ROWS) */
 /* PRGM_MAX_LINES and PRGM_MAX_LINE_LEN are defined in prgm_exec.h (via ui_prgm.h) */
 
@@ -97,24 +97,18 @@ static lv_obj_t   *prgm_io_labels[PRGM_IO_ITEM_COUNT];
 static const char * const prgm_tab_names[PRGM_TAB_COUNT] = {"EXEC", "EDIT", "ERASE"};
 /* CTL items: display name | text to insert into program line */
 static const char * const prgm_ctl_display[PRGM_CTL_ITEM_COUNT] = {
-    "1:If ",    "2:Then",   "3:Else",   "4:End",
-    "5:While ", "6:For(",   "7:Goto ",  "8:Lbl ",
-    "9:Pause",  "10:Stop",  "11:Return","12:prgm",
-    "13:IS>(", "14:DS<(",
+    "1:Lbl ",   "2:Goto ",  "3:If ",   "4:IS>(",
+    "5:DS<(",   "6:Pause",  "7:End",   "8:Stop",
 };
 static const char * const prgm_ctl_insert[PRGM_CTL_ITEM_COUNT] = {
-    "If ",    "Then",   "Else",   "End",
-    "While ", "For(",   "Goto ",  "Lbl ",
-    "Pause",  "Stop",   "Return", "prgm",
-    "IS>(", "DS<(",
+    "Lbl ",     "Goto ",    "If ",     "IS>(",
+    "DS<(",     "Pause",    "End",     "Stop",
 };
 static const char * const prgm_io_display[PRGM_IO_ITEM_COUNT] = {
-    "1:Input ", "2:Prompt ", "3:Disp ", "4:ClrHome",
-    "5:DispHome", "6:DispGraph",
+    "1:Disp ",  "2:Input ", "3:DispHome", "4:DispGraph", "5:ClrHome",
 };
 static const char * const prgm_io_insert[PRGM_IO_ITEM_COUNT] = {
-    "Input ", "Prompt ", "Disp ", "ClrHome",
-    "DispHome", "DispGraph",
+    "Disp ",    "Input ",   "DispHome",   "DispGraph",   "ClrHome",
 };
 
 /*===========================================================================
@@ -335,16 +329,6 @@ bool prgm_slot_is_used(uint8_t slot)
     return g_prgm_store.names[slot][0] != '\0';
 }
 
-/* Fills out[] with occupied slot indices; returns count. */
-static uint8_t prgm_build_occupied(uint8_t *out)
-{
-    uint8_t n = 0;
-    for (uint8_t i = 0; i < PRGM_MAX_PROGRAMS; i++) {
-        if (prgm_slot_is_used(i)) out[n++] = i;
-    }
-    return n;
-}
-
 /* Updates PRGM menu labels and tab highlights.  Must be called under lvgl_lock. */
 static void ui_update_prgm_display(void)
 {
@@ -382,47 +366,22 @@ static void ui_update_prgm_display(void)
         return;
     }
 
-    int total;
-    if (prgm_tab == 2) {
-        /* ERASE — occupied slots only */
-        uint8_t occupied[PRGM_MAX_PROGRAMS];
-        uint8_t occ_count = prgm_build_occupied(occupied);
-        total = (int)occ_count;
-        for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-            int vi = (int)prgm_scroll_offset + i;
-            if (vi < total) {
-                uint8_t slot = occupied[vi];
-                prgm_slot_id_str(slot, id);
-                const char *name = g_prgm_store.names[slot];
-                if (name[0] != '\0')
-                    snprintf(buf, sizeof(buf), "%s:Prgm%s  %s", id, id, name);
-                else
-                    snprintf(buf, sizeof(buf), "%s:Prgm%s", id, id);
-                lv_label_set_text(prgm_item_labels[i], buf);
-                lv_obj_set_style_text_color(prgm_item_labels[i],
-                    lv_color_hex(i == (int)prgm_item_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
-            } else {
-                lv_label_set_text(prgm_item_labels[i], "");
-            }
-        }
-    } else {
-        /* EXEC (tab 0) and EDIT (tab 1) — all 37 slots */
-        total = PRGM_MAX_PROGRAMS;
-        for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-            int slot = (int)prgm_scroll_offset + i;
-            if (slot < total) {
-                prgm_slot_id_str((uint8_t)slot, id);
-                const char *name = g_prgm_store.names[slot];
-                if (name[0] != '\0')
-                    snprintf(buf, sizeof(buf), "%s:Prgm%s  %s", id, id, name);
-                else
-                    snprintf(buf, sizeof(buf), "%s:Prgm%s", id, id);
-                lv_label_set_text(prgm_item_labels[i], buf);
-                lv_obj_set_style_text_color(prgm_item_labels[i],
-                    lv_color_hex(i == (int)prgm_item_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
-            } else {
-                lv_label_set_text(prgm_item_labels[i], "");
-            }
+    /* All tabs — all 37 slots */
+    int total = PRGM_MAX_PROGRAMS;
+    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
+        int slot = (int)prgm_scroll_offset + i;
+        if (slot < total) {
+            prgm_slot_id_str((uint8_t)slot, id);
+            const char *name = g_prgm_store.names[slot];
+            if (name[0] != '\0')
+                snprintf(buf, sizeof(buf), "%s:Prgm%s  %s", id, id, name);
+            else
+                snprintf(buf, sizeof(buf), "%s:Prgm%s", id, id);
+            lv_label_set_text(prgm_item_labels[i], buf);
+            lv_obj_set_style_text_color(prgm_item_labels[i],
+                lv_color_hex(i == (int)prgm_item_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
+        } else {
+            lv_label_set_text(prgm_item_labels[i], "");
         }
     }
 
@@ -656,6 +615,14 @@ static const char *prgm_token_to_str(Token_t t)
     }
 }
 
+/* Returns true if the current editor line already has a Lbl/Goto label char (B4). */
+static bool prgm_label_full(void)
+{
+    const char *line = prgm_edit_lines[prgm_edit_line];
+    return (strncmp(line, "Lbl ",  4) == 0 && strlen(line) > 4) ||
+           (strncmp(line, "Goto ", 5) == 0 && strlen(line) > 5);
+}
+
 /* Opens the program editor for the given program index. */
 static void prgm_open_editor(uint8_t idx)
 {
@@ -664,6 +631,7 @@ static void prgm_open_editor(uint8_t idx)
     prgm_edit_scroll     = 0;
     prgm_edit_col        = 0;
     prgm_parse_from_store(idx);
+    insert_mode  = false;  /* D1: editor always opens in overwrite mode */
     current_mode = MODE_PRGM_EDITOR;
     lvgl_lock();
     lv_obj_add_flag(ui_prgm_screen,     LV_OBJ_FLAG_HIDDEN);
@@ -684,11 +652,7 @@ static void prgm_open_editor(uint8_t idx)
 /* Helper: return the total number of items in the current prgm_tab view. */
 static int prgm_menu_total(void)
 {
-    if (prgm_tab == 2) {   /* ERASE — occupied slots only */
-        uint8_t occ[PRGM_MAX_PROGRAMS];
-        return (int)prgm_build_occupied(occ);
-    }
-    return PRGM_MAX_PROGRAMS;  /* EXEC and EDIT — all 37 slots */
+    return PRGM_MAX_PROGRAMS;  /* all tabs show all 37 slots */
 }
 
 bool handle_prgm_menu(Token_t t)
@@ -702,27 +666,23 @@ bool handle_prgm_menu(Token_t t)
             lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
             return true;
         case TOKEN_1:
-            prgm_erase_confirm_choice = 0;
-            /* fall through to ENTER */
-            /* FALLTHROUGH */
-        case TOKEN_ENTER:
-            if (prgm_erase_confirm_choice == 1) {
-                /* Erase: zero out the slot */
-                memset(g_prgm_store.names[prgm_erase_confirm_slot],  0, PRGM_NAME_LEN + 1);
-                memset(g_prgm_store.bodies[prgm_erase_confirm_slot], 0, PRGM_BODY_LEN);
-                if (prgm_item_cursor > 0) prgm_item_cursor--;
-                if (prgm_scroll_offset > 0) {
-                    uint8_t occ[PRGM_MAX_PROGRAMS];
-                    int remaining = (int)prgm_build_occupied(occ);
-                    if ((int)(prgm_scroll_offset + prgm_item_cursor) >= remaining)
-                        prgm_scroll_offset = 0;
-                }
-            }
+            /* Immediately cancel (A4) */
             prgm_erase_confirm = false;
             lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
             return true;
         case TOKEN_2:
-            prgm_erase_confirm_choice = 1;
+            /* Immediately erase (A4) */
+            memset(g_prgm_store.names[prgm_erase_confirm_slot],  0, PRGM_NAME_LEN + 1);
+            memset(g_prgm_store.bodies[prgm_erase_confirm_slot], 0, PRGM_BODY_LEN);
+            prgm_erase_confirm = false;
+            lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
+            return true;
+        case TOKEN_ENTER:
+            if (prgm_erase_confirm_choice == 1) {
+                memset(g_prgm_store.names[prgm_erase_confirm_slot],  0, PRGM_NAME_LEN + 1);
+                memset(g_prgm_store.bodies[prgm_erase_confirm_slot], 0, PRGM_BODY_LEN);
+            }
+            prgm_erase_confirm = false;
             lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
             return true;
         case TOKEN_CLEAR:
@@ -738,13 +698,19 @@ bool handle_prgm_menu(Token_t t)
     switch (t) {
     case TOKEN_LEFT:
         prgm_erase_confirm = false;
-        tab_move(&prgm_tab, &prgm_item_cursor, &prgm_scroll_offset,
-                 PRGM_TAB_COUNT, true, ui_update_prgm_display);
+        /* D2: wrap — LEFT at EXEC(0) wraps to ERASE(2) */
+        prgm_tab           = (prgm_tab == 0) ? (PRGM_TAB_COUNT - 1) : (prgm_tab - 1);
+        prgm_item_cursor   = 0;
+        prgm_scroll_offset = 0;
+        lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
         return true;
     case TOKEN_RIGHT:
         prgm_erase_confirm = false;
-        tab_move(&prgm_tab, &prgm_item_cursor, &prgm_scroll_offset,
-                 PRGM_TAB_COUNT, false, ui_update_prgm_display);
+        /* D2: wrap — RIGHT at ERASE(2) wraps to EXEC(0) */
+        prgm_tab           = (prgm_tab + 1) % PRGM_TAB_COUNT;
+        prgm_item_cursor   = 0;
+        prgm_scroll_offset = 0;
+        lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
         return true;
     case TOKEN_UP:
         if (prgm_item_cursor > 0)
@@ -765,17 +731,33 @@ bool handle_prgm_menu(Token_t t)
     case TOKEN_ENTER: {
         int abs_pos = (int)prgm_scroll_offset + (int)prgm_item_cursor;
         if (prgm_tab == 0) {
-            /* EXEC: run the selected slot by index directly */
+            /* EXEC (C1): insert prgmNAME into calculator expression */
             if (abs_pos < PRGM_MAX_PROGRAMS) {
+                char slot_id[3];
+                prgm_slot_id_str((uint8_t)abs_pos, slot_id);
+                const char *uname = g_prgm_store.names[abs_pos];
+                snprintf(expression, MAX_EXPR_LEN, "prgm%s",
+                         uname[0] != '\0' ? uname : slot_id);
+                expr_len   = (uint8_t)strlen(expression);
+                cursor_pos = expr_len;
+                CalcMode_t exec_ret = prgm_return_mode;
+                prgm_return_mode   = MODE_NORMAL;
+                prgm_tab           = 0;
+                prgm_item_cursor   = 0;
+                prgm_scroll_offset = 0;
+                current_mode = exec_ret;
                 lvgl_lock();
                 lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
                 lvgl_unlock();
-                prgm_run_start((uint8_t)abs_pos);
+                Update_Calculator_Display();
             }
         } else if (prgm_tab == 1) {
             /* EDIT: slot index == abs_pos directly */
             if (abs_pos < PRGM_MAX_PROGRAMS) {
-                if (prgm_slot_is_used((uint8_t)abs_pos)) {
+                bool has_name = prgm_slot_is_used((uint8_t)abs_pos);
+                bool has_body = (g_prgm_store.bodies[abs_pos][0] != '\0');
+                if (has_name || has_body) {
+                    /* D3: body-only slot opens editor directly (no name-entry) */
                     prgm_open_editor((uint8_t)abs_pos);
                 } else {
                     /* Empty slot — show name-entry screen; auto-engage ALPHA */
@@ -792,17 +774,42 @@ bool handle_prgm_menu(Token_t t)
                 }
             }
         } else {
-            /* ERASE: show confirmation for selected occupied slot */
-            uint8_t occupied[PRGM_MAX_PROGRAMS];
-            uint8_t occ_count = prgm_build_occupied(occupied);
-            if (abs_pos < (int)occ_count) {
+            /* ERASE: show confirmation for selected slot (A1: all 37 slots) */
+            if (abs_pos < PRGM_MAX_PROGRAMS) {
                 prgm_erase_confirm        = true;
-                prgm_erase_confirm_slot   = occupied[abs_pos];
+                prgm_erase_confirm_slot   = (uint8_t)abs_pos;
                 prgm_erase_confirm_choice = 0;
                 lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
             }
         }
         return true;
+    }
+    case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4: case TOKEN_5:
+    case TOKEN_6: case TOKEN_7: case TOKEN_8: case TOKEN_9: case TOKEN_0: {
+        /* A3: direct slot shortcut for EXEC and EDIT tabs */
+        if (prgm_tab == 0 || prgm_tab == 1) {
+            int slot = (t == TOKEN_0) ? 9 : (int)(t - TOKEN_1);
+            if (slot < PRGM_MAX_PROGRAMS) {
+                prgm_scroll_offset = (slot >= MENU_VISIBLE_ROWS)
+                    ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
+                prgm_item_cursor   = (uint8_t)(slot - (int)prgm_scroll_offset);
+                return handle_prgm_menu(TOKEN_ENTER);
+            }
+            return true;
+        }
+        /* ERASE tab: close menu and fall through */
+        prgm_erase_confirm = false;
+        {
+            CalcMode_t dret = prgm_return_mode;
+            prgm_return_mode   = MODE_NORMAL;
+            prgm_item_cursor   = 0;
+            prgm_scroll_offset = 0;
+            current_mode = dret;
+            lvgl_lock();
+            lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
+            lvgl_unlock();
+        }
+        return false;
     }
     case TOKEN_CLEAR:
     case TOKEN_PRGM: {
@@ -988,6 +995,7 @@ bool handle_prgm_editor(Token_t t)
         return true;
 
     case TOKEN_0 ... TOKEN_9: {
+        if (prgm_label_full()) return true;  /* B4: single-char label constraint */
         char c[2] = {(char)('0' + (t - TOKEN_0)), '\0'};
         prgm_editor_insert_str(c);
         prgm_flatten_to_store();
@@ -995,6 +1003,7 @@ bool handle_prgm_editor(Token_t t)
         return true;
     }
     case TOKEN_A ... TOKEN_Z: {
+        if (prgm_label_full()) return true;  /* B4: single-char label constraint */
         char c[2] = {(char)('A' + (t - TOKEN_A)), '\0'};
         prgm_editor_insert_str(c);
         prgm_flatten_to_store();
@@ -1107,7 +1116,7 @@ bool handle_prgm_io_menu(Token_t t)
         lvgl_unlock();
         return true;
     }
-    case TOKEN_1 ... TOKEN_4: {
+    case TOKEN_1 ... TOKEN_5: {
         int idx = (int)(t - TOKEN_1);
         if (idx < PRGM_IO_ITEM_COUNT) {
             prgm_editor_insert_str(prgm_io_insert[idx]);
