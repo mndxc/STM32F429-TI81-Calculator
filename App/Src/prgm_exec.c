@@ -322,6 +322,7 @@ static void cmd_dispgraph(const char *line, uint16_t ln)
     hide_all_screens();
     Graph_SetVisible(true);
     lvgl_unlock();
+    osDelay(20);  /* let DefaultTask flush the show-graph state before rendering */
     Graph_Render(angle_degrees);
 #endif
 }
@@ -367,8 +368,9 @@ static void cmd_input(const char *line, uint16_t ln)
     const char *arg = line + 6;
     char var = (*arg >= 'A' && *arg <= 'Z') ? *arg : 0;
     prgm_input_var = var;
-    char prompt[12];
-    snprintf(prompt, sizeof(prompt), var ? "%c=?" : "?", var);
+    /* Original TI-81: always show just "?" — variable name not displayed */
+    char prompt[4];
+    snprintf(prompt, sizeof(prompt), "?");
     uint8_t hidx = history_count % HISTORY_LINE_COUNT;
     strncpy(history[hidx].expression, prompt, MAX_EXPR_LEN - 1);
     history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
@@ -458,6 +460,13 @@ static void prgm_execute_line(uint16_t ln)
 /** Main synchronous execution loop.  Runs lines from prgm_run_pc until a
  *  pause point or end of program.  Re-entered via handle_prgm_running on
  *  ENTER after Pause/Input/Prompt. */
+void prgm_request_abort(void)
+{
+    prgm_run_active    = false;
+    prgm_waiting_input = false;
+    prgm_call_top      = 0;
+}
+
 void prgm_run_loop(void)
 {
     prgm_run_active = true;
@@ -467,6 +476,12 @@ restart:
            && prgm_run_active && !prgm_waiting_input) {
         uint16_t ln = prgm_run_pc++;
         prgm_execute_line(ln);
+#ifndef HOST_TEST
+        /* Yield so keypadTask can call prgm_request_abort() on CLEAR, and so
+         * DefaultTask can render Disp output.  Without this yield an infinite
+         * program loop starves other tasks → black screen + slow heartbeat. */
+        osDelay(0);
+#endif
     }
 
     if (prgm_waiting_input)

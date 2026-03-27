@@ -44,7 +44,9 @@ static lv_obj_t   *prgm_scroll_ind[2];         /* [0]=up, [1]=down */
 lv_obj_t   *ui_prgm_new_screen        = NULL;
 static char        prgm_new_name[PRGM_NAME_LEN + 1] = {0};
 static uint8_t     prgm_new_name_len          = 0;
+static uint8_t     prgm_new_name_cursor       = 0;   /* insertion point within name [0,len] */
 static uint8_t     prgm_new_slot              = 0;   /* slot index being created */
+static bool        prgm_editor_from_new       = false; /* true when editor opened from name entry */
 static lv_obj_t   *prgm_new_title_lbl        = NULL; /* shows "PrgmX:typed_name" */
 static lv_obj_t   *prgm_new_cursor_box       = NULL;
 static lv_obj_t   *prgm_new_cursor_inner     = NULL;
@@ -79,8 +81,16 @@ static lv_obj_t   *prgm_ctl_scroll_ind[2];
 
 /* PRGM I/O sub-menu state */
 static lv_obj_t   *ui_prgm_io_screen        = NULL;
-static lv_obj_t *prgm_sub_tab_labels_ctl[2];
-static lv_obj_t *prgm_sub_tab_labels_io[2];
+static lv_obj_t *prgm_sub_tab_labels_ctl[3];   /* CTL, I/O, EXEC */
+static lv_obj_t *prgm_sub_tab_labels_io[3];    /* CTL, I/O, EXEC */
+
+/* PRGM EXEC sub-menu (subroutine slot picker from inside editor) */
+static lv_obj_t   *ui_prgm_exec_screen        = NULL;
+static lv_obj_t   *prgm_sub_tab_labels_exec[3]; /* CTL, I/O, EXEC */
+static lv_obj_t   *prgm_exec_labels[MENU_VISIBLE_ROWS];
+static lv_obj_t   *prgm_exec_scroll_ind[2];
+static uint8_t     prgm_exec_cursor           = 0;
+static uint8_t     prgm_exec_scroll           = 0;
 
 /* PRGM runtime Menu( screen — shown during program execution */
 static lv_obj_t   *ui_prgm_menu_screen         = NULL;
@@ -264,12 +274,17 @@ static void ui_init_prgm_editor_screen(void)
     /* --- CTL sub-menu --- */
     ui_prgm_ctl_screen = screen_create(scr);
 
-    for (int i = 0; i < 2; i++) {
-        prgm_sub_tab_labels_ctl[i] = lv_label_create(ui_prgm_ctl_screen);
-        lv_obj_set_pos(prgm_sub_tab_labels_ctl[i], i == 0 ? 4 : 80, 4);
-        lv_obj_set_style_text_font(prgm_sub_tab_labels_ctl[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_sub_tab_labels_ctl[i], lv_color_hex(i == 0 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
-        lv_label_set_text(prgm_sub_tab_labels_ctl[i], i == 0 ? "CTL" : "I/O");
+    {
+        static const char * const sub_names[3] = {"CTL", "I/O", "EXEC"};
+        static const int sub_x[3] = {4, 80, 156};
+        for (int i = 0; i < 3; i++) {
+            prgm_sub_tab_labels_ctl[i] = lv_label_create(ui_prgm_ctl_screen);
+            lv_obj_set_pos(prgm_sub_tab_labels_ctl[i], sub_x[i], 4);
+            lv_obj_set_style_text_font(prgm_sub_tab_labels_ctl[i], &jetbrains_mono_24, 0);
+            lv_obj_set_style_text_color(prgm_sub_tab_labels_ctl[i],
+                lv_color_hex(i == 0 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
+            lv_label_set_text(prgm_sub_tab_labels_ctl[i], sub_names[i]);
+        }
     }
 
     for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
@@ -296,12 +311,17 @@ static void ui_init_prgm_editor_screen(void)
     /* --- I/O sub-menu --- */
     ui_prgm_io_screen = screen_create(scr);
 
-    for (int i = 0; i < 2; i++) {
-        prgm_sub_tab_labels_io[i] = lv_label_create(ui_prgm_io_screen);
-        lv_obj_set_pos(prgm_sub_tab_labels_io[i], i == 0 ? 4 : 80, 4);
-        lv_obj_set_style_text_font(prgm_sub_tab_labels_io[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_sub_tab_labels_io[i], lv_color_hex(i == 1 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
-        lv_label_set_text(prgm_sub_tab_labels_io[i], i == 0 ? "CTL" : "I/O");
+    {
+        static const char * const sub_names[3] = {"CTL", "I/O", "EXEC"};
+        static const int sub_x[3] = {4, 80, 156};
+        for (int i = 0; i < 3; i++) {
+            prgm_sub_tab_labels_io[i] = lv_label_create(ui_prgm_io_screen);
+            lv_obj_set_pos(prgm_sub_tab_labels_io[i], sub_x[i], 4);
+            lv_obj_set_style_text_font(prgm_sub_tab_labels_io[i], &jetbrains_mono_24, 0);
+            lv_obj_set_style_text_color(prgm_sub_tab_labels_io[i],
+                lv_color_hex(i == 1 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
+            lv_label_set_text(prgm_sub_tab_labels_io[i], sub_names[i]);
+        }
     }
 
     for (int i = 0; i < PRGM_IO_ITEM_COUNT; i++) {
@@ -310,6 +330,43 @@ static void ui_init_prgm_editor_screen(void)
         lv_obj_set_style_text_font(prgm_io_labels[i], &jetbrains_mono_24, 0);
         lv_obj_set_style_text_color(prgm_io_labels[i], lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(prgm_io_labels[i], "");
+    }
+
+    /* --- EXEC sub-menu (subroutine slot picker) --- */
+    ui_prgm_exec_screen = screen_create(scr);
+
+    {
+        static const char * const sub_names[3] = {"CTL", "I/O", "EXEC"};
+        static const int sub_x[3] = {4, 80, 156};
+        for (int i = 0; i < 3; i++) {
+            prgm_sub_tab_labels_exec[i] = lv_label_create(ui_prgm_exec_screen);
+            lv_obj_set_pos(prgm_sub_tab_labels_exec[i], sub_x[i], 4);
+            lv_obj_set_style_text_font(prgm_sub_tab_labels_exec[i], &jetbrains_mono_24, 0);
+            lv_obj_set_style_text_color(prgm_sub_tab_labels_exec[i],
+                lv_color_hex(i == 2 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
+            lv_label_set_text(prgm_sub_tab_labels_exec[i], sub_names[i]);
+        }
+    }
+
+    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
+        prgm_exec_labels[i] = lv_label_create(ui_prgm_exec_screen);
+        lv_obj_set_pos(prgm_exec_labels[i], 4, 30 + i * 30);
+        lv_obj_set_style_text_font(prgm_exec_labels[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(prgm_exec_labels[i], lv_color_hex(COLOR_WHITE), 0);
+        lv_label_set_text(prgm_exec_labels[i], "");
+    }
+
+    for (int i = 0; i < 2; i++) {
+        int row = (i == 0) ? 0 : (MENU_VISIBLE_ROWS - 1);
+        prgm_exec_scroll_ind[i] = lv_label_create(ui_prgm_exec_screen);
+        lv_obj_set_pos(prgm_exec_scroll_ind[i], 4, 30 + row * 30);
+        lv_obj_set_style_text_font(prgm_exec_scroll_ind[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(prgm_exec_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
+        lv_obj_set_style_bg_color(prgm_exec_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
+        lv_obj_set_style_bg_opa(prgm_exec_scroll_ind[i], LV_OPA_COVER, 0);
+        lv_obj_set_style_pad_all(prgm_exec_scroll_ind[i], 0, 0);
+        lv_label_set_text(prgm_exec_scroll_ind[i], i == 0 ? "\xE2\x86\x91" : "\xE2\x86\x93");
+        lv_obj_add_flag(prgm_exec_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
     }
 }
 
@@ -442,7 +499,7 @@ void prgm_new_cursor_update(void)
 {
     if (prgm_new_cursor_box == NULL || prgm_new_title_lbl == NULL) return;
     cursor_place(prgm_new_cursor_box, prgm_new_cursor_inner,
-                 prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_len));
+                 prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor));
 }
 
 /* Positions the editor cursor box on the current line. */
@@ -533,6 +590,38 @@ static void ui_update_prgm_io_display(void)
     }
 }
 
+/* Updates EXEC sub-menu (slot picker) labels, cursor highlight, and scroll indicators.
+ * Must be called under lvgl_lock. */
+static void ui_update_prgm_exec_display(void)
+{
+    char buf[24];
+    char id[3];
+    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
+        int slot = (int)prgm_exec_scroll + i;
+        if (slot < PRGM_MAX_PROGRAMS) {
+            prgm_slot_id_str((uint8_t)slot, id);
+            const char *name = g_prgm_store.names[slot];
+            if (name[0] != '\0')
+                snprintf(buf, sizeof(buf), "%s:Prgm%s  %s", id, id, name);
+            else
+                snprintf(buf, sizeof(buf), "%s:Prgm%s", id, id);
+            lv_label_set_text(prgm_exec_labels[i], buf);
+            lv_obj_set_style_text_color(prgm_exec_labels[i],
+                lv_color_hex(i == (int)prgm_exec_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
+        } else {
+            lv_label_set_text(prgm_exec_labels[i], "");
+        }
+    }
+    if (prgm_exec_scroll > 0)
+        lv_obj_clear_flag(prgm_exec_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
+    else
+        lv_obj_add_flag(prgm_exec_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
+    if ((int)(prgm_exec_scroll + MENU_VISIBLE_ROWS) < PRGM_MAX_PROGRAMS)
+        lv_obj_clear_flag(prgm_exec_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
+    else
+        lv_obj_add_flag(prgm_exec_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
+}
+
 /* Updates the new-program name-entry label and cursor. */
 static void ui_update_prgm_new_display(void)
 {
@@ -544,7 +633,7 @@ static void ui_update_prgm_new_display(void)
     snprintf(buf, sizeof(buf), "Prgm%s:%s", id, prgm_new_name);
     lv_label_set_text(prgm_new_title_lbl, buf);
     cursor_place(prgm_new_cursor_box, prgm_new_cursor_inner,
-                 prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_len));
+                 prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor));
 }
 
 /* Adjusts editor scroll to keep prgm_edit_line visible. */
@@ -569,6 +658,20 @@ static void prgm_editor_insert_str(const char *s)
             len - prgm_edit_col + 1);
     memcpy(line + prgm_edit_col, s, slen);
     prgm_edit_col = (uint8_t)(prgm_edit_col + slen);
+}
+
+/* F4: Insert string into the editor on behalf of a MATH/TEST menu selection.
+ * Called from math_menu_insert / test_menu_insert when return_mode == PRGM_EDITOR.
+ * Restores the editor screen and sets current_mode back to MODE_PRGM_EDITOR. */
+void prgm_editor_menu_insert(const char *s)
+{
+    prgm_editor_insert_str(s);
+    prgm_flatten_to_store();
+    lvgl_lock();
+    lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_update_prgm_editor_display();
+    lvgl_unlock();
+    current_mode = MODE_PRGM_EDITOR;
 }
 
 /* Maps a token to its text representation for program editing.
@@ -758,12 +861,15 @@ bool handle_prgm_menu(Token_t t)
                 bool has_body = (g_prgm_store.bodies[abs_pos][0] != '\0');
                 if (has_name || has_body) {
                     /* D3: body-only slot opens editor directly (no name-entry) */
+                    prgm_editor_from_new = false;
                     prgm_open_editor((uint8_t)abs_pos);
                 } else {
                     /* Empty slot — show name-entry screen; auto-engage ALPHA */
-                    prgm_new_slot     = (uint8_t)abs_pos;
-                    prgm_new_name_len = 0;
+                    prgm_new_slot        = (uint8_t)abs_pos;
+                    prgm_new_name_len    = 0;
+                    prgm_new_name_cursor = 0;
                     memset(prgm_new_name, 0, sizeof(prgm_new_name));
+                    prgm_editor_from_new = false;
                     lvgl_lock();
                     lv_obj_add_flag(ui_prgm_screen,       LV_OBJ_FLAG_HIDDEN);
                     lv_obj_clear_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
@@ -786,30 +892,34 @@ bool handle_prgm_menu(Token_t t)
     }
     case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4: case TOKEN_5:
     case TOKEN_6: case TOKEN_7: case TOKEN_8: case TOKEN_9: case TOKEN_0: {
-        /* A3: direct slot shortcut for EXEC and EDIT tabs */
-        if (prgm_tab == 0 || prgm_tab == 1) {
-            int slot = (t == TOKEN_0) ? 9 : (int)(t - TOKEN_1);
-            if (slot < PRGM_MAX_PROGRAMS) {
-                prgm_scroll_offset = (slot >= MENU_VISIBLE_ROWS)
-                    ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
-                prgm_item_cursor   = (uint8_t)(slot - (int)prgm_scroll_offset);
-                return handle_prgm_menu(TOKEN_ENTER);
-            }
-            return true;
+        /* A3/F7: direct slot shortcut for all three tabs */
+        int slot = (t == TOKEN_0) ? 9 : (int)(t - TOKEN_1);
+        if (slot < PRGM_MAX_PROGRAMS) {
+            prgm_scroll_offset = (slot >= MENU_VISIBLE_ROWS)
+                ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
+            prgm_item_cursor   = (uint8_t)(slot - (int)prgm_scroll_offset);
+            return handle_prgm_menu(TOKEN_ENTER);
         }
-        /* ERASE tab: close menu and fall through */
-        prgm_erase_confirm = false;
-        {
-            CalcMode_t dret = prgm_return_mode;
-            prgm_return_mode   = MODE_NORMAL;
-            prgm_item_cursor   = 0;
-            prgm_scroll_offset = 0;
-            current_mode = dret;
-            lvgl_lock();
-            lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
-            lvgl_unlock();
+        return true;
+    }
+    case TOKEN_A ... TOKEN_Z: {
+        /* F6: ALPHA+letter slot shortcut — slots 10 (A) through 35 (Z) */
+        int slot = 10 + (int)(t - TOKEN_A);
+        if (slot < PRGM_MAX_PROGRAMS) {
+            prgm_scroll_offset = (slot >= MENU_VISIBLE_ROWS)
+                ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
+            prgm_item_cursor   = (uint8_t)(slot - (int)prgm_scroll_offset);
+            return handle_prgm_menu(TOKEN_ENTER);
         }
-        return false;
+        return true;
+    }
+    case TOKEN_THETA: {
+        /* F6: ALPHA+θ slot shortcut — slot 36 */
+        int slot = 36;
+        prgm_scroll_offset = (slot >= MENU_VISIBLE_ROWS)
+            ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
+        prgm_item_cursor   = (uint8_t)(slot - (int)prgm_scroll_offset);
+        return handle_prgm_menu(TOKEN_ENTER);
     }
     case TOKEN_CLEAR:
     case TOKEN_PRGM: {
@@ -847,8 +957,13 @@ bool handle_prgm_new_name(Token_t t)
     switch (t) {
     case TOKEN_A ... TOKEN_Z: {
         if (prgm_new_name_len < PRGM_NAME_LEN) {
-            prgm_new_name[prgm_new_name_len++] = (char)('A' + (t - TOKEN_A));
-            prgm_new_name[prgm_new_name_len]   = '\0';
+            char ch = (char)('A' + (t - TOKEN_A));
+            memmove(prgm_new_name + prgm_new_name_cursor + 1,
+                    prgm_new_name + prgm_new_name_cursor,
+                    prgm_new_name_len - prgm_new_name_cursor + 1);
+            prgm_new_name[prgm_new_name_cursor] = ch;
+            prgm_new_name_cursor++;
+            prgm_new_name_len++;
             lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
         }
         /* Re-engage ALPHA so the next keypress is also a letter */
@@ -858,8 +973,13 @@ bool handle_prgm_new_name(Token_t t)
     }
     case TOKEN_0 ... TOKEN_9: {
         if (prgm_new_name_len < PRGM_NAME_LEN) {
-            prgm_new_name[prgm_new_name_len++] = (char)('0' + (t - TOKEN_0));
-            prgm_new_name[prgm_new_name_len]   = '\0';
+            char ch = (char)('0' + (t - TOKEN_0));
+            memmove(prgm_new_name + prgm_new_name_cursor + 1,
+                    prgm_new_name + prgm_new_name_cursor,
+                    prgm_new_name_len - prgm_new_name_cursor + 1);
+            prgm_new_name[prgm_new_name_cursor] = ch;
+            prgm_new_name_cursor++;
+            prgm_new_name_len++;
             lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
         }
         /* Re-engage ALPHA so the next keypress can still be a letter */
@@ -868,10 +988,39 @@ bool handle_prgm_new_name(Token_t t)
         return true;
     }
     case TOKEN_DEL:
-        if (prgm_new_name_len > 0) {
-            prgm_new_name[--prgm_new_name_len] = '\0';
+        if (prgm_new_name_cursor > 0) {
+            memmove(prgm_new_name + prgm_new_name_cursor - 1,
+                    prgm_new_name + prgm_new_name_cursor,
+                    prgm_new_name_len - prgm_new_name_cursor + 1);
+            prgm_new_name_cursor--;
+            prgm_new_name_len--;
             lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
         }
+        /* Re-engage ALPHA after DEL so the next keypress is still a letter */
+        return_mode  = MODE_PRGM_NEW_NAME;
+        current_mode = MODE_ALPHA;
+        return true;
+    case TOKEN_LEFT:
+        if (prgm_new_name_cursor > 0) {
+            prgm_new_name_cursor--;
+            lvgl_lock(); prgm_new_cursor_update(); lvgl_unlock();
+        }
+        return true;
+    case TOKEN_RIGHT:
+        if (prgm_new_name_cursor < prgm_new_name_len) {
+            prgm_new_name_cursor++;
+            lvgl_lock(); prgm_new_cursor_update(); lvgl_unlock();
+        }
+        return true;
+    case TOKEN_DOWN:
+        /* Navigate into editor body — save name first */
+        if (prgm_new_name_len > 0)
+            memcpy(g_prgm_store.names[prgm_new_slot], prgm_new_name, prgm_new_name_len + 1);
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
+        lvgl_unlock();
+        prgm_editor_from_new = true;
+        prgm_open_editor(prgm_new_slot);
         return true;
     case TOKEN_ENTER:
         /* Save user name if typed; open editor regardless (name is optional) */
@@ -880,6 +1029,7 @@ bool handle_prgm_new_name(Token_t t)
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
         lvgl_unlock();
+        prgm_editor_from_new = true;
         prgm_open_editor(prgm_new_slot);
         return true;
     case TOKEN_CLEAR:
@@ -908,6 +1058,17 @@ bool handle_prgm_editor(Token_t t)
             prgm_edit_col = 0;
             prgm_editor_scroll_to_line();
             lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
+        } else if (prgm_edit_col == 0 && prgm_editor_from_new) {
+            /* F10: navigate back up to the name-entry title */
+            prgm_flatten_to_store();
+            prgm_new_name_cursor = prgm_new_name_len; /* cursor at end of name */
+            current_mode = MODE_ALPHA;
+            return_mode  = MODE_PRGM_NEW_NAME;
+            lvgl_lock();
+            lv_obj_add_flag(ui_prgm_editor_screen,  LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(ui_prgm_new_screen,   LV_OBJ_FLAG_HIDDEN);
+            ui_update_prgm_new_display();
+            lvgl_unlock();
         }
         return true;
     case TOKEN_DOWN:
@@ -982,6 +1143,23 @@ bool handle_prgm_editor(Token_t t)
             lvgl_unlock();
         }
         return true;
+    case TOKEN_INS:
+        insert_mode = !insert_mode;
+        lvgl_lock(); prgm_editor_cursor_update(); lvgl_unlock();
+        return true;
+
+    case TOKEN_TEST:
+        /* F4: open TEST menu; selections will insert into editor via
+         * test_menu_insert() checking return_mode == MODE_PRGM_EDITOR */
+        menu_open(TOKEN_TEST, MODE_PRGM_EDITOR);
+        return true;
+
+    case TOKEN_MATH:
+        /* F4: open MATH menu; selections will insert into editor via
+         * math_menu_insert() checking return_mode == MODE_PRGM_EDITOR */
+        menu_open(TOKEN_MATH, MODE_PRGM_EDITOR);
+        return true;
+
     case TOKEN_PRGM:
         /* Open CTL sub-menu */
         prgm_ctl_cursor = 0;
@@ -1079,13 +1257,24 @@ bool handle_prgm_ctl_menu(Token_t t)
         lvgl_unlock();
         return true;
     case TOKEN_RIGHT:
-    case TOKEN_LEFT:
+        /* CTL RIGHT → I/O */
         prgm_io_cursor = 0;
         current_mode = MODE_PRGM_IO_MENU;
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_ctl_screen,   LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(ui_prgm_io_screen,  LV_OBJ_FLAG_HIDDEN);
         ui_update_prgm_io_display();
+        lvgl_unlock();
+        return true;
+    case TOKEN_LEFT:
+        /* CTL LEFT → EXEC (wrap) */
+        prgm_exec_cursor = 0;
+        prgm_exec_scroll = 0;
+        current_mode = MODE_PRGM_EXEC_MENU;
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_ctl_screen,    LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_prgm_exec_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_prgm_exec_display();
         lvgl_unlock();
         return true;
     default:
@@ -1139,7 +1328,7 @@ bool handle_prgm_io_menu(Token_t t)
         lvgl_unlock();
         return true;
     case TOKEN_LEFT:
-    case TOKEN_RIGHT:
+        /* I/O LEFT → CTL */
         prgm_ctl_cursor = 0;
         prgm_ctl_scroll = 0;
         current_mode = MODE_PRGM_CTL_MENU;
@@ -1149,15 +1338,127 @@ bool handle_prgm_io_menu(Token_t t)
         ui_update_prgm_ctl_display();
         lvgl_unlock();
         return true;
+    case TOKEN_RIGHT:
+        /* I/O RIGHT → EXEC (wrap) */
+        prgm_exec_cursor = 0;
+        prgm_exec_scroll = 0;
+        current_mode = MODE_PRGM_EXEC_MENU;
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_io_screen,      LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_prgm_exec_screen,  LV_OBJ_FLAG_HIDDEN);
+        ui_update_prgm_exec_display();
+        lvgl_unlock();
+        return true;
     default:
         return true;
     }
 }
 
-
-
-
-
+bool handle_prgm_exec_menu(Token_t t)
+{
+    switch (t) {
+    case TOKEN_UP:
+        if (prgm_exec_cursor > 0)
+            prgm_exec_cursor--;
+        else if (prgm_exec_scroll > 0)
+            prgm_exec_scroll--;
+        lvgl_lock(); ui_update_prgm_exec_display(); lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if ((int)(prgm_exec_scroll + prgm_exec_cursor) + 1 < PRGM_MAX_PROGRAMS) {
+            if (prgm_exec_cursor < MENU_VISIBLE_ROWS - 1)
+                prgm_exec_cursor++;
+            else if ((int)(prgm_exec_scroll + MENU_VISIBLE_ROWS) < PRGM_MAX_PROGRAMS)
+                prgm_exec_scroll++;
+        }
+        lvgl_lock(); ui_update_prgm_exec_display(); lvgl_unlock();
+        return true;
+    case TOKEN_ENTER: {
+        int slot = (int)prgm_exec_scroll + (int)prgm_exec_cursor;
+        if (slot < PRGM_MAX_PROGRAMS) {
+            char slot_id[3];
+            prgm_slot_id_str((uint8_t)slot, slot_id);
+            const char *uname = g_prgm_store.names[slot];
+            char ins[PRGM_NAME_LEN + 6]; /* "prgm" + name/id + NUL */
+            snprintf(ins, sizeof(ins), "prgm%s", uname[0] != '\0' ? uname : slot_id);
+            prgm_editor_insert_str(ins);
+            prgm_flatten_to_store();
+        }
+        current_mode = MODE_PRGM_EDITOR;
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_exec_screen,     LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_prgm_editor_display();
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_1 ... TOKEN_9: {
+        int slot = (int)(t - TOKEN_1);
+        if (slot < PRGM_MAX_PROGRAMS) {
+            prgm_exec_scroll = (slot >= MENU_VISIBLE_ROWS)
+                ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
+            prgm_exec_cursor = (uint8_t)(slot - (int)prgm_exec_scroll);
+            return handle_prgm_exec_menu(TOKEN_ENTER);
+        }
+        return true;
+    }
+    case TOKEN_0: {
+        int slot = 9;
+        prgm_exec_scroll = (slot >= MENU_VISIBLE_ROWS)
+            ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
+        prgm_exec_cursor = (uint8_t)(slot - (int)prgm_exec_scroll);
+        return handle_prgm_exec_menu(TOKEN_ENTER);
+    }
+    case TOKEN_A ... TOKEN_Z: {
+        int slot = 10 + (int)(t - TOKEN_A);
+        if (slot < PRGM_MAX_PROGRAMS) {
+            prgm_exec_scroll = (slot >= MENU_VISIBLE_ROWS)
+                ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
+            prgm_exec_cursor = (uint8_t)(slot - (int)prgm_exec_scroll);
+            return handle_prgm_exec_menu(TOKEN_ENTER);
+        }
+        return true;
+    }
+    case TOKEN_THETA: {
+        int slot = 36;
+        prgm_exec_scroll = (slot >= MENU_VISIBLE_ROWS)
+            ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
+        prgm_exec_cursor = (uint8_t)(slot - (int)prgm_exec_scroll);
+        return handle_prgm_exec_menu(TOKEN_ENTER);
+    }
+    case TOKEN_CLEAR:
+        current_mode = MODE_PRGM_EDITOR;
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_exec_screen,     LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_prgm_editor_display();
+        lvgl_unlock();
+        return true;
+    case TOKEN_LEFT:
+        /* EXEC LEFT → I/O */
+        prgm_io_cursor = 0;
+        current_mode = MODE_PRGM_IO_MENU;
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_exec_screen,  LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_prgm_io_screen,  LV_OBJ_FLAG_HIDDEN);
+        ui_update_prgm_io_display();
+        lvgl_unlock();
+        return true;
+    case TOKEN_RIGHT:
+        /* EXEC RIGHT → CTL (wrap) */
+        prgm_ctl_cursor = 0;
+        prgm_ctl_scroll = 0;
+        current_mode = MODE_PRGM_CTL_MENU;
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_exec_screen,   LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_prgm_ctl_screen,  LV_OBJ_FLAG_HIDDEN);
+        ui_update_prgm_ctl_display();
+        lvgl_unlock();
+        return true;
+    default:
+        return true;
+    }
+}
 
 
 
@@ -1214,6 +1515,7 @@ void hide_prgm_screens(void) {
     if (ui_prgm_editor_screen) lv_obj_add_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
     if (ui_prgm_ctl_screen) lv_obj_add_flag(ui_prgm_ctl_screen, LV_OBJ_FLAG_HIDDEN);
     if (ui_prgm_io_screen) lv_obj_add_flag(ui_prgm_io_screen, LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_exec_screen) lv_obj_add_flag(ui_prgm_exec_screen, LV_OBJ_FLAG_HIDDEN);
     if (ui_prgm_menu_screen) lv_obj_add_flag(ui_prgm_menu_screen, LV_OBJ_FLAG_HIDDEN);
 }
 

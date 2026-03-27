@@ -56,6 +56,7 @@ App/                            ← Custom application code (never touched by Cu
     test_expr_util.c            96 tests: UTF-8 cursor, insert/delete, matrix atomicity
     test_persist_roundtrip.c    52 tests: PersistBlock_t checksum and round-trip
     test_prgm_exec.c            77 tests:  active command handlers, control flow, subroutines
+    prgm_exec_test_stubs.h      Inline stubs for host-compilation of prgm_exec.c
 
 Core/                           ← CubeMX-generated code (regenerated from .ioc)
   Src/
@@ -200,6 +201,7 @@ per row is measured at runtime from the glyph width.
 | `MODE_PRGM_EDITOR`         | Program line editor                                     |
 | `MODE_PRGM_CTL_MENU`       | PRGM CTL sub-menu (If, For, While…)                     |
 | `MODE_PRGM_IO_MENU`        | PRGM I/O sub-menu (Disp, Input…)                        |
+| `MODE_PRGM_EXEC_MENU`      | PRGM EXEC sub-menu (subroutine slot picker from editor) |
 | `MODE_PRGM_RUNNING`        | Program execution in progress                           |
 | `MODE_PRGM_NEW_NAME`       | Name-entry dialog for new program                       |
 

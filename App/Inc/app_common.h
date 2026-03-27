@@ -44,8 +44,9 @@ typedef enum {
     MODE_MATRIX_EDIT,        /* Matrix cell editor active */
     MODE_PRGM_MENU,          /* PRGM EXEC/EDIT/NEW tab selection */
     MODE_PRGM_EDITOR,        /* Program line editor */
-    MODE_PRGM_CTL_MENU,      /* PRGM CTL sub-menu (If, For, While…) */
+    MODE_PRGM_CTL_MENU,      /* PRGM CTL sub-menu (Lbl, Goto, If…) */
     MODE_PRGM_IO_MENU,       /* PRGM I/O sub-menu (Disp, Input…) */
+    MODE_PRGM_EXEC_MENU,     /* PRGM EXEC sub-menu (subroutine slot picker) */
     MODE_PRGM_RUNNING,       /* Program execution in progress */
     MODE_PRGM_NEW_NAME,      /* Name-entry dialog for new program */
 } CalcMode_t;

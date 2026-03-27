@@ -171,4 +171,12 @@ void prgm_reset_execution_state(void);
  */
 int8_t prgm_lookup_slot(const char *id);
 
+/**
+ * @brief  Abort a running program immediately.
+ *         Safe to call from any task (e.g. keypadTask) while prgm_run_loop()
+ *         is executing on CalcCoreTask.  Sets prgm_run_active = false so the
+ *         run loop exits on the next iteration.  No-op if not running.
+ */
+void prgm_request_abort(void);
+
 #endif /* PRGM_EXEC_H */

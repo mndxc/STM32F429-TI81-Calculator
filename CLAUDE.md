@@ -2,61 +2,17 @@
 
 **Purpose:** AI session continuity and feature backlog. Contains project context, architectural decisions, gotchas, known issues, the active feature/bug backlog (`Next session priorities`), and standing rules for AI-assisted development. Read in full at the start of every session.
 
-- [x] **Verification and Bug Fixes**
-    - [x] Build and verify logic (Walkthrough created).
-    - [x] Fixed startup white screen (restored `graph_lbl_y` init).
-    - [x] Fixed coordinate overlap (switched to absolute positioning).
-    - [x] Fixed freeze during Trace/Graph switching (added scale guards, loop clamping, and proper mutex locking).
+## Standards & Maintenance
 
-**For code quality items** (CI gates, refactoring, test coverage, contributor docs) see [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) — that document is the single source of truth for all P-numbered improvement items. Items are never duplicated between the two files.
+Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before starting any significant work. It defines what to update after each commit, which numbers to keep in sync, file structure rules, quality scorecard baselines, and the Full Update Checklist. Use `/update-project` to trigger a full sync. All open work items live in "Next session priorities" below; resolved items and milestone history are in [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md).
+
+Current overall rating: **93–95% production-ready**. Key remaining gaps: PRGM hardware validation pending. Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 378-test host suite with CI.
 
 ---
 
-## Project Quality
+## Complexity Management (standing rule — applies to every commit)
 
-**[QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md)** — read this before starting any significant work.
-
-**Purpose of QUALITY_TRACKER:** Permanent register for code quality reviews. Tracks a rated scorecard across 10 dimensions, P-numbered improvement items with effort/impact rankings, and full resolution history. It is the single source of truth for all quality, CI, refactoring, and contributor-docs work. Items are not duplicated in this file.
-
-Current overall rating: **93–95% production-ready** (up from 92–94%; gain from P20 resolution: testing B+ → A-). Key remaining gaps: PRGM hardware validation pending (P10). Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 378-test host suite with CI.
-
----
-
-## Complexity Management Requirement (standing rule — applies to every commit)
-
-**The codebase must not grow in complexity faster than it is simplified.** This is a hard constraint, not a guideline.
-
-### After every commit
-
-Before closing a session or presenting a commit as complete, perform a **complexity impact review**:
-
-1. **State what changed** — which files were touched, roughly how many lines were added/removed.
-2. **Rate the complexity delta** — one of:
-   - `neutral` — no net change in cognitive load (e.g. pure refactor, test addition, config change)
-   - `increase` — new logic, new state, new abstractions, or a file grew significantly
-   - `decrease` — logic removed, files split, dead code deleted, abstractions simplified
-3. **If `increase`:** immediately add one or more follow-up items to the "Next session priorities" list in this file describing exactly how to pay down the complexity debt introduced. Each item must be concrete and actionable (name the file, the function, the technique). Do not leave an `increase` commit without a follow-up plan.
-
-### What counts as a complexity increase
-
-- A file grows by more than ~100 lines without a corresponding extraction or removal elsewhere
-- A new module is added without a clear, bounded responsibility
-- New global or shared state is introduced
-- A function exceeds ~80–100 lines
-- A new conditional branch is added to an already-large switch or if-chain
-- A workaround or special-case is added rather than fixing the underlying model
-
-### What counts as paying down complexity
-
-- Extracting a cohesive group of functions into a new module (following the `ui_matrix.c` / `expr_util.c` pattern)
-- Replacing magic numbers or colours with named constants
-- Reducing a large switch to a dispatch table or handler chain
-- Deleting dead code or unused state
-- Splitting a multi-responsibility function into focused helpers
-
-### Format for the follow-up item
-
-Add to "Next session priorities" with a tag `[complexity]`:
+Before closing any session: rate the delta (neutral / increase / decrease). If `increase`, add a `[complexity]` item to "Next session priorities" before closing. Full criteria in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). Format:
 
 ```
 **[complexity] <short title>** — <one sentence explaining what grew and why>. <one sentence describing the planned simplification>. Files: <file list>.
@@ -66,67 +22,25 @@ Add to "Next session priorities" with a tag `[complexity]`:
 
 ## To-Do Routing
 
-When the user asks to add something to the to-do list, place it in the correct location based on item type — never duplicate it in both files.
+All actionable items go in `Next session priorities` in this file. Use tags to distinguish type.
 
-| Item type | Where it goes |
+| Item type | Tag |
 |---|---|
-| **Feature work** — new calculator behaviour, TI-81 accuracy, UI improvements | `Next session priorities` in this file (with files + implementation detail) |
-| **Bug fix** — incorrect behaviour, crashes, display glitches | `Next session priorities` in this file |
-| **Complexity debt** — complexity introduced by a commit that needs paying down | `Next session priorities` in this file (tag `[complexity]`) |
-| **Code quality** — compiler warnings, CI gates, refactoring, static analysis | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) as a new P-item |
-| **Testing** — new test coverage, test infrastructure, coverage targets | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) as a new P-item |
-| **Contributor/open-source docs** — architecture diagrams, guides, onboarding | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) as a new P-item |
+| **Feature work** — new calculator behaviour, TI-81 accuracy, UI improvements | (none) |
+| **Bug fix** — incorrect behaviour, crashes, display glitches | `[bug]` |
+| **Complexity debt** — complexity introduced by a commit | `[complexity]` |
+| **Refactoring** — function extraction, dispatch tables, code organisation | `[refactor]` |
+| **Testing** — new test coverage, property tests, test infrastructure | `[testing]` |
+| **Contributor/open-source docs** — architecture diagrams, guides, onboarding | `[docs]` |
+| **Hardware** — physical wiring, validation requiring a board | `[hardware]` |
 
-**Rule of thumb:** if the item is about *what the calculator does*, it goes in `Next session priorities`. If it is about *how the code is structured, validated, or documented for contributors*, it goes in QUALITY_TRACKER.
-
----
-
-## Project Maintenance
-
-**Project Update Procedure:** use [docs/PROJECT_UPDATE_PROCEDURE.md](docs/PROJECT_UPDATE_PROCEDURE.md) to sync documentation and status after any significant work.
-
-**Triggering Updates:** use the `/update-project` shortcut in Antigravity or follow the checklist in the procedure document.
+**Rule of thumb:** if there is work to do, it goes here. `MAINTENANCE_STANDARDS.md` describes standards; this file tracks work.
 
 ---
 
 ## Feature Completion Status (~72% of original TI-81, as of 2026-03-22)
 
-Sessions:
-- 2026-03-20: PRGM UI polish, colour palette extraction (`ui_palette.h`), PRGM module extraction to `ui_prgm.c`
-- 2026-03-21: `expr_util.c` extraction (9 pure functions), 301-test host suite, persist round-trip tests, HAL guards in `persist.c`, full quality review pass
-- 2026-03-21 (Session 6): `graph_ui.c` extraction (P2), float printf runtime guard (P8), FLASH sector map docs (P16)
-- 2026-03-21 (Session 7): Integrate project update procedure (workflow, documentation, guidelines)
-- 2026-03-21 (Session 8): Implement Global Hard QUIT (2nd+CLEAR) navigation
-- 2026-03-21 (Session 9): IDE/Build fixes (IntelliSense header fix, recursive include resolve, debug config fix, CMake build fix)
-- 2026-03-22 (Session 10): P6, P12, P13, P17 resolved (Sweet Spot items). -Werror enabled for App; Architecture/Testing/Troubleshooting docs created.
-- 2026-03-22 (Session 11): Implement Y= equation enable/disable toggle functionality. Update graph renderer and persistence (v4). Fixed a startup crash and multiple trace/graph transition freezes in `graph.c` and `graph_ui.c` (guards for zero-scale ticks, loop clamping for singularities, and LVGL mutex synchronization).
-- 2026-03-22 (Session 12): [P15] Expression pipeline documented in `TECHNICAL.md` with "2 + sin(45)" worked example. `QUALITY_TRACKER.md` updated.
-- 2026-03-22 (Session 13): Matrix history display refactored — column-aligned rows, horizontal scroll via LEFT/RIGHT when expression is empty, `<`/`>` clip indicators. `HistoryEntry_t` now embeds `CalcMatrix_t` copy. Build at 82.44% RAM.
-- 2026-03-22 (Session 15): P18 resolved — all 10 CODE_REVIEW_PENDING items complete. PRGM execution logic moved from `ui_prgm.c` to `prgm_exec.c` (−545 L / +540 L). Over-100-line functions split: `ShuntingYard` (3 helpers), `handle_yeq_mode` (navigation+insertion), `ui_init_graph_screens` (4 per-screen), `handle_history_nav` (`commit_history_entry`), `ui_refresh_display` (`render_result_row`), `try_tokenize_number` (2 helpers). Docs: README links, ARCHITECTURE diagram, `calc_internal.h` scope comment. `CODE_REVIEW_PENDING.md` deleted. Function complexity C+ → B. 301/301 tests pass. **Complexity delta: `decrease`** — pure function extractions and module responsibility correction; no new logic, state, or abstractions introduced.
-- 2026-03-22 (Session 16): Graph render speed — added `MATH_VAR_X` token and `GraphEquation_t` postfix cache API to `calc_engine`. `Graph_Render` now runs Tokenize+ShuntingYard once per equation per render (on equation change only) and calls `Calc_EvalGraphEquation` per pixel column. At x_res=1 parse cost drops from 320× to 1× per equation per frame. 301/301 tests pass. **Complexity delta: `neutral`** — performance optimization with no new logic; cache is bounded state replacing repeated identical work; new public API surface is focused (2 functions, 1 type).
-- 2026-03-22 (Session 17): `HistoryEntry_t` matrix ring buffer refactor — replaced embedded `CalcMatrix_t` (148 B) with 3-byte ring reference. 8-slot `matrix_ring[]` stores last 8 matrix results; generation counter detects eviction and falls back to pre-formatted `result` string. RAM: 82.44% → 81.82%. 301/301 tests pass. **Complexity delta: `decrease`** — resolves [complexity] debt from Session 13; no new logic or state abstractions.
-- 2026-03-22 (Session 18): RAM audit (P12) — root cause: LVGL heap (`work_mem_int`, 64 KB) and FreeRTOS heap (`ucHeap`, 64 KB) = 128 KB = 65% of 192 KB internal RAM; SDRAM had 63.5 MB free. Fix: `SDRAM` region added to linker script (`0xD0070800`), `.sdram (NOLOAD)` section, `LV_ATTRIBUTE_LARGE_RAM_ARRAY` redirects LVGL heap to SDRAM. RAM: 81.82% → 48.49%. 301/301 tests pass. **Complexity delta: `neutral`** — two-line config change and linker extension; no new logic or state.
-- 2026-03-22 (Session 19): PRGM system feature-complete — stale warning comments updated (`ui_prgm.c`/`ui_prgm.h`); `IS>(` and `DS<(` implemented in `prgm_exec.c` + CTL menu (items 13–14); `DispHome` and `DispGraph` implemented; `Output(row,col,"str")` implemented with `ui_output_row()` helper in `calculator_core.c`; `Menu("title","opt",Lbl,…)` fully implemented with dedicated LVGL overlay screen (`ui_prgm_menu_screen`) and UP/DOWN/1–9/ENTER/CLEAR key handling during execution. All 5 tasks from `docs/PRGM_COMPLETION.md` resolved. PRGM: ~50% → ~95% (hardware validation pending, P10). 301/301 tests pass. **Complexity delta: `neutral`** — all new handlers follow existing patterns; new `ui_prgm_menu_screen` follows the same LVGL screen creation pattern as all other PRGM screens.
-- 2026-03-22 (Session 20): PRGM command reference created — `docs/PRGM_COMMANDS.md` documents all 14 CTL commands (If/Then/Else/End/While/For/Goto/Lbl/Pause/Stop/Return/prgm/IS>/DS<), all 6 I/O commands, Output(, Menu(, expr->VAR, and expression lines with syntax, edge cases, and limits table. `docs/PRGM_COMPLETION.md` deleted (all tasks resolved; pre-flight checklist folded into QUALITY_TRACKER.md P10; file list coverage moved to `PRGM_COMMANDS.md`). 301/301 tests pass. **Complexity delta: `neutral`** — documentation only; no code changes.
-- 2026-03-22 (Session 21): Periodic code review — structural scan + Phase 2 direct reads. P19 (`prgm_execute_line` dispatch table, 495-line hotspot) and P20 (prgm exec host tests, ~80 tests) opened. `docs/CODE_REVIEW_PENDING.md` re-created with 7 action items. VARS/Y-VARS menu specs added to CLAUDE.md. Cross-reference audit clean. **Complexity delta: `neutral`** — documentation and review only; no code changes.
-- 2026-03-22 (Session 22): P19 resolved — `prgm_execute_line` dispatch table refactor. 22 static `cmd_*` handler functions extracted (3–50 lines each); `parse_incdec_args` shared helper eliminates IS>/DS< duplication; `CmdHandler_t`/`CmdEntry_t` dispatch table replaces 495-line if/else chain; `prgm_execute_line` body reduced to ~30 lines. Zero logic changes. `docs/CODE_REVIEW_PENDING.md` item 7 resolved. Function complexity "at risk" qualifier removed. 301/301 tests pass. **Complexity delta: `decrease`** — pure mechanical extraction; no new logic, state, or abstractions.
-- 2026-03-22 (Session 23): P20 resolved — program execution host test suite. `#ifndef HOST_TEST` guards added throughout `prgm_exec.c`/`.h` to strip LVGL/HAL/FreeRTOS dependencies. `App/Tests/prgm_exec_test_stubs.h` provides inline stubs for `prgm_parse_from_store`, `prgm_slot_is_used`, `prgm_slot_id_str`, `format_calc_result`. `App/Tests/test_prgm_exec.c`: 121 tests / 14 groups covering all command types (Goto/Lbl, If, Then/Else/End, While, For, IS>/DS<, Stop/Pause/Return, STO, Disp, Input/Prompt, ClrHome, subroutine call, complex programs). Bug fixed: `prgm_run_loop` Stop/Return/Goto-abort path did not reset `current_mode = MODE_NORMAL` — fixed by separating `!prgm_run_active` and `prgm_waiting_input` early-exit paths. Testing B+ → A-. 422/422 tests pass. **Complexity delta: `neutral`** — guards and test file; no new logic; bug fix is a one-line correction in the run loop.
-- 2026-03-25 (Session 27): PRGM manual test plan rewrite — comprehensive 50-test plan targeting Session 26 regressions. Added T09b/T09c (ENTER/CLEAR first-press in alpha name-entry), T11b (EDIT digit shortcut), T12b (insert mode default), T16b (ERASE all 37 slots), T35b (prgmNAME unnamed slot), T43b (ALPHA_LOCK editor), T45 (body-only editor open), T46 (sub-menu tab wrap). Notes section cross-references each Session 26 fix. Test count: 40 → 50. **Complexity delta: `neutral`** — documentation only; no code changes.
-- 2026-03-25 (Session 26): PRGM hardware test fixes — all 5 groups from manual test plan executed. **Group A** (UI bugs): ERASE shows all 37 slots; ALPHA fallback to key.normal in name-entry; EXEC/EDIT digit shortcuts; ERASE confirm immediate on digit key; DispGraph LVGL mutex fix; ALPHA_LOCK routes to editor. **Group B** (feature removals per spec): CTL menu → 8 items (Lbl/Goto/If/IS>/DS</Pause/End/Stop); I/O menu → 5 items (Disp/Input/DispHome/DispGraph/ClrHome); removed Then/Else/While/For/Return/Prompt/Output(/Menu( handlers and prgm_ctrl_stack/prgm_waiting_menu state; single-char Lbl/Goto constraint. **Group C** (execution model): EXEC tab inserts `prgmNAME` into expression; TOKEN_ENTER detects prgm prefix, runs program, shows `Done`; `prgm_lookup_slot` added to public API. **Group D** (editor): insert_mode=false on open; tab wrap; body-only slots open editor directly. **Group E** (alignment): Disp strings left-aligned in expression row, variables right-aligned in result row. Test suite: 378/378 pass (−44 tests for removed commands). Firmware: 48.45% RAM, 36.28% FLASH. **Complexity delta: `decrease`** — 8 handlers removed from dispatch table, prgm_ctrl_stack eliminated, prgm_build_occupied removed, 843 lines deleted vs 258 inserted.
-
-### Completed features
-
-| Feature | Log date | Notes |
-|---|---|---|
-| **Build**: Successful (fixed an implicit fallthrough error in `graph_ui.c` and multiple stability issues in `graph.c`, including a startup crash and a trace-related freeze).
-| **Flash**: Successful using OpenOCD to STM32F429I-DISC1.
-| ZBox rubber-band zoom | 2026-03-20 | Final validation on hardware pending |
-| UTF-8 cursor navigation | 2026-03-21 | 12 test groups; `expr_util.c` extracted |
-| Persist checksums/HAL | 2026-03-21 | FLASH sector 7 guard added; versioned header |
-| Graph UI extraction | 2026-03-21 | Removed 1.5k LOC from `calculator_core.c` (P2) |
-| Project Update Procedure | 2026-03-21 | Canonical sync rules + workflow automated |
-| Global Hard QUIT | 2026-03-22 | 2nd+CLEAR hard exit to main screen implemented |
-| Y= Toggle | 2026-03-22 | Equation enable/disable toggle from Y= editor implemented |
+Session log and completed features: [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md)
 
 ### Well-implemented (60–100%)
 
@@ -336,62 +250,12 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 ### Next session priorities (in order)
 
-> **Quality and refactoring items** are tracked in [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md), not here.
-> Open items: **P1, P3, P7, P10**. Highest ease-to-impact: P10 (hardware validation), P1 (property-based tests).
-
-**1. Y= equation enable/disable toggle** — ✅ Resolved 2026-03-22
-
 **3. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
 
 **4. Trace crosshair behaviour differs from original TI-81** — On the original hardware, pressing any non-arrow key while in trace exits trace and processes that key (e.g. GRAPH re-renders, CLEAR exits to calculator). Currently TRACE is a toggle (press again to exit), which is not original behaviour. Additionally, on the original TI-81 there is a free-roaming crosshair cursor visible on the plain graph screen (before pressing TRACE); pressing TRACE snaps the crosshair to the nearest curve. This free-roaming crosshair is not implemented — the graph canvas currently shows no cursor at all until TRACE is pressed. Investigate original behaviour and decide which deviations to correct.
 - Files: `App/Src/calculator_core.c` (trace mode handler `TOKEN_TRACE` case, `default` fallthrough behaviour)
 
-**5. Graph render speed** — ✅ Resolved 2026-03-22 (Session 16). Postfix cache added: `MATH_VAR_X` token lets ShuntingYard output be reused across pixel columns; `Calc_PrepareGraphEquation` / `Calc_EvalGraphEquation` API caches per-equation postfix in `graph.c`; parse cost 320× → 1× per equation per frame. ZBox rubber-band lag (item #6) is a separate per-keypress redraw issue — not addressed by this fix.
-
 **6. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
-
-**7. QUIT (2nd+CLEAR) always exits to main calculator screen** — ✅ Resolved 2026-03-22
-
-**8. Matrix result display — left-aligned columns with horizontal scroll** — ✅ Resolved 2026-03-22
-- `HistoryEntry_t` now embeds a `CalcMatrix_t matrix_data` copy + `bool has_matrix` flag. Matrix data is copied from `calc_matrices[result.matrix_idx]` at evaluation time so it survives beyond ANS slot reuse.
-- `matrix_format_row()` builds column-aligned rows on-the-fly using per-column max widths; `<`/`>` ASCII indicators show clip edges. History scroll state (`matrix_scroll_focus`, `matrix_scroll_offset`) set on each matrix ENTER result.
-- LEFT/RIGHT when `expr_len==0` and scroll focus is active pan the matrix view; all other keys use normal expression cursor logic.
-- **Note:** `<`/`>` were used instead of `…` (U+2026) because U+2026 is not in the current font. To use `…` instead, add `-r 0x2026` to the `lv_font_conv` regeneration commands in CLAUDE.md gotcha #14.
-- RAM impact: `HistoryEntry_t` grew from 192 B to ~344 B; 32×344=11 KB total history (up from 6 KB). Build RAM at 82.44% at end of Session 13; reduced to 81.82% in Session 17 (matrix ring buffer refactor — see complexity item).
-
-**9. Verify cursor activity uniformity across all screens** — ✅ Resolved 2026-03-22
-- Audited all 6 cursor implementations (main, Y=, RANGE, ZOOM FACTORS, MATRIX EDIT, PRGM editor/new-name).
-- **Bug fixed:** `matrix_edit_cursor_update()` in `calculator_core.c` was a no-op stub that shadowed the real implementation in `ui_matrix.c`, preventing the matrix editor cursor from blinking. Fixed by removing the stub and forward decl from `calculator_core.c`, making `matrix_edit_cursor_update()` non-static in `ui_matrix.c`, and declaring it in `ui_matrix.h`.
-- Remaining architecture note (low severity): RANGE, ZOOM FACTORS, and PRGM editor use character offsets (ASCII assumed); Y= and main use byte offsets with UTF-8 conversion. No functional impact since those editors only accept ASCII digits and letters.
-
-**10. Verify menu user interaction uniformity across all screens** — ✅ Resolved 2026-03-22
-- Audited UP/DOWN/ENTER/number-key navigation, tab switching, overflow indicators, CLEAR/exit behaviour, and return-to-caller logic across MATH, TEST, MATRIX, ZOOM, and MODE menus.
-- **Bug fixed:** `handle_matrix_menu` TOKEN_ZOOM case (`ui_matrix.c`) returned `false` with a stale comment claiming `zoom_menu_reset()` was not exposed. In fact `nav_to(MODE_GRAPH_ZOOM)` calls `zoom_menu_reset()` internally. Replaced `return false` with `nav_to(MODE_GRAPH_ZOOM); return true;`, making it consistent with TOKEN_Y_EQUALS, TOKEN_RANGE, TOKEN_GRAPH, and TOKEN_TRACE in the same handler.
-- All other menu behaviours are uniform and correct: MATH/TEST/MATRIX use `menu_open`/`menu_close` with `return_mode`; ZOOM is a graph screen with no `return_mode` (by design); MODE uses inline early-exit (non-modal); overflow indicators (↑/↓) are present where needed (MATH, ZOOM — 8 items each); TEST (6 items) and MATRIX (6/3 items) fit the viewport without scrolling.
-- No further irregularities requiring action.
-
-**12. Review RAM usage — LVGL and video interface consumption** — ✅ Resolved 2026-03-22
-- **Root cause found and fixed.** Two heap pools defaulted to internal RAM: LVGL heap (`work_mem_int`, 64 KB from `LV_MEM_SIZE`) and FreeRTOS heap (`ucHeap`, 64 KB from `configTOTAL_HEAP_SIZE`). Together = 128 KB = 65% of all 192 KB internal RAM. SDRAM had 63.5 MB free.
-- **Fix:** Added `SDRAM` region to `STM32F429XX_FLASH.ld` (origin `0xD0070800`, after the three framebuffers) with a `.sdram (NOLOAD)` section. Set `LV_ATTRIBUTE_LARGE_RAM_ARRAY __attribute__((section(".sdram")))` in `lv_conf.h` to relocate LVGL's heap pool to SDRAM. FreeRTOS heap stays in internal RAM (CCMRAM is not DMA-accessible; internal RAM is the correct location for task stacks).
-- **Result: internal RAM 81.8% → 48.5%** (64 KB freed). SDRAM usage: 0.70% → 0.80%. 301/301 tests pass.
-- **Confirmed via `arm-none-eabi-nm`:** `work_mem_int` is at `0xD0070800` (SDRAM); `ucHeap` remains at `0x20000ADC` (internal RAM). All three framebuffers confirmed at fixed SDRAM pointers (`graph_buf`, `graph_buf_clean` at `0xD0025800`/`0xD004B000`), not in linker sections.
-- **SDRAM layout (complete):**
-  ```
-  0xD0000000  LCD framebuffer    320×240×2 = 153,600 B  (fixed pointer in app_init.c)
-  0xD0025800  graph_buf          320×240×2 = 153,600 B  (fixed pointer in graph.c)
-  0xD004B000  graph_buf_clean    320×240×2 = 153,600 B  (fixed pointer in graph.c)
-  0xD0070800  .sdram section     64 KB = LVGL heap      (linker-placed, NOLOAD)
-  0xD0080800  free SDRAM         ~63.5 MB remaining
-  ```
-
-**13. Audit and unify colour scheme between calculator screen and menu screens** — ✅ Resolved 2026-03-22
-- All files already used named `COLOR_*` constants — no bare hex literals found. The only inconsistency was the main screen background using `COLOR_BG` (0x1A1A1A) while all menu/graph screens used `COLOR_BLACK` (0x000000). Fixed by replacing both `COLOR_BG` usages in `calculator_core.c` (screen background style and cursor-inner text colour) with `COLOR_BLACK`, then removing the now-unused `COLOR_BG` constant from `ui_palette.h`. Result: background is uniformly pure black across the calculator screen and all menus; grey history-expression text (`COLOR_GREY_MED`) and live-expression text (`COLOR_GREY_LIGHT`) have improved contrast on the darker background.
-
-**17. Fix STO> to evaluate the current expression, not just store ANS** — ✅ Resolved 2026-03-22
-- `TOKEN_STO` now calls `expr_prepend_ans_if_empty()` when `expr_len == 0`, so pressing STO on an empty line shows "ANS" before the STO prompt.
-- `handle_sto_pending()` now calls `Calc_Evaluate(expression, ...)` instead of storing `ans` directly. History expression shows `<expr>->A`; result shows the evaluated value. Expression buffer cleared after store (same as ENTER). Errors (syntax, data type for matrix results) abort the store and display the error string in the result row.
-
-**[complexity] Reduce HistoryEntry_t memory footprint** — ✅ Resolved 2026-03-22. Replaced `CalcMatrix_t matrix_data` (148 B) in `HistoryEntry_t` with a 3-byte ring reference (`matrix_ring_idx`, `matrix_ring_gen`, `matrix_rows_cache`). An 8-slot `CalcMatrix_t matrix_ring[]` holds the last 8 matrix results; generation-based eviction detection falls back to the pre-formatted `result` string. RAM: 82.44% → 81.82%. 301/301 tests pass. **Complexity delta: `decrease`** — no new logic; pure data layout improvement.
 
 **18. Expand font glyph set for VARS/STAT display** — Regenerate both LVGL font files adding the following codepoints to the `lv_font_conv` commands in gotcha #14:
 - ȳ — U+0233 (`-r 0x0233`)
@@ -425,372 +289,31 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
   After all replacements: build, flash to hardware, visually verify each glyph at the relevant font size (menu items use 20px; key labels / Y= labels use 24px).
 
+**[complexity] ui_prgm.c EXEC sub-menu extraction** — Session 29 added `handle_prgm_exec_menu()` (~90 lines), `ui_update_prgm_exec_display()`, and `prgm_new_name_cursor`/`prgm_editor_from_new` state to `ui_prgm.c`, growing it ~200 lines. Extract the EXEC slot-picker handler into a focused helper or inline it with the CTL/IO handlers in a shared `handle_prgm_submenu()` dispatcher to reduce duplication across the three nearly-identical sub-menu handlers. Files: `App/Src/ui_prgm.c`.
+
+**[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, 378 host tests pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
+
+**[testing] P1 — Property-based tests (testing A- → A)** — Suite is at A- (378 tests, 80.28% branch coverage). Add property-based invariant tests: sin²(x)+cos²(x)=1 for 1,000 x values; `Calc_FormatResult` scientific notation boundary check. Files: `App/Tests/test_calc_engine.c`.
+
+**[refactor] P21 — Extract shared field-editor helper** — `handle_range_mode` (~235 lines) and `handle_zoom_factors_mode` (~161 lines) implement identical digit/DEL/cursor/commit logic. Extract `field_editor_handle(token, buf, len, cursor, fields, count) → bool`; both handlers shrink to ~40 lines. Zero logic change. Effort ~2–4 hrs. Files: `App/Src/graph_ui.c`.
+
+**[refactor] P22 — Split `handle_normal_mode` into focused sub-handlers** — Function is ~130 lines; extract remaining inline clusters (TOKEN_CLEAR, TOKEN_MODE, TOKEN_STO, graph nav) as static helpers; reduce to ~40-line switch dispatcher. Zero logic change. Effort ~1–2 hrs. Prerequisite for UI token dispatch host tests. Files: `App/Src/calculator_core.c`.
+
+**[refactor] P23 — Split `handle_yeq_navigation` into cursor-move and row-switch helpers** — Function is ~128 lines mixing cursor LEFT/RIGHT stepping, UP/DOWN row switching, and MATH/TEST menu re-entry. Extract `yeq_cursor_move()` and `yeq_row_switch()` as static helpers; reduce to ~40-line dispatcher. Zero logic change. Effort ~1–2 hrs. Prerequisite for UI token dispatch host tests. Files: `App/Src/graph_ui.c`.
+
+**[refactor] P24 — Replace `try_tokenize_identifier` sequential chain with a dispatch table** — 157-line if/strncmp chain over function name prefixes. Replace with a `static const struct { const char *name; Token_t tok; }` array + linear scan. Function shrinks to ~40 lines. Zero behaviour change. Effort ~1–2 hrs. Files: `App/Src/calc_engine.c`.
+
+**[docs] P25 — Rewrite `docs/PRGM_COMMANDS.md` to match post-Session-26 command set** — File reflects pre-Session-26 commands. Rewrite to match current 8-CTL/5-IO spec: remove Then/Else/While/For/Return/Prompt/Output(/Menu( entries; document single-char Lbl/Goto constraint; document EXEC-tab execution model. Effort ~1–2 hrs. Files: `docs/PRGM_COMMANDS.md`.
+
+**[refactor] P3 — Handler state params Phase 3 (optional, high regression risk)** — Phase 1+2 complete (named sub-structs, statics consolidated). Phase 3: modify `handle_math_menu`, `handle_test_menu`, `handle_mode_screen`, and matrix handlers to accept `State_t *` parameters instead of module-level statics; handlers become host-testable in isolation. High regression risk — every handler signature changes. Effort ~8–16 hrs. Files: `App/Src/calculator_core.c`.
+
+**[hardware] P7 — Physical TI-81 ribbon pad ↔ STM32 GPIO wiring table** — STM32 GPIO side complete. Remaining: trace each TI-81 PCB ribbon pad to A-line/B-line with a multimeter on a donor board. Requires physical hardware access; indefinite timeline. Files: `docs/GETTING_STARTED.md`.
+
 ---
 
 ## Menu Specs
 
-These specs describe the intended final state of each menu screen.
-
-### General menu rules
-- The menu top bar uses the same font as the items below.
-- When a menu scrolls, the top tab bar stays fixed and items scroll into the visible window.
-- Normal cursor entry applies in menus (INS toggles overwrite/insert; LEFT/RIGHT move cursor).
-- Overflow indicators: ↓ (U+2193) at bottom means list continues below; ↑ (U+2191) at top means list continues above. Both glyphs are in the font and implemented in code (`\xE2\x86\x93` / `\xE2\x86\x91`).
-
----
-
-### MODE screen
-No title text. Screen filled with option rows; arrow keys navigate.
-
-| Row | Options | Wired? |
-|-----|---------|--------|
-| 1 | Normal \| Sci \| Eng | No — display notation not implemented |
-| 2 | Float \| 0 1 2 3 4 5 6 7 8 9 | Yes — `mode_committed[1]`, `Calc_SetDecimalMode()` |
-| 3 | Radian \| Degree | Yes — `mode_committed[2]`, `angle_degrees` |
-| 4 | Function \| Param | No — parametric graphing not implemented |
-| 5 | Connected \| Dot | No — Connected/Dot curve rendering not implemented |
-| 6 | Sequential \| Simul | No — simultaneous graphing not implemented |
-| 7 | Grid off \| Grid on | Yes — `mode_committed[6]`, `graph_state.grid_on` |
-| 8 | Polar \| Seq | No — polar/sequence graphing not implemented |
-
-- LEFT/RIGHT moves selection within a row. UP/DOWN changes active row.
-- ENTER commits the highlighted selection; stays in MODE screen.
-- Active selections stored in `mode_committed[8]`; wired rows take effect immediately on ENTER.
-- MODE key opens the MODE screen from any screen (handled as an early-return check before all mode handlers in `Execute_Token`).
-
----
-
-### MATH menu
-Four tabs. Tab LEFT/RIGHT; item UP/DOWN; ENTER or number key inserts.
-
-**MATH tab:**
-```
-MATH NUM HYP PRB
-1:R>P(
-2:P>R(
-3:³           (cubed symbol)
-4:∛(          (cube root symbol)
-5: !
-6:°           (degree symbol)
-7↓r           (↓ = overflow indicator; list continues)
-  8:NDeriv(   (visible after scrolling)
-```
-
-**NUM tab:**
-```
-MATH NUM HYP PRB
-1:Round(
-2:iPart
-3:fPart
-4:int(
-```
-
-**HYP tab:**
-```
-MATH NUM HYP PRB
-1:sinh(
-2:cosh(
-3:tanh(
-4:asinh(
-5:acosh(
-6:atanh(
-```
-
-**PRB tab:**
-```
-MATH NUM HYP PRB
-1:rand
-2: nPr        (spaces before and after are inserted into expression)
-3: nCr        (spaces before and after are inserted into expression)
-```
-
----
-
-### ZOOM menu
-```
-ZOOM
-1:Box
-2:Zoom In
-3:Zoom Out
-4:Set Factors
-5:Square
-6:Standard
-7↓Trig        (↓ = overflow indicator)
-  8:Integer   (visible after scrolling)
-```
-Navigation: UP/DOWN cursor; ENTER selects. Number keys 1–8 are direct shortcuts.
-
-**Set Factors sub-screen (implemented):**
-```
-ZOOM FACTORS
-XFact=4
-YFact=4
-```
-
----
-
-### RANGE menu
-```
-RANGE
-Xmin=
-Xmax=
-Xscl=
-Ymin=
-Ymax=
-Yscl=
-Xres=
-```
-Cursor edits value directly after the `=` sign. ENTER/UP/DOWN commit and move between fields.
-
----
-
-### MATRIX menu (deferred)
-
-**Navigation model — important:** The MATRIX menu does **not** work like MATH or TEST. Selecting an item from the MATRIX tab inserts a function token (e.g. `det(`, `rowSwap(`) into the calling expression and closes the menu. But selecting a matrix from the EDIT tab **never** inserts a `[A]`/`[B]`/`[C]` token anywhere — it always drills down into that matrix's cell editor (`MODE_MATRIX_EDIT`), regardless of what screen was active before the menu was opened. There is no "insert matrix name into previous screen" flow; matrix names reach the expression only via the dedicated MTRX_A/B/C key tokens (2nd layer on keypad).
-
-**MATRIX tab:**
-```
-MATRIX EDIT
-1:RowSwap(
-2:Row+(
-3:*Row(
-4:*Row+(
-5:det(
-6:T            (transpose superscript)
-```
-
-**EDIT tab:**
-```
-MATRIX EDIT
-1:[A] 3×3
-2:[B] 3×3
-3:[C] 3×3
-```
-Pressing ENTER on any EDIT item opens the cell editor for that matrix (`MODE_MATRIX_EDIT`). It does not insert `[A]`, `[B]`, or `[C]` into any expression.
-
----
-
-### TEST menu
-
-No tabs. "TEST" title at top row (yellow), 6 items below.
-
-```
-TEST
-1:=
-2:≠
-3:>
-4:≥
-5:<
-6:≤
-```
-
-Navigation: UP/DOWN cursor; ENTER selects. Number keys 1–6 are direct shortcuts.
-CLEAR or 2nd+MATH exits. Accessible from normal mode (2nd+MATH) and from the Y= editor.
-Selected operator is inserted at the cursor position as a UTF-8 string.
-All 6 operators are fully evaluated by `calc_engine.c` — return 1 (true) or 0 (false).
-and/or/not are not present on the TI-81 and are not planned.
-
-
-### STAT menu
-
-**CALC tab:**
-```
-CALC DRAW DATA
-1:1-Var
-2:LinReg
-3:LnReg
-4:ExpReg
-5:PwrReg
-```
-
-**DRAW tab:**
-```
-CALC DRAW DATA
-1:Hist
-2:Scatter
-3:xyLine
-```
-
-**DATA tab:**
-```
-CALC DRAW DATA
-1:Edit
-2:ClrStat
-3:xSort
-4:ySort
-```
-
----
-
-### DRAW menu
-
-**DRAW tab:**
-```
-DRAW
-1:ClrDraw
-2:Line(
-3:PT-On(
-4:PT-Off(
-5:PT-Chg(
-6:DrawF
-7:Shade(
-```
-
----
-
-### VARS menu (VARS key)
-
-Five tabs: XY / Σ / LR / DIM / RNG. Tab LEFT/RIGHT; item UP/DOWN or number key; ENTER inserts the variable name at the cursor.
-
-> **Font note:** x̄ (U+0305 combining overline), ȳ (U+0233), and Σ used as tab label all require font additions before display. Σ (U+03A3) is already in the font; x̄ and ȳ must be added (e.g. `-r 0x0078,0x0233` / combining overline approach or dedicated glyphs).
-
-**XY tab** (statistics summary variables):
-```
-XY Σ LR DIM RNG
-1:n
-2:x̄
-3:Sx
-4:σx
-5:ȳ
-6:Sy
-7:σy    
-```
-
-**Σ tab** (summation variables):
-```
-XY Σ LR DIM RNG
-1:Σx
-2:Σx²
-3:Σy
-4:Σy²
-5:Σxy
-```
-
-**LR tab** (linear regression variables):
-```
-XY Σ LR DIM RNG
-1:a
-2:b
-3:r
-4:RegEQ
-```
-
-**DIM tab** (matrix dimension variables):
-```
-XY Σ LR DIM RNG
-1:Arow
-2:Acol
-3:Brow
-4:Bcol
-5:Crow
-6:Ccol
-7:Dim{x}
-```
-
-**RNG tab** (window range variables):
-```
-XY Σ LR DIM RNG
-1:Xmin
-2:Xmax
-3:Xscl
-4:Ymin
-5:Ymax
-6:Yscl
-7↓Xres   (↓ = overflow indicator; list continues)
-  8:Tmin
-  9:Tmax
-  0:Tstep
-```
-
----
-
-### Y-VARS menu (2nd+VARS)
-
-Three tabs: Y / ON / OFF. Tab LEFT/RIGHT; item UP/DOWN or number key. Y tab inserts equation reference into expression; ON/OFF tabs turn named equations on or off directly (no insertion).
-
-**Y tab** (equation references):
-```
-Y ON OFF
-1:Y₁
-2:Y₂
-3:Y₃
-4:Y₄
-5:X₁t
-6:Y₁t
-7↓X₂t   (↓ = overflow indicator; list continues)
-  8:Y₂t
-  9:X₃t
-  0:Y₃t
-```
-
-**ON tab** (enable equations):
-```
-Y ON OFF
-1:All-On
-2:Y₁-On
-3:Y₂-On
-4:Y₃-On
-5:Y₄-On
-6:X₁t-On
-7↓X₂t-On   (↓ = overflow indicator; list continues)
-  8:X₃t-On
-```
-
-**OFF tab** (disable equations):
-```
-Y ON OFF
-1:All-Off
-2:Y₁-Off
-3:Y₂-Off
-4:Y₃-Off
-5:Y₄-Off
-6:X₁t-Off
-7↓X₂t-Off   (↓ = overflow indicator; list continues)
-  8:X₃t-Off
-```
-
----
-
-### PRGM editor sub-menus
-
-Accessible only while editing a program (PRGM → EDIT → select a slot). A three-tab bar
-(CTL / I/O / EXEC) replaces the standard calculator interface. Tab LEFT/RIGHT switches tabs;
-UP/DOWN highlights items; ENTER or a number key inserts the selected token at the cursor.
-Overflow indicator (↓/↑) overwrites the `:` prefix glyph, same as MATH and ZOOM menus.
-
-**CTL tab:**
-```
-CTL I/O EXEC
-1:Lbl
-2:Goto
-3:If
-4:IS>(
-5:DS<(
-6:Pause
-7↓End
-8:Stop
-```
-
-**I/O tab:**
-```
-CTL I/O EXEC
-1:Disp
-2:Input
-3:DispHome
-4:DispGraph
-5:ClrHome
-```
-
-**EXEC tab:**
-```
-CTL I/O EXEC
-1:Prgm1
-2:Prgm2
-…
-```
-Lists all 37 program slots with user-assigned names (same `N:PrgmN  USER_NAME` format as the
-main PRGM EXEC screen). Selecting a slot inserts a `prgm<name>` subroutine-call token at the
-cursor. Overflow indicators (↓/↑) overwrite the `:` prefix glyph when the list scrolls.
+See **[docs/MENU_SPECS.md](docs/MENU_SPECS.md)** — single source of truth for all menu layouts, navigation rules, and implementation status. Read it before working on any menu UI.
 
 ---
 
@@ -842,76 +365,7 @@ CubeMX resets these when regenerating — always check after any `.ioc` changes.
 
 ## Architecture
 
-### File structure
-```
-App/Src/                        ← application sources (custom, not CubeMX)
-    app_init.c          — RTOS objects, hardware bring-up, LVGL init, render loop, Power_EnterStop
-    calculator_core.c   — UI creation, token processing, calculator state
-    calc_engine.c       — tokenizer, shunting-yard, RPN evaluator
-    expr_util.c         — pure expression-buffer helpers (UTF-8, insert, delete, cursor)
-    graph.c             — graph canvas, renderer, axes, curve plotting
-    graph_ui.c          — graph screen UI and handlers (extracted module)
-    persist.c           — FLASH erase/write/load for calculator state (.RamFunc routines)
-    prgm_exec.c         — program execution interpreter + FLASH sector 11 storage (execution functions moved here from ui_prgm.c in Session 15)
-    ui_matrix.c         — matrix cell editor UI (extracted module)
-    ui_prgm.c           — program menu and editor UI (extracted module)
-App/Inc/                        ← application headers (custom, not CubeMX)
-    app_init.h          — App_RTOS_Init() and App_DefaultTask_Run() declarations
-    app_common.h        — shared types, extern declarations, CalcMode_t enum
-    calc_engine.h       — math engine public API
-    calc_internal.h     — shared internal state for calculator UI modules
-    expr_util.h         — expression buffer utility API
-    graph.h             — graphing subsystem public API
-    graph_ui.h          — graph screen UI interface
-    persist.h           — persistent storage API
-    prgm_exec.h         — program execution API (prgm_run_start, prgm_run_loop, prgm_reset_execution_state) + storage API + shared execution types (CtrlFrame_t, CallFrame_t)
-    ui_matrix.h         — matrix editor UI interface
-    ui_prgm.h           — program menu UI interface
-    ui_palette.h        — named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)
-App/Fonts/
-    JetBrainsMono-Regular.ttf — source font (Apache 2.0; committed so regeneration is always possible)
-    jetbrains_mono_20.c — JetBrains Mono 20px LVGL font (generated)
-    jetbrains_mono_24.c — JetBrains Mono 24px LVGL font (generated)
-App/HW/Keypad/
-    keypad.c/h          — hardware key matrix scanning
-    keypad_map.c/h      — Token_t enum, hardware key → token lookup table
-App/Display/
-    lv_conf.h           — LVGL configuration
-    lv_port_disp.c/h    — LVGL display driver (LTDC port layer)
-    lv_port_indev.c/h   — LVGL input driver (keypad port layer)
-App/Tests/
-    CMakeLists.txt      — host test build (4 executables, 378 tests total)
-    test_calc_engine.c  — 153 tests: tokenizer, shunting-yard, RPN, matrix
-    test_expr_util.c    — 96 tests: UTF-8 cursor, insert/delete, matrix atomicity
-    test_persist_roundtrip.c — 52 tests: PersistBlock_t checksum and round-trip
-    test_prgm_exec.c    — 77 tests:  active command handlers, control flow, subroutine call
-    prgm_exec_test_stubs.h — inline stubs for host-compilation of prgm_exec.c
-Core/Inc/                       ← CubeMX generated (regenerated from .ioc)
-    main.h, stm32f4xx_hal_conf.h, stm32f4xx_it.h, FreeRTOSConfig.h
-Core/Src/                       ← CubeMX generated (regenerated from .ioc)
-    main.c              — HAL init, SDRAM init, LTDC/LCD setup, task creation
-    freertos.c          — FreeRTOS task definitions
-    stm32f4xx_it.c, stm32f4xx_hal_msp.c, system_stm32f4xx.c, sysmem.c, syscalls.c
-```
-
-### Task architecture
-```
-KeypadTask   → scans matrix every 20ms → posts Token_t to keypadQueueHandle
-CalcCoreTask → blocks on queue → calls Execute_Token()
-DefaultTask  → runs lv_task_handler() in a loop (LVGL tick + cursor blink timer)
-```
-
-### LVGL thread safety
-All LVGL calls must be wrapped:
-```c
-lvgl_lock();
-// lv_* calls here
-lvgl_unlock();
-```
-Defined in `calculator_core.c` using `xLVGL_Mutex`.
-
-**Critical:** Never call `lvgl_lock()` inside `cursor_timer_cb()` — it runs inside
-`lv_task_handler()` which DefaultTask already holds the mutex for; a second lock deadlocks.
+See [docs/TECHNICAL.md](docs/TECHNICAL.md) for the full technical reference (directory map, file listing, build configuration, implementation details). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for visual task and module diagrams. The gotchas below cover traps not obvious from those docs.
 
 ---
 
@@ -939,6 +393,7 @@ typedef enum {
     MODE_PRGM_EDITOR,        // Program line editor
     MODE_PRGM_CTL_MENU,      // PRGM CTL sub-menu (If, For, While…)
     MODE_PRGM_IO_MENU,       // PRGM I/O sub-menu (Disp, Input…)
+    MODE_PRGM_EXEC_MENU,     // PRGM EXEC sub-menu (subroutine slot picker from editor)
     MODE_PRGM_RUNNING,       // Program execution in progress
     MODE_PRGM_NEW_NAME,      // Name-entry dialog for new program
 } CalcMode_t;

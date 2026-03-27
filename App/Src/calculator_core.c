@@ -596,7 +596,7 @@ void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
         default:
             show       = cursor_visible;
             box_color  = lv_color_hex(COLOR_GREY_LIGHT);
-            inner_text = insert_mode ? "I" : "";
+            inner_text = "";  /* insert mode shown by underscore shape, not letter */
             break;
     }
 
@@ -610,7 +610,15 @@ void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
 
     int32_t lx = lv_obj_get_x(row_label);
     int32_t ly = lv_obj_get_y(row_label);
-    lv_obj_set_pos(cbox, lx + pos.x, ly + pos.y);
+
+    /* Insert mode: underscore-style cursor (3 px at character baseline).
+     * Overwrite mode: full-height block cursor (26 px). */
+    bool in_insert = insert_mode && !sto_pending
+                     && current_mode != MODE_2ND
+                     && current_mode != MODE_ALPHA
+                     && current_mode != MODE_ALPHA_LOCK;
+    lv_obj_set_height(cbox, in_insert ? 3 : 26);
+    lv_obj_set_pos(cbox, lx + pos.x, ly + pos.y + (in_insert ? 23 : 0));
 
     lv_obj_set_style_bg_color(cbox, box_color, 0);
     lv_label_set_text(cinner, inner_text);
@@ -1172,7 +1180,9 @@ static void math_menu_insert(const char *ins)
     lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
 
-    if (s_math.return_mode == MODE_GRAPH_YEQ) {
+    if (s_math.return_mode == MODE_PRGM_EDITOR) {
+        prgm_editor_menu_insert(ins);   /* F4: redirect to program editor */
+    } else if (s_math.return_mode == MODE_GRAPH_YEQ) {
         current_mode = MODE_GRAPH_YEQ;
         graph_ui_yeq_insert(ins);
     } else {
@@ -1212,7 +1222,9 @@ static void test_menu_insert(const char *ins)
     lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
 
-    if (s_test.return_mode == MODE_GRAPH_YEQ) {
+    if (s_test.return_mode == MODE_PRGM_EDITOR) {
+        prgm_editor_menu_insert(ins);   /* F4: redirect to program editor */
+    } else if (s_test.return_mode == MODE_GRAPH_YEQ) {
         current_mode = MODE_GRAPH_YEQ;
         graph_ui_yeq_insert(ins);
     } else {
@@ -2058,13 +2070,17 @@ void Execute_Token(Token_t t)
     if (current_mode == MODE_MATRIX_MENU)         { if (handle_matrix_menu(t))        return; }
     if (current_mode == MODE_MATRIX_EDIT)         { handle_matrix_edit(t); return; }
     if (current_mode == MODE_PRGM_MENU)           { if (handle_prgm_menu(t))          return; }
-    if (current_mode == MODE_PRGM_NEW_NAME)       { if (handle_prgm_new_name(t))      return; }
+    /* F5b: ALPHA_LOCK in name-entry — same pattern as A6 editor fix below */
+    if (current_mode == MODE_PRGM_NEW_NAME ||
+        (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_NEW_NAME))
+                                                  { if (handle_prgm_new_name(t))      return; }
     /* A6: ALPHA_LOCK in editor — current_mode stays MODE_ALPHA_LOCK; route by return_mode */
     if (current_mode == MODE_PRGM_EDITOR ||
         (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_EDITOR))
                                                   { if (handle_prgm_editor(t))        return; }
     if (current_mode == MODE_PRGM_CTL_MENU)       { if (handle_prgm_ctl_menu(t))      return; }
     if (current_mode == MODE_PRGM_IO_MENU)        { if (handle_prgm_io_menu(t))       return; }
+    if (current_mode == MODE_PRGM_EXEC_MENU)      { if (handle_prgm_exec_menu(t))     return; }
 
     if (sto_pending) { if (handle_sto_pending(t)) return; }
 
@@ -2169,6 +2185,10 @@ void Process_Hardware_Key(uint8_t key_id)
     }
 
     if (token_to_send != TOKEN_NONE) {
+        /* F1: on CLEAR, abort any running program immediately from keypadTask so
+         * prgm_run_loop() (on CalcCoreTask) exits on its next iteration check. */
+        if (token_to_send == TOKEN_CLEAR)
+            prgm_request_abort();  /* no-op if not running */
         if (xQueueSend(keypadQueueHandle, &token_to_send, 0) != pdPASS) {
             /* Queue full — keypress dropped */
         }

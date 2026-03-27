@@ -47,11 +47,20 @@ bool handle_prgm_new_name(Token_t t);
 bool handle_prgm_editor(Token_t t);
 bool handle_prgm_ctl_menu(Token_t t);
 bool handle_prgm_io_menu(Token_t t);
+bool handle_prgm_exec_menu(Token_t t);
 bool handle_prgm_running(Token_t t);
 
 void prgm_menu_open(CalcMode_t return_to);
 CalcMode_t prgm_menu_close(void);
 void prgm_editor_cursor_update(void);
 void prgm_new_cursor_update(void);
+
+/**
+ * @brief Insert string @p s into the current program editor line, flatten the
+ *        store, refresh the editor display, and restore MODE_PRGM_EDITOR.
+ *        Called from math_menu_insert / test_menu_insert when the menu was
+ *        opened from within the program editor (return_mode == MODE_PRGM_EDITOR).
+ */
+void prgm_editor_menu_insert(const char *s);
 
 #endif
