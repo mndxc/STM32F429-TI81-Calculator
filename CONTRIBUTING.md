@@ -52,7 +52,7 @@ To keep the codebase consistent, please follow these conventions:
 - **Documentation:**
     - Use Doxygen-style comments for public header functions.
     - Keep `CLAUDE.md`, `TECHNICAL.md`, and `docs/ARCHITECTURE.md` updated with any architectural changes.
-    - **Sync Procedure:** after any significant session or feature completion, follow the tiered update rules in [docs/PROJECT_UPDATE_PROCEDURE.md](docs/PROJECT_UPDATE_PROCEDURE.md) to ensure all tracking files and public numbers are in sync.
+    - **Sync Procedure:** after any significant session or feature completion, follow the update rules in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md) to ensure all tracking files and public numbers are in sync.
 
 ## Complexity Management
 
@@ -82,11 +82,11 @@ When adding a to-do item, place it in the correct location — never duplicate i
 | **Feature work** — new calculator behaviour, UI improvements | `Next session priorities` in `CLAUDE.md` |
 | **Bug fix** — incorrect behaviour, crashes, display glitches | `Next session priorities` in `CLAUDE.md` |
 | **Complexity debt** — introduced by a commit that needs paying down | `Next session priorities` in `CLAUDE.md` (tag `[complexity]`) |
-| **Code quality** — compiler warnings, CI gates, refactoring, static analysis | `docs/QUALITY_TRACKER.md` as a new P-item |
-| **Testing** — new test coverage, test infrastructure, coverage targets | `docs/QUALITY_TRACKER.md` as a new P-item |
-| **Contributor/open-source docs** — architecture diagrams, guides, onboarding | `docs/QUALITY_TRACKER.md` as a new P-item |
+| **Code quality** — compiler warnings, CI gates, refactoring, static analysis | `Next session priorities` in `CLAUDE.md` (tag `[refactor]`) |
+| **Testing** — new test coverage, test infrastructure, coverage targets | `Next session priorities` in `CLAUDE.md` (tag `[testing]`) |
+| **Contributor/open-source docs** — architecture diagrams, guides, onboarding | `Next session priorities` in `CLAUDE.md` (tag `[docs]`) |
 
-**Rule of thumb:** if the item is about *what the calculator does*, it goes in `CLAUDE.md`. If it is about *how the code is structured, validated, or documented for contributors*, it goes in `QUALITY_TRACKER.md`.
+**Rule of thumb:** all work items go in `CLAUDE.md` "Next session priorities". `docs/MAINTENANCE_STANDARDS.md` defines process standards — read it before starting significant work.
 
 ---
 

@@ -60,10 +60,77 @@ All 378 tests pass on plain x86/ARM Linux and macOS with any standard C compiler
 | Read the full technical reference | [docs/TECHNICAL.md](docs/TECHNICAL.md) |
 | Run the host tests | [docs/TESTING.md](docs/TESTING.md) |
 | Troubleshoot common issues | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) |
-| See open quality & readiness issues | [docs/QUALITY_TRACKER.md](docs/QUALITY_TRACKER.md) |
+| See development process standards | [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md) |
 | Understand display stability and power-off behaviour | [docs/DISPLAY_STABILITY.md](docs/DISPLAY_STABILITY.md) |
 | Understand power management and Stop mode | [docs/POWER_MANAGEMENT.md](docs/POWER_MANAGEMENT.md) |
 | Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
+
+### Documentation map
+
+```mermaid
+flowchart TD
+    README["📖 README.md\nProject overview & nav hub"]
+    CLAUDE["🤖 AI Dev Context\nCLAUDE.md · session state,\nfeature backlog & gotchas\nused by Claude Code only"]
+
+    subgraph onboard["🚀 Getting Started"]
+        CONTRIBUTING["CONTRIBUTING.md\nHow to contribute"]
+        COC["CODE_OF_CONDUCT.md\nCommunity standards"]
+        GETTING["GETTING_STARTED.md\nBuild · wire · flash"]
+    end
+
+    subgraph tech["🏗️ Technical Reference"]
+        ARCH["ARCHITECTURE.md\nSystem design & diagrams"]
+        TECHNICAL["TECHNICAL.md\nFull implementation reference"]
+        MENU["MENU_SPECS.md\nAll menu layouts & nav rules"]
+        POWER["POWER_MANAGEMENT.md\nStop mode sleep/wake spec"]
+        DISPLAY["DISPLAY_STABILITY.md\nPixel clock & display config"]
+    end
+
+    subgraph process["📏 Process & History"]
+        MAINT["MAINTENANCE_STANDARDS.md\nQuality gates & update rules"]
+        HISTORY["PROJECT_HISTORY.md\nSession log & milestones"]
+    end
+
+    subgraph testing["🧪 Testing & Debugging"]
+        TESTING["TESTING.md\nHost + hardware test strategy"]
+        PRGM_MANUAL["prgm_manual_tests.md\nPRGM 50-test hardware plan"]
+        TROUBLESHOOT["TROUBLESHOOTING.md\nCommon issues & fixes"]
+    end
+
+    subgraph features["📝 Feature Docs"]
+        PRGM_CMD["PRGM_COMMANDS.md\nPRGM command reference"]
+    end
+
+    README --> CONTRIBUTING
+    README --> GETTING
+    README --> ARCH
+    README --> TECHNICAL
+    README --> MAINT
+    README --> TESTING
+    README --> TROUBLESHOOT
+    README --> MENU
+    README --> POWER
+
+    CLAUDE --> MAINT
+    CLAUDE --> HISTORY
+
+    CONTRIBUTING --> COC
+    CONTRIBUTING --> GETTING
+    CONTRIBUTING --> ARCH
+    CONTRIBUTING --> MAINT
+    CONTRIBUTING --> TECHNICAL
+
+    ARCH --> TECHNICAL
+
+    MAINT --> HISTORY
+
+    TESTING --> TECHNICAL
+    TESTING --> PRGM_MANUAL
+    TROUBLESHOOT --> TECHNICAL
+    TROUBLESHOOT --> GETTING
+```
+
+> `CLAUDE.md` is read automatically by Claude Code at session start. Human contributors can ignore it — everything a contributor needs is linked from the table above and from `CONTRIBUTING.md`.
 
 ### Datasheets
 
