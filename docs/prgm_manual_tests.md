@@ -3,7 +3,7 @@
 Hardware: STM32F429I-DISC1. Run after flashing the latest build.
 Pass criterion listed for each test. Mark ✅ / ❌ / ⚠️.
 
-Last updated: 2026-03-25 (Session 27: complete rewrite; targets Session 26 regression fixes)
+Last updated: 2026-03-27 (Session 29: T21 expected text corrected; T06/T08/T46 updated for F10/F3; new T09d/T33b/T46b added; Notes updated)
 
 ---
 
@@ -46,6 +46,12 @@ Type `TEST` (T, E, S, T on ALPHA layer). Then ENTER.
 **Expected:** `Prgm1:TEST` updates as each letter is typed. On ENTER, editor opens with title `Prgm1  TEST` and one blank `:` line with cursor.
 RESULT: SEE NOTE Regarding navigation while entering program names
 
+### T06a — Name-entry LEFT/RIGHT cursor navigation (F10)
+**Steps:** On name-entry screen with `ABCD` typed, press LEFT twice.
+**Expected:** Cursor moves back two characters (now between `AB` and `CD`). Press `X` (on ALPHA layer).
+**Expected:** `X` is inserted at the cursor: field now reads `ABXCD`. Press RIGHT RIGHT — cursor moves to end. DEL removes `D`.
+RESULT:
+
 ### T07 — Create new program — skip name (name is optional)
 **Steps:** PRGM → RIGHT (EDIT tab) → select an empty slot → ENTER → immediately press ENTER again (no name typed).
 **Expected:** Editor opens with title `Prgm<N>` (no user name). The slot still appears in the ERASE tab (all 37 slots are always shown). Program body can be edited normally.
@@ -56,10 +62,22 @@ RESULT: PASS
 **Expected:** Each character appended: `A`, `1`, `B`, `2`. Digits `1` and `2` typed without requiring ALPHA. On ENTER, editor opens with title showing `A1B2` as the user name.
 RESULT: SEE NOTE Regarding navigation while entering program names
 
+### T08a — Name-entry DOWN navigates to editor body; UP returns to name (F10)
+**Steps:** On name-entry screen with `MYTEST` typed, press DOWN.
+**Expected:** Editor body opens (no name save dialog). First program line `:` is visible with cursor. Title shows `PrgmN  MYTEST`.
+Now press UP from editor line 0 (with cursor at col 0).
+**Expected:** Name-entry screen re-appears with `MYTEST` intact. Cursor positioned at end of name.
+RESULT:
+
 ### T09 — Name entry DEL
 **Steps:** From name-entry screen, type two or three letters, then press DEL.
-**Expected:** Last character removed with the **first** DEL press (not the second). Cursor moves back. ALPHA mode re-engages. Next keypress continues inserting a letter without re-pressing ALPHA.
+**Expected:** Last character removed with the **first** DEL press (not the second). Cursor moves back. ALPHA mode re-engages automatically. Next keypress continues inserting a letter without re-pressing ALPHA.
 RESULT: FAIL Alpha lock does not re-engage. User must press delete then press ALPHA then it proceeds as described. After pressing DEL the cursor returns to non-alpha but if the user presses 2nd+ALPHA in this state all characters are sent to calculator screen.
+
+### T09d — 2nd+ALPHA (ALPHA_LOCK) in name entry routes to name field (F5b)
+**Steps:** From name-entry screen, press 2nd+ALPHA to engage ALPHA_LOCK.
+**Expected:** Cursor turns green with `A` inside. Typing letters inserts them into the **name field** (not the calculator expression). ALPHA_LOCK remains until ALPHA is pressed again.
+RESULT:
 
 ### T09b — ENTER works on first press after name
 **Steps:** From name-entry screen, type a name (e.g. `MYTEST`). Press ENTER exactly once.
@@ -173,8 +191,8 @@ RESULT: PASS
 Input A
 Disp A
 ```
-When `A=?` prompt appears, type `7` and press ENTER.
-**Expected:** `A=?` shown as expression row. After ENTER, `7` shown as result. `7` displayed by Disp. A=7 in variable store after.
+When `?` prompt appears, type `7` and press ENTER.
+**Expected:** `?` shown as expression row (variable name **not** shown — original TI-81 behaviour). After ENTER, `7` shown as result. `7` displayed by Disp. A=7 in variable store after.
 RESULT: SEE NOTE regarding 'Input' program command
 
 ### T22 — If single-line skip
@@ -289,27 +307,34 @@ RESULT: PASS
 ```
 Disp "SUB"
 ```
-Create program in slot 1 with body:
+Create program in slot 1 with body (use PRGM → EXEC tab to insert `prgm2`):
 ```
 Disp "MAIN"
 prgm2
 Disp "BACK"
 ```
+To insert `prgm2`: in the editor on the second line, press PRGM → navigate RIGHT to EXEC tab → navigate to slot 2 → ENTER. Confirm `:prgm2` appears on that line.
 Run slot 1.
 **Expected:** History shows `MAIN`, then `SUB`, then `BACK` in order. The subroutine returns automatically when its last line is reached (no explicit Return needed).
 RESULT: FAIL - EXEC menu entirely missing from PRGM menus while in program edit mode
+
+### T33b — EXEC sub-menu tab navigation and insertion (F3)
+**Steps:** Open any program in the editor. Press PRGM to open the CTL sub-menu. Press RIGHT to switch to I/O tab. Press RIGHT again.
+**Expected:** EXEC tab is highlighted (third tab). A scrollable list of all 37 slots is shown (`N:PrgmN` or `N:PrgmN  NAME`). Navigate to slot 2 → ENTER.
+**Expected:** EXEC menu closes. Editor line now contains `:prgm2` (or `:prgmNAME` if slot 2 is named). Press PRGM → LEFT from CTL: wraps to EXEC tab.
+RESULT:
 
 ### T34 — Nested subroutine (2 levels deep)
 **Steps:** Create slot 3:
 ```
 Disp "DEEP"
 ```
-Create slot 2:
+Create slot 2 (insert `prgm3` via PRGM → EXEC tab):
 ```
 prgm3
 Disp "MID"
 ```
-Create slot 1:
+Create slot 1 (insert `prgm2` via PRGM → EXEC tab):
 ```
 prgm2
 Disp "TOP"
@@ -393,9 +418,16 @@ RESULT: PASS
 RESULT: PASS
 
 ### T46 — Tab wrap in sub-menus
-**Steps:** While in the editor, press PRGM to open the CTL sub-menu. Press LEFT from the CTL tab.
-**Expected:** Navigation wraps from CTL to the rightmost tab (EXEC or I/O, whichever is last). Pressing RIGHT at the last tab wraps back to CTL.
+**Steps:** While in the editor, press PRGM to open the CTL sub-menu. Three tabs are visible: CTL (yellow), I/O, EXEC. Press LEFT from CTL.
+**Expected:** Navigation wraps to EXEC (rightmost). Press LEFT again → I/O. Press LEFT again → CTL. Pressing RIGHT from CTL → I/O → EXEC → CTL (wrap).
 RESULT: PASS
+
+### T46b — EXEC sub-menu digit and ALPHA+letter shortcuts (F3/F6)
+**Steps:** On the EXEC sub-menu tab, press `2` directly.
+**Expected:** Menu closes immediately; `:prgm2` inserted into the current line (same as navigating to slot 2 and pressing ENTER).
+Now open EXEC tab again. Press ALPHA+A.
+**Expected:** `:prgmA` inserted (or `:prgmNAME` if slot A is named). Slot A = slot index 10.
+RESULT:
 
 ---
 
@@ -403,12 +435,17 @@ RESULT: PASS
 
 - All tab and item highlights are **yellow** (`0xFFFF00`). Scroll indicators are **amber** (`0xFFAA00`). If you see amber on a tab or item cursor (not an arrow), that is a regression.
 - T09/T09b/T09c: The A2 fix ensures ENTER, DEL, and CLEAR act on their primary function on the **first** keypress even when ALPHA mode is auto-engaged. If any of these require two presses, the fix is not working.
-- T11b: Digit shortcuts in EDIT tab were added in Session 26 (A3 fix). Keys `1`–`9` map to slots 0–8; `0` maps to slot 9.
-- T12b: Insert mode was on by default in the editor before Session 26 (D1 bug). Default must be overwrite (no shift-right behavior).
-- T16/T16b: ERASE tab shows all 37 slots (A1 fix). Before Session 26, it showed only named slots. The immediate-confirmation fix (A4) means digit keys `1` or `2` execute immediately without ENTER.
-- T22 If-single-line: The `If` command skips exactly one following line when the condition is false. There is no `Then/Else/End` block structure — those commands were removed from this implementation.
-- T35/T35b prgmNAME: Execution model change in Session 26 (C1). Programs are no longer run automatically on EXEC selection; they are inserted into the expression buffer first.
-- T37 DispGraph: Session 26 (A5) fixed the LVGL deadlock. This test should complete without a hardware reset.
+- T09 DEL re-engages ALPHA: Session 29 (F5a) fixed this. After DEL the cursor stays in ALPHA mode — next keypress should insert a letter without pressing ALPHA again.
+- T09d 2nd+ALPHA routing: Session 29 (F5b) fixed ALPHA_LOCK routing so letters go to the name field, not the calculator screen.
+- T11b/ALPHA+letter shortcuts: Session 29 (F6) added ALPHA+letter (slots 10–35) and ALPHA+θ (slot 36) shortcuts to all three PRGM tabs (EXEC, EDIT, ERASE).
+- T12b insert mode: Session 29 (F8) added INS key to toggle insert mode in the editor. Default is overwrite. In insert mode the cursor renders as a 3 px underline (not `I` in a box — that was the old incorrect rendering).
+- T16 ERASE tab shortcuts: Session 29 (F7) extended digit and ALPHA+letter shortcuts to the ERASE tab — selecting a slot immediately shows the confirmation dialog.
+- T21 Input prompt: Session 29 (F9) changed `cmd_input()` to always show `?` only. The `A=?` format is gone. This matches the original TI-81 behaviour.
+- T22 TEST/MATH in editor: Session 29 (F4) wired TOKEN_TEST and TOKEN_MATH in the editor handler. Pressing 2nd+MATH or 2nd+TEST from the editor now opens the respective menu; the selection is inserted into the current program line.
+- T24 CLEAR aborts: Session 29 (F1) added `prgm_request_abort()` called from keypadTask + `osDelay(0)` per line. A few `X` rows may appear before CLEAR is processed (queue latency) — that is acceptable.
+- T33/T34/T33b EXEC sub-menu: Session 29 (F3) added the EXEC tab to the in-editor CTL/IO sub-menu. Three tabs now: CTL (default) → I/O → EXEC. Use PRGM → RIGHT → RIGHT to reach EXEC. Slot picker works like the main PRGM EXEC tab.
+- T37 DispGraph: Session 29 (F2) added `osDelay(20)` before `Graph_Render` in `cmd_dispgraph`. Should complete without lockup.
+- T06a/T08a Name-entry arrow navigation: Session 29 (F10) implemented LEFT/RIGHT cursor movement, DOWN transitions to editor body, UP at editor line 0 returns to name-entry screen.
 - T43b ALPHA_LOCK: Session 26 (A6) fixed routing so ALPHA_LOCK keystrokes go to the program editor, not the calculator. Before the fix, letters typed in ALPHA_LOCK went to the calculator expression.
 - T45 body-only: Session 26 (D3) fixed detection — a slot with body content but no user name should open the editor directly, not the name-entry screen.
 - T25 Lbl/Goto: Session 26 (B4) enforces single-character labels in the editor input handler. Attempting to type a second label character after `Lbl A` is silently ignored.
@@ -416,19 +453,6 @@ RESULT: PASS
 - I/O menu has exactly **5 items**: `Disp`, `Input`, `DispHome`, `DispGraph`, `ClrHome`. `Prompt`, `Output(`, and `Menu(` are **not present** — if seen, that is a regression.
 - T17 requires a full power cycle (USB unplug/replug), not just SWD reset, to verify FLASH persistence. 2nd+ON saves state first.
 - T33/T34 subroutine: maximum call stack depth is 4; exceeding it causes the `prgm` call to be treated as a no-op (no crash). There is no explicit Return command — subroutines auto-return on the last line.
-- T24 may produce several `X` rows before CLEAR is processed (queue latency); that is acceptable.
 - Keypad alpha-layer mapping: T=key for X position, E=key for LOG position, etc. Verify against physical keypad sticker if uncertain.
-
-
-Navigation while entering program names:
-arrow keys should operate as expected. left and right moving through the field characters and down/up moving into the body of the program and back up into the name entry field when inside the body.
-When entering ALPHA lock manually by presing 2nd+ALPHA text entered appears on the calculator screen instead of the program name field
-
-Inserting new line:
-when in edit mode for program, pressing INS insert key should allow a new line to be inserted if the enter key is pressed. Currently there appears to be no such 'insert' mode as expected in the program edit mode
-
-New cursor issue discovered:
-Current indicator of 'insert' mode active is a blinking cursor box with an I inside it. On the original caclulator insert mode was indicated by a flashing underscore. Insert mode while alpha was engaged is indicated by a blinking underscore with a capital A above it.
-
-Input program command:
-In the original there is simply a question mark that appears on calculator screen to indicate a prompt for entry. there's not a variable name shown, just a normal flashing cursor directly to the right of the question mark which is aligned on the far left of the screen. When input is sent to program after typing it in, there is not any additional feedback displaying what was just entered into the prompt, it is simply just sent back to program.
+- T35/T35b prgmNAME: Execution model change in Session 26 (C1). Programs are no longer run automatically on EXEC selection; they are inserted into the expression buffer first.
+- T12b: Insert mode was on by default in the editor before Session 26 (D1 bug). Default must be overwrite (no shift-right behavior). INS key now correctly toggles it.
