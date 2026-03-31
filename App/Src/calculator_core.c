@@ -400,6 +400,7 @@ void cursor_box_create(lv_obj_t *parent, bool start_hidden,
     lv_obj_set_style_pad_all(box, 0, 0);
     lv_obj_set_style_radius(box, 0, 0);
     lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(box, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
 
     lv_obj_t *inner = lv_label_create(box);
     lv_obj_set_style_text_font(inner, &jetbrains_mono_24, 0);
@@ -612,11 +613,11 @@ void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
     int32_t ly = lv_obj_get_y(row_label);
 
     /* Insert mode: underscore-style cursor (3 px at character baseline).
-     * Overwrite mode: full-height block cursor (26 px). */
-    bool in_insert = insert_mode && !sto_pending
-                     && current_mode != MODE_2ND
-                     && current_mode != MODE_ALPHA
-                     && current_mode != MODE_ALPHA_LOCK;
+     * Overwrite mode: full-height block cursor (26 px).
+     * In insert mode the box is 3 px tall; the inner label (^/A) overflows
+     * above the underline via LV_OBJ_FLAG_OVERFLOW_VISIBLE, giving a combined
+     * "underline + mode indicator" visual for insert+2ND or insert+ALPHA. */
+    bool in_insert = insert_mode && !sto_pending;
     lv_obj_set_height(cbox, in_insert ? 3 : 26);
     lv_obj_set_pos(cbox, lx + pos.x, ly + pos.y + (in_insert ? 23 : 0));
 

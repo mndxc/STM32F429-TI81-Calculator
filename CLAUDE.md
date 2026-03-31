@@ -6,7 +6,7 @@
 
 Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before starting any significant work. It defines what to update after each commit, which numbers to keep in sync, file structure rules, quality scorecard baselines, and the Full Update Checklist. Use `/update-project` to trigger a full sync. All open work items live in "Next session priorities" below; resolved items and milestone history are in [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md).
 
-Current overall rating: **93–95% production-ready**. Key remaining gaps: PRGM hardware validation pending. Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 378-test host suite with CI.
+Current overall rating: **93–95% production-ready**. Key remaining gaps: PRGM hardware validation pending. Key strengths: documentation (A+), RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 396-test host suite with CI.
 
 ---
 
@@ -151,10 +151,10 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 ./build/tests/test_calc_engine        # 153 tests: tokenizer, shunting-yard, RPN, matrix, edge cases
 ./build/tests/test_expr_util          # 96 tests:  UTF-8 cursor, insert/delete, matrix token atomicity
 ./build/tests/test_persist_roundtrip  # 52 tests:  PersistBlock_t checksum, validation, field round-trip
-./build/tests/test_prgm_exec          # 77 tests:  active command handlers, control flow, subroutine call
+./build/tests/test_prgm_exec          # 95 tests:  active command handlers, control flow, subroutine call, empty body, lookup, 2-deep nesting
 ```
 
-All four executables exit 0 on full pass (378 total tests). CI runs them automatically on every push/PR with gcov branch coverage measurement. Enable coverage locally with `-DCOVERAGE=ON`.
+All four executables exit 0 on full pass (396 total tests). CI runs them automatically on every push/PR with gcov branch coverage measurement. Enable coverage locally with `-DCOVERAGE=ON`.
 
 ---
 
@@ -291,9 +291,9 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[complexity] ui_prgm.c EXEC sub-menu extraction** — Session 29 added `handle_prgm_exec_menu()` (~90 lines), `ui_update_prgm_exec_display()`, and `prgm_new_name_cursor`/`prgm_editor_from_new` state to `ui_prgm.c`, growing it ~200 lines. Extract the EXEC slot-picker handler into a focused helper or inline it with the CTL/IO handlers in a shared `handle_prgm_submenu()` dispatcher to reduce duplication across the three nearly-identical sub-menu handlers. Files: `App/Src/ui_prgm.c`.
 
-**[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, 378 host tests pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
+**[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, 396 host tests pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
 
-**[testing] P1 — Property-based tests (testing A- → A)** — Suite is at A- (378 tests, 80.28% branch coverage). Add property-based invariant tests: sin²(x)+cos²(x)=1 for 1,000 x values; `Calc_FormatResult` scientific notation boundary check. Files: `App/Tests/test_calc_engine.c`.
+**[testing] P1 — Property-based tests (testing A- → A)** — Suite is at A- (396 tests, 80.28% branch coverage). Add property-based invariant tests: sin²(x)+cos²(x)=1 for 1,000 x values; `Calc_FormatResult` scientific notation boundary check. Files: `App/Tests/test_calc_engine.c`.
 
 **[refactor] P21 — Extract shared field-editor helper** — `handle_range_mode` (~235 lines) and `handle_zoom_factors_mode` (~161 lines) implement identical digit/DEL/cursor/commit logic. Extract `field_editor_handle(token, buf, len, cursor, fields, count) → bool`; both handlers shrink to ~40 lines. Zero logic change. Effort ~2–4 hrs. Files: `App/Src/graph_ui.c`.
 
@@ -304,6 +304,12 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 **[refactor] P24 — Replace `try_tokenize_identifier` sequential chain with a dispatch table** — 157-line if/strncmp chain over function name prefixes. Replace with a `static const struct { const char *name; Token_t tok; }` array + linear scan. Function shrinks to ~40 lines. Zero behaviour change. Effort ~1–2 hrs. Files: `App/Src/calc_engine.c`.
 
 **[docs] P25 — Rewrite `docs/PRGM_COMMANDS.md` to match post-Session-26 command set** — File reflects pre-Session-26 commands. Rewrite to match current 8-CTL/5-IO spec: remove Then/Else/While/For/Return/Prompt/Output(/Menu( entries; document single-char Lbl/Goto constraint; document EXEC-tab execution model. Effort ~1–2 hrs. Files: `docs/PRGM_COMMANDS.md`.
+
+**[refactor] P26 — Dedup MATH/TEST cross-screen navigation block** — `handle_math_menu` and `handle_test_menu` each contain a nearly identical ~30-line block handling TOKEN_Y_EQUALS/RANGE/ZOOM/GRAPH/TRACE. Extract `static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret, uint8_t *cursor, uint8_t *scroll)` helper; both handlers shrink by ~25 lines. Zero logic change. Effort ~1 hr. Files: `App/Src/calculator_core.c`.
+
+**[refactor] P27 — Normalize menu state reset on nav_to transitions** — MATH menu resets item_cursor/scroll_offset to 0 when navigating to a graph screen; ZOOM menu does not. This inconsistency causes cursor positions to be unexpectedly preserved on return. Normalize all menu handlers: call state reset before any `nav_to()`. Zero visible behaviour change (cursors start at top consistently). Effort ~1 hr. Files: `App/Src/calculator_core.c`, `App/Src/graph_ui.c`.
+
+**[refactor] P28 — Unified `cursor_render()` function** — There are 7 independent cursor-update functions (`cursor_update`, `yeq_cursor_update`, `range_cursor_update`, `zoom_factors_cursor_update`, `matrix_edit_cursor_update`, `prgm_new_cursor_update`, `prgm_editor_cursor_update`) each containing near-identical `cursor_place()` calls. Extract a single `cursor_render(box, inner, parent_label, glyph_pos, visible, mode, insert)` public function; per-editor update functions become thin wrappers that compute glyph_pos and call through. All cursor visual changes (shape, color, mode indicator) are then in one place. Prerequisite for any future cursor behaviour change. Effort ~8–12 hrs. Files: `App/Src/calculator_core.c`, `App/Src/graph_ui.c`, `App/Src/ui_prgm.c`, `App/Src/ui_matrix.c`.
 
 **[refactor] P3 — Handler state params Phase 3 (optional, high regression risk)** — Phase 1+2 complete (named sub-structs, statics consolidated). Phase 3: modify `handle_math_menu`, `handle_test_menu`, `handle_mode_screen`, and matrix handlers to accept `State_t *` parameters instead of module-level statics; handlers become host-testable in isolation. High regression risk — every handler signature changes. Effort ~8–16 hrs. Files: `App/Src/calculator_core.c`.
 

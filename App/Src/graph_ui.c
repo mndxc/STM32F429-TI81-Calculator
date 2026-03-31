@@ -1053,34 +1053,20 @@ static bool handle_yeq_insertion(Token_t t)
     }
 
     if (append != NULL && !s_yeq.on_equal) {
-        size_t len = strlen(append);
-        if (!insert_mode && len == 1 && s_yeq.cursor_pos < eq_len) {
-            uint8_t cur_size = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, eq_len);
-            if (!cur_size) cur_size = ExprUtil_Utf8CharSize(&eq[s_yeq.cursor_pos]);
-            if (cur_size <= 1) {
-                eq[s_yeq.cursor_pos++] = append[0];
-            } else {
-                memmove(&eq[s_yeq.cursor_pos + 1],
-                        &eq[s_yeq.cursor_pos + cur_size],
-                        eq_len - s_yeq.cursor_pos - cur_size + 1);
-                eq[s_yeq.cursor_pos++] = append[0];
-            }
-            lvgl_lock();
-            lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
-            yeq_reflow_rows();
-            yeq_cursor_update();
-            lvgl_unlock();
-        } else if (eq_len + len < 63) {
-            memmove(&eq[s_yeq.cursor_pos + len], &eq[s_yeq.cursor_pos],
-                    eq_len - s_yeq.cursor_pos + 1);
-            memcpy(&eq[s_yeq.cursor_pos], append, len);
-            s_yeq.cursor_pos += (uint8_t)len;
-            lvgl_lock();
-            lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
-            yeq_reflow_rows();
-            yeq_cursor_update();
-            lvgl_unlock();
+        size_t slen = strlen(append);
+        uint8_t eq_len_u8 = (uint8_t)eq_len;
+        if (slen == 1) {
+            ExprUtil_InsertChar(eq, &eq_len_u8, &s_yeq.cursor_pos, 63, insert_mode, append[0]);
+        } else if (eq_len_u8 + (uint8_t)slen < 63) {
+            ExprUtil_InsertStr(eq, &eq_len_u8, &s_yeq.cursor_pos, 63, append);
+        } else {
+            return true;
         }
+        lvgl_lock();
+        lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
+        yeq_reflow_rows();
+        yeq_cursor_update();
+        lvgl_unlock();
     }
     return true;
 }

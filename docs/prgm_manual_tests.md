@@ -3,7 +3,7 @@
 Hardware: STM32F429I-DISC1. Run after flashing the latest build.
 Pass criterion listed for each test. Mark ✅ / ❌ / ⚠️.
 
-Last updated: 2026-03-27 (Session 29: T21 expected text corrected; T06/T08/T46 updated for F10/F3; new T09d/T33b/T46b added; Notes updated)
+Last updated: 2026-03-28 (Session 30: new RESULT fields added for re-validation run)
 
 ---
 
@@ -12,28 +12,33 @@ Last updated: 2026-03-27 (Session 29: T21 expected text corrected; T06/T08/T46 u
 ### T01 — Open PRGM menu
 **Steps:** From calculator home, press PRGM.
 **Expected:** PRGM menu opens showing `EXEC  EDIT  ERASE` tab bar. EXEC tab highlighted **yellow**. All 37 program slots listed in format `1:Prgm1`, `2:Prgm2`, … `9:Prgm9`, `0:Prgm0`, `A:PrgmA`, … `θ:Prgmθ`. Programs that have been given a user name show it in a second column: `1:Prgm1  MYNAME`.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T02 — Tab navigation (with wrap)
 **Steps:** With PRGM menu open, press RIGHT twice.
 **Expected:** Active tab advances: EXEC → EDIT → ERASE. Tab highlight (yellow) moves. EXEC, EDIT, and ERASE all show all 37 slots in the same `N:PrgmN` format (with optional user name column). Named slots show `N:PrgmN  NAME` in all three tabs.
 Also verify wrap: pressing LEFT at EXEC wraps to ERASE; pressing RIGHT at ERASE wraps to EXEC.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T03 — Scroll indicators on EXEC/EDIT
 **Steps:** Open PRGM menu on EXEC or EDIT tab. Press DOWN repeatedly past the 7th visible slot.
 **Expected:** `↓` amber indicator appears at the bottom of the list when more items exist below. `↑` amber indicator appears at the top once scrolled past the first slot. Indicators disappear when scrolled to the respective boundary.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T04 — Close PRGM menu
 **Steps:** With PRGM menu open, press CLEAR.
 **Expected:** PRGM menu closes, calculator home screen returns. Expression buffer unchanged.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T05 — Open PRGM menu from MATH menu
 **Steps:** Open MATH menu (MATH key), then press PRGM.
 **Expected:** MATH menu closes, PRGM menu opens on EXEC tab. No display corruption.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ---
 
@@ -44,7 +49,8 @@ RESULT: PASS
 **Expected:** Name-entry screen appears showing `Prgm1:` with cursor. Alpha mode auto-engaged (green cursor with `A` inside).
 Type `TEST` (T, E, S, T on ALPHA layer). Then ENTER.
 **Expected:** `Prgm1:TEST` updates as each letter is typed. On ENTER, editor opens with title `Prgm1  TEST` and one blank `:` line with cursor.
-RESULT: SEE NOTE Regarding navigation while entering program names
+PREV RESULT: SEE NOTE Regarding navigation while entering program names
+RESULT:
 
 ### T06a — Name-entry LEFT/RIGHT cursor navigation (F10)
 **Steps:** On name-entry screen with `ABCD` typed, press LEFT twice.
@@ -55,12 +61,14 @@ RESULT:
 ### T07 — Create new program — skip name (name is optional)
 **Steps:** PRGM → RIGHT (EDIT tab) → select an empty slot → ENTER → immediately press ENTER again (no name typed).
 **Expected:** Editor opens with title `Prgm<N>` (no user name). The slot still appears in the ERASE tab (all 37 slots are always shown). Program body can be edited normally.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T08 — Digits allowed in program name
 **Steps:** PRGM → RIGHT (EDIT tab) → select an empty slot → ENTER → type `A1B2` (ALPHA+A, then 1, then ALPHA+B, then 2) → ENTER.
 **Expected:** Each character appended: `A`, `1`, `B`, `2`. Digits `1` and `2` typed without requiring ALPHA. On ENTER, editor opens with title showing `A1B2` as the user name.
-RESULT: SEE NOTE Regarding navigation while entering program names
+PREV RESULT: SEE NOTE Regarding navigation while entering program names
+RESULT:
 
 ### T08a — Name-entry DOWN navigates to editor body; UP returns to name (F10)
 **Steps:** On name-entry screen with `MYTEST` typed, press DOWN.
@@ -72,7 +80,8 @@ RESULT:
 ### T09 — Name entry DEL
 **Steps:** From name-entry screen, type two or three letters, then press DEL.
 **Expected:** Last character removed with the **first** DEL press (not the second). Cursor moves back. ALPHA mode re-engages automatically. Next keypress continues inserting a letter without re-pressing ALPHA.
-RESULT: FAIL Alpha lock does not re-engage. User must press delete then press ALPHA then it proceeds as described. After pressing DEL the cursor returns to non-alpha but if the user presses 2nd+ALPHA in this state all characters are sent to calculator screen.
+PREV RESULT: FAIL Alpha lock does not re-engage. User must press delete then press ALPHA then it proceeds as described. After pressing DEL the cursor returns to non-alpha but if the user presses 2nd+ALPHA in this state all characters are sent to calculator screen.
+RESULT:
 
 ### T09d — 2nd+ALPHA (ALPHA_LOCK) in name entry routes to name field (F5b)
 **Steps:** From name-entry screen, press 2nd+ALPHA to engage ALPHA_LOCK.
@@ -82,27 +91,32 @@ RESULT:
 ### T09b — ENTER works on first press after name
 **Steps:** From name-entry screen, type a name (e.g. `MYTEST`). Press ENTER exactly once.
 **Expected:** Editor opens on the **first** ENTER press. A second ENTER press is not required.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T09c — CLEAR works on first press in name entry
 **Steps:** From name-entry screen with letters typed (alpha mode engaged), press CLEAR.
 **Expected:** Returns to PRGM menu on EDIT tab on the **first** CLEAR press. No name or body saved. A second CLEAR press is not required.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T10 — Cancel name entry (empty)
 **Steps:** From name-entry screen (no letters typed), press CLEAR.
 **Expected:** Returns to PRGM menu on EDIT tab. No name or body saved.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T11 — Open existing program from EDIT tab
 **Steps:** With at least one named program, open PRGM → EDIT tab → navigate to that slot (shows `N:PrgmN  NAME`) → ENTER.
 **Expected:** Editor opens directly (no name-entry screen). Title shows `PrgmN  NAME`.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T11b — EDIT tab digit shortcut
 **Steps:** Open PRGM → RIGHT (EDIT tab). Press `1` without pressing UP/DOWN.
 **Expected:** The editor for slot 1 (Prgm1) opens immediately. A second keypress or ENTER is not required.
-RESULT: FAIL -  while this does work with numeric shortcut keys it fails when the user presses ALPHA+LETTER instead of activating the shortcut for them
+PREV RESULT: FAIL -  while this does work with numeric shortcut keys it fails when the user presses ALPHA+LETTER instead of activating the shortcut for them
+RESULT:
 
 ---
 
@@ -111,41 +125,48 @@ RESULT: FAIL -  while this does work with numeric shortcut keys it fails when th
 ### T12 — Editor cursor and character input
 **Steps:** Open editor for any program slot. Type `A+1` (TOKEN_A in ALPHA layer, TOKEN_ADD, TOKEN_1).
 **Expected:** Characters appear on the current (yellow-highlighted) line as `:A+1`. Cursor advances with each keypress.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T12b — Insert mode off by default
 **Steps:** Open any program in the editor. Without pressing INS, type a character at a non-end cursor position (navigate LEFT first).
 **Expected:** The character at the cursor is **overwritten** (not inserted), matching the default overwrite behavior of the main calculator entry. The cursor does not push following characters to the right unless INS was pressed.
-RESULT: FAIL - insert stuck on, unable to deactivate. Also the cursor does not indicate that it is in INSERT mode. See new cursor issue note
+PREV RESULT: FAIL - insert stuck on, unable to deactivate. Also the cursor does not indicate that it is in INSERT mode. See new cursor issue note
+RESULT:
 
 ### T13 — CTL sub-menu inserts keyword
 **Steps:** In editor, press PRGM (opens CTL sub-menu). Navigate to `3:If ` and press ENTER (or press `3`).
 **Expected:** CTL menu closes. Editor line now contains `:If ` with cursor after it.
 Also verify: CTL menu has exactly **8 items**, all fitting without scrolling:
 `1:Lbl`, `2:Goto`, `3:If`, `4:IS>(`, `5:DS<(`, `6:Pause`, `7:End`, `8:Stop`.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T14 — I/O sub-menu inserts keyword
 **Steps:** In editor, press PRGM (CTL sub-menu opens). Press LEFT or RIGHT to switch to I/O tab. Navigate to `1:Disp ` and press ENTER (or press `1`).
 **Expected:** I/O menu closes. Editor line contains `:Disp ` with cursor after it.
 I/O menu has exactly **5 items**, all fitting without scrolling:
 `1:Disp`, `2:Input`, `3:DispHome`, `4:DispGraph`, `5:ClrHome`.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T15 — Multi-line editing and scroll
 **Steps:** In editor, press ENTER six times to create 7+ lines. Keep pressing DOWN.
 **Expected:** `↓` amber indicator appears on the last visible line when lines extend beyond 7 rows. `↑` appears when scrolled past row 0. Title stays fixed. Lines scroll correctly.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T16 — Erase a program via ERASE tab
 **Steps:** Go to PRGM → RIGHT RIGHT (ERASE tab). All 37 slots are visible. Navigate to any slot (named or unnamed) → ENTER.
 **Expected:** Confirmation dialog appears showing the slot title and `1:Do not erase` / `2:Erase`. Press `2` directly — the slot is erased **immediately** (no extra ENTER required). Press `1` directly to cancel immediately. Program body and name cleared; slot shows bare `N:PrgmN` format again.
-RESULT: FAIL while this does operate as explained here - it fails to operate when the menu shortcuts are entered to select the program slot to erase. Any time there is a menu with shortcuts shown they should be exactly the same as navigating to that item and pressing enter
+PREV RESULT: FAIL while this does operate as explained here - it fails to operate when the menu shortcuts are entered to select the program slot to erase. Any time there is a menu with shortcuts shown they should be exactly the same as navigating to that item and pressing enter
+RESULT:
 
 ### T16b — ERASE shows all 37 slots (not just named ones)
 **Steps:** Ensure some program slots have names and others are empty. Open PRGM → ERASE tab.
 **Expected:** All 37 slots are visible — both named and unnamed. Named slots show `N:PrgmN  NAME`; unnamed slots show only `N:PrgmN`. Slot count does not change between EXEC, EDIT, and ERASE tabs.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ---
 
@@ -154,7 +175,8 @@ RESULT: PASS
 ### T17 — Programs survive 2nd+ON / power cycle
 **Steps:** Create a program named `SAVE` in slot 1 with body `Disp "OK"`. Press 2nd+ON to save state. Power-cycle the board (USB unplug/replug). Open PRGM.
 **Expected:** `1:Prgm1  SAVE` appears in EXEC and EDIT lists. Body intact when opened in editor.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ---
 
@@ -168,13 +190,16 @@ Disp "HELLO"
 From calculator home, open PRGM → EXEC tab → navigate to slot 1 → ENTER.
 **Expected:** PRGM menu closes. Calculator home shows `prgmHELLO` in the expression buffer (left-aligned, grey text). Press ENTER.
 **Expected (after ENTER):** `HELLO` appears in history output. History expression row shows `prgmHELLO` (grey, left-aligned). After execution, `Done` appears as the result row (white, right-aligned). Mode returns to normal.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T19 — Run an empty slot (no-op)
 **Steps:** In EXEC tab, navigate to a slot with no body (shows `N:PrgmN` with no user name column). Press ENTER.
 **Expected:** PRGM menu closes. Calculator home shows `prgmN` in the expression buffer. Press ENTER.
 **Expected:** `Done` appears as result row. No error. No crash or lockup.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 15 (test_empty_body) — empty-body execution covered; skip if host suite passes and no prgm_exec.c changes.
+RESULT:
 
 ### T20 — Expression evaluation and ANS
 **Steps:** Create and run program:
@@ -183,7 +208,9 @@ RESULT: PASS
 Disp ANS
 ```
 **Expected:** `4` appears in history output. ANS is 4 after program completes.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 9 (test_general_expr) — expression evaluation and ANS update covered; skip if host suite passes and no prgm_exec.c changes.
+RESULT:
 
 ### T21 — Input and variable store
 **Steps:** Create and run program:
@@ -193,7 +220,9 @@ Disp A
 ```
 When `?` prompt appears, type `7` and press ENTER.
 **Expected:** `?` shown as expression row (variable name **not** shown — original TI-81 behaviour). After ENTER, `7` shown as result. `7` displayed by Disp. A=7 in variable store after.
-RESULT: SEE NOTE regarding 'Input' program command
+PREV RESULT: SEE NOTE regarding 'Input' program command
+HOST COVERAGE: test_prgm_exec Group 11 (test_input_prompt) partial — suspension and variable store covered; `?` prompt display and variable readback require hardware.
+RESULT:
 
 ### T22 — If single-line skip
 **Steps:** Create and run program:
@@ -204,12 +233,15 @@ Disp "YES"
 Disp "DONE"
 ```
 **Expected:** `YES` does NOT appear (condition false → next line skipped). `DONE` appears. Mode returns to normal.
-RESULT: FAIL - Unable to enter the TEST menu to select a conditional operator to insert. Also unable to enter the MATH menu
+PREV RESULT: FAIL - Unable to enter the TEST menu to select a conditional operator to insert. Also unable to enter the MATH menu
+HOST COVERAGE: test_prgm_exec Group 2 (test_if_single) — If skip/execute logic covered; TEST menu access from editor requires hardware.
+RESULT:
 
 ### T23 — EXEC number-key shortcut
 **Steps:** Open PRGM menu on EXEC tab. Press `1` without using UP/DOWN.
 **Expected:** PRGM menu closes. Calculator home shows `prgm1` (or `prgmNAME` if slot 1 is named) in the expression buffer — same as navigating to slot 1 and pressing ENTER.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T24 — CLEAR aborts execution
 **Steps:** Create and run program:
@@ -220,7 +252,8 @@ Goto A
 ```
 While `X` rows are appearing, press CLEAR.
 **Expected:** Execution stops immediately. Calculator returns to normal home screen. No lockup.
-RESULT: FAIL - screen goes black then becomes unresponsive. Note that the heartbeat red LED begins to flash much slower than in normal operation. User is able to exit this state but when it returns there is no graphical response to keys being pressed. The green LED does still toggle with each keystroke. Requires hard reset to exit this state
+PREV RESULT: FAIL - screen goes black then becomes unresponsive. Note that the heartbeat red LED begins to flash much slower than in normal operation. User is able to exit this state but when it returns there is no graphical response to keys being pressed. The green LED does still toggle with each keystroke. Requires hard reset to exit this state
+RESULT:
 
 ---
 
@@ -229,7 +262,8 @@ RESULT: FAIL - screen goes black then becomes unresponsive. Note that the heartb
 ### T25 — Lbl/Goto single-char label enforcement
 **Steps:** In editor, insert `Lbl ` from CTL menu. Type one letter (e.g. `A`). Try to type a second letter.
 **Expected:** Only the first character is accepted. Typing a second character on the same line is ignored. Line reads `:Lbl A`.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T26 — Disp string alignment (left)
 **Steps:** Create and run program:
@@ -237,7 +271,9 @@ RESULT: PASS
 Disp "HELLO"
 ```
 **Expected:** `HELLO` appears **left-aligned** (in the expression row, grey text). No result row below it.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 10 (test_disp) — string→expression slot covered; visual grey/left rendering requires hardware.
+RESULT:
 
 ### T27 — Disp variable alignment (right)
 **Steps:** Create and run program:
@@ -246,7 +282,9 @@ RESULT: PASS
 Disp A
 ```
 **Expected:** `5` (or `5.000000` formatted) appears **right-aligned** (in the result row, white text). No expression row above the result for the Disp output.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 10 (test_disp) — variable→result slot covered; visual white/right rendering requires hardware.
+RESULT:
 
 ### T28 — Goto/Lbl jump
 **Steps:** Create and run program:
@@ -257,7 +295,9 @@ Lbl END
 Disp "DONE"
 ```
 **Expected:** `SKIP` does not appear. `DONE` appears once.
-RESULT: PASS even though this instruction is incorrectly showing multi-character labels. Program properly allows only single character
+PREV RESULT: PASS even though this instruction is incorrectly showing multi-character labels. Program properly allows only single character
+HOST COVERAGE: test_prgm_exec Group 1 (test_goto_lbl) — Goto/Lbl jump and skip logic covered; skip if host suite passes and no prgm_exec.c changes.
+RESULT:
 
 ### T29 — Pause halts and resumes on ENTER
 **Steps:** Create and run program:
@@ -267,7 +307,9 @@ Pause
 Disp "RESUMED"
 ```
 **Expected:** `WAIT` appears. Execution halts. Pressing ENTER displays `RESUMED` and returns to normal mode.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 7 (test_stop_pause_return) partial — suspension covered; `WAIT`/`RESUMED` display and ENTER resume require hardware.
+RESULT:
 
 ### T30 — Stop terminates early
 **Steps:** Create and run program:
@@ -277,7 +319,9 @@ Stop
 Disp "B"
 ```
 **Expected:** `A` appears. `B` does not appear. Mode returns to normal after `Stop`.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 7 (test_stop_pause_return) — Stop halt and post-Stop skip fully covered; skip if host suite passes and no prgm_exec.c changes.
+RESULT:
 
 ### T31 — IS>( increment and skip
 **Steps:** Create and run program:
@@ -289,7 +333,9 @@ Disp I
 ```
 **Expected:** `I` starts at 1; IS>( increments to 2; 2 is NOT > 2, so `SKP` is NOT skipped and appears. `I` displays as `2`.
 Run again but pre-set I=2: change `1->I` to `2->I`. Now IS>( increments I to 3; 3 > 2, so `SKP` is skipped. Only `I` (showing `3`) appears.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 6 (test_is_ds) — IS>( increment, skip, and threshold boundary fully covered; skip if host suite passes and no prgm_exec.c changes.
+RESULT:
 
 ### T32 — DS<( decrement and skip
 **Steps:** Create and run program:
@@ -300,7 +346,9 @@ Disp "SKP"
 Disp I
 ```
 **Expected:** `I` starts at 3; DS<( decrements to 2; 2 < 3, so `SKP` IS skipped. Only `I` (showing `2`) appears.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 6 (test_is_ds) — DS<( decrement, skip, and threshold boundary fully covered; skip if host suite passes and no prgm_exec.c changes.
+RESULT:
 
 ### T33 — Subroutine auto-return at end of body
 **Steps:** Create program in slot 2 with body:
@@ -316,7 +364,9 @@ Disp "BACK"
 To insert `prgm2`: in the editor on the second line, press PRGM → navigate RIGHT to EXEC tab → navigate to slot 2 → ENTER. Confirm `:prgm2` appears on that line.
 Run slot 1.
 **Expected:** History shows `MAIN`, then `SUB`, then `BACK` in order. The subroutine returns automatically when its last line is reached (no explicit Return needed).
-RESULT: FAIL - EXEC menu entirely missing from PRGM menus while in program edit mode
+PREV RESULT: FAIL - EXEC menu entirely missing from PRGM menus while in program edit mode
+HOST COVERAGE: test_prgm_exec Group 13 (test_subroutine) — subroutine call, auto-return, and caller resume fully covered; EXEC sub-menu insertion requires hardware.
+RESULT:
 
 ### T33b — EXEC sub-menu tab navigation and insertion (F3)
 **Steps:** Open any program in the editor. Press PRGM to open the CTL sub-menu. Press RIGHT to switch to I/O tab. Press RIGHT again.
@@ -341,7 +391,9 @@ Disp "TOP"
 ```
 Run slot 1.
 **Expected:** History shows `DEEP`, `MID`, `TOP` in order. Each subroutine auto-returns when its body is exhausted.
-RESULT: FAIL - EXEC menu entirely missing from PRGM menus while in program edit mode
+PREV RESULT: FAIL - EXEC menu entirely missing from PRGM menus while in program edit mode
+HOST COVERAGE: test_prgm_exec Group 17 (test_nested_subroutine) — 2-level call chain and stack-overflow no-crash fully covered; EXEC sub-menu insertion requires hardware.
+RESULT:
 
 ---
 
@@ -351,12 +403,16 @@ RESULT: FAIL - EXEC menu entirely missing from PRGM menus while in program edit 
 **Steps:** Open PRGM → EXEC tab → navigate to a named program (e.g. `1:Prgm1  TEST`) → ENTER.
 **Expected:** PRGM menu closes. Calculator home screen shows `prgmTEST` in the expression buffer (left-aligned, live input). Press ENTER.
 **Expected (after ENTER):** Program executes. History shows `prgmTEST` as expression row (grey, left-aligned). After execution completes, `Done` appears as the result row (white, right-aligned). Mode returns to normal.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 16 (test_lookup_slot) partial — name→slot lookup covered; expression-buffer insertion and `Done` display require hardware.
+RESULT:
 
 ### T35b — prgmNAME execution model (unnamed slot)
 **Steps:** Open PRGM → EXEC tab → navigate to an unnamed slot (e.g. `3:Prgm3`, no user name) → ENTER.
 **Expected:** PRGM menu closes. Calculator home shows `prgm3` (the canonical slot ID, not a user name). Press ENTER. Program executes (or is silent if empty). `Done` appears as result row.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 16 (test_lookup_slot) partial — canonical ID lookup covered; expression-buffer insertion and `Done` display require hardware.
+RESULT:
 
 ### T36 — ClrHome clears history
 **Steps:** Create and run program:
@@ -367,7 +423,9 @@ ClrHome
 Disp "AFTER"
 ```
 **Expected:** After `ClrHome`, `LINE1` and `LINE2` are cleared from the display. Only `AFTER` remains visible.
-RESULT: PASS
+PREV RESULT: PASS
+HOST COVERAGE: test_prgm_exec Group 12 (test_clrhome) — history_count reset and post-ClrHome Disp fully covered; skip if host suite passes and no prgm_exec.c changes.
+RESULT:
 
 ### T37 — DispGraph switches to graph view
 **Steps:** Ensure at least one Y= equation is entered (e.g. `Y1=X`). Create and run program:
@@ -377,7 +435,8 @@ Pause
 DispHome
 ```
 **Expected:** Graph canvas appears after `DispGraph` **without a lockup or hardware reset**. Pressing ENTER at `Pause` switches back to the calculator home screen via `DispHome`.
-RESULT: FAIL - DispGraph appears to lock up. LED Heartbeat appears to slow
+PREV RESULT: FAIL - DispGraph appears to lock up. LED Heartbeat appears to slow
+RESULT:
 
 ---
 
@@ -386,27 +445,32 @@ RESULT: FAIL - DispGraph appears to lock up. LED Heartbeat appears to slow
 ### T41 — Cursor blinks in editor
 **Steps:** Open any program in the editor. Observe the cursor for ~2 seconds without pressing any key.
 **Expected:** Cursor block blinks at ~530 ms interval on the current line.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T42 — 2nd mode reflected in editor cursor
 **Steps:** With editor open, press 2nd.
 **Expected:** Cursor immediately turns **amber** with `^` inside. Pressing any non-modifier key returns cursor to white block (2nd mode consumed).
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T43 — ALPHA mode (single) in editor
 **Steps:** With editor open, press ALPHA once.
 **Expected:** Cursor turns **green** with `A` inside. Pressing a letter key inserts the letter into the program body (not the calculator expression) and cursor returns to white. Pressing ALPHA again cancels ALPHA mode.
-RESULT: FAIL - Pressing ALPHA once operates as expected and allows a single alpha character to be entered. pressing alpha 2 times in a row does not cause it to exit alpha mode
+PREV RESULT: FAIL - Pressing ALPHA once operates as expected and allows a single alpha character to be entered. pressing alpha 2 times in a row does not cause it to exit alpha mode
+RESULT:
 
 ### T43b — ALPHA_LOCK mode in editor
 **Steps:** With editor open, press 2nd then ALPHA (engages ALPHA_LOCK).
 **Expected:** Cursor shows green `A`. Multiple letter keys pressed in sequence all insert letters into the **program body** (not the calculator expression). ALPHA_LOCK remains active until ALPHA is pressed again to cancel it. Digits can be typed without exiting ALPHA_LOCK.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T44 — Cursor blinks in name-entry screen
 **Steps:** Open name-entry screen (EDIT tab → empty slot → ENTER). Observe for ~2 seconds.
 **Expected:** Cursor on name-entry screen blinks at ~530 ms interval.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ---
 
@@ -415,12 +479,14 @@ RESULT: PASS
 ### T45 — Body-only slot opens editor directly
 **Steps:** Open the editor for any slot, type some program content (e.g. `Disp "HI"`), then close without saving a name (press CLEAR from name-entry to skip the name). Reopen PRGM → EDIT tab → navigate to that same slot.
 **Expected:** The slot has body content but no user name. Pressing ENTER opens the editor directly — the name-entry screen does NOT appear. Existing body content is preserved.
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T46 — Tab wrap in sub-menus
 **Steps:** While in the editor, press PRGM to open the CTL sub-menu. Three tabs are visible: CTL (yellow), I/O, EXEC. Press LEFT from CTL.
 **Expected:** Navigation wraps to EXEC (rightmost). Press LEFT again → I/O. Press LEFT again → CTL. Pressing RIGHT from CTL → I/O → EXEC → CTL (wrap).
-RESULT: PASS
+PREV RESULT: PASS
+RESULT:
 
 ### T46b — EXEC sub-menu digit and ALPHA+letter shortcuts (F3/F6)
 **Steps:** On the EXEC sub-menu tab, press `2` directly.
@@ -456,3 +522,7 @@ RESULT:
 - Keypad alpha-layer mapping: T=key for X position, E=key for LOG position, etc. Verify against physical keypad sticker if uncertain.
 - T35/T35b prgmNAME: Execution model change in Session 26 (C1). Programs are no longer run automatically on EXEC selection; they are inserted into the expression buffer first.
 - T12b: Insert mode was on by default in the editor before Session 26 (D1 bug). Default must be overwrite (no shift-right behavior). INS key now correctly toggles it.
+
+
+Current run notes:
+Using arrow keys left and right should not exit alpha lock when entering program name. using arrow key to move down from program name entry should exit alpha lock and reentering the program name field should re-engage alpha lock. insert mode should not be active by default

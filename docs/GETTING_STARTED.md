@@ -134,7 +134,7 @@ Once your software is ready, follow these steps to get the Neo-81 firmware runni
 
 ## 6. Host Tests
 
-The project includes a 378-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, persistent storage round-trips, and PRGM execution control flow.
+The project includes a 396-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, persistent storage round-trips, and PRGM execution control flow.
 
 Run these commands from the **repo root** (the directory containing `CMakeLists.txt`):
 
@@ -143,10 +143,10 @@ cmake -S App/Tests -B build/tests && cmake --build build/tests
 ./build/tests/test_calc_engine        # 153 tests
 ./build/tests/test_expr_util          # 96 tests
 ./build/tests/test_persist_roundtrip  # 52 tests
-./build/tests/test_prgm_exec          # 77 tests
+./build/tests/test_prgm_exec          # 95 tests
 ```
 
-All four executables exit `0` on a full pass (378 total). These tests run automatically on every push via CI — running them locally before opening a PR is strongly recommended.
+All four executables exit `0` on a full pass (396 total). These tests run automatically on every push via CI — running them locally before opening a PR is strongly recommended.
 
 ---
 

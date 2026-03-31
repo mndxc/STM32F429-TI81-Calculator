@@ -484,6 +484,108 @@ static void test_complex_programs(void)
 }
 
 /* -------------------------------------------------------------------------
+ * Group 15: Empty body — T19 (run an empty/body-only slot)
+ * ---------------------------------------------------------------------- */
+static void test_empty_body(void)
+{
+    printf("Group 15: Empty body\n");
+
+    /* 1. Completely empty body — program completes, mode NORMAL, no history */
+    reset_state();
+    run_program("");
+    CHECK(current_mode == MODE_NORMAL, "empty: mode NORMAL");
+    CHECK(history_count == 0, "empty: no history");
+
+    /* 2. Newline-only body (blank lines) — same as empty */
+    reset_state();
+    run_program("\n\n");
+    CHECK(current_mode == MODE_NORMAL, "empty-nl: mode NORMAL");
+    CHECK(history_count == 0, "empty-nl: no history");
+
+    /* 3. Slot with body but no user name still executes via prgm_run_start */
+    reset_state();
+    /* names[0] stays empty (not set by run_program helper) */
+    strncpy(g_prgm_store.bodies[0], "5->A", PRGM_BODY_LEN - 1);
+    prgm_run_start(0);
+    CHECK(NEAR(calc_variables['A'-'A'], 5.0f), "no-name: body runs via index");
+}
+
+/* -------------------------------------------------------------------------
+ * Group 16: prgm_lookup_slot — T35 / T35b (prgmNAME execution model)
+ * ---------------------------------------------------------------------- */
+static void test_lookup_slot(void)
+{
+    printf("Group 16: prgm_lookup_slot\n");
+
+    reset_state();
+    strncpy(g_prgm_store.names[0],  "HELLO", PRGM_NAME_LEN);
+    strncpy(g_prgm_store.names[9],  "ZERO",  PRGM_NAME_LEN);
+    strncpy(g_prgm_store.names[10], "ALPHA", PRGM_NAME_LEN);
+
+    /* 1. Lookup by user name */
+    CHECK(prgm_lookup_slot("HELLO") == 0,  "lookup: name HELLO -> 0");
+
+    /* 2. Canonical ID "1" -> slot 0 (TI-81: digit 1 = first slot) */
+    CHECK(prgm_lookup_slot("1") == 0, "lookup: id '1' -> 0");
+
+    /* 3. Canonical ID "0" -> slot 9 (TI-81: digit 0 = tenth slot) */
+    CHECK(prgm_lookup_slot("0") == 9, "lookup: id '0' -> 9");
+
+    /* 4. Canonical ID "A" -> slot 10 */
+    CHECK(prgm_lookup_slot("A") == 10, "lookup: id 'A' -> 10");
+
+    /* 5. User name "ZERO" resolves to slot 9 (name match beats ID match) */
+    CHECK(prgm_lookup_slot("ZERO") == 9, "lookup: name ZERO -> 9");
+
+    /* 6. Non-existent name -> -1 */
+    CHECK(prgm_lookup_slot("NOEXIST") == -1, "lookup: unknown -> -1");
+
+    /* 7. Empty string -> -1 */
+    CHECK(prgm_lookup_slot("") == -1, "lookup: empty -> -1");
+
+    /* 8. "T" matches slot 29 (the T letter slot, A-Z range) before theta(36);
+     * theta's ASCII representation "T" collides with the T slot — first match wins */
+    CHECK(prgm_lookup_slot("T") == 29, "lookup: id 'T' -> 29 (T-letter slot before theta)");
+}
+
+/* -------------------------------------------------------------------------
+ * Group 17: Two-level nested subroutine — T34
+ * ---------------------------------------------------------------------- */
+static void test_nested_subroutine(void)
+{
+    printf("Group 17: Nested subroutine 2 levels\n");
+
+    /* 1. Two-level chain: main(0) -> mid(1) -> deep(2), all auto-return */
+    reset_state();
+    strncpy(g_prgm_store.names[1], "MID",  PRGM_NAME_LEN);
+    strncpy(g_prgm_store.names[2], "DEEP", PRGM_NAME_LEN);
+    strncpy(g_prgm_store.bodies[1], "prgm3\n2->B", PRGM_BODY_LEN - 1);
+    strncpy(g_prgm_store.bodies[2], "1->A",         PRGM_BODY_LEN - 1);
+    run_program("prgm2\n3->C");
+    CHECK(NEAR(calc_variables['A'-'A'], 1.0f), "2-deep: A=1 from innermost");
+    CHECK(NEAR(calc_variables['B'-'A'], 2.0f), "2-deep: B=2 from mid");
+    CHECK(NEAR(calc_variables['C'-'A'], 3.0f), "2-deep: C=3 from main");
+
+    /* 2. Call stack overflow (>4 levels deep) is silently ignored — no crash.
+     * Chain: 0->1->2->3->4 (slot 4 tries to call slot 5 at depth=4, no-op).
+     * Slot 5 body ("99->E") must NOT run. */
+    reset_state();
+    strncpy(g_prgm_store.names[1], "S2", PRGM_NAME_LEN);
+    strncpy(g_prgm_store.names[2], "S3", PRGM_NAME_LEN);
+    strncpy(g_prgm_store.names[3], "S4", PRGM_NAME_LEN);
+    strncpy(g_prgm_store.names[4], "S5", PRGM_NAME_LEN);
+    strncpy(g_prgm_store.names[5], "S6", PRGM_NAME_LEN);
+    strncpy(g_prgm_store.bodies[1], "prgm3",  PRGM_BODY_LEN - 1);
+    strncpy(g_prgm_store.bodies[2], "prgm4",  PRGM_BODY_LEN - 1);
+    strncpy(g_prgm_store.bodies[3], "prgm5",  PRGM_BODY_LEN - 1);
+    strncpy(g_prgm_store.bodies[4], "prgm6",  PRGM_BODY_LEN - 1);
+    strncpy(g_prgm_store.bodies[5], "99->E",  PRGM_BODY_LEN - 1);
+    run_program("prgm2");
+    CHECK(current_mode == MODE_NORMAL, "overflow: no crash on 5-deep call");
+    CHECK(NEAR(calc_variables['E'-'A'], 0.0f), "overflow: slot-6 body not executed");
+}
+
+/* -------------------------------------------------------------------------
  * main
  * ---------------------------------------------------------------------- */
 
@@ -502,6 +604,9 @@ int main(void)
     test_clrhome();
     test_subroutine();
     test_complex_programs();
+    test_empty_body();
+    test_lookup_slot();
+    test_nested_subroutine();
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);
     return g_failed > 0 ? 1 : 0;
