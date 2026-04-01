@@ -269,6 +269,8 @@ static void handle_digit_key(Token_t t);
 static void handle_arithmetic_op(Token_t t);
 static void handle_history_nav(Token_t t);
 static void handle_function_insert(Token_t t);
+static void history_load_offset(uint8_t offset);
+static void history_enter_evaluate(void);
 static void handle_clear_key(void);
 static void handle_mode_key(void);
 static void handle_sto_key(void);
@@ -1669,6 +1671,48 @@ static void commit_history_entry(const char *expr, const char *result_str,
     lvgl_unlock();
 }
 
+/* Load a history entry at the given scroll offset into the expression buffer. */
+static void history_load_offset(uint8_t offset)
+{
+    uint8_t idx = (history_count - offset) % HISTORY_LINE_COUNT;
+    strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
+    expression[MAX_EXPR_LEN - 1] = '\0';
+    expr_len   = (uint8_t)strlen(expression);
+    cursor_pos = expr_len;
+    Update_Calculator_Display();
+}
+
+/* Evaluate (or run) the current expression on TOKEN_ENTER.
+ * Called only when expr_len > 0. */
+static void history_enter_evaluate(void)
+{
+    /* prgmNAME expression: insert into history and run the program */
+    if (strncmp(expression, "prgm", 4) == 0) {
+        int8_t slot = prgm_lookup_slot(expression + 4);
+        uint8_t hidx = history_count % HISTORY_LINE_COUNT;
+        strncpy(history[hidx].expression, expression, MAX_EXPR_LEN - 1);
+        history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
+        history[hidx].result[0] = '\0';
+        history_count++;
+        expr_len              = 0;
+        cursor_pos            = 0;
+        expression[0]         = '\0';
+        history_recall_offset = 0;
+        Update_Calculator_Display();
+        if (slot >= 0)
+            prgm_run_start((uint8_t)slot);
+        return;
+    }
+    CalcResult_t result = Calc_Evaluate(expression, ans, ans_is_matrix, angle_degrees);
+    char result_str[MAX_RESULT_LEN];
+    format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
+    commit_history_entry(expression, result_str, &result);
+    expr_len              = 0;
+    cursor_pos            = 0;
+    expression[0]         = '\0';
+    history_recall_offset = 0;
+}
+
 static void handle_history_nav(Token_t t)
 {
     switch (t) {
@@ -1705,16 +1749,10 @@ static void handle_history_nav(Token_t t)
         break;
 
     case TOKEN_UP:
-        if (expr_len == 0 || history_recall_offset > 0) {
-            if (history_recall_offset < history_count) {
-                history_recall_offset++;
-                uint8_t idx = (history_count - history_recall_offset) % HISTORY_LINE_COUNT;
-                strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
-                expression[MAX_EXPR_LEN - 1] = '\0';
-                expr_len   = (uint8_t)strlen(expression);
-                cursor_pos = expr_len;
-                Update_Calculator_Display();
-            }
+        if ((expr_len == 0 || history_recall_offset > 0) &&
+            history_recall_offset < history_count) {
+            history_recall_offset++;
+            history_load_offset(history_recall_offset);
         }
         break;
 
@@ -1722,22 +1760,17 @@ static void handle_history_nav(Token_t t)
         if (history_recall_offset > 0) {
             history_recall_offset--;
             if (history_recall_offset == 0) {
-                expr_len      = 0;
-                cursor_pos    = 0;
-                expression[0] = '\0';
+                expr_len = 0; cursor_pos = 0; expression[0] = '\0';
+                Update_Calculator_Display();
             } else {
-                uint8_t idx = (history_count - history_recall_offset) % HISTORY_LINE_COUNT;
-                strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
-                expression[MAX_EXPR_LEN - 1] = '\0';
-                expr_len   = (uint8_t)strlen(expression);
-                cursor_pos = expr_len;
+                history_load_offset(history_recall_offset);
             }
-            Update_Calculator_Display();
         }
         break;
 
     case TOKEN_ENTER:
         if (expr_len == 0 && history_count > 0) {
+            /* Re-evaluate the last history entry */
             uint8_t last_idx = (history_count - 1) % HISTORY_LINE_COUNT;
             CalcResult_t result = Calc_Evaluate(history[last_idx].expression,
                                                 ans, ans_is_matrix, angle_degrees);
@@ -1745,48 +1778,15 @@ static void handle_history_nav(Token_t t)
             format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
             commit_history_entry(history[last_idx].expression, result_str, &result);
             history_recall_offset = 0;
-            break;
-        }
-        if (expr_len > 0) {
-            /* C1: detect prgmNAME expression and run program */
-            if (strncmp(expression, "prgm", 4) == 0) {
-                int8_t slot = prgm_lookup_slot(expression + 4);
-                uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-                strncpy(history[hidx].expression, expression, MAX_EXPR_LEN - 1);
-                history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
-                history[hidx].result[0] = '\0';
-                history_count++;
-                expr_len              = 0;
-                cursor_pos            = 0;
-                expression[0]         = '\0';
-                history_recall_offset = 0;
-                Update_Calculator_Display();
-                if (slot >= 0)
-                    prgm_run_start((uint8_t)slot);
-                break;
-            }
-            CalcResult_t result = Calc_Evaluate(expression, ans, ans_is_matrix,
-                                                angle_degrees);
-            char result_str[MAX_RESULT_LEN];
-            format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
-            commit_history_entry(expression, result_str, &result);
-
-            expr_len              = 0;
-            cursor_pos            = 0;
-            expression[0]         = '\0';
-            history_recall_offset = 0;
+        } else if (expr_len > 0) {
+            history_enter_evaluate();
         }
         break;
 
     case TOKEN_ENTRY:
         if (history_count > 0) {
             history_recall_offset = 1;
-            uint8_t idx = (history_count - 1) % HISTORY_LINE_COUNT;
-            strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
-            expression[MAX_EXPR_LEN - 1] = '\0';
-            expr_len   = (uint8_t)strlen(expression);
-            cursor_pos = expr_len;
-            Update_Calculator_Display();
+            history_load_offset(1);
         }
         break;
 
