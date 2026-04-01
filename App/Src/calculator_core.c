@@ -554,76 +554,85 @@ static void ui_init_test_screen(void)
 /**
  * @brief Generic block-cursor placement.
  *
- * Determines cursor visibility, color, and inner character from global
- * calculator state (current_mode, sto_pending, insert_mode, cursor_visible),
- * then moves cbox to the pixel position of char_pos within row_label.
+ * All cursor appearance logic — visibility, color, inner character, and
+ * insert/overwrite shape — is driven by explicit parameters rather than
+ * module-level globals.
  *
  * Cursor inner-char key:
- *   STO pending  → green 'A'
- *   MODE_2ND     → amber '^'
+ *   MODE_STO        → green 'A'  (STO-pending synthetic mode)
+ *   MODE_2ND        → amber '^'
  *   MODE_ALPHA/LOCK → green 'A'
- *   insert_mode  → grey 'I'  (overwrite = default: blank grey block)
+ *   insert=true     → grey underline style  (overwrite = default: blank grey block)
  *
- * @param cbox       The cursor rectangle LVGL object to move/show/hide.
- * @param cinner     The label child of cbox that shows the inner character.
- * @param row_label  The LVGL label whose text provides the reference position.
- * @param char_pos   Character index within row_label at which to place cbox.
+ * @param box          The cursor rectangle LVGL object to move/show/hide.
+ * @param inner        The label child of box that shows the inner character.
+ * @param parent_label The LVGL label whose text provides the reference position.
+ * @param glyph_pos    Glyph index within parent_label at which to place the cursor.
+ * @param visible      Whether the cursor is currently in the visible blink phase.
+ * @param mode         Calculator mode driving cursor color/inner-char appearance.
+ *                     Pass MODE_STO (synthesised from sto_pending) for STO-pending state.
+ * @param insert       True when insert mode is active (renders underscore-style cursor).
  */
-void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
-                         lv_obj_t *row_label, uint32_t char_pos)
+void cursor_render(lv_obj_t *box, lv_obj_t *inner,
+                   lv_obj_t *parent_label, uint32_t glyph_pos,
+                   bool visible, CalcMode_t mode, bool insert)
 {
-    if (cbox == NULL) return;
+    if (box == NULL) return;
 
-    bool show;
     lv_color_t box_color;
     const char *inner_text;
 
-    if (sto_pending) {
-        show       = cursor_visible;
-        box_color  = lv_color_hex(COLOR_ALPHA);
-        inner_text = "A";
-    } else switch (current_mode) {
+    switch (mode) {
+        case MODE_STO:
+            box_color  = lv_color_hex(COLOR_ALPHA);
+            inner_text = "A";
+            break;
         case MODE_2ND:
-            show       = cursor_visible;
             box_color  = lv_color_hex(COLOR_2ND);
             inner_text = "^";
             break;
         case MODE_ALPHA:
         case MODE_ALPHA_LOCK:
-            show       = cursor_visible;
             box_color  = lv_color_hex(COLOR_ALPHA);
             inner_text = "A";
             break;
         default:
-            show       = cursor_visible;
             box_color  = lv_color_hex(COLOR_GREY_LIGHT);
             inner_text = "";  /* insert mode shown by underscore shape, not letter */
             break;
     }
 
-    if (!show) {
-        lv_obj_add_flag(cbox, LV_OBJ_FLAG_HIDDEN);
+    if (!visible) {
+        lv_obj_add_flag(box, LV_OBJ_FLAG_HIDDEN);
         return;
     }
 
     lv_point_t pos;
-    lv_label_get_letter_pos(row_label, char_pos, &pos);
+    lv_label_get_letter_pos(parent_label, glyph_pos, &pos);
 
-    int32_t lx = lv_obj_get_x(row_label);
-    int32_t ly = lv_obj_get_y(row_label);
+    int32_t lx = lv_obj_get_x(parent_label);
+    int32_t ly = lv_obj_get_y(parent_label);
 
     /* Insert mode: underscore-style cursor (3 px at character baseline).
      * Overwrite mode: full-height block cursor (26 px).
      * In insert mode the box is 3 px tall; the inner label (^/A) overflows
      * above the underline via LV_OBJ_FLAG_OVERFLOW_VISIBLE, giving a combined
      * "underline + mode indicator" visual for insert+2ND or insert+ALPHA. */
-    bool in_insert = insert_mode && !sto_pending;
-    lv_obj_set_height(cbox, in_insert ? 3 : 26);
-    lv_obj_set_pos(cbox, lx + pos.x, ly + pos.y + (in_insert ? 23 : 0));
+    bool in_insert = insert && (mode != MODE_STO);
+    lv_obj_set_height(box, in_insert ? 3 : 26);
+    lv_obj_set_pos(box, lx + pos.x, ly + pos.y + (in_insert ? 23 : 0));
 
-    lv_obj_set_style_bg_color(cbox, box_color, 0);
-    lv_label_set_text(cinner, inner_text);
-    lv_obj_clear_flag(cbox, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_bg_color(box, box_color, 0);
+    lv_label_set_text(inner, inner_text);
+    lv_obj_clear_flag(box, LV_OBJ_FLAG_HIDDEN);
+}
+
+/* Temporary shim — removed in a subsequent commit once all callers are migrated. */
+void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
+                  lv_obj_t *row_label, uint32_t char_pos)
+{
+    cursor_render(cbox, cinner, row_label, char_pos,
+                  cursor_visible, sto_pending ? MODE_STO : current_mode, insert_mode);
 }
 
 /**
