@@ -60,8 +60,9 @@ void matrix_edit_cursor_update(void)
 
     if (matrix_edit_cursor == -1) {
         uint32_t char_pos = (matrix_edit_dim_field == 0) ? 4u : 6u;
-        cursor_place(matrix_edit_cursor_box, matrix_edit_cursor_inner,
-                     matrix_edit_title_lbl, char_pos);
+        cursor_render(matrix_edit_cursor_box, matrix_edit_cursor_inner,
+                      matrix_edit_title_lbl, char_pos,
+                      cursor_visible, current_mode, false);
     } else {
         int vis_idx = (int)matrix_edit_cursor - (int)matrix_edit_scroll;
         if (vis_idx < 0 || vis_idx >= 7) {
@@ -69,8 +70,9 @@ void matrix_edit_cursor_update(void)
             return;
         }
         uint32_t char_pos = 4u + (uint32_t)matrix_edit_val_cursor;
-        cursor_place(matrix_edit_cursor_box, matrix_edit_cursor_inner,
-                     matrix_list_labels[vis_idx], char_pos);
+        cursor_render(matrix_edit_cursor_box, matrix_edit_cursor_inner,
+                      matrix_list_labels[vis_idx], char_pos,
+                      cursor_visible, current_mode, false);
     }
 }
 
