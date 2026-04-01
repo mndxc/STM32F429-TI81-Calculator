@@ -34,6 +34,15 @@
 #define LCD_BYTES_PER_PIXEL    2            /* RGB565 */
 #define HEARTBEAT_PIN          GPIO_PIN_14
 #define HEARTBEAT_PORT         GPIOG
+/* PLLSAI configuration for LTDC pixel clock (~5.5 MHz, ~60 Hz refresh).
+ * Values must match stm32f4xx_hal_msp.c HAL_LTDC_MspInit().
+ * PLLSAI_VCO = HSE(8 MHz) / PLLM(8) * PLLSAIN(176) = 176 MHz
+ * LTDC clock  = PLLSAI_VCO / PLLSAIR(4) / PLLSAIDivR(8) = 5.5 MHz */
+#define APP_PLLSAI_N           176U
+#define APP_PLLSAI_R           4U
+/* SDRAM refresh rate for IS42S16400J: 4096 rows / 64 ms at 84 MHz FMC clock.
+ * (64 ms / 4096) / (1/84 MHz) - 20 = 1272 counts */
+#define APP_SDRAM_REFRESH_COUNT 1272U
 
 /*---------------------------------------------------------------------------
  * RTOS object definitions
@@ -135,6 +144,17 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     portYIELD_FROM_ISR(woken);
 }
 
+/* Configure PLLSAI for LTDC pixel clock. Called on startup and after Stop-mode wake. */
+static void app_pllsai_init(void)
+{
+    RCC_PeriphCLKInitTypeDef periphClk = {0};
+    periphClk.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+    periphClk.PLLSAI.PLLSAIN       = APP_PLLSAI_N;
+    periphClk.PLLSAI.PLLSAIR       = APP_PLLSAI_R;
+    periphClk.PLLSAIDivR            = RCC_PLLSAIDIVR_8;
+    HAL_RCCEx_PeriphCLKConfig(&periphClk);
+}
+
 /**
  * @brief  Enters STM32 Stop mode (ultra-low power sleep) and returns after
  *         the ON button (PE6 EXTI) wakes the CPU.
@@ -201,21 +221,15 @@ void Power_EnterStop(void)
 
     /* 10. Restore PLLSAI for LTDC pixel clock.
      *     SystemClock_Config only restores the main PLL; PLLSAI must be
-     *     re-enabled explicitly with the values from HAL_LTDC_MspInit()
-     *     (stm32f4xx_hal_msp.c: PLLSAIN=100, PLLSAIR=3, PLLSAIDivR=2). */
-    RCC_PeriphCLKInitTypeDef periphClk = {0};
-    periphClk.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
-    periphClk.PLLSAI.PLLSAIN       = 176;
-    periphClk.PLLSAI.PLLSAIR       = 4;
-    periphClk.PLLSAIDivR            = RCC_PLLSAIDIVR_8;
-    HAL_RCCEx_PeriphCLKConfig(&periphClk);
+     *     re-enabled explicitly. */
+    app_pllsai_init();
 
     /* 11. Exit SDRAM self-refresh — FMC clock restored above, data intact */
     cmd.CommandMode = FMC_SDRAM_CMD_NORMAL_MODE;
     HAL_SDRAM_SendCommand(&hsdram1, &cmd, HAL_MAX_DELAY);
     /* Restore refresh rate: IS42S16400J, 4096 rows, 64 ms cycle.
      * At 84 MHz FMC SDRAM clock: (15625 ns / 11.9 ns) - 20 = 1273 counts. */
-    HAL_SDRAM_ProgramRefreshRate(&hsdram1, 1272);
+    HAL_SDRAM_ProgramRefreshRate(&hsdram1, APP_SDRAM_REFRESH_COUNT);
 
     /* 12. Re-enable LTDC output */
     LTDC->GCR |= LTDC_GCR_LTDCEN;
@@ -292,12 +306,7 @@ void App_DefaultTask_Run(void)
     /* 1. Ensure the display clock is set to the stable 5.5 MHz (approx. 60 Hz).
      *    We do this here (not just in stm32f4xx_hal_msp.c) so that it persists
      *    even if CubeMX boilerplate is regenerated with different defaults. */
-    RCC_PeriphCLKInitTypeDef periphClk = {0};
-    periphClk.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
-    periphClk.PLLSAI.PLLSAIN       = 176;
-    periphClk.PLLSAI.PLLSAIR       = 4;
-    periphClk.PLLSAIDivR            = RCC_PLLSAIDIVR_8;
-    HAL_RCCEx_PeriphCLKConfig(&periphClk);
+    app_pllsai_init();
 
     /* 2. Bring up external SDRAM — framebuffer lives here */
     BSP_SDRAM_Init();

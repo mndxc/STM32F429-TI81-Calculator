@@ -1084,46 +1084,102 @@ bool handle_yeq_mode(Token_t t)
     return true;
 }
 
-bool handle_range_mode(Token_t t)
+/*---------------------------------------------------------------------------
+ * Shared field-editor helper (P21)
+ * Used by handle_range_mode and handle_zoom_factors_mode.
+ *---------------------------------------------------------------------------*/
+
+typedef struct {
+    char    *buf;
+    uint8_t  cap;        /* sizeof(buf) */
+    uint8_t *len;
+    uint8_t *cursor;
+    void   (*update)(void);      /* refresh display labels */
+    void   (*cursor_fn)(void);   /* reposition cursor widget */
+} FieldEditor_t;
+
+/* Handle character-editing tokens common to all numeric field editors:
+ * TOKEN_0-9, TOKEN_DECIMAL, TOKEN_DEL, TOKEN_LEFT, TOKEN_RIGHT, TOKEN_INS.
+ * Acquires lvgl_lock() internally when state changes.
+ * Returns true if the token was consumed, false for any other token. */
+static bool field_editor_handle(Token_t t, const FieldEditor_t *fe)
 {
+    char    *buf    = fe->buf;
+    uint8_t *len    = fe->len;
+    uint8_t *cursor = fe->cursor;
+    bool display_dirty = false;
+
     switch (t) {
     case TOKEN_0 ... TOKEN_9: {
         char ch = (char)((t - TOKEN_0) + '0');
-        if (!insert_mode && s_range.cursor < s_range.len) {
-            s_range.buf[s_range.cursor++] = ch;
-        } else if (s_range.len < sizeof(s_range.buf) - 1) {
-            memmove(&s_range.buf[s_range.cursor + 1],
-                    &s_range.buf[s_range.cursor],
-                    s_range.len - s_range.cursor + 1);
-            s_range.buf[s_range.cursor++] = ch;
-            s_range.len++;
+        if (!insert_mode && *cursor < *len) {
+            buf[(*cursor)++] = ch;
+        } else if (*len < fe->cap - 1) {
+            memmove(&buf[*cursor + 1], &buf[*cursor], *len - *cursor + 1);
+            buf[(*cursor)++] = ch;
+            (*len)++;
         }
-        lvgl_lock();
-        ui_update_range_display();
-        range_cursor_update();
-        lvgl_unlock();
-        return true;
+        display_dirty = true;
+        break;
+    }
+    case TOKEN_DECIMAL:
+        if (strchr(buf, '.') == NULL) {
+            char ch = '.';
+            if (!insert_mode && *cursor < *len) {
+                buf[(*cursor)++] = ch;
+            } else if (*len < fe->cap - 1) {
+                memmove(&buf[*cursor + 1], &buf[*cursor], *len - *cursor + 1);
+                buf[(*cursor)++] = ch;
+                (*len)++;
+            }
+            display_dirty = true;
+        }
+        break;
+    case TOKEN_DEL:
+        if (*cursor > 0) {
+            memmove(&buf[*cursor - 1], &buf[*cursor], *len - *cursor + 1);
+            (*len)--;
+            (*cursor)--;
+            display_dirty = true;
+        } else {
+            return true; /* consumed but nothing to update */
+        }
+        break;
+    case TOKEN_LEFT:
+        if (*cursor == 0) return true;
+        (*cursor)--;
+        break;
+    case TOKEN_RIGHT:
+        if (*cursor >= *len) return true;
+        (*cursor)++;
+        break;
+    case TOKEN_INS:
+        insert_mode = !insert_mode;
+        break;
+    default:
+        return false;
     }
 
-    case TOKEN_DECIMAL:
-        if (strchr(s_range.buf, '.') == NULL) {
-            char ch = '.';
-            if (!insert_mode && s_range.cursor < s_range.len) {
-                s_range.buf[s_range.cursor++] = ch;
-            } else if (s_range.len < sizeof(s_range.buf) - 1) {
-                memmove(&s_range.buf[s_range.cursor + 1],
-                        &s_range.buf[s_range.cursor],
-                        s_range.len - s_range.cursor + 1);
-                s_range.buf[s_range.cursor++] = ch;
-                s_range.len++;
-            }
-            lvgl_lock();
-            ui_update_range_display();
-            range_cursor_update();
-            lvgl_unlock();
-        }
-        return true;
+    lvgl_lock();
+    if (display_dirty) fe->update();
+    fe->cursor_fn();
+    lvgl_unlock();
+    return true;
+}
 
+bool handle_range_mode(Token_t t)
+{
+    FieldEditor_t fe = {
+        .buf       = s_range.buf,
+        .cap       = sizeof(s_range.buf),
+        .len       = &s_range.len,
+        .cursor    = &s_range.cursor,
+        .update    = ui_update_range_display,
+        .cursor_fn = range_cursor_update,
+    };
+    if (field_editor_handle(t, &fe)) return true;
+
+    switch (t) {
     case TOKEN_NEG:
         if (s_range.len > 0 && s_range.buf[0] == '-') {
             memmove(s_range.buf, s_range.buf + 1, s_range.len);
@@ -1136,41 +1192,6 @@ bool handle_range_mode(Token_t t)
         s_range.cursor = s_range.len;
         lvgl_lock();
         ui_update_range_display();
-        range_cursor_update();
-        lvgl_unlock();
-        return true;
-
-    case TOKEN_DEL:
-        if (s_range.cursor > 0) {
-            memmove(&s_range.buf[s_range.cursor - 1],
-                    &s_range.buf[s_range.cursor],
-                    s_range.len - s_range.cursor + 1);
-            s_range.len--;
-            s_range.cursor--;
-            lvgl_lock();
-            ui_update_range_display();
-            range_cursor_update();
-            lvgl_unlock();
-        }
-        return true;
-
-    case TOKEN_LEFT:
-        if (s_range.cursor > 0) s_range.cursor--;
-        lvgl_lock();
-        range_cursor_update();
-        lvgl_unlock();
-        return true;
-
-    case TOKEN_RIGHT:
-        if (s_range.cursor < s_range.len) s_range.cursor++;
-        lvgl_lock();
-        range_cursor_update();
-        lvgl_unlock();
-        return true;
-
-    case TOKEN_INS:
-        insert_mode = !insert_mode;
-        lvgl_lock();
         range_cursor_update();
         lvgl_unlock();
         return true;
@@ -1325,79 +1346,17 @@ bool handle_zoom_mode(Token_t t)
 
 bool handle_zoom_factors_mode(Token_t t)
 {
+    FieldEditor_t fe = {
+        .buf       = s_zf.buf,
+        .cap       = sizeof(s_zf.buf),
+        .len       = &s_zf.len,
+        .cursor    = &s_zf.cursor,
+        .update    = ui_update_zoom_factors_display,
+        .cursor_fn = zoom_factors_cursor_update,
+    };
+    if (field_editor_handle(t, &fe)) return true;
+
     switch (t) {
-    case TOKEN_0 ... TOKEN_9: {
-        char ch = (char)((t - TOKEN_0) + '0');
-        if (!insert_mode && s_zf.cursor < s_zf.len) {
-            s_zf.buf[s_zf.cursor++] = ch;
-        } else if (s_zf.len < sizeof(s_zf.buf) - 1) {
-            memmove(&s_zf.buf[s_zf.cursor + 1],
-                    &s_zf.buf[s_zf.cursor],
-                    s_zf.len - s_zf.cursor + 1);
-            s_zf.buf[s_zf.cursor++] = ch;
-            s_zf.len++;
-        }
-        lvgl_lock();
-        ui_update_zoom_factors_display();
-        zoom_factors_cursor_update();
-        lvgl_unlock();
-        return true;
-    }
-
-    case TOKEN_DECIMAL:
-        if (strchr(s_zf.buf, '.') == NULL) {
-            char ch = '.';
-            if (!insert_mode && s_zf.cursor < s_zf.len) {
-                s_zf.buf[s_zf.cursor++] = ch;
-            } else if (s_zf.len < sizeof(s_zf.buf) - 1) {
-                memmove(&s_zf.buf[s_zf.cursor + 1],
-                        &s_zf.buf[s_zf.cursor],
-                        s_zf.len - s_zf.cursor + 1);
-                s_zf.buf[s_zf.cursor++] = ch;
-                s_zf.len++;
-            }
-            lvgl_lock();
-            ui_update_zoom_factors_display();
-            zoom_factors_cursor_update();
-            lvgl_unlock();
-        }
-        return true;
-
-    case TOKEN_DEL:
-        if (s_zf.cursor > 0) {
-            memmove(&s_zf.buf[s_zf.cursor - 1],
-                    &s_zf.buf[s_zf.cursor],
-                    s_zf.len - s_zf.cursor + 1);
-            s_zf.len--;
-            s_zf.cursor--;
-            lvgl_lock();
-            ui_update_zoom_factors_display();
-            zoom_factors_cursor_update();
-            lvgl_unlock();
-        }
-        return true;
-
-    case TOKEN_LEFT:
-        if (s_zf.cursor > 0) s_zf.cursor--;
-        lvgl_lock();
-        zoom_factors_cursor_update();
-        lvgl_unlock();
-        return true;
-
-    case TOKEN_RIGHT:
-        if (s_zf.cursor < s_zf.len) s_zf.cursor++;
-        lvgl_lock();
-        zoom_factors_cursor_update();
-        lvgl_unlock();
-        return true;
-
-    case TOKEN_INS:
-        insert_mode = !insert_mode;
-        lvgl_lock();
-        zoom_factors_cursor_update();
-        lvgl_unlock();
-        return true;
-
     case TOKEN_ENTER:
     case TOKEN_DOWN:
         zoom_factors_commit_field();

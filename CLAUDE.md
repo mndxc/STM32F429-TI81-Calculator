@@ -139,8 +139,6 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[testing] Host-testable token dispatch for `handle_normal_mode`** — Highest-value untested function (now 44-line dispatch table, P22 complete); add host tests for each sub-handler cluster. Prerequisite: P3 Phase 3 state params. Files: `App/Src/calculator_core.c`, `App/Tests/`.
 
-**[refactor] P21 — Extract shared field-editor helper** — `handle_range_mode` (~235 lines) and `handle_zoom_factors_mode` (~161 lines) implement identical digit/DEL/cursor/commit logic. Extract `field_editor_handle(token, buf, len, cursor, fields, count) → bool`; both handlers shrink to ~40 lines. Zero logic change. Effort ~2–4 hrs. Files: `App/Src/graph_ui.c`.
-
 **[refactor] P24 — (resolved)** — `try_tokenize_identifier` dispatch table was already in place from a prior session; named-function chain replaced. `try_tokenize_number` sub-parsers also already extracted.
 
 **[docs] P25 — Rewrite `docs/PRGM_COMMANDS.md` to match post-Session-26 command set** — File reflects pre-Session-26 commands. Rewrite to match current 8-CTL/5-IO spec: remove Then/Else/While/For/Return/Prompt/Output(/Menu( entries; document single-char Lbl/Goto constraint; document EXEC-tab execution model. Effort ~1–2 hrs. Files: `docs/PRGM_COMMANDS.md`.
@@ -155,17 +153,9 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[docs] Fix `MAINTENANCE_STANDARDS.md` file-structure table references** — Four locations ("After Every Commit", "After a Large Change", Full Update Checklist, File Structure Maintenance section) reference "CLAUDE.md Architecture → File structure table"; rephrase all four to say "TECHNICAL.md Project Structure listing". Files: `docs/MAINTENANCE_STANDARDS.md`.
 
-**[refactor] Named constants and shared init for PLLSAI config in `app_init.c`** — `176`, `4`, `8`, `1272` appear as inline magic values for PLLSAI N/R/Q and SDRAM refresh count, duplicated between `Power_EnterStop()` and `App_DefaultTask_Run()`; extract named constants and a shared `app_pllsai_init()` helper called by both. Zero logic change. Files: `App/Src/app_init.c`.
-
-**[refactor] Split `try_tokenize_operator` (58 lines) into sub-parsers** — Separate single-byte operators, multi-byte UTF-8 sequences (≠/≥/≤), and matrix bracket tokens into 3 helpers by token class. Zero logic change. Files: `App/Src/calc_engine.c`.
-
-**[refactor] Extract `zoom_execute_item` inner branches (106 lines)** — Items 1 (ZBox entry), 2–3 (Zoom In/Out math), and 4 (Set Factors) are independent paths; extract each as a named static helper so the outer function is a ~20-line switch. Zero logic change. Files: `App/Src/graph_ui.c`.
-
 **[refactor] Split `handle_prgm_editor` (154 lines)** — Separate the character-insert path, DEL/CLEAR path, and cursor-navigation path into three focused static helpers. Zero logic change. Files: `App/Src/ui_prgm.c`.
 
 **[refactor] Split `handle_prgm_menu` (194 lines)** — The EXEC/EDIT/ERASE tab handler mixes tab switching, ENTER dispatch, and ERASE confirmation; extract per-tab helpers. Coordinate with existing `[complexity] ui_prgm.c EXEC sub-menu extraction` item before starting — overlapping scope. Zero logic change. Files: `App/Src/ui_prgm.c`.
-
-**[refactor] Extract `graph_ui.c` display-update helpers** — `ui_update_range_display`, `ui_update_zoom_display`, `ui_update_zoom_factors_display`, and `yeq_reflow_rows` follow near-identical label-refresh patterns; a single `field_labels_refresh(labels, vals, count)` helper would unify them. Zero logic change. Files: `App/Src/graph_ui.c`.
 
 #### Backlog
 
