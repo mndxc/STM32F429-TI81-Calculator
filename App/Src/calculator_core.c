@@ -643,7 +643,9 @@ void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
  */
 static void cursor_update(lv_obj_t *row_label, uint32_t char_pos)
 {
-    cursor_place(cursor_box, cursor_inner, row_label, char_pos);
+    CalcMode_t display_mode = sto_pending ? MODE_STO : current_mode;
+    cursor_render(cursor_box, cursor_inner, row_label, char_pos,
+                  cursor_visible, display_mode, insert_mode);
 }
 
 /**
