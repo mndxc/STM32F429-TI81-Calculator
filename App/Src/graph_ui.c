@@ -1320,15 +1320,19 @@ bool handle_zoom_mode(Token_t t)
         lvgl_unlock();
         return true;
     case TOKEN_Y_EQUALS:
+        zoom_menu_reset();
         nav_to(MODE_GRAPH_YEQ);
         return true;
     case TOKEN_RANGE:
+        zoom_menu_reset();
         nav_to(MODE_GRAPH_RANGE);
         return true;
     case TOKEN_GRAPH:
+        zoom_menu_reset();
         nav_to(MODE_NORMAL);
         return true;
     case TOKEN_TRACE:
+        zoom_menu_reset();
         nav_to(MODE_GRAPH_TRACE);
         return true;
     case TOKEN_1 ... TOKEN_9: {

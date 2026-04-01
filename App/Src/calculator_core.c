@@ -261,6 +261,7 @@ static void ui_update_test_display(void);
 static bool handle_mode_screen(Token_t t);
 static bool handle_math_menu(Token_t t);
 static bool handle_test_menu(Token_t t);
+static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret_mode, uint8_t *cursor, uint8_t *scroll);
 static bool handle_sto_pending(Token_t t);
 
 /* handle_normal_mode sub-handlers */
@@ -1412,6 +1413,27 @@ static bool handle_mode_screen(Token_t t)
     }
 }
 
+/* Shared nav-key handler for menus that can jump to graph screens.
+ * Resets ret_mode and cursor (and scroll if non-NULL) then calls nav_to().
+ * Returns true if the token was a nav key, false otherwise. */
+static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret_mode, uint8_t *cursor, uint8_t *scroll)
+{
+    CalcMode_t target;
+    switch (t) {
+    case TOKEN_Y_EQUALS: target = MODE_GRAPH_YEQ;   break;
+    case TOKEN_RANGE:    target = MODE_GRAPH_RANGE;  break;
+    case TOKEN_ZOOM:     target = MODE_GRAPH_ZOOM;   break;
+    case TOKEN_GRAPH:    target = MODE_NORMAL;        break;
+    case TOKEN_TRACE:    target = MODE_GRAPH_TRACE;  break;
+    default:             return false;
+    }
+    *ret_mode = MODE_NORMAL;
+    *cursor   = 0;
+    if (scroll) *scroll = 0;
+    nav_to(target);
+    return true;
+}
+
 static bool handle_math_menu(Token_t t)
 {
     int total = (int)math_tab_item_count[s_math.tab];
@@ -1459,37 +1481,10 @@ static bool handle_math_menu(Token_t t)
     case TOKEN_MATH:
         menu_close(TOKEN_MATH);
         return true;
-    case TOKEN_Y_EQUALS:
-        s_math.return_mode   = MODE_NORMAL;
-        s_math.item_cursor   = 0;
-        s_math.scroll_offset = 0;
-        nav_to(MODE_GRAPH_YEQ);
-        return true;
-    case TOKEN_RANGE:
-        s_math.return_mode   = MODE_NORMAL;
-        s_math.item_cursor   = 0;
-        s_math.scroll_offset = 0;
-        nav_to(MODE_GRAPH_RANGE);
-        return true;
-    case TOKEN_ZOOM:
-        s_math.return_mode   = MODE_NORMAL;
-        s_math.item_cursor   = 0;
-        s_math.scroll_offset = 0;
-        nav_to(MODE_GRAPH_ZOOM);
-        return true;
-    case TOKEN_GRAPH:
-        s_math.return_mode   = MODE_NORMAL;
-        s_math.item_cursor   = 0;
-        s_math.scroll_offset = 0;
-        nav_to(MODE_NORMAL);
-        return true;
-    case TOKEN_TRACE:
-        s_math.return_mode   = MODE_NORMAL;
-        s_math.item_cursor   = 0;
-        s_math.scroll_offset = 0;
-        nav_to(MODE_GRAPH_TRACE);
-        return true;
-    default: {
+    default:
+        if (menu_handle_nav_keys(t, &s_math.return_mode, &s_math.item_cursor, &s_math.scroll_offset))
+            return true;
+    {
         CalcMode_t ret = menu_close(TOKEN_MATH);
         if (ret == MODE_GRAPH_YEQ)
             return true;
@@ -1528,32 +1523,10 @@ static bool handle_test_menu(Token_t t)
     case TOKEN_TEST:
         menu_close(TOKEN_TEST);
         return true;
-    case TOKEN_Y_EQUALS:
-        s_test.return_mode = MODE_NORMAL;
-        s_test.item_cursor = 0;
-        nav_to(MODE_GRAPH_YEQ);
-        return true;
-    case TOKEN_RANGE:
-        s_test.return_mode = MODE_NORMAL;
-        s_test.item_cursor = 0;
-        nav_to(MODE_GRAPH_RANGE);
-        return true;
-    case TOKEN_ZOOM:
-        s_test.return_mode = MODE_NORMAL;
-        s_test.item_cursor = 0;
-        nav_to(MODE_GRAPH_ZOOM);
-        return true;
-    case TOKEN_GRAPH:
-        s_test.return_mode = MODE_NORMAL;
-        s_test.item_cursor = 0;
-        nav_to(MODE_NORMAL);
-        return true;
-    case TOKEN_TRACE:
-        s_test.return_mode = MODE_NORMAL;
-        s_test.item_cursor = 0;
-        nav_to(MODE_GRAPH_TRACE);
-        return true;
-    default: {
+    default:
+        if (menu_handle_nav_keys(t, &s_test.return_mode, &s_test.item_cursor, NULL))
+            return true;
+    {
         CalcMode_t ret = menu_close(TOKEN_TEST);
         if (ret == MODE_GRAPH_YEQ)
             return true;

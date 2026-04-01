@@ -15,6 +15,12 @@
 #include <math.h>
 #include <ctype.h>
 
+/* Scientific-notation display thresholds for Calc_FormatResult */
+#define CALC_SCI_HI        1e7f   /* values >= this use scientific notation */
+#define CALC_SCI_LO        1e-4f  /* non-zero values < this use scientific notation */
+#define CALC_INT_EPS       1e-4f  /* max fractional part to display as integer */
+#define CALC_SINGULARITY_EPS 1e-10f /* pivot threshold below which matrix is singular */
+
 /* User variable storage — A through Z, indexed by (ch - 'A') */
 float calc_variables[26] = {0};
 
@@ -641,7 +647,7 @@ static float mat_det(const CalcMatrix_t *m)
                 pivot = row;
             }
         }
-        if (max_val < 1e-10f) return 0.0f; /* singular */
+        if (max_val < CALC_SINGULARITY_EPS) return 0.0f; /* singular */
         if (pivot != col) {
             for (int j = 0; j < n; j++) {
                 float tmp = a[col][j]; a[col][j] = a[pivot][j]; a[pivot][j] = tmp;
@@ -1204,7 +1210,7 @@ void Calc_FormatResult(float value, char *buf, uint8_t buf_len)
     int fix_decimals = (calc_decimal_mode > 0) ? (int)calc_decimal_mode - 1 : -1;
 
     /* Scientific notation for very large or very small non-zero values */
-    if (fabsf(value) >= 1e7f || (fabsf(value) < 1e-4f && value != 0.0f)) {
+    if (fabsf(value) >= CALC_SCI_HI || (fabsf(value) < CALC_SCI_LO && value != 0.0f)) {
         if (fix_decimals < 0) {
             snprintf(buf, buf_len, "%.4e", value);
         } else {
@@ -1218,7 +1224,7 @@ void Calc_FormatResult(float value, char *buf, uint8_t buf_len)
     if (fix_decimals < 0) {
         /* Float mode: show integers without decimal point; trim trailing zeros */
         float rounded = roundf(value);
-        if (fabsf(value - rounded) < 1e-4f &&
+        if (fabsf(value - rounded) < CALC_INT_EPS &&
             rounded >= -9999999.0f && rounded <= 9999999.0f) {
             snprintf(buf, buf_len, "%d", (int)rounded);
             return;

@@ -107,7 +107,4 @@ void Process_Hardware_Key(uint8_t key_id);
 /** Processes a single token — updates internal calculator state */
 void Execute_Token(Token_t t);
 
-/** Refreshes the LVGL display label from the current input buffer */
-void Update_Calculator_Display(void);
-
 #endif /* APP_COMMON_H */
