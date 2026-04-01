@@ -10,6 +10,7 @@
 > **When transitioning to custom hardware:** Switch the function call in `Execute_Token()` back to `Power_EnterStop()` to engage this full sleep sequence.
 
 **Status:** Implemented (but bypassed on Discovery Board)
+**See also:** [docs/PCB_DESIGN.md](PCB_DESIGN.md) — target hardware BOM and power architecture (RT9471, RT8059, VBAT supply, battery monitoring).
 **Date:** 2026-03-18
 **Gestures:** `2nd+ON` = power down | `ON` (while sleeping) = wake
 

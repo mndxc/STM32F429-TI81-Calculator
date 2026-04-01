@@ -14,6 +14,17 @@
 #ifdef HOST_TEST
 #  include "prgm_exec_test_stubs.h"
 #else
+/*
+ * Embedded-only UI dependencies.  In host builds these are replaced by
+ * prgm_exec_test_stubs.h so the execution engine remains testable without
+ * hardware or LVGL.
+ *
+ * The calc_internal.h inclusion is a cross-layer dependency: it pulls in the
+ * UI super-module's shared state so that handle_normal_mode() can be called
+ * after evaluating a program expression line.  Long-term fix: extract a
+ * calc_evaluate_and_commit() helper from handle_normal_mode and call that
+ * instead — tracked as part of the P22 refactor in CLAUDE.md.
+ */
 #  include "ui_prgm.h"
 #  include "calc_internal.h"
 #  include "graph.h"

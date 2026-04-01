@@ -86,7 +86,30 @@ To compile the code and "flash" it onto the STM32, you need the right tools on y
 
 ---
 
-## 5. Building the Project
+## 5. CubeMX Setup (First Time Only)
+
+The STM32 HAL, CMSIS, and FreeRTOS vendor sources are not stored in the repository. You must generate them once with STM32CubeMX before your first build. If you cloned the repo and already have these directories populated, skip this section.
+
+### Steps in CubeMX
+
+1. **New Project → Board Selector → `STM32F429I-DISC1`** → click "Initialize All Peripherals with Default Mode"
+2. **Middleware → FreeRTOS → CMSIS V1** — enable it. This is the only non-default peripheral to add.
+   - In FreeRTOS settings also enable: `USE_IDLE_HOOK`, `USE_MALLOC_FAILED_HOOK` (these control generated stubs in `freertos.c` and must be set in the `.ioc` — they cannot be overridden from user code safely)
+3. **Project Manager** → set Toolchain to **CMake**, set project name
+4. **Generate Code** — this populates `Drivers/STM32F4xx_HAL_Driver/`, `Drivers/CMSIS/`, and `Middlewares/Third_Party/FreeRTOS/`
+
+### Steps after generating
+
+1. Copy the `App/` folder from the repo into the generated project root
+2. In `CMakeLists.txt`, add the App sources (copy the `target_sources` and `target_include_directories` blocks from the repo's `CMakeLists.txt`)
+3. Add `-u _printf_float` to `CMAKE_EXE_LINKER_FLAGS` in `CMakeLists.txt` (required for `%f`/`%g` in `snprintf` with `--specs=nano.specs`)
+4. Paste the FreeRTOS USER CODE overrides into `Core/Inc/FreeRTOSConfig.h` — already present if you copied from the repo; see `/* USER CODE BEGIN Defines */`
+
+> **After any future CubeMX regeneration**, re-apply the manual changes documented in `docs/TECHNICAL.md` "Build Configuration" — CubeMX resets several critical settings.
+
+---
+
+## 6. Building the Project
 Once your software is ready, follow these steps to get the Neo-81 firmware running:
 
 1.  **Clone the Repository:**
@@ -132,7 +155,7 @@ Once your software is ready, follow these steps to get the Neo-81 firmware runni
 
 ---
 
-## 6. Host Tests
+## 7. Host Tests
 
 The project includes a 396-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, persistent storage round-trips, and PRGM execution control flow.
 
@@ -150,13 +173,14 @@ All four executables exit `0` on a full pass (396 total). These tests run automa
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 * **Screen is white after flashing?** Do a full USB power cycle (unplug and replug). The ILI9341 in RGB interface mode does not always recover cleanly from an SWD reset alone.
 * **Float values show as empty strings?** The linker flag `-u _printf_float` is required when using `--specs=nano.specs`. Check that `CMakeLists.txt` still contains it — it can be silently lost during a CMake refactor.
 * **Keys not responding?** Verify that the ribbon cable is seated firmly. Use a multimeter in continuity mode to trace each ribbon wire to its key matrix row/column, then match it to the GPIO table in section 2 above.
 * **GDB can't connect after using 2nd+ON (power-off screen)?** The firmware blocks on the keypad queue rather than entering true Stop mode on the discovery board prototype. Press ON to wake it, then reconnect GDB.
 * **Build fails with "arm-none-eabi-gcc not found"?** The ARM toolchain must be on your PATH. If using the command-line build, run the `export PATH=...` step shown in section 5 first. If using VSCode, ensure the stm32-cube-clangd extension is installed — it manages the toolchain automatically.
+* **CMake configure fails with `cube-cmake: not found`?** Check `.vscode/settings.json` — it overrides your system PATH via `cmake.environment.PATH`. This entry must include three directories: the ARM toolchain (`gnu-tools-for-stm32/14.3.1+st.2/bin`), the stm32cube-ide-core extension binaries, and the stm32cube-ide-build-cmake extension's `cube-cmake` binary (`resources/cube-cmake/darwin/aarch64`). If the build-cmake extension was updated, find the new version directory and update `.vscode/settings.json` to match.
 
 ---
 

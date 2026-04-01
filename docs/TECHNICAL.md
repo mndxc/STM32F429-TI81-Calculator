@@ -124,6 +124,23 @@ To avoid monolithic growth in `calculator_core.c`, complex sub-menus and distinc
 
 ---
 
+## Keypad Driver
+
+`App/HW/Keypad/keypad.c` implements the 7×8 matrix scan and auto-repeat:
+
+- A-lines (columns) are driven HIGH one at a time; B-lines (rows) are read back
+- Key ID = `(row * 7) + col`; range 1–55; `0xFF` = no key pressed
+- `StartKeypadTask` scans every 20 ms; calls `Process_Hardware_Key()` on a new keypress
+- Arrow keys auto-repeat: 400 ms initial delay, 80 ms repeat rate (`KEY_REPEAT_DELAY_TICKS=20`, `KEY_REPEAT_RATE_TICKS=4`)
+- All other keys fire once on initial press only
+
+`Process_Hardware_Key()` in `calculator_core.c`:
+- Translates raw key ID → `Token_t` using `TI81_LookupTable` in `keypad_map.c`
+- Handles 2ND/ALPHA mode layers and STO pending flag before queuing the token to `keypadQueueHandle`
+- Sticky 2ND/ALPHA: pressing the modifier a second time cancels it; `return_mode` saves the pre-modifier mode to restore after one keypress
+
+---
+
 ## Display
 
 The ILI9341 is driven via the STM32 LTDC RGB interface. In this mode the
@@ -174,6 +191,55 @@ the active input mode:
 Font: JetBrains Mono 24 (monospaced) for all content. The number of characters
 per row is measured at runtime from the glyph width.
 
+Display constants:
+
+```c
+DISP_ROW_COUNT = 8     // rows
+DISP_ROW_H     = 30   // px per row  (8 × 30 = 240 px — fills screen exactly)
+MAX_EXPR_LEN   = 96   // max expression bytes (~4 wrapped rows)
+```
+
+History entries occupy two rows: expression (left-aligned, grey `0x888888`) on the even row; result (right-aligned, white `0xFFFFFF`) on the odd row. The current expression wraps across multiple rows when it exceeds the line width. `expr_chars_per_row` is measured at init from the glyph width; `ui_refresh_display` slices the expression into segments and renders each onto its own row.
+
+Key display functions:
+
+```c
+void Update_Calculator_Display(void);  // call after any keypress that changes the expression
+// ui_refresh_display() and ui_update_history() are static — call via Update_Calculator_Display()
+```
+
+### Font Regeneration
+
+The LVGL bitmap font files are generated from `App/Fonts/JetBrainsMono-Regular-Custom.ttf` using `lv_font_conv`. Always use the **Custom TTF** — it adds two Private Use Area glyphs not in the stock JetBrains Mono: **U+E000** (x̄, xbar) and **U+E001** (⁻¹, superscript negative one).
+
+Install: `npm i -g lv_font_conv`
+
+```bash
+lv_font_conv --font App/Fonts/JetBrainsMono-Regular-Custom.ttf \
+  -r 0x20-0x7E \
+  -r 0x00B0,0x00B2,0x00B3,0x00B9 \
+  -r 0x0233 \
+  -r 0x03A3,0x03B8,0x03C0,0x03C3 \
+  -r 0x2081-0x2084 \
+  -r 0x221A -r 0x25B6 -r 0x2191,0x2193 -r 0x2260,0x2264,0x2265 \
+  -r 0xE000,0xE001 \
+  --size 24 --format lvgl --bpp 4 -o App/Fonts/jetbrains_mono_24.c --no-compress
+
+lv_font_conv --font App/Fonts/JetBrainsMono-Regular-Custom.ttf \
+  -r 0x20-0x7E \
+  -r 0x00B0,0x00B2,0x00B3,0x00B9 \
+  -r 0x0233 \
+  -r 0x03A3,0x03B8,0x03C0,0x03C3 \
+  -r 0x2081-0x2084 \
+  -r 0x221A -r 0x25B6 -r 0x2191,0x2193 -r 0x2260,0x2264,0x2265 \
+  -r 0xE000,0xE001 \
+  --size 20 --format lvgl --bpp 4 -o App/Fonts/jetbrains_mono_20.c --no-compress
+```
+
+Current Unicode ranges: ASCII (0x20–0x7E), °²³¹, ȳ (U+0233), Σθπσ (Greek), ₁₂₃₄ (U+2081–2084), √ ▶ ↑↓, ≠≤≥, U+E000 x̄ / U+E001 ⁻¹ (PUA glyphs).
+
+**Not in custom TTF** (requires further font editing before use): ᵀ U+1D40 (superscript T), ⁻ U+207B (superscript minus alone), ₜ U+209C (subscript t).
+
 ---
 
 ## Input Modes
@@ -208,6 +274,58 @@ per row is measured at runtime from the glyph width.
 Pressing 2nd or ALPHA a second time cancels the modifier (toggle). `STO→` sets
 a pending flag and automatically enters ALPHA mode for the next keypress so the
 destination variable can be typed without pressing ALPHA manually.
+
+### Execute_Token handler order
+
+`Execute_Token()` in `calculator_core.c` processes tokens in this fixed order — earlier handlers return before the main switch fires:
+
+1. `TOKEN_ON` — always fires first; saves state, handles power-down
+2. `TOKEN_MODE` — always fires second; hides everything, opens MODE screen
+3. `MODE_GRAPH_YEQ`
+4. `MODE_GRAPH_RANGE`
+5. `MODE_GRAPH_ZOOM`
+6. `MODE_GRAPH_ZOOM_FACTORS`
+7. `MODE_GRAPH_ZBOX`
+8. `MODE_GRAPH_TRACE` — exits trace then **falls through** to main switch
+9. `MODE_MODE_SCREEN`
+10. `MODE_MATH_MENU`
+11. `MODE_TEST_MENU`
+12. `MODE_MATRIX_MENU`
+13. `MODE_MATRIX_EDIT`
+14. STO pending check — fires if `sto_pending`, then falls through
+15. Main switch (`MODE_NORMAL`)
+
+Navigation helpers (all static in `calculator_core.c`):
+
+- `hide_all_screens()` — hides all overlays and graph canvas; must be called inside `lvgl_lock()`
+- `nav_to(target)` — single entry point for all graph screen transitions; acquires lock internally
+- `menu_open(token, return_to)` — opens MATH/TEST/MATRIX with correct return mode
+- `menu_close(token)` — closes a menu, restores the calling screen, returns the restored mode
+- `tab_move(tab, cursor, scroll, count, left, update)` — shared tab-switching logic for MATH and MATRIX
+
+### Modifier key behaviour
+
+- Pressing 2ND or ALPHA a second time cancels the mode (toggle)
+- `TOKEN_A_LOCK` (2nd+ALPHA) enters `MODE_ALPHA_LOCK` — stays active until ALPHA is pressed again
+- `TOKEN_STO` sets `sto_pending = true`; the next keypress uses the `key.alpha` layer automatically
+- Mode state is shown entirely through the block cursor — no status bar:
+  - Normal: blinking light-grey block, no inner character
+  - 2nd: steady amber block, `^` inside
+  - ALPHA / A-LOCK / STO pending: steady green block, `A` inside
+- `ui_lbl_modifier` is an invisible LVGL label that holds the current modifier text/colour; `ui_update_status_bar()` mirrors it to `ui_lbl_yeq_modifier` and `ui_lbl_range_modifier` on graph screens
+
+### Cursor implementation
+
+`cursor_update(row_label, char_pos)` in `calculator_core.c`:
+
+- Uses `lv_label_get_letter_pos()` to find the pixel X of the insertion point
+- Positions `cursor_box` over that point; sets background colour and `cursor_inner` label based on mode and `sto_pending`
+- LVGL timer `cursor_timer_cb` fires every `CURSOR_BLINK_MS` (530 ms)
+- Default: overwrite mode (`insert_mode = false`); INS key toggles; insert mode shifts characters right
+
+### Auto-ANS insertion
+
+When the expression buffer is empty and a binary operator is pressed, `expr_prepend_ans_if_empty()` prepends `"ANS"` before the operator. Triggers on: `TOKEN_ADD`, `TOKEN_SUB`, `TOKEN_MULT`, `TOKEN_DIV`, `TOKEN_POWER`, `TOKEN_SQUARE`, `TOKEN_X_INV`.
 
 ---
 
@@ -301,11 +419,73 @@ Each new function requires four small additions:
 
 The shunting-yard algorithm never needs to change.
 
+### Public API
+
+```c
+CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix, bool angle_degrees);
+CalcResult_t Calc_EvaluateAt(const char *expr, float x_val, float ans, bool angle_degrees);
+void         Calc_FormatResult(float value, char *buf, uint8_t buf_len);
+```
+
+### Variables
+
+- **ANS** — last result. When the last evaluation produced a matrix, `ans` holds the matrix slot index (3.0f) and `ans_is_matrix = true`; `Tokenize` emits `MATH_MATRIX_VAL` instead of `MATH_NUMBER` for the `ANS` token. This lets `det(ANS)` / `[A]+ANS` chain correctly after matrix arithmetic. `ans_is_matrix` is a static in `calculator_core.c`, passed explicitly — there is no shared global for this state. `Calc_EvaluateAt` (graphing) always passes `false` since Y= equations cannot reference a matrix ANS.
+- **x / X** — graph variable; `Calc_EvaluateAt` injects `x_val`; `Calc_Evaluate` uses `calc_variables['X'-'A']`
+- **A–Z** — user variables in `calc_variables[26]` in `calc_engine.c`; stored via `STO→`
+
+### Float formatting
+
+`%.6g` is unreliable on newlib-nano. `Calc_FormatResult` uses `%.6f` with manual trailing-zero trimming. Switches to `%.4e` for values ≥1e7 or <1e-4 (non-zero).
+
+### Tokenizer special case
+
+`-` immediately after `^` followed by a digit is folded into a negative number literal to prevent shunting-yard from treating it as binary subtraction. `-3^2` still evaluates as `-(3^2) = -9`.
+
 ---
 
 ## Graphing
 
 Pressing GRAPH plots all active Y= equations over the current RANGE window.
+
+### State
+
+```c
+GraphState_t graph_state;   // defined in calculator_core.c, extern in app_common.h
+
+typedef struct {
+    char  equations[GRAPH_NUM_EQ][64];
+    bool  enabled[GRAPH_NUM_EQ];     // true if equation is plotted
+    float x_min, x_max, y_min, y_max;
+    float x_scl, y_scl;
+    float x_res;    // render step (1 = every pixel column, integer 1–8)
+    bool  active;
+    bool  grid_on;  // true when grid dots enabled (MODE row 7)
+} GraphState_t;
+```
+
+### LVGL screen objects (all children of `lv_scr_act()`, hidden at startup)
+
+- `ui_graph_yeq_screen` — Y= equation editor
+- `ui_graph_range_screen` — RANGE value editor
+- `ui_graph_zoom_screen` — ZOOM preset menu
+- `graph_screen` (in `graph.c`) — full-height canvas (320×240) + split X=/Y= readout labels
+
+### Free navigation
+
+Any of these keys works from any graph screen:
+
+```
+Y=    → MODE_GRAPH_YEQ,   show ui_graph_yeq_screen
+RANGE → MODE_GRAPH_RANGE, show ui_graph_range_screen
+ZOOM  → MODE_GRAPH_ZOOM,  show ui_graph_zoom_screen
+GRAPH → Graph_SetVisible(true), Graph_Render()
+TRACE → MODE_GRAPH_TRACE, Graph_DrawTrace() at midpoint
+CLEAR → clears active content (eq/field), or exits to calculator if nothing to clear
+```
+
+### Y= editor cursor
+
+`yeq_cursor_pos` (uint8_t in `calculator_core.c`) is a **byte offset** (not glyph index) into the selected equation. UTF-8 multi-byte sequences (e.g. √ U+221A) are handled by `utf8_char_size()` / `utf8_byte_to_glyph()`. Reset to end-of-equation when switching rows (UP/DOWN) or opening Y= from the main screen.
 
 ### Graph screens
 
@@ -347,6 +527,32 @@ ENTER commits and exits.
 | Graph canvas  | —                         | Exits to calculator     |
 | TRACE         | (exits trace first, then) | Exits to calculator     |
 | ZBox          | —                         | Exits to calculator     |
+
+### RANGE editor
+
+`range_field_selected` (0=Xmin … 6=Xres), `range_field_buf[16]`, `range_field_len`. Fields commit on UP/DOWN/ENTER. CLEAR clears an in-progress edit; if already empty, exits to the calculator. ZOOM from RANGE navigates to the ZOOM menu — does not reset to ZStandard.
+
+### ZOOM FACTORS sub-screen
+
+Two fields: `XFact=` and `YFact=` (defaults 4.0). State: `zoom_x_fact`, `zoom_y_fact`, `zoom_factors_field` (0/1), `zoom_factors_buf[16]`. UP/DOWN move between fields; digit keys and DEL edit the value; ENTER commits and returns to the ZOOM menu.
+
+### Renderer
+
+`Graph_Render(bool angle_degrees)` in `graph.c`:
+
+1. Clears canvas to black
+2. Draws grid dots if `graph_state.grid_on` at every (x_scl, y_scl) intersection
+3. Draws axes (grey lines at x=0, y=0 if in window)
+4. Draws tick marks at x_scl, y_scl intervals
+5. Per `x_res` pixel columns: maps to x_math → `Calc_EvaluateAt` → y_px; linearly interpolates between sampled points to fill gaps when `x_res > 1`
+
+### Trace mode
+
+`Graph_DrawTrace()` in `graph.c`: memcpy `graph_buf_clean` → `graph_buf` if `graph_clean_valid` (fast path); otherwise calls `Graph_Render` to populate the cache. Draws a green crosshair ±5 px at the cursor; updates `graph_lbl_x` (X=) and `graph_lbl_y` (Y=). `graph_clean_valid` is invalidated by `Graph_SetVisible(false)`.
+
+### ZBox mode
+
+`Graph_DrawZBox()` in `graph.c`: restores the clean frame, draws a yellow crosshair, and a white rectangle once the first corner is set. ENTER sets the first corner or commits the zoom; ZOOM cancels and stays on the graph canvas; CLEAR exits to the calculator.
 
 ---
 
@@ -408,6 +614,18 @@ The linker flags include `-u _printf_float` to re-enable it:
 set(CMAKE_EXE_LINKER_FLAGS "... --specs=nano.specs -u _printf_float")
 ```
 
+### 7. App-managed peripherals (no CubeMX configuration needed)
+
+The peripherals below are initialised entirely in App code. Do not add them to the `.ioc` — CubeMX will generate conflicting GPIO init code.
+
+| Concern | Where |
+|---|---|
+| Keypad A-line GPIO (PE2–PE5, PB3, PB4, PB7) | `Keypad_GPIO_Init()` in `keypad.c` |
+| Keypad B-line GPIO (PA5, PC3, PC8, PC11, PD7, PG2, PG3, PG9) | `Keypad_GPIO_Init()` in `keypad.c` |
+| ON button EXTI (PE6) | `on_button_init()` in `app_init.c` |
+| LTDC framebuffer address (0xD0000000) | `BSP_LCD_LayerDefaultInit()` in `App_DefaultTask_Run()` |
+| FreeRTOS heap size, stack overflow check, mutex/semaphore APIs | USER CODE overrides in `FreeRTOSConfig.h` |
+
 ---
 
 ## Building
@@ -418,24 +636,9 @@ set(CMAKE_EXE_LINKER_FLAGS "... --specs=nano.specs -u _printf_float")
 - CMake 3.22+
 - OpenOCD for flashing
 
-### Step 1 — Generate vendor sources
+First-time CubeMX setup (generating vendor sources, FreeRTOS hooks, and App integration steps) is documented in [docs/GETTING_STARTED.md](GETTING_STARTED.md) section 5. After generating, re-apply the manual changes in [Build Configuration](#build-configuration--read-before-building) — CubeMX resets them.
 
-The STM32 HAL, CMSIS, and FreeRTOS sources are not included in this repository
-(they are large, redistributable by ST, and gitignored). You must generate them
-once using STM32CubeMX before building:
-
-1. Open `STM32F429-TI81-Calculator.ioc` in STM32CubeMX
-2. Click **Project → Generate Code**
-3. This will populate:
-   - `Drivers/STM32F4xx_HAL_Driver/`
-   - `Drivers/CMSIS/`
-   - `Middlewares/Third_Party/FreeRTOS/`
-
-After generating, re-apply the manual changes documented in
-[Build Configuration](#build-configuration--read-before-building) as CubeMX
-will reset them.
-
-### Step 2 — Build
+### Step 1 — Build
 
 The project includes a `CMakePresets.json` that configures the ARM toolchain automatically.
 
@@ -448,7 +651,7 @@ cmake --preset Debug
 cmake --build build/Debug
 ```
 
-### Step 3 — Flash
+### Step 2 — Flash
 
 ```bash
 openocd \

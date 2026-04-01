@@ -8,49 +8,57 @@
 
 | File | What goes stale |
 |---|---|
-| `CLAUDE.md` | Feature %, priority list, file structure table, `CalcMode_t` block, `GraphState_t` block, test counts, overall quality rating |
+| `CLAUDE.md` | Feature %, priority list, `CalcMode_t` block, `GraphState_t` block, test counts, overall quality rating, scorecard dimension ratings |
 | `docs/PROJECT_HISTORY.md` | Session log, completed features, resolved items, milestone reviews — update after every session |
 | `README.md` | Feature status table (% complete, notes) |
-| `docs/GETTING_STARTED.md` | Test counts, OpenOCD path version |
-| `docs/TECHNICAL.md` | Supported functions table, Input Modes table, memory layout %, FLASH sector contents |
+| `docs/GETTING_STARTED.md` | Test counts, OpenOCD path version, toolchain PATH entries |
+| `docs/TECHNICAL.md` | Supported functions table, Input Modes table, memory layout %, FLASH sector contents, font regeneration commands |
 | `docs/ARCHITECTURE.md` | Module dependency diagram, file tree listing, memory layout % (mirrors TECHNICAL.md) |
+| `docs/MENU_SPECS.md` | Menu layouts, navigation rules, implementation status — single source of truth for all menus |
+| `docs/PRGM_COMMANDS.md` | PRGM command set; update when commands are added, removed, or renamed |
+| `docs/prgm_manual_tests.md` | PRGM hardware test plan; update test IDs when command set changes |
+| `docs/TESTING.md` | Host test executables and coverage targets |
+| `docs/POWER_MANAGEMENT.md` | Power management design and Stop mode implementation notes |
+| `docs/DISPLAY_STABILITY.md` | Display stability and pixel-clock artifact notes |
+| `docs/TROUBLESHOOTING.md` | Troubleshooting steps for common build, flash, and runtime issues |
+| `docs/PCB_DESIGN.md` | Custom PCB design notes (paused) |
 | `App/Tests/test_persist_roundtrip.c` | Hardcoded `PersistBlock_t` size assertion — must match `persist.h` |
-| This file | Scorecard dimension ratings — update only when a rating changes |
+| This file | Scorecard grading criteria (Rises when / Falls when) — ratings live in `CLAUDE.md` |
 
 ---
 
 ## Quality Scorecard
 
-Established baselines. Do not let them degrade. When a dimension's rating changes, update this table and note it in the `CLAUDE.md` session log.
+Grading criteria only. Current ratings and the snapshot date live in `CLAUDE.md` "Quality Scorecard". When a dimension's rating changes: update `CLAUDE.md`, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
-| Dimension | Rating | Rises when | Falls when |
-|---|---|---|---|
-| Documentation | A+ | All doc files stay in sync; new gotchas added promptly | Docs drift from code; session log falls behind |
-| API / header design | A | Module boundaries clean; no new circular deps | Headers gain impl details; prefixes inconsistent |
-| Memory safety & FLASH handling | A | New FLASH ops in `.RamFunc`; persist fields validated | Raw FLASH writes outside `persist.c`; alignment ignored |
-| RTOS integration | A | All new LVGL calls inside mutex | LVGL call outside mutex; deadlock in timer callback |
-| Error handling | A- | New error paths return `CalcError_t` | Silent failures; out-of-bounds without check |
-| Naming conventions | B+ | New names follow `Module_VerbNoun()` pattern | New inconsistent prefixes or abbreviations |
-| Code organisation | B+ | Modules extracted cleanly; files stay under ~500 lines | Files grow past 500 lines without extraction plan |
-| Function complexity | B | Functions stay under 100 lines | New over-100-line functions without follow-up plan |
-| Magic numbers / constants | A- | New colours/limits go to named constants in `ui_palette.h` | Inline hex literals or magic numbers in new code |
-| Testing | A- | New property tests; coverage increases | Test count drops; new logic with no host test |
+| Dimension | Rises when | Falls when |
+|---|---|---|
+| Documentation | All doc files stay in sync; new gotchas added promptly | Docs drift from code; session log falls behind |
+| API / header design | Module boundaries clean; no new circular deps | Headers gain impl details; prefixes inconsistent |
+| Memory safety & FLASH handling | New FLASH ops in `.RamFunc`; persist fields validated | Raw FLASH writes outside `persist.c`; alignment ignored |
+| RTOS integration | All new LVGL calls inside mutex | LVGL call outside mutex; deadlock in timer callback |
+| Error handling | New error paths return `CalcError_t` | Silent failures; out-of-bounds without check |
+| Naming conventions | New names follow `Module_VerbNoun()` pattern | New inconsistent prefixes or abbreviations |
+| Code organisation | Modules extracted cleanly; files stay under ~500 lines | Files grow past 500 lines without extraction plan |
+| Function complexity | Functions stay under 100 lines | New over-100-line functions without follow-up plan |
+| Magic numbers / constants | New colours/limits go to named constants in `ui_palette.h` | Inline hex literals or magic numbers in new code |
+| Testing | New property tests; coverage increases | Test count drops; new logic with no host test |
 
 ---
 
 ## Do Not Regress
 
-These areas have earned their current rating. Protect them actively.
+Standing rules that apply regardless of current rating. These define the floor — any new code that violates them is a defect, not a style preference.
 
-**Documentation (A+):** `docs/PROJECT_HISTORY.md` is the canonical session log and history archive. All doc files must stay in sync with code after every change.
+**Documentation:** `docs/PROJECT_HISTORY.md` is the canonical session log and history archive. All doc files must stay in sync with code after every change.
 
-**API and header design (A):** Module prefixes (`Calc_*`, `Graph_*`, `Persist_*`, `Keypad_*`) are consistent. No circular dependencies. Do not mix impl details into headers.
+**API and header design:** Module prefixes (`Calc_*`, `Graph_*`, `Persist_*`, `Keypad_*`) are consistent. No circular dependencies. Do not mix implementation details into public headers.
 
-**Embedded-specific correctness (A):** FLASH erase in `.RamFunc`. `_Static_assert` on `PersistBlock_t` alignment. `volatile` on `g_sleeping`. ISR-safe queue use (`xQueueSendFromISR`). Checksums + magic + version on persist block.
+**Embedded-specific correctness:** FLASH erase routines in `.RamFunc`. `_Static_assert` on `PersistBlock_t` alignment. `volatile` on `g_sleeping`. ISR-safe queue use (`xQueueSendFromISR`). Checksums + magic + version on every persist block.
 
-**RTOS integration (A):** Mutex guards all LVGL calls. `cursor_timer_cb` deadlock case documented and avoided. Never add LVGL calls outside `lvgl_lock()` / `lvgl_unlock()`.
+**RTOS integration:** Mutex guards all LVGL calls. `cursor_timer_cb` deadlock case documented and avoided. Never add LVGL calls outside `lvgl_lock()` / `lvgl_unlock()`.
 
-**Error handling (A-):** `CalcResult_t` carries `CalcError_t` + message + matrix flag. Bounds checking on token count, stack depth, and matrix dimensions. New error paths must return `CalcError_t`.
+**Error handling:** `CalcResult_t` carries `CalcError_t` + message + matrix flag. Bounds checking on token count, stack depth, and matrix dimensions. New error paths must return `CalcError_t`.
 
 ---
 
@@ -86,7 +94,7 @@ If `increase`: immediately add one or more `[complexity]` items to `CLAUDE.md` "
 
 ## Update Rules
 
-`CLAUDE.md` "Complexity Management Requirement" applies to every commit — follow it first.
+Rate complexity delta before every commit.
 
 ### After Every Commit
 
@@ -106,8 +114,8 @@ If `increase`: immediately add one or more `[complexity]` items to `CLAUDE.md` "
 
 Triggers: new `CalcMode_t` value, new `GraphState_t` field, new math function, `PersistBlock_t` layout change, test count change, PRGM command added/removed.
 
-- **New `CalcMode_t` value** — update `CLAUDE.md` "Input Mode System" AND `docs/TECHNICAL.md` "Input Modes" in the same commit; both must match `App/Inc/app_common.h` exactly
-- **New `GraphState_t` field** — update `CLAUDE.md` "Graphing System → State" to match `App/Inc/app_common.h`
+- **New `CalcMode_t` value** — update `docs/TECHNICAL.md` "Input Modes" table in the same commit; must match `App/Inc/app_common.h` exactly
+- **New `GraphState_t` field** — update `docs/TECHNICAL.md` "Graphing → State" struct to match `App/Inc/app_common.h`
 - **`PersistBlock_t` layout change** — update the hardcoded size literal in `test_persist_roundtrip.c` (search `EXPECT_EQ((int)sizeof(PersistBlock_t)`) to match `persist.h`; run host tests before committing
 - **New math function** — update `docs/TECHNICAL.md` Supported Functions table and `CLAUDE.md` Feature Completion Status
 - **PRGM command set changed** — update `docs/PRGM_COMMANDS.md` to match the `prgm_exec.c` dispatch table
@@ -148,8 +156,8 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 | Overall quality rating | `CLAUDE.md` "Project Quality" | — |
 | Memory layout % used | `docs/TECHNICAL.md` | `docs/ARCHITECTURE.md` (mirror) |
 | `PersistBlock_t` size (bytes) | `App/Inc/persist.h` comment | `test_persist_roundtrip.c`, `docs/TECHNICAL.md`, `CLAUDE.md` |
-| `CalcMode_t` values | `App/Inc/app_common.h` | `CLAUDE.md` "Input Mode System", `docs/TECHNICAL.md` "Input Modes" |
-| `GraphState_t` fields | `App/Inc/app_common.h` | `CLAUDE.md` "Graphing System → State" |
+| `CalcMode_t` values | `App/Inc/app_common.h` | `docs/TECHNICAL.md` "Input Modes" |
+| `GraphState_t` fields | `App/Inc/app_common.h` | `docs/TECHNICAL.md` "Graphing → State" |
 
 ---
 
@@ -269,7 +277,7 @@ For each commit note: new `CalcMode_t` values? New `GraphState_t` fields? `Persi
 
 ## Periodic Code Review
 
-Use at natural milestones — after a major feature, before a new module, or when the codebase feels like it has grown faster than it has been simplified. Produces a `docs/CODE_REVIEW_PENDING.md` checklist; delete it when all items are checked off.
+Use at natural milestones — after a major feature, before a new module, or when the codebase feels like it has grown faster than it has been simplified.
 
 ### Phase 1 — Structural scan (delegate to an Explore agent)
 
@@ -284,20 +292,54 @@ Use at natural milestones — after a major feature, before a new module, or whe
 5. `README.md` — does the status section reflect current feature state?
 6. Top ~80 lines of the largest `App/Src/*.c` files — constant blocks, include lists, file-level comments.
 
-### Phase 3 — Write `docs/CODE_REVIEW_PENDING.md`
+### Phase 3 — Write items directly into `CLAUDE.md` "Next session priorities"
 
-```markdown
-# Code Review — Action Items (Temporary)
-> Delete this file when all items are checked off. Generated <date>.
+Do not create a separate file. Append each actionable item to `CLAUDE.md` "Next session priorities" using the standard tagged format:
 
-## Quick wins (docs/config — no logic risk)
-- [ ] **N. Title** — one sentence. Files: `...`
-
-## Code refactoring (mechanical — no logic changes)
-- [ ] **N. Title** — one sentence. Files: `...`
-
-## Future items (add to CLAUDE.md "Next session priorities" when ready)
-- **Title** — one sentence.
+```
+**[tag] Title** — one sentence describing the issue and the fix. Zero logic change. Files: `...`.
 ```
 
-Order items by effort, smallest first. Include file paths on every item. If the review surfaces a non-obvious structural insight for future sessions, save it as a project memory.
+Tag mapping for review items:
+- `[docs]` — stale docstrings, file-tree listing gaps, cross-reference drift (no logic risk)
+- `[refactor]` — function extraction, named constants, dispatch tables (mechanical, no logic change)
+- `[testing]` — coverage gaps surfaced by the review
+- `[bug]` — incorrect behaviour surfaced by the review
+
+Order by effort: `[docs]` items first (minutes each), then `[refactor]` items by ascending line count.
+
+Items not yet ready to act on (prerequisite incomplete, overlapping scope, high regression risk) — add them anyway with a **Prerequisite:** or **Coordinate with:** note inline so the context is not lost.
+
+If the review surfaces a non-obvious structural insight for future sessions, save it as a project memory.
+
+---
+
+## Git Workflow
+
+Stage specific files by name rather than `git add -A` to avoid accidentally committing build artefacts or sensitive files.
+
+```bash
+git add App/Src/calculator_core.c App/Src/app_init.c App/Inc/app_common.h \
+        App/Src/graph.c App/Inc/graph.h \
+        App/HW/Keypad/keypad.c App/HW/Keypad/keypad.h \
+        Core/Inc/FreeRTOSConfig.h CLAUDE.md
+git commit -m "description"
+git push
+```
+
+Commit when a feature works end to end or before starting a risky change. Do not commit half-finished work that does not build.
+
+### .gitignore key exclusions
+
+```
+build/
+LVGL/
+Middlewares/Third_Party/lvgl/tests/
+Middlewares/Third_Party/lvgl/docs/
+Middlewares/Third_Party/lvgl/examples/
+Middlewares/Third_Party/lvgl/demos/
+Drivers/STM32F4xx_HAL_Driver/
+Drivers/CMSIS/
+Middlewares/Third_Party/FreeRTOS/
+Middlewares/ST/
+```
