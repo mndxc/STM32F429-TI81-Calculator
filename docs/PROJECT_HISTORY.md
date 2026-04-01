@@ -86,3 +86,4 @@ The single history archive for this project. Add a Session Log entry after every
 | 2026-03-22 | Sessions 19–23: PRGM feature-complete (~95%); dispatch table (P19); 121-test exec suite (P20). Testing B+ → A-. Rating 93–95%. |
 | 2026-03-25 | Sessions 26–28: PRGM spec alignment −44 tests (suite 378/378); manual test plan 40 → 50; `CODE_REVIEW_PENDING.md` retired; P21–P24 promoted. |
 | 2026-03-26 | `QUALITY_TRACKER.md` renamed to `MAINTENANCE_STANDARDS.md`; restructured as process document; history moved here. |
+| 2026-04-01 | P28 complete: `cursor_place()` → `cursor_render()`. All 7 cursor-update functions now pass explicit `visible`/`mode`/`insert` params; no global state read. `MODE_STO` synthetic enum added. API/header design A- → A. Rating 90–92%. Complexity delta: **decrease**. |

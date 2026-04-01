@@ -10,17 +10,18 @@ Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before s
 - File structure rules and module naming conventions
 - **The grading criteria for every scorecard dimension below** (Rises when / Falls when)
 - Standing rules that must never regress regardless of current rating (Do Not Regress)
+- **Complexity delta rating** — rate neutral / increase / decrease before every commit; if `increase`, add a `[complexity]` item to "Next session priorities"
 
 Use `/update-project` to trigger a full sync. All open work items live in "Next session priorities" below; resolved items and milestone history are in [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md).
 
 ## Quality Scorecard
 
-Snapshot as of **2026-03-31**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-01**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
 | Documentation | A- |
-| API / header design | A- |
+| API / header design | A |
 | Memory safety & FLASH handling | A |
 | RTOS integration | A |
 | Error handling | A- |
@@ -30,17 +31,7 @@ Snapshot as of **2026-03-31**. Grading criteria (what causes each dimension to r
 | Magic numbers / constants | A- |
 | Testing | B+ |
 
-Overall: **89–91% production-ready**. Key remaining gaps: PRGM hardware validation pending; documentation drift (PRGM_COMMANDS.md, stale docstrings, test count mismatch); code organisation (6/10 files over 500-line threshold); `handle_normal_mode` has zero test coverage. Key strengths: RTOS integration (A), FLASH/memory-safety (A), CI quality gates (-Werror), 396-test host suite with CI.
-
----
-
-## Complexity Management (standing rule — applies to every commit)
-
-Before closing any session: rate the delta (neutral / increase / decrease). If `increase`, add a `[complexity]` item to "Next session priorities" before closing. Format:
-
-```
-**[complexity] <short title>** — <one sentence explaining what grew and why>. <one sentence describing the planned simplification>. Files: <file list>.
-```
+Overall: **90–92% production-ready**. Key remaining gaps: PRGM hardware validation pending; documentation drift (PRGM_COMMANDS.md, stale docstrings, test count mismatch); code organisation (6/10 files over 500-line threshold); `handle_normal_mode` has zero test coverage. Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A — cursor_render() pure-function refactor), CI quality gates (-Werror), 396-test host suite with CI.
 
 ---
 
@@ -138,6 +129,8 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
   After all replacements: build, flash to hardware, visually verify each glyph at the relevant font size (menu items use 20px; key labels / Y= labels use 24px).
 
+**[refactor] Reduce history buffer to 1 entry (TI-81 spec alignment)** — Current implementation stores 32 expression-result pairs (~6,272 bytes RAM) with UP/DOWN arrow multi-step scrolling, which is a deliberate deviation from the original TI-81. Reducing `HISTORY_LINE_COUNT` to 1 in `calc_internal.h` aligns `2nd+ENTRY` and UP/DOWN behaviour with the original spec, recovers ~7 KB RAM (including reducing `MATRIX_RING_COUNT` from 8 to 1), and simplifies `ui_refresh_display()` (loop becomes 0–1 iterations). No logic changes needed — the circular buffer math and `handle_history_nav` work correctly at size 1. Also update the "Deliberate Deviations" table in `CLAUDE.md` to remove the history scroll and `2nd+ENTRY` entries. Files: `App/Inc/calc_internal.h`, `App/Src/calculator_core.c`, `CLAUDE.md`.
+
 **[complexity] ui_prgm.c EXEC sub-menu extraction** — Session 29 added `handle_prgm_exec_menu()` (~90 lines), `ui_update_prgm_exec_display()`, and `prgm_new_name_cursor`/`prgm_editor_from_new` state to `ui_prgm.c`, growing it ~200 lines. Extract the EXEC slot-picker handler into a focused helper or inline it with the CTL/IO handlers in a shared `handle_prgm_submenu()` dispatcher to reduce duplication across the three nearly-identical sub-menu handlers. Files: `App/Src/ui_prgm.c`.
 
 **[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, 396 host tests pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
@@ -170,7 +163,6 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[refactor] P27 — Normalize menu state reset on nav_to transitions** — MATH menu resets item_cursor/scroll_offset to 0 when navigating to a graph screen; ZOOM menu does not. This inconsistency causes cursor positions to be unexpectedly preserved on return. Normalize all menu handlers: call state reset before any `nav_to()`. Zero visible behaviour change (cursors start at top consistently). Effort ~1 hr. Files: `App/Src/calculator_core.c`, `App/Src/graph_ui.c`.
 
-**[refactor] P28 — Unified `cursor_render()` function** — There are 7 independent cursor-update functions (`cursor_update`, `yeq_cursor_update`, `range_cursor_update`, `zoom_factors_cursor_update`, `matrix_edit_cursor_update`, `prgm_new_cursor_update`, `prgm_editor_cursor_update`) each containing near-identical `cursor_place()` calls. Extract a single `cursor_render(box, inner, parent_label, glyph_pos, visible, mode, insert)` public function; per-editor update functions become thin wrappers that compute glyph_pos and call through. All cursor visual changes (shape, color, mode indicator) are then in one place. Prerequisite for any future cursor behaviour change. Effort ~8–12 hrs. Files: `App/Src/calculator_core.c`, `App/Src/graph_ui.c`, `App/Src/ui_prgm.c`, `App/Src/ui_matrix.c`.
 
 **[refactor] Remove duplicate `Update_Calculator_Display` declaration** — Declared identically in `app_common.h:110` and `calc_internal.h:69`; check which non-super-module files call it, then remove the redundant copy. Zero logic change. Files: `App/Inc/app_common.h:110`, `App/Inc/calc_internal.h:69`.
 
@@ -236,3 +228,4 @@ See [docs/TECHNICAL.md](docs/TECHNICAL.md) for the full technical reference — 
 18. **Keypad pin constants live in `keypad.h`, not `main.h`** — `Matrix*_Pin` / `Matrix*_GPIO_Port` macros in the CubeMX-generated `main.h` are now redundant (the `.ioc` still has them until a CubeMX cleanup pass is done, but App code no longer depends on them). All keypad wiring is authoritative in `keypad.h`: `KEYPAD_A1_PORT/PIN` … `KEYPAD_B8_PORT/PIN`, `KEYPAD_ON_PORT/PIN`. Do not add new keypad-pin references to `main.h`.
 19. **Power_EnterStop LTDC/SDRAM order** — LTDC must be disabled BEFORE SDRAM enters self-refresh. In RGB interface mode LTDC continuously reads from the SDRAM framebuffer; if SDRAM enters self-refresh while LTDC is still active, LTDC receives bus errors and drives random pixels to the display. Correct order: zero framebuffer → delay 20 ms → disable LTDC → BSP_LCD_DisplayOff → SDRAM self-refresh → HAL_SuspendTick → WFI.
 20. **VSCode build button — `cube-cmake` PATH** — `.vscode/settings.json` overrides PATH; must include core extension binaries, build-cmake extension `cube-cmake` binary, and ARM toolchain. If the build-cmake extension is updated, update its version path too. See `docs/GETTING_STARTED.md` Build section.
+21. **`cursor_render()` — pass `MODE_STO` synthesis for the main expression cursor** — When calling `cursor_render()` from the main expression editor, pass `sto_pending ? MODE_STO : current_mode`, not just `current_mode`. `MODE_STO` is a synthetic value (never set as `current_mode`) that makes the cursor show the green-'A' STO-pending state. Overlay editors (Y=, RANGE, ZOOM FACTORS, matrix, PRGM) pass `current_mode` directly — they can never be in STO state. Copying an overlay-editor call site into the main expression editor without adding the STO synthesis will silently drop STO-pending cursor feedback.
