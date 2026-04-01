@@ -354,14 +354,16 @@ void yeq_cursor_update(void)
 {
     if (yeq_cursor_box == NULL) return;
     if (s_yeq.on_equal) {
-        cursor_place(yeq_cursor_box, yeq_cursor_inner,
-                     ui_lbl_yeq_equal[s_yeq.selected], 0);
+        cursor_render(yeq_cursor_box, yeq_cursor_inner,
+                      ui_lbl_yeq_equal[s_yeq.selected], 0,
+                      cursor_visible, current_mode, insert_mode);
     } else {
         if (ui_lbl_yeq_eq[s_yeq.selected] == NULL) return;
         const char *txt = lv_label_get_text(ui_lbl_yeq_eq[s_yeq.selected]);
         uint32_t glyph_pos = ExprUtil_Utf8ByteToGlyph(txt, s_yeq.cursor_pos);
-        cursor_place(yeq_cursor_box, yeq_cursor_inner,
-                     ui_lbl_yeq_eq[s_yeq.selected], glyph_pos);
+        cursor_render(yeq_cursor_box, yeq_cursor_inner,
+                      ui_lbl_yeq_eq[s_yeq.selected], glyph_pos,
+                      cursor_visible, current_mode, insert_mode);
     }
 }
 
@@ -372,8 +374,9 @@ void range_cursor_update(void)
     if (range_cursor_box == NULL || ui_lbl_range_rows[s_range.field] == NULL) return;
     uint32_t char_pos = (uint32_t)strlen(range_field_names[s_range.field])
                       + s_range.cursor;
-    cursor_place(range_cursor_box, range_cursor_inner,
-                 ui_lbl_range_rows[s_range.field], char_pos);
+    cursor_render(range_cursor_box, range_cursor_inner,
+                  ui_lbl_range_rows[s_range.field], char_pos,
+                  cursor_visible, current_mode, insert_mode);
 }
 
 /* Highlights the active Y= row label in yellow; all others are white. */
@@ -721,8 +724,9 @@ void zoom_factors_cursor_update(void)
     if (ui_lbl_zoom_factors_rows[s_zf.field] == NULL) return;
     uint32_t char_pos = (uint32_t)strlen(zoom_factors_names[s_zf.field])
                       + s_zf.cursor;
-    cursor_place(zoom_factors_cursor_box, zoom_factors_cursor_inner,
-                 ui_lbl_zoom_factors_rows[s_zf.field], char_pos);
+    cursor_render(zoom_factors_cursor_box, zoom_factors_cursor_inner,
+                  ui_lbl_zoom_factors_rows[s_zf.field], char_pos,
+                  cursor_visible, current_mode, insert_mode);
 }
 
 /*---------------------------------------------------------------------------
