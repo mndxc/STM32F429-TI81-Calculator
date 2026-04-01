@@ -29,9 +29,9 @@ Snapshot as of **2026-04-01**. Grading criteria (what causes each dimension to r
 | Code organisation | B |
 | Function complexity | B |
 | Magic numbers / constants | A- |
-| Testing | B+ |
+| Testing | A |
 
-Overall: **90–92% production-ready**. Key remaining gaps: PRGM hardware validation pending; documentation drift (PRGM_COMMANDS.md, stale docstrings, test count mismatch); code organisation (6/10 files over 500-line threshold); `handle_normal_mode` has zero test coverage. Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A — cursor_render() pure-function refactor), CI quality gates (-Werror), 396-test host suite with CI.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; documentation drift (PRGM_COMMANDS.md); code organisation (6/10 files over 500-line threshold); `handle_normal_mode` has zero test coverage. Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A — cursor_render() pure-function refactor), CI quality gates (-Werror), 412-test host suite with CI including property-based invariant tests.
 
 ---
 
@@ -133,9 +133,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[complexity] ui_prgm.c EXEC sub-menu extraction** — Session 29 added `handle_prgm_exec_menu()` (~90 lines), `ui_update_prgm_exec_display()`, and `prgm_new_name_cursor`/`prgm_editor_from_new` state to `ui_prgm.c`, growing it ~200 lines. Extract the EXEC slot-picker handler into a focused helper or inline it with the CTL/IO handlers in a shared `handle_prgm_submenu()` dispatcher to reduce duplication across the three nearly-identical sub-menu handlers. Files: `App/Src/ui_prgm.c`.
 
-**[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, 396 host tests pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
-
-**[testing] P1 — Property-based tests (testing A- → A)** — Suite is at A- (396 tests, 80.28% branch coverage). Add property-based invariant tests: sin²(x)+cos²(x)=1 for 1,000 x values; `Calc_FormatResult` scientific notation boundary check. Files: `App/Tests/test_calc_engine.c`.
+**[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, 412 host tests pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
 
 **[testing] Host-testable token dispatch for `handle_normal_mode`** — Highest-value untested function (now 44-line dispatch table, P22 complete); add host tests for each sub-handler cluster. Prerequisite: P3 Phase 3 state params. Files: `App/Src/calculator_core.c`, `App/Tests/`.
 
@@ -143,15 +141,6 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[docs] P25 — Rewrite `docs/PRGM_COMMANDS.md` to match post-Session-26 command set** — File reflects pre-Session-26 commands. Rewrite to match current 8-CTL/5-IO spec: remove Then/Else/While/For/Return/Prompt/Output(/Menu( entries; document single-char Lbl/Goto constraint; document EXEC-tab execution model. Effort ~1–2 hrs. Files: `docs/PRGM_COMMANDS.md`.
 
-**[docs] Fix stale `ui_prgm.c` file-level docstring** — Lines 11–12 list removed commands (`Then`/`Else`/`While`/`For`/`Return`/`Prompt`) as implemented; rewrite to match current 8-CTL/5-IO spec. Files: `App/Src/ui_prgm.c:11-12`.
-
-**[docs] Fix stale `prgm_exec.c` @brief** — Says "Program storage — FLASH sector 11 erase/write and load/save"; omits execution engine (`prgm_run_start`, `prgm_run_loop`, `prgm_execute_line`). Update to reflect both roles. Files: `App/Src/prgm_exec.c:3`.
-
-**[docs] Add `JetBrainsMono-Regular-Custom.ttf` to `TECHNICAL.md` Project Structure** — Custom TTF (PUA glyphs U+E000 x̄ and U+E001 ⁻¹) exists at `App/Fonts/` but is absent from the file-tree listing; gotcha #14 calls it mandatory for font regeneration. Files: `docs/TECHNICAL.md:40`.
-
-**[docs] Update `TECHNICAL.md` `prgm_exec.c` one-liner** — Listed as "Program storage — FLASH sector 11 erase/write/load"; update to include execution-engine responsibility. Files: `docs/TECHNICAL.md:23`.
-
-**[docs] Fix `MAINTENANCE_STANDARDS.md` file-structure table references** — Four locations ("After Every Commit", "After a Large Change", Full Update Checklist, File Structure Maintenance section) reference "CLAUDE.md Architecture → File structure table"; rephrase all four to say "TECHNICAL.md Project Structure listing". Files: `docs/MAINTENANCE_STANDARDS.md`.
 
 **[refactor] Split `handle_prgm_editor` (154 lines)** — Separate the character-insert path, DEL/CLEAR path, and cursor-navigation path into three focused static helpers. Zero logic change. Files: `App/Src/ui_prgm.c`.
 
