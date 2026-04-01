@@ -881,6 +881,76 @@ static void test_tokenizer_coverage(void)
 }
 
 /* =========================================================================
+ * Group 19 — Property: sin²(x)+cos²(x) = 1 for 1,000 values in [0, 4π)
+ * ====================================================================== */
+static void test_pythagorean_identity(void)
+{
+    printf("[19] Property: sin²(x)+cos²(x) = 1 (1000 samples)\n");
+    Calc_SetDecimalMode(0);
+    CalcResult_t r;
+    int failures = 0;
+    for (int i = 0; i < 1000; i++) {
+        float x = (float)i * 4.0f * 3.14159265358979f / 1000.0f;
+        char expr[64];
+        snprintf(expr, sizeof(expr), "sin(%g)^2+cos(%g)^2", x, x);
+        r = Calc_Evaluate(expr, 0.0f, false, false);
+        if (r.error != CALC_OK || fabs((double)r.value - 1.0) >= 1e-3) {
+            failures++;
+            if (failures <= 3)
+                printf("  FAIL at x=%.6g: %s val=%.8g err=%d\n",
+                       x, expr, (double)r.value, r.error);
+        }
+    }
+    if (failures == 0) {
+        g_passed++;
+    } else {
+        g_failed++;
+        printf("  FAIL: %d/1000 samples violated sin²+cos²=1\n", failures);
+    }
+}
+
+/* =========================================================================
+ * Group 20 — Property: Calc_FormatResult scientific-notation boundaries
+ * Threshold: |val| >= 1e7 or (|val| < 1e-4 and val != 0) → uses 'e'
+ * ====================================================================== */
+static void test_format_sci_boundary(void)
+{
+    printf("[20] Property: Calc_FormatResult sci-notation boundaries\n");
+    char buf[32];
+    Calc_SetDecimalMode(0);
+
+    /* Values just below the upper threshold — must NOT use scientific */
+    static const float non_sci[] = {
+        9999999.0f, 1000000.0f, 100.0f, 1.0f, 0.001f, 0.0001f
+    };
+    for (size_t i = 0; i < sizeof(non_sci)/sizeof(non_sci[0]); i++) {
+        Calc_FormatResult(non_sci[i], buf, sizeof(buf));
+        CHECK(strchr(buf, 'e') == NULL,
+              "value in normal range must not use scientific notation");
+    }
+
+    /* Values at or above the upper threshold — must use scientific */
+    static const float sci_hi[] = { 10000000.0f, 1e8f, 1e10f, -1e9f };
+    for (size_t i = 0; i < sizeof(sci_hi)/sizeof(sci_hi[0]); i++) {
+        Calc_FormatResult(sci_hi[i], buf, sizeof(buf));
+        CHECK(strchr(buf, 'e') != NULL,
+              "value >= 1e7 must use scientific notation");
+    }
+
+    /* Values below the lower threshold (non-zero) — must use scientific */
+    static const float sci_lo[] = { 1e-5f, 1e-7f, 1e-10f, -5e-6f };
+    for (size_t i = 0; i < sizeof(sci_lo)/sizeof(sci_lo[0]); i++) {
+        Calc_FormatResult(sci_lo[i], buf, sizeof(buf));
+        CHECK(strchr(buf, 'e') != NULL,
+              "non-zero value with |val| < 1e-4 must use scientific notation");
+    }
+
+    /* Zero must never use scientific notation */
+    Calc_FormatResult(0.0f, buf, sizeof(buf));
+    CHECK(strchr(buf, 'e') == NULL, "0.0 must not use scientific notation");
+}
+
+/* =========================================================================
  * main
  * ====================================================================== */
 int main(void)
@@ -946,6 +1016,12 @@ int main(void)
 
     reset_state();
     test_tokenizer_coverage();
+
+    reset_state();
+    test_pythagorean_identity();
+
+    reset_state();
+    test_format_sci_boundary();
 
     int total = g_passed + g_failed;
     printf("\n=== Results: %d/%d passed", g_passed, total);
