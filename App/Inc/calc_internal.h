@@ -64,7 +64,6 @@ extern lv_obj_t *ui_graph_zoom_factors_screen;
 /* Shared UI functions */
 void cursor_render(lv_obj_t *box, lv_obj_t *inner, lv_obj_t *parent_label,
                    uint32_t glyph_pos, bool visible, CalcMode_t mode, bool insert);
-void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner, lv_obj_t *row_label, uint32_t char_pos); /* shim: removed after all callers migrated */
 void cursor_box_create(lv_obj_t *parent, bool is_overlay, lv_obj_t **out_box, lv_obj_t **out_inner);
 void hide_all_screens(void);
 void nav_to(CalcMode_t target);

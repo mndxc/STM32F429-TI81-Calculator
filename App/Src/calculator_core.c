@@ -627,13 +627,6 @@ void cursor_render(lv_obj_t *box, lv_obj_t *inner,
     lv_obj_clear_flag(box, LV_OBJ_FLAG_HIDDEN);
 }
 
-/* Temporary shim — removed in a subsequent commit once all callers are migrated. */
-void cursor_place(lv_obj_t *cbox, lv_obj_t *cinner,
-                  lv_obj_t *row_label, uint32_t char_pos)
-{
-    cursor_render(cbox, cinner, row_label, char_pos,
-                  cursor_visible, sto_pending ? MODE_STO : current_mode, insert_mode);
-}
 
 /**
  * @brief Positions the main calculator screen block cursor.
