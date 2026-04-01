@@ -131,6 +131,9 @@ static void zoom_factors_load_field(void);
 void ui_update_zoom_factors_display(void);
 static void zoom_factors_update_highlight(void);
 void zoom_factors_cursor_update(void);
+static bool yeq_cursor_move(Token_t t);
+static bool yeq_row_switch(Token_t t);
+static void yeq_del_at_cursor(void);
 
 /*---------------------------------------------------------------------------
  * Initialisation helpers (one per screen)
@@ -860,30 +863,12 @@ void nav_to(CalcMode_t target)
  *
  * @return true if the token was consumed, false otherwise.
  */
-static bool handle_yeq_navigation(Token_t t)
+/* Cursor movement within the current equation: LEFT, RIGHT, INS. */
+static bool yeq_cursor_move(Token_t t)
 {
-    char *eq     = graph_state.equations[s_yeq.selected];
+    char *eq       = graph_state.equations[s_yeq.selected];
     uint8_t eq_len = (uint8_t)strlen(eq);
-
     switch (t) {
-    case TOKEN_GRAPH:
-        nav_to(MODE_NORMAL);
-        return true;
-    case TOKEN_Y_EQUALS:
-        current_mode = MODE_NORMAL;
-        lvgl_lock();
-        hide_all_screens();
-        lvgl_unlock();
-        return true;
-    case TOKEN_CLEAR:
-        eq[0]            = '\0';
-        s_yeq.cursor_pos = 0;
-        lvgl_lock();
-        lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
-        yeq_reflow_rows();
-        yeq_cursor_update();
-        lvgl_unlock();
-        return true;
     case TOKEN_LEFT:
         if (s_yeq.on_equal) return true;
         if (s_yeq.cursor_pos > 0) {
@@ -897,13 +882,10 @@ static bool handle_yeq_navigation(Token_t t)
         } else {
             s_yeq.on_equal = true;
         }
-        lvgl_lock();
-        yeq_cursor_update();
-        lvgl_unlock();
-        return true;
+        break;
     case TOKEN_RIGHT:
         if (s_yeq.on_equal) {
-            s_yeq.on_equal = false;
+            s_yeq.on_equal   = false;
             s_yeq.cursor_pos = 0;
         } else if (s_yeq.cursor_pos < eq_len) {
             uint8_t mat = ExprUtil_MatrixTokenSizeAt(eq, s_yeq.cursor_pos, eq_len);
@@ -915,57 +897,28 @@ static bool handle_yeq_navigation(Token_t t)
             }
             if (s_yeq.cursor_pos > eq_len) s_yeq.cursor_pos = eq_len;
         }
-        lvgl_lock();
-        yeq_cursor_update();
-        lvgl_unlock();
-        return true;
+        break;
     case TOKEN_INS:
         insert_mode = !insert_mode;
-        lvgl_lock();
-        yeq_cursor_update();
-        lvgl_unlock();
-        return true;
-    case TOKEN_RANGE:
-        nav_to(MODE_GRAPH_RANGE);
-        return true;
-    case TOKEN_ZOOM:
-        zoom_menu_reset();
-        nav_to(MODE_GRAPH_ZOOM);
-        return true;
-    case TOKEN_TRACE:
-        nav_to(MODE_GRAPH_TRACE);
-        return true;
-    case TOKEN_DEL:
-        if (s_yeq.cursor_pos > 0) {
-            uint8_t prev;
-            uint8_t mat = ExprUtil_MatrixTokenSizeBefore(eq, s_yeq.cursor_pos);
-            if (mat) {
-                prev = s_yeq.cursor_pos - mat;
-            } else {
-                prev = s_yeq.cursor_pos;
-                do { prev--; }
-                while (prev > 0 && ((uint8_t)eq[prev] & 0xC0) == 0x80);
-            }
-            memmove(&eq[prev], &eq[s_yeq.cursor_pos],
-                    eq_len - s_yeq.cursor_pos + 1);
-            s_yeq.cursor_pos = prev;
-            lvgl_lock();
-            lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
-            yeq_reflow_rows();
-            yeq_cursor_update();
-            lvgl_unlock();
-        }
-        return true;
+        break;
+    default:
+        return false;
+    }
+    lvgl_lock();
+    yeq_cursor_update();
+    lvgl_unlock();
+    return true;
+}
+
+/* Row switching between Y1–Y4 equations: UP, DOWN, ENTER. */
+static bool yeq_row_switch(Token_t t)
+{
+    switch (t) {
     case TOKEN_UP:
         if (s_yeq.selected > 0) s_yeq.selected--;
         if (!s_yeq.on_equal)
             s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
-        lvgl_lock();
-        yeq_update_highlight();
-        yeq_reflow_rows();
-        yeq_cursor_update();
-        lvgl_unlock();
-        return true;
+        break;
     case TOKEN_ENTER:
         if (s_yeq.on_equal) {
             graph_state.enabled[s_yeq.selected] = !graph_state.enabled[s_yeq.selected];
@@ -974,19 +927,69 @@ static bool handle_yeq_navigation(Token_t t)
             lvgl_unlock();
             return true;
         }
-        /* fallthrough */
+        /* fallthrough to TOKEN_DOWN */
     case TOKEN_DOWN:
         if (s_yeq.selected < GRAPH_NUM_EQ - 1) s_yeq.selected++;
         if (!s_yeq.on_equal)
             s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
-        lvgl_lock();
-        yeq_update_highlight();
-        yeq_reflow_rows();
-        yeq_cursor_update();
-        lvgl_unlock();
-        return true;
+        break;
     default:
         return false;
+    }
+    lvgl_lock();
+    yeq_update_highlight();
+    yeq_reflow_rows();
+    yeq_cursor_update();
+    lvgl_unlock();
+    return true;
+}
+
+/* Delete the character immediately before the cursor in the current equation. */
+static void yeq_del_at_cursor(void)
+{
+    char *eq       = graph_state.equations[s_yeq.selected];
+    uint8_t eq_len = (uint8_t)strlen(eq);
+    if (s_yeq.cursor_pos == 0) return;
+    uint8_t prev;
+    uint8_t mat = ExprUtil_MatrixTokenSizeBefore(eq, s_yeq.cursor_pos);
+    if (mat) {
+        prev = s_yeq.cursor_pos - mat;
+    } else {
+        prev = s_yeq.cursor_pos;
+        do { prev--; }
+        while (prev > 0 && ((uint8_t)eq[prev] & 0xC0) == 0x80);
+    }
+    memmove(&eq[prev], &eq[s_yeq.cursor_pos], eq_len - s_yeq.cursor_pos + 1);
+    s_yeq.cursor_pos = prev;
+    lvgl_lock();
+    lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
+    yeq_reflow_rows();
+    yeq_cursor_update();
+    lvgl_unlock();
+}
+
+static bool handle_yeq_navigation(Token_t t)
+{
+    char *eq = graph_state.equations[s_yeq.selected];
+    switch (t) {
+    case TOKEN_GRAPH:    nav_to(MODE_NORMAL);                      return true;
+    case TOKEN_RANGE:    nav_to(MODE_GRAPH_RANGE);                 return true;
+    case TOKEN_ZOOM:     zoom_menu_reset(); nav_to(MODE_GRAPH_ZOOM); return true;
+    case TOKEN_TRACE:    nav_to(MODE_GRAPH_TRACE);                 return true;
+    case TOKEN_Y_EQUALS:
+        current_mode = MODE_NORMAL;
+        lvgl_lock(); hide_all_screens(); lvgl_unlock();
+        return true;
+    case TOKEN_CLEAR:
+        eq[0] = '\0'; s_yeq.cursor_pos = 0;
+        lvgl_lock();
+        lv_label_set_text(ui_lbl_yeq_eq[s_yeq.selected], eq);
+        yeq_reflow_rows(); yeq_cursor_update();
+        lvgl_unlock();
+        return true;
+    case TOKEN_DEL:      yeq_del_at_cursor();                      return true;
+    default:
+        return yeq_cursor_move(t) || yeq_row_switch(t);
     }
 }
 
