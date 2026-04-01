@@ -498,8 +498,9 @@ static void prgm_flatten_to_store(void)
 void prgm_new_cursor_update(void)
 {
     if (prgm_new_cursor_box == NULL || prgm_new_title_lbl == NULL) return;
-    cursor_place(prgm_new_cursor_box, prgm_new_cursor_inner,
-                 prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor));
+    cursor_render(prgm_new_cursor_box, prgm_new_cursor_inner,
+                  prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor),
+                  cursor_visible, current_mode, false);
 }
 
 /* Positions the editor cursor box on the current line. */
@@ -513,8 +514,9 @@ void prgm_editor_cursor_update(void)
     }
     lv_obj_t *lbl = prgm_edit_line_labels[vis];
     /* +1 for the ":" prefix rendered in the label */
-    cursor_place(prgm_edit_cursor_box, prgm_edit_cursor_inner,
-                 lbl, (uint32_t)(prgm_edit_col + 1));
+    cursor_render(prgm_edit_cursor_box, prgm_edit_cursor_inner,
+                  lbl, (uint32_t)(prgm_edit_col + 1),
+                  cursor_visible, current_mode, insert_mode);
 }
 
 /* Updates all PRGM editor line labels, scroll indicators, and cursor.
@@ -632,8 +634,9 @@ static void ui_update_prgm_new_display(void)
     char buf[4 + 2 + 1 + PRGM_NAME_LEN + 1]; /* "Prgm" + id(≤2) + ":" + name + NUL */
     snprintf(buf, sizeof(buf), "Prgm%s:%s", id, prgm_new_name);
     lv_label_set_text(prgm_new_title_lbl, buf);
-    cursor_place(prgm_new_cursor_box, prgm_new_cursor_inner,
-                 prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor));
+    cursor_render(prgm_new_cursor_box, prgm_new_cursor_inner,
+                  prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor),
+                  cursor_visible, current_mode, false);
 }
 
 /* Adjusts editor scroll to keep prgm_edit_line visible. */
