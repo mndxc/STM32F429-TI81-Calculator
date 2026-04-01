@@ -49,6 +49,7 @@ typedef enum {
     MODE_PRGM_EXEC_MENU,     /* PRGM EXEC sub-menu (subroutine slot picker) */
     MODE_PRGM_RUNNING,       /* Program execution in progress */
     MODE_PRGM_NEW_NAME,      /* Name-entry dialog for new program */
+    MODE_STO,                /* Synthetic: STO pending — cursor shows green 'A'; never set as current_mode */
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------
