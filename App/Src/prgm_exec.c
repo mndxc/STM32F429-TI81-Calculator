@@ -1,6 +1,7 @@
 /**
  * @file    prgm_exec.c
- * @brief   Program storage — FLASH sector 11 erase/write and load/save.
+ * @brief   Program storage (FLASH sector 11 erase/write/load) and execution engine
+ *          (prgm_run_start, prgm_run_loop, prgm_execute_line).
  *
  * Mirrors persist.c in structure.  All routines that touch FLASH carry
  * __attribute__((section(".RamFunc"))) so they execute from RAM during

@@ -20,7 +20,7 @@ App/                            ← Custom application code (never touched by Cu
     graph.c                     Graph canvas, axes, tick marks, curve renderer
     graph_ui.c                  Graph screen UI and handlers (extracted module)
     persist.c                   FLASH sector 10 erase/write/load for calculator state
-    prgm_exec.c                 Program storage — FLASH sector 11 erase/write/load
+    prgm_exec.c                 Program storage (FLASH sector 11 erase/write/load) and execution engine
     ui_matrix.c                 Matrix cell editor UI (extracted module)
     ui_prgm.c                   Program menu and editor UI (extracted module)
   Inc/
@@ -32,14 +32,15 @@ App/                            ← Custom application code (never touched by Cu
     graph.h                     Graphing subsystem interface
     graph_ui.h                  Graph screen UI interface
     persist.h                   Persistent storage API
-    prgm_exec.h                 Program storage and FLASH persistence API
+    prgm_exec.h                 Program storage/FLASH persistence and execution engine API
     ui_matrix.h                 Matrix editor UI interface
     ui_prgm.h                   Program menu UI interface
     ui_palette.h                Named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)
   Fonts/
-    JetBrainsMono-Regular.ttf   Source font (Apache 2.0)
-    jetbrains_mono_24.c         LVGL bitmap font 24px (generated from TTF)
-    jetbrains_mono_20.c         LVGL bitmap font 20px (generated from TTF)
+    JetBrainsMono-Regular.ttf        Source font (Apache 2.0)
+    JetBrainsMono-Regular-Custom.ttf Source font with PUA glyphs U+E000 (x̄) and U+E001 (⁻¹); required for font regeneration
+    jetbrains_mono_24.c              LVGL bitmap font 24px (generated from Custom TTF)
+    jetbrains_mono_20.c              LVGL bitmap font 20px (generated from Custom TTF)
   HW/
     Keypad/
       keypad.c                  Matrix scan driver, FreeRTOS scan task, arrow auto-repeat

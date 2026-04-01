@@ -126,7 +126,7 @@ Triggers: new `CalcMode_t` value, new `GraphState_t` field, new math function, `
 Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 
 - **`docs/ARCHITECTURE.md`** — add/update the module in the Mermaid diagram and file tree
-- **`CLAUDE.md` Architecture → File structure** — update `App/Src/` and `App/Inc/` tables
+- **`docs/TECHNICAL.md` Project Structure listing** — update `App/Src/` and `App/Inc/` entries
 - **`docs/GETTING_STARTED.md`** — verify build commands, OpenOCD paths, and test section are accurate
 - **`docs/TESTING.md`** — update if new test executables or coverage targets added
 - **`README.md`** — update feature % if completion changed significantly (> ~5%)
@@ -164,7 +164,7 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 ## File Structure Maintenance
 
 **When a file is added** (`App/Src/*.c`, `App/Inc/*.h`, or a new doc):
-- Add to `CLAUDE.md` "Architecture → File structure" with a one-liner: `filename.c — <module responsibility>`
+- Add to `docs/TECHNICAL.md` Project Structure listing with a one-liner: `filename.c — <module responsibility>`
 - Add to `docs/ARCHITECTURE.md` directory map with the same one-liner
 - Confirm module prefix convention (`Calc_*`, `Graph_*`, etc.) if a new public API is introduced
 - If a doc file, add it to the Document Map table above
@@ -192,7 +192,7 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 |---|---|
 | New peripheral or GPIO pin | `docs/GETTING_STARTED.md` hardware wiring table + `keypad.h` constant |
 | New build step or toolchain version | `docs/GETTING_STARTED.md` build section + `CLAUDE.md` "Build & Flash" |
-| New architectural boundary or module | `docs/ARCHITECTURE.md` diagram + `CLAUDE.md` "Architecture → File structure" |
+| New architectural boundary or module | `docs/ARCHITECTURE.md` diagram + `docs/TECHNICAL.md` Project Structure listing |
 | Expression pipeline stage changed | `docs/TECHNICAL.md` expression pipeline section |
 | PRGM command added, removed, or changed | `docs/PRGM_COMMANDS.md` (canonical) |
 | New gotcha or known issue | `CLAUDE.md` "Common Gotchas" numbered list |
@@ -251,7 +251,7 @@ For each commit note: new `CalcMode_t` values? New `GraphState_t` fields? `Persi
 - [ ] Feature table `Est. Done` values are correct
 - [ ] All completed priority items removed from "Next session priorities"
 - [ ] Complexity increases have a `[complexity]` follow-up item
-- [ ] Architecture → File structure table lists every `App/Src/` file
+- [ ] TECHNICAL.md Project Structure listing covers every `App/Src/` file
 - [ ] `CalcMode_t` block matches `App/Inc/app_common.h` exactly
 - [ ] `GraphState_t` block matches `App/Inc/app_common.h` exactly
 - [ ] "Host Tests" counts match Step 1 output

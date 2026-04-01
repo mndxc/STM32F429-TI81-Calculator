@@ -6,12 +6,10 @@
  * program line editor (CTL/I/O sub-menus), and editor ↔ FLASH store round-trip.
  * Execution is delegated to prgm_exec.c.
  *
- * Implementation status (as of 2026-03-22):
- *   - UI (menus, editor, CTL/I/O sub-menus): fully implemented.
- *   - Executor (prgm_exec.c): If/Then/Else/While/For/Goto/Lbl/Disp/Input/
- *     Prompt/ClrHome/Pause/Stop/Return/prgm/STO all implemented.
- *   - All commands implemented. Remaining: hardware validation (P10).
- *     Command reference: docs/PRGM_COMMANDS.md
+ * Supported CTL commands: If (single-line), Goto, Lbl, IS>(, DS<(, Stop, prgm (subroutine).
+ * Supported I/O commands: Disp, Input, ClrHome, Pause, DispHome, DispGraph.
+ * Removed per TI-81 spec: Then/Else/While/For/Return/Prompt/Output(/Menu(.
+ * Remaining: hardware validation (P10). Command reference: docs/PRGM_COMMANDS.md
  */
 #include "ui_prgm.h"
 #include "ui_palette.h"
