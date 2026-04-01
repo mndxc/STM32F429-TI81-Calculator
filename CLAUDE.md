@@ -137,11 +137,9 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[testing] P1 — Property-based tests (testing A- → A)** — Suite is at A- (396 tests, 80.28% branch coverage). Add property-based invariant tests: sin²(x)+cos²(x)=1 for 1,000 x values; `Calc_FormatResult` scientific notation boundary check. Files: `App/Tests/test_calc_engine.c`.
 
-**[testing] Host-testable token dispatch for `handle_normal_mode`** — Highest-value untested function (~28-case switch, zero coverage); extract sub-handlers (P22) first, then add host tests for each cluster. Prerequisites: P22 complete + P3 Phase 3 state params. Files: `App/Src/calculator_core.c`, `App/Tests/`.
+**[testing] Host-testable token dispatch for `handle_normal_mode`** — Highest-value untested function (now 44-line dispatch table, P22 complete); add host tests for each sub-handler cluster. Prerequisite: P3 Phase 3 state params. Files: `App/Src/calculator_core.c`, `App/Tests/`.
 
 **[refactor] P21 — Extract shared field-editor helper** — `handle_range_mode` (~235 lines) and `handle_zoom_factors_mode` (~161 lines) implement identical digit/DEL/cursor/commit logic. Extract `field_editor_handle(token, buf, len, cursor, fields, count) → bool`; both handlers shrink to ~40 lines. Zero logic change. Effort ~2–4 hrs. Files: `App/Src/graph_ui.c`.
-
-**[refactor] P22 — Split `handle_normal_mode` into focused sub-handlers** — Function is ~130 lines; extract remaining inline clusters (TOKEN_CLEAR, TOKEN_MODE, TOKEN_STO, graph nav) as static helpers; reduce to ~40-line switch dispatcher. Zero logic change. Effort ~1–2 hrs. Prerequisite for UI token dispatch host tests. Files: `App/Src/calculator_core.c`.
 
 **[refactor] P23 — Split `handle_yeq_navigation` into cursor-move and row-switch helpers** — Function is ~128 lines mixing cursor LEFT/RIGHT stepping, UP/DOWN row switching, and MATH/TEST menu re-entry. Extract `yeq_cursor_move()` and `yeq_row_switch()` as static helpers; reduce to ~40-line dispatcher. Zero logic change. Effort ~1–2 hrs. Prerequisite for UI token dispatch host tests. Files: `App/Src/graph_ui.c`.
 
@@ -158,15 +156,6 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 **[docs] Update `TECHNICAL.md` `prgm_exec.c` one-liner** — Listed as "Program storage — FLASH sector 11 erase/write/load"; update to include execution-engine responsibility. Files: `docs/TECHNICAL.md:23`.
 
 **[docs] Fix `MAINTENANCE_STANDARDS.md` file-structure table references** — Four locations ("After Every Commit", "After a Large Change", Full Update Checklist, File Structure Maintenance section) reference "CLAUDE.md Architecture → File structure table"; rephrase all four to say "TECHNICAL.md Project Structure listing". Files: `docs/MAINTENANCE_STANDARDS.md`.
-
-**[refactor] P26 — Dedup MATH/TEST cross-screen navigation block** — `handle_math_menu` and `handle_test_menu` each contain a nearly identical ~30-line block handling TOKEN_Y_EQUALS/RANGE/ZOOM/GRAPH/TRACE. Extract `static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret, uint8_t *cursor, uint8_t *scroll)` helper; both handlers shrink by ~25 lines. Zero logic change. Effort ~1 hr. Files: `App/Src/calculator_core.c`.
-
-**[refactor] P27 — Normalize menu state reset on nav_to transitions** — MATH menu resets item_cursor/scroll_offset to 0 when navigating to a graph screen; ZOOM menu does not. This inconsistency causes cursor positions to be unexpectedly preserved on return. Normalize all menu handlers: call state reset before any `nav_to()`. Zero visible behaviour change (cursors start at top consistently). Effort ~1 hr. Files: `App/Src/calculator_core.c`, `App/Src/graph_ui.c`.
-
-
-**[refactor] Remove duplicate `Update_Calculator_Display` declaration** — Declared identically in `app_common.h:110` and `calc_internal.h:69`; check which non-super-module files call it, then remove the redundant copy. Zero logic change. Files: `App/Inc/app_common.h:110`, `App/Inc/calc_internal.h:69`.
-
-**[refactor] Named constants for `calc_engine.c` scientific-notation thresholds** — `1e-4`, `1e7`, `1e-7`, `1e-10` (singularity guard) are inline magic numbers; promote to named constants near the top of the file (`CALC_SCI_HI`, `CALC_SCI_LO`, `CALC_SINGULARITY_EPS`). Zero logic change. Files: `App/Src/calc_engine.c`.
 
 **[refactor] Named constants and shared init for PLLSAI config in `app_init.c`** — `176`, `4`, `8`, `1272` appear as inline magic values for PLLSAI N/R/Q and SDRAM refresh count, duplicated between `Power_EnterStop()` and `App_DefaultTask_Run()`; extract named constants and a shared `app_pllsai_init()` helper called by both. Zero logic change. Files: `App/Src/app_init.c`.
 
