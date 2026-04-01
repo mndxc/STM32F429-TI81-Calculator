@@ -523,107 +523,76 @@ static void zoom_menu_reset(void)
 }
 
 /*---------------------------------------------------------------------------
- * ZOOM action executor
+ * ZOOM action executor helpers
  *---------------------------------------------------------------------------*/
+
+/* Hide zoom menu, switch to normal mode, show graph canvas, and redraw. */
+static void zoom_show_graph(void)
+{
+    current_mode = MODE_NORMAL;
+    lvgl_lock();
+    lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+    Graph_SetVisible(true);
+    Graph_Render(angle_degrees);
+    lvgl_unlock();
+}
+
+/* Enter ZBox rubber-band selection mode. */
+static void zoom_enter_zbox(void)
+{
+    s_zbox.px = GRAPH_W / 2; s_zbox.py = GRAPH_H / 2; s_zbox.corner1_set = false;
+    current_mode = MODE_GRAPH_ZBOX;
+    lvgl_lock();
+    lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+    Graph_SetVisible(true);
+    Graph_DrawZBox(s_zbox.px, s_zbox.py, 0, 0, false, angle_degrees);
+    lvgl_unlock();
+}
+
+/* Scale the graph window by (xf, yf) around its centre.
+ * xf < 1 zooms in on X; xf > 1 zooms out. Same convention for yf. */
+static void zoom_scale_view(float xf, float yf)
+{
+    float xc = (graph_state.x_min + graph_state.x_max) * 0.5f;
+    float yc = (graph_state.y_min + graph_state.y_max) * 0.5f;
+    float xh = (graph_state.x_max - graph_state.x_min) * xf / 2.0f;
+    float yh = (graph_state.y_max - graph_state.y_min) * yf / 2.0f;
+    graph_state.x_min = xc - xh; graph_state.x_max = xc + xh;
+    graph_state.y_min = yc - yh; graph_state.y_max = yc + yh;
+}
+
+/* Open the Zoom Factors editor screen. */
+static void zoom_enter_factors(void)
+{
+    zoom_factors_reset();
+    zoom_factors_load_field();
+    current_mode = MODE_GRAPH_ZOOM_FACTORS;
+    lvgl_lock();
+    lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_update_zoom_factors_display();
+    zoom_factors_update_highlight();
+    zoom_factors_cursor_update();
+    lvgl_unlock();
+}
 
 static void zoom_execute_item(uint8_t item_num)
 {
     zoom_menu_reset();
     switch (item_num) {
-    case 1: /* Box */
-        s_zbox.px = GRAPH_W / 2; s_zbox.py = GRAPH_H / 2; s_zbox.corner1_set = false;
-        current_mode = MODE_GRAPH_ZBOX;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(true);
-        Graph_DrawZBox(s_zbox.px, s_zbox.py, 0, 0, false, angle_degrees);
-        lvgl_unlock();
-        break;
-    case 2: /* Zoom In */
-        {
-            float xc = (graph_state.x_min + graph_state.x_max) * 0.5f;
-            float yc = (graph_state.y_min + graph_state.y_max) * 0.5f;
-            float xh = (graph_state.x_max - graph_state.x_min) / (2.0f * s_zf.x_fact);
-            float yh = (graph_state.y_max - graph_state.y_min) / (2.0f * s_zf.y_fact);
-            graph_state.x_min = xc - xh; graph_state.x_max = xc + xh;
-            graph_state.y_min = yc - yh; graph_state.y_max = yc + yh;
-        }
-        current_mode = MODE_NORMAL;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(true);
-        Graph_Render(angle_degrees);
-        lvgl_unlock();
-        break;
-    case 3: /* Zoom Out */
-        {
-            float xc = (graph_state.x_min + graph_state.x_max) * 0.5f;
-            float yc = (graph_state.y_min + graph_state.y_max) * 0.5f;
-            float xh = (graph_state.x_max - graph_state.x_min) * s_zf.x_fact / 2.0f;
-            float yh = (graph_state.y_max - graph_state.y_min) * s_zf.y_fact / 2.0f;
-            graph_state.x_min = xc - xh; graph_state.x_max = xc + xh;
-            graph_state.y_min = yc - yh; graph_state.y_max = yc + yh;
-        }
-        current_mode = MODE_NORMAL;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(true);
-        Graph_Render(angle_degrees);
-        lvgl_unlock();
-        break;
-    case 4: /* Set Factors */
-        zoom_factors_reset();
-        zoom_factors_load_field();
-        current_mode = MODE_GRAPH_ZOOM_FACTORS;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_zoom_factors_display();
-        zoom_factors_update_highlight();
-        zoom_factors_cursor_update();
-        lvgl_unlock();
-        break;
-    case 5: /* Square */
-        apply_zoom_preset(4);
-        current_mode = MODE_NORMAL;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(true);
-        Graph_Render(angle_degrees);
-        lvgl_unlock();
-        break;
-    case 6: /* Standard */
-        apply_zoom_preset(1);
-        current_mode = MODE_NORMAL;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(true);
-        Graph_Render(angle_degrees);
-        lvgl_unlock();
-        break;
-    case 7: /* Trig */
-        apply_zoom_preset(2);
-        current_mode = MODE_NORMAL;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(true);
-        Graph_Render(angle_degrees);
-        lvgl_unlock();
-        break;
-    case 8: /* Integer */
-        apply_zoom_preset(5);
-        current_mode = MODE_NORMAL;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        Graph_SetVisible(true);
-        Graph_Render(angle_degrees);
-        lvgl_unlock();
-        break;
+    case 1: zoom_enter_zbox();                                          break;
+    case 2: zoom_scale_view(1.0f / s_zf.x_fact, 1.0f / s_zf.y_fact);
+            zoom_show_graph();                                          break;
+    case 3: zoom_scale_view(s_zf.x_fact, s_zf.y_fact);
+            zoom_show_graph();                                          break;
+    case 4: zoom_enter_factors();                                       break;
+    case 5: apply_zoom_preset(4); zoom_show_graph();                   break;
+    case 6: apply_zoom_preset(1); zoom_show_graph();                   break;
+    case 7: apply_zoom_preset(2); zoom_show_graph();                   break;
+    case 8: apply_zoom_preset(5); zoom_show_graph();                   break;
     default:
         current_mode = MODE_NORMAL;
-        lvgl_lock();
-        lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-        lvgl_unlock();
+        lvgl_lock(); lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN); lvgl_unlock();
         break;
     }
 }

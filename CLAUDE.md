@@ -141,9 +141,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[refactor] P21 — Extract shared field-editor helper** — `handle_range_mode` (~235 lines) and `handle_zoom_factors_mode` (~161 lines) implement identical digit/DEL/cursor/commit logic. Extract `field_editor_handle(token, buf, len, cursor, fields, count) → bool`; both handlers shrink to ~40 lines. Zero logic change. Effort ~2–4 hrs. Files: `App/Src/graph_ui.c`.
 
-**[refactor] P23 — Split `handle_yeq_navigation` into cursor-move and row-switch helpers** — Function is ~128 lines mixing cursor LEFT/RIGHT stepping, UP/DOWN row switching, and MATH/TEST menu re-entry. Extract `yeq_cursor_move()` and `yeq_row_switch()` as static helpers; reduce to ~40-line dispatcher. Zero logic change. Effort ~1–2 hrs. Prerequisite for UI token dispatch host tests. Files: `App/Src/graph_ui.c`.
-
-**[refactor] P24 — Replace `try_tokenize_identifier` sequential chain with a dispatch table** — 157-line if/strncmp chain over function name prefixes. Replace with a `static const struct { const char *name; Token_t tok; }` array + linear scan. Function shrinks to ~40 lines. Zero behaviour change. Effort ~1–2 hrs. Files: `App/Src/calc_engine.c`.
+**[refactor] P24 — (resolved)** — `try_tokenize_identifier` dispatch table was already in place from a prior session; named-function chain replaced. `try_tokenize_number` sub-parsers also already extracted.
 
 **[docs] P25 — Rewrite `docs/PRGM_COMMANDS.md` to match post-Session-26 command set** — File reflects pre-Session-26 commands. Rewrite to match current 8-CTL/5-IO spec: remove Then/Else/While/For/Return/Prompt/Output(/Menu( entries; document single-char Lbl/Goto constraint; document EXEC-tab execution model. Effort ~1–2 hrs. Files: `docs/PRGM_COMMANDS.md`.
 
@@ -159,13 +157,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[refactor] Named constants and shared init for PLLSAI config in `app_init.c`** — `176`, `4`, `8`, `1272` appear as inline magic values for PLLSAI N/R/Q and SDRAM refresh count, duplicated between `Power_EnterStop()` and `App_DefaultTask_Run()`; extract named constants and a shared `app_pllsai_init()` helper called by both. Zero logic change. Files: `App/Src/app_init.c`.
 
-**[refactor] Split `try_tokenize_number` (179 lines) into sub-parsers** — Separate (a) standard decimal parsing, (b) negative-after-pow special case, and (c) number-validation/store path into 3 named static helpers each under 60 lines. Zero logic change. Files: `App/Src/calc_engine.c`.
-
-**[refactor] Split `try_tokenize_operator` (108 lines) into sub-parsers** — Separate single-byte operators, multi-byte UTF-8 sequences (≠/≥/≤), and matrix bracket tokens into 3 helpers by token class. Zero logic change. Files: `App/Src/calc_engine.c`.
-
-**[refactor] Extract sub-functions from `handle_history_nav` (125 lines)** — Separate the history-entry load path and cursor-position restore path into `history_load_entry(offset)` and `history_cursor_restore()` static helpers. Zero logic change. Files: `App/Src/calculator_core.c`.
-
-**[refactor] Collapse `ui_init_test_screen` label-creation blocks (108 lines)** — Six TEST item labels created with near-identical 12-line blocks; replace with a loop over a `static const char *` array, same pattern as ZOOM menu init. Zero logic change. Files: `App/Src/calculator_core.c`.
+**[refactor] Split `try_tokenize_operator` (58 lines) into sub-parsers** — Separate single-byte operators, multi-byte UTF-8 sequences (≠/≥/≤), and matrix bracket tokens into 3 helpers by token class. Zero logic change. Files: `App/Src/calc_engine.c`.
 
 **[refactor] Extract `zoom_execute_item` inner branches (106 lines)** — Items 1 (ZBox entry), 2–3 (Zoom In/Out math), and 4 (Set Factors) are independent paths; extract each as a named static helper so the outer function is a ~20-line switch. Zero logic change. Files: `App/Src/graph_ui.c`.
 
