@@ -269,6 +269,10 @@ static void handle_digit_key(Token_t t);
 static void handle_arithmetic_op(Token_t t);
 static void handle_history_nav(Token_t t);
 static void handle_function_insert(Token_t t);
+static void handle_clear_key(void);
+static void handle_mode_key(void);
+static void handle_sto_key(void);
+static void handle_normal_graph_nav(Token_t t);
 
 /*---------------------------------------------------------------------------
  * Persistent storage helpers
@@ -1835,86 +1839,79 @@ static void handle_function_insert(Token_t t)
     Update_Calculator_Display();
 }
 
+static void handle_clear_key(void)
+{
+    if (graph_state.active) {
+        lvgl_lock();
+        Graph_SetVisible(false);
+        lvgl_unlock();
+        return;
+    }
+    expr_len      = 0;
+    cursor_pos    = 0;
+    expression[0] = '\0';
+    Update_Calculator_Display();
+}
+
+static void handle_mode_key(void)
+{
+    memcpy(s_mode.cursor, s_mode.committed, sizeof(s_mode.cursor));
+    s_mode.row_selected = 0;
+    current_mode = MODE_MODE_SCREEN;
+    lvgl_lock();
+    lv_obj_clear_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_update_mode_display();
+    lvgl_unlock();
+}
+
+static void handle_sto_key(void)
+{
+    if (expr_len == 0) {
+        expr_prepend_ans_if_empty();
+        Update_Calculator_Display();
+    }
+    sto_pending = true;
+    lvgl_lock();
+    ui_update_status_bar();
+    lvgl_unlock();
+}
+
+static void handle_normal_graph_nav(Token_t t)
+{
+    switch (t) {
+    case TOKEN_Y_EQUALS: nav_to(MODE_GRAPH_YEQ);   break;
+    case TOKEN_RANGE:    nav_to(MODE_GRAPH_RANGE);  break;
+    case TOKEN_ZOOM:     nav_to(MODE_GRAPH_ZOOM);   break;
+    case TOKEN_GRAPH:    nav_to(MODE_NORMAL);        break;
+    case TOKEN_TRACE:    nav_to(MODE_GRAPH_TRACE);  break;
+    default:             break;
+    }
+}
+
 void handle_normal_mode(Token_t t)
 {
     switch (t) {
-
     case TOKEN_0 ... TOKEN_9:
     case TOKEN_DECIMAL:
-        handle_digit_key(t);
-        break;
-
-    case TOKEN_ADD:
-    case TOKEN_SUB:
-    case TOKEN_MULT:
-    case TOKEN_DIV:
-    case TOKEN_SQUARE:
-    case TOKEN_X_INV:
-    case TOKEN_POWER:
-    case TOKEN_L_PAR:
-    case TOKEN_R_PAR:
-    case TOKEN_NEG:
-        handle_arithmetic_op(t);
-        break;
-
-    case TOKEN_LEFT:
-    case TOKEN_RIGHT:
-    case TOKEN_UP:
-    case TOKEN_DOWN:
-    case TOKEN_ENTER:
-    case TOKEN_ENTRY:
-        handle_history_nav(t);
-        break;
-
-    case TOKEN_CLEAR:
-        if (graph_state.active) {
-            lvgl_lock();
-            Graph_SetVisible(false);
-            lvgl_unlock();
-            break;
-        }
-        expr_len      = 0;
-        cursor_pos    = 0;
-        expression[0] = '\0';
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_DEL:
-        expr_delete_at_cursor();
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_INS:
-        insert_mode = !insert_mode;
-        Update_Calculator_Display();
-        break;
-
-    case TOKEN_MODE:
-        memcpy(s_mode.cursor, s_mode.committed, sizeof(s_mode.cursor));
-        s_mode.row_selected = 0;
-        current_mode = MODE_MODE_SCREEN;
-        lvgl_lock();
-        lv_obj_clear_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_mode_display();
-        lvgl_unlock();
-        break;
-
-    case TOKEN_MATH:
-        menu_open(TOKEN_MATH, MODE_NORMAL);
-        break;
-
-    case TOKEN_TEST:
-        menu_open(TOKEN_TEST, MODE_NORMAL);
-        break;
-
-    case TOKEN_MATRX:
-        menu_open(TOKEN_MATRX, MODE_NORMAL);
-        break;
-
-    case TOKEN_PRGM:
-        menu_open(TOKEN_PRGM, MODE_NORMAL);
-        break;
-
+        handle_digit_key(t);        break;
+    case TOKEN_ADD: case TOKEN_SUB: case TOKEN_MULT: case TOKEN_DIV:
+    case TOKEN_SQUARE: case TOKEN_X_INV: case TOKEN_POWER:
+    case TOKEN_L_PAR: case TOKEN_R_PAR: case TOKEN_NEG:
+        handle_arithmetic_op(t);    break;
+    case TOKEN_LEFT: case TOKEN_RIGHT:
+    case TOKEN_UP:   case TOKEN_DOWN:
+    case TOKEN_ENTER: case TOKEN_ENTRY:
+        handle_history_nav(t);      break;
+    case TOKEN_CLEAR:               handle_clear_key();         break;
+    case TOKEN_DEL:                 expr_delete_at_cursor();
+                                    Update_Calculator_Display(); break;
+    case TOKEN_INS:                 insert_mode = !insert_mode;
+                                    Update_Calculator_Display(); break;
+    case TOKEN_MODE:                handle_mode_key();           break;
+    case TOKEN_MATH:                menu_open(TOKEN_MATH,  MODE_NORMAL); break;
+    case TOKEN_TEST:                menu_open(TOKEN_TEST,  MODE_NORMAL); break;
+    case TOKEN_MATRX:               menu_open(TOKEN_MATRX, MODE_NORMAL); break;
+    case TOKEN_PRGM:                menu_open(TOKEN_PRGM,  MODE_NORMAL); break;
     case TOKEN_MTRX_A: case TOKEN_MTRX_B: case TOKEN_MTRX_C:
     case TOKEN_SIN: case TOKEN_COS: case TOKEN_TAN:
     case TOKEN_ASIN: case TOKEN_ACOS: case TOKEN_ATAN:
@@ -1928,42 +1925,12 @@ void handle_normal_mode(Token_t t)
     case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
     case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
     case TOKEN_Z:
-        handle_function_insert(t);
-        break;
-
-    case TOKEN_STO:
-        if (expr_len == 0) {
-            expr_prepend_ans_if_empty();
-            Update_Calculator_Display();
-        }
-        sto_pending = true;
-        lvgl_lock();
-        ui_update_status_bar();
-        lvgl_unlock();
-        break;
-
-    case TOKEN_Y_EQUALS:
-        nav_to(MODE_GRAPH_YEQ);
-        break;
-
-    case TOKEN_RANGE:
-        nav_to(MODE_GRAPH_RANGE);
-        break;
-
-    case TOKEN_ZOOM:
-        nav_to(MODE_GRAPH_ZOOM);
-        break;
-
-    case TOKEN_GRAPH:
-        nav_to(MODE_NORMAL);
-        break;
-
-    case TOKEN_TRACE:
-        nav_to(MODE_GRAPH_TRACE);
-        break;
-
-    default:
-        break;
+        handle_function_insert(t);  break;
+    case TOKEN_STO:                 handle_sto_key();            break;
+    case TOKEN_Y_EQUALS: case TOKEN_RANGE: case TOKEN_ZOOM:
+    case TOKEN_GRAPH:    case TOKEN_TRACE:
+        handle_normal_graph_nav(t); break;
+    default:                        break;
     }
 }
 
