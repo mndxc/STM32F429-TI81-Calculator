@@ -13,32 +13,32 @@ Last updated: 2026-03-28 (Session 30: new RESULT fields added for re-validation 
 **Steps:** From calculator home, press PRGM.
 **Expected:** PRGM menu opens showing `EXEC  EDIT  ERASE` tab bar. EXEC tab highlighted **yellow**. All 37 program slots listed in format `1:Prgm1`, `2:Prgm2`, … `9:Prgm9`, `0:Prgm0`, `A:PrgmA`, … `θ:Prgmθ`. Programs that have been given a user name show it in a second column: `1:Prgm1  MYNAME`.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ### T02 — Tab navigation (with wrap)
 **Steps:** With PRGM menu open, press RIGHT twice.
 **Expected:** Active tab advances: EXEC → EDIT → ERASE. Tab highlight (yellow) moves. EXEC, EDIT, and ERASE all show all 37 slots in the same `N:PrgmN` format (with optional user name column). Named slots show `N:PrgmN  NAME` in all three tabs.
 Also verify wrap: pressing LEFT at EXEC wraps to ERASE; pressing RIGHT at ERASE wraps to EXEC.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ### T03 — Scroll indicators on EXEC/EDIT
 **Steps:** Open PRGM menu on EXEC or EDIT tab. Press DOWN repeatedly past the 7th visible slot.
 **Expected:** `↓` amber indicator appears at the bottom of the list when more items exist below. `↑` amber indicator appears at the top once scrolled past the first slot. Indicators disappear when scrolled to the respective boundary.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ### T04 — Close PRGM menu
 **Steps:** With PRGM menu open, press CLEAR.
 **Expected:** PRGM menu closes, calculator home screen returns. Expression buffer unchanged.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ### T05 — Open PRGM menu from MATH menu
 **Steps:** Open MATH menu (MATH key), then press PRGM.
 **Expected:** MATH menu closes, PRGM menu opens on EXEC tab. No display corruption.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ---
 
@@ -50,73 +50,73 @@ RESULT:
 Type `TEST` (T, E, S, T on ALPHA layer). Then ENTER.
 **Expected:** `Prgm1:TEST` updates as each letter is typed. On ENTER, editor opens with title `Prgm1  TEST` and one blank `:` line with cursor.
 PREV RESULT: SEE NOTE Regarding navigation while entering program names
-RESULT:
+RESULT: PASS
 
 ### T06a — Name-entry LEFT/RIGHT cursor navigation (F10)
 **Steps:** On name-entry screen with `ABCD` typed, press LEFT twice.
 **Expected:** Cursor moves back two characters (now between `AB` and `CD`). Press `X` (on ALPHA layer).
 **Expected:** `X` is inserted at the cursor: field now reads `ABXCD`. Press RIGHT RIGHT — cursor moves to end. DEL removes `D`.
-RESULT:
+RESULT: Partial fail. while this does exactly as noted in expectation of T06a, that is undesireable. the cursor does not show that it's in insert mode, it shows default mode blinking alpha cursor indicating overwrite with alpha
 
 ### T07 — Create new program — skip name (name is optional)
 **Steps:** PRGM → RIGHT (EDIT tab) → select an empty slot → ENTER → immediately press ENTER again (no name typed).
 **Expected:** Editor opens with title `Prgm<N>` (no user name). The slot still appears in the ERASE tab (all 37 slots are always shown). Program body can be edited normally.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ### T08 — Digits allowed in program name
 **Steps:** PRGM → RIGHT (EDIT tab) → select an empty slot → ENTER → type `A1B2` (ALPHA+A, then 1, then ALPHA+B, then 2) → ENTER.
 **Expected:** Each character appended: `A`, `1`, `B`, `2`. Digits `1` and `2` typed without requiring ALPHA. On ENTER, editor opens with title showing `A1B2` as the user name.
 PREV RESULT: SEE NOTE Regarding navigation while entering program names
-RESULT:
+RESULT: FAIL
 
 ### T08a — Name-entry DOWN navigates to editor body; UP returns to name (F10)
 **Steps:** On name-entry screen with `MYTEST` typed, press DOWN.
 **Expected:** Editor body opens (no name save dialog). First program line `:` is visible with cursor. Title shows `PrgmN  MYTEST`.
 Now press UP from editor line 0 (with cursor at col 0).
 **Expected:** Name-entry screen re-appears with `MYTEST` intact. Cursor positioned at end of name.
-RESULT:
+RESULT: Partial FAIL. while this does work properly upon initial progarm edit and save, upon re-entry of a previously saved program the program name is inaccessable.
 
 ### T09 — Name entry DEL
 **Steps:** From name-entry screen, type two or three letters, then press DEL.
 **Expected:** Last character removed with the **first** DEL press (not the second). Cursor moves back. ALPHA mode re-engages automatically. Next keypress continues inserting a letter without re-pressing ALPHA.
 PREV RESULT: FAIL Alpha lock does not re-engage. User must press delete then press ALPHA then it proceeds as described. After pressing DEL the cursor returns to non-alpha but if the user presses 2nd+ALPHA in this state all characters are sent to calculator screen.
-RESULT:
+RESULT: PASS 
 
 ### T09d — 2nd+ALPHA (ALPHA_LOCK) in name entry routes to name field (F5b)
 **Steps:** From name-entry screen, press 2nd+ALPHA to engage ALPHA_LOCK.
 **Expected:** Cursor turns green with `A` inside. Typing letters inserts them into the **name field** (not the calculator expression). ALPHA_LOCK remains until ALPHA is pressed again.
-RESULT:
+RESULT: Partial PASS. pressing ALPHA while alpha lock is active does not remove alpha lock as expected
 
 ### T09b — ENTER works on first press after name
 **Steps:** From name-entry screen, type a name (e.g. `MYTEST`). Press ENTER exactly once.
 **Expected:** Editor opens on the **first** ENTER press. A second ENTER press is not required.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ### T09c — CLEAR works on first press in name entry
 **Steps:** From name-entry screen with letters typed (alpha mode engaged), press CLEAR.
 **Expected:** Returns to PRGM menu on EDIT tab on the **first** CLEAR press. No name or body saved. A second CLEAR press is not required.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ### T10 — Cancel name entry (empty)
 **Steps:** From name-entry screen (no letters typed), press CLEAR.
 **Expected:** Returns to PRGM menu on EDIT tab. No name or body saved.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ### T11 — Open existing program from EDIT tab
 **Steps:** With at least one named program, open PRGM → EDIT tab → navigate to that slot (shows `N:PrgmN  NAME`) → ENTER.
 **Expected:** Editor opens directly (no name-entry screen). Title shows `PrgmN  NAME`.
 PREV RESULT: PASS
-RESULT:
+RESULT: NOTE while this test does exactly as T11 expects, i would like to simplify it to just always open the same way, with the program name entry active
 
 ### T11b — EDIT tab digit shortcut
 **Steps:** Open PRGM → RIGHT (EDIT tab). Press `1` without pressing UP/DOWN.
 **Expected:** The editor for slot 1 (Prgm1) opens immediately. A second keypress or ENTER is not required.
 PREV RESULT: FAIL -  while this does work with numeric shortcut keys it fails when the user presses ALPHA+LETTER instead of activating the shortcut for them
-RESULT:
+RESULT: PASS
 
 ---
 
@@ -126,7 +126,7 @@ RESULT:
 **Steps:** Open editor for any program slot. Type `A+1` (TOKEN_A in ALPHA layer, TOKEN_ADD, TOKEN_1).
 **Expected:** Characters appear on the current (yellow-highlighted) line as `:A+1`. Cursor advances with each keypress.
 PREV RESULT: PASS
-RESULT:
+RESULT: PASS
 
 ### T12b — Insert mode off by default
 **Steps:** Open any program in the editor. Without pressing INS, type a character at a non-end cursor position (navigate LEFT first).
@@ -263,7 +263,7 @@ RESULT:
 **Steps:** In editor, insert `Lbl ` from CTL menu. Type one letter (e.g. `A`). Try to type a second letter.
 **Expected:** Only the first character is accepted. Typing a second character on the same line is ignored. Line reads `:Lbl A`.
 PREV RESULT: PASS
-RESULT:
+RESULT: this occurs as T25 explains but it's an undesireable extra constraint beyond original constraints. allow text entry without limit but throw an error upon execution if the program attempts to find a multicharacter label. 
 
 ### T26 — Disp string alignment (left)
 **Steps:** Create and run program:
@@ -526,3 +526,6 @@ RESULT:
 
 Current run notes:
 Using arrow keys left and right should not exit alpha lock when entering program name. using arrow key to move down from program name entry should exit alpha lock and reentering the program name field should re-engage alpha lock. insert mode should not be active by default
+when editing a program that was saved at a previous time, the name is unable to be edited later. user is prohibited from using the up arrow key to reenter the name field
+When entering a program name the cursor behaves unexpectedly. The ALPHA lock is difficult to remove. only certain key press combinations remove it. for example: When already in alpha lock pressing the ALPHA key again does note remove alpha-lock. but if i press 2nd + ALPHA and then press ALPHA one more time it will remove it. expected behavior is that pressing ALPHA key when in alpha-lock will exit alpha-lock mode
+What is the error handling system for user programs? develop a plan to handle possible errors

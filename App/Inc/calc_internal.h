@@ -86,11 +86,11 @@ void menu_insert_text(const char *ins, CalcMode_t *ret_mode);
 #define DISP_ROW_H          30          /* Pixels per row */
 #define CURSOR_BLINK_MS     530         /* Cursor blink interval */
 
-#define HISTORY_LINE_COUNT  32          /* Expression+result pairs stored in history */
+#define HISTORY_LINE_COUNT  1           /* Expression+result pairs stored in history (TI-81 spec: 1 entry) */
 #define MAX_EXPR_LEN        96          /* Supports up to 4 wrapped display rows */
 #define MAX_RESULT_LEN      96   /* 32 for scalars; up to ~80 for 3×3 matrix rows */
 
-#define MATRIX_RING_COUNT   8   /* ring buffer slots for matrix history results */
+#define MATRIX_RING_COUNT   1   /* ring buffer slots for matrix history results */
 
 typedef struct {
     char    expression[MAX_EXPR_LEN];

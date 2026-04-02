@@ -14,9 +14,11 @@ Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before s
 
 Use `/update-project` to trigger a full sync. All open work items live in "Next session priorities" below; resolved items and milestone history are in [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md).
 
+**Before removing any item from "Next session priorities":** add a session log bullet and a Resolved Items row to `docs/PROJECT_HISTORY.md`. This applies even to small items — if the decision is to skip an entry, note that explicitly here rather than silently omitting it.
+
 ## Quality Scorecard
 
-Snapshot as of **2026-04-01**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-02**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -31,7 +33,7 @@ Snapshot as of **2026-04-01**. Grading criteria (what causes each dimension to r
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; documentation drift (PRGM_COMMANDS.md); code organisation (6/10 files over 500-line threshold); `handle_normal_mode` has zero test coverage. Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A — cursor_render() pure-function refactor), CI quality gates (-Werror), 412-test host suite with CI including property-based invariant tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (6/10 files over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), 516-test host suite with CI including property-based invariant tests and handle_normal_mode coverage.
 
 ---
 
@@ -72,8 +74,6 @@ Behaviours that differ from the original hardware by design:
 
 | Feature | Original TI-81 | This implementation |
 |---------|---------------|---------------------|
-| History scroll | Not present — `2nd+ENTRY` recalled last entry only | UP/DOWN arrows scroll backward/forward through history |
-| `2nd+ENTRY` | Recalled the single most recent entry | Recalls most recent entry AND positions `history_recall_offset` at 1, so UP/DOWN continue working from there |
 | Menu vs. expression glyph inconsistency | Menu labels and expression buffer used the same internal token glyphs throughout | **Known inconsistency:** menu labels display proper Unicode glyphs (³, ³√(, sin⁻¹( etc.) but the expression buffer renders the underlying ASCII insert strings (`^3`, `^(1/3)`, `^-1`). Both paths evaluate correctly; only the display differs. Root cause: the expression buffer has no glyph-substitution layer — full fix requires a token-based renderer. Known gap, not a regression. |
 
 ---
@@ -129,26 +129,15 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
   After all replacements: build, flash to hardware, visually verify each glyph at the relevant font size (menu items use 20px; key labels / Y= labels use 24px).
 
-**[refactor] Reduce history buffer to 1 entry (TI-81 spec alignment)** — Current implementation stores 32 expression-result pairs (~6,272 bytes RAM) with UP/DOWN arrow multi-step scrolling, which is a deliberate deviation from the original TI-81. Reducing `HISTORY_LINE_COUNT` to 1 in `calc_internal.h` aligns `2nd+ENTRY` and UP/DOWN behaviour with the original spec, recovers ~7 KB RAM (including reducing `MATRIX_RING_COUNT` from 8 to 1), and simplifies `ui_refresh_display()` (loop becomes 0–1 iterations). No logic changes needed — the circular buffer math and `handle_history_nav` work correctly at size 1. Also update the "Deliberate Deviations" table in `CLAUDE.md` to remove the history scroll and `2nd+ENTRY` entries. Files: `App/Inc/calc_internal.h`, `App/Src/calculator_core.c`, `CLAUDE.md`.
 
-**[complexity] ui_prgm.c EXEC sub-menu extraction** — Session 29 added `handle_prgm_exec_menu()` (~90 lines), `ui_update_prgm_exec_display()`, and `prgm_new_name_cursor`/`prgm_editor_from_new` state to `ui_prgm.c`, growing it ~200 lines. Extract the EXEC slot-picker handler into a focused helper or inline it with the CTL/IO handlers in a shared `handle_prgm_submenu()` dispatcher to reduce duplication across the three nearly-identical sub-menu handlers. Files: `App/Src/ui_prgm.c`.
-
-**[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, 412 host tests pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
-
-**[testing] Host-testable token dispatch for `handle_normal_mode`** — Highest-value untested function (now 44-line dispatch table, P22 complete); add host tests for each sub-handler cluster. Prerequisite: P3 Phase 3 state params. Files: `App/Src/calculator_core.c`, `App/Tests/`.
+**[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, 516 host tests pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
 
 **[refactor] P24 — (resolved)** — `try_tokenize_identifier` dispatch table was already in place from a prior session; named-function chain replaced. `try_tokenize_number` sub-parsers also already extracted.
 
-**[docs] P25 — Rewrite `docs/PRGM_COMMANDS.md` to match post-Session-26 command set** — File reflects pre-Session-26 commands. Rewrite to match current 8-CTL/5-IO spec: remove Then/Else/While/For/Return/Prompt/Output(/Menu( entries; document single-char Lbl/Goto constraint; document EXEC-tab execution model. Effort ~1–2 hrs. Files: `docs/PRGM_COMMANDS.md`.
-
-
-**[refactor] Split `handle_prgm_editor` (154 lines)** — Separate the character-insert path, DEL/CLEAR path, and cursor-navigation path into three focused static helpers. Zero logic change. Files: `App/Src/ui_prgm.c`.
 
 **[refactor] Split `handle_prgm_menu` (194 lines)** — The EXEC/EDIT/ERASE tab handler mixes tab switching, ENTER dispatch, and ERASE confirmation; extract per-tab helpers. Coordinate with existing `[complexity] ui_prgm.c EXEC sub-menu extraction` item before starting — overlapping scope. Zero logic change. Files: `App/Src/ui_prgm.c`.
 
 #### Backlog
-
-**[refactor] P3 — Handler state params Phase 3 (optional, high regression risk)** — Phase 1+2 complete (named sub-structs, statics consolidated). Phase 3: modify `handle_math_menu`, `handle_test_menu`, `handle_mode_screen`, and matrix handlers to accept `State_t *` parameters instead of module-level statics; handlers become host-testable in isolation. High regression risk — every handler signature changes. Effort ~8–16 hrs. Files: `App/Src/calculator_core.c`.
 
 **[hardware] P7 — Physical TI-81 ribbon pad ↔ STM32 GPIO wiring table** — STM32 GPIO side complete. Remaining: trace each TI-81 PCB ribbon pad to A-line/B-line with a multimeter on a donor board. Requires physical hardware access; indefinite timeline. Files: `docs/GETTING_STARTED.md`.
 

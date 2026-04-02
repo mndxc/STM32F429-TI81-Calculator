@@ -13,7 +13,9 @@
 #ifndef KEYPAD_H
 #define KEYPAD_H
 
+#ifndef HOST_TEST
 #include "stm32f4xx_hal.h"
+#endif
 #include <stdint.h>
 
 /*---------------------------------------------------------------------------
@@ -117,6 +119,7 @@ enum {
  * keypad GPIO entries in the .ioc — Keypad_GPIO_Init() handles all of it.
  *--------------------------------------------------------------------------*/
 
+#ifndef HOST_TEST
 /* A-lines: column driver outputs (driven HIGH one at a time during scan)
  * Wiring: MatrixA1=PE5, A2=PE4, A3=PE3, A4=PE2, A5=PB7, A6=PB4, A7=PB3 */
 #define KEYPAD_A1_PORT  GPIOE
@@ -178,5 +181,7 @@ void Keypad_GPIO_Init(void);
  * @return Key ID in range [1, 55], or 0xFF if no key is pressed.
  */
 uint8_t Keypad_Scan(void);
+
+#endif /* HOST_TEST */
 
 #endif /* KEYPAD_H */

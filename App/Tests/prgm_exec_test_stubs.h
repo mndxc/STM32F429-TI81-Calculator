@@ -38,12 +38,12 @@ typedef enum {
 /*---------------------------------------------------------------------------
  * History and display constants (from calc_internal.h)
  *---------------------------------------------------------------------------*/
-#define HISTORY_LINE_COUNT  32
+#define HISTORY_LINE_COUNT   1
 #define MAX_EXPR_LEN        96
 #define MAX_RESULT_LEN      96
 #define DISP_ROW_COUNT       8
 #define MENU_VISIBLE_ROWS    7
-#define MATRIX_RING_COUNT    8
+#define MATRIX_RING_COUNT    1
 
 /*---------------------------------------------------------------------------
  * HistoryEntry_t — must match calc_internal.h exactly.

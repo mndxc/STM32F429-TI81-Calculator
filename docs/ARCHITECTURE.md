@@ -76,7 +76,7 @@ graph TD
 
 `Core/` (CubeMX-generated) is a dependency of everything but is never modified by hand.
 
-**Note on `prgm_exec.c` layer membership:** In host builds `prgm_exec.c` is pure Application Core — it has no UI dependencies and is fully testable without hardware. In embedded builds it gains a conditional dependency on `calc_internal.h` (part of the UI super-module) so it can call `handle_normal_mode()` after evaluating a program expression line. The `#ifndef HOST_TEST` guard at the include site is what preserves host-testability. The long-term fix is to extract a `calc_evaluate_and_commit()` function from `handle_normal_mode` — tracked as part of the P22 refactor in `CLAUDE.md`.
+**Note on `prgm_exec.c` layer membership:** In host builds `prgm_exec.c` is pure Application Core — it has no UI dependencies and is fully testable without hardware. In embedded builds it gains a conditional dependency on `calc_internal.h` (part of the UI super-module) so it can call `handle_normal_mode()` after evaluating a program expression line. The `#ifndef HOST_TEST` guard at the include site is what preserves host-testability. `calculator_core.c` is also host-testable via `calculator_core_test_stubs.h` (see `App/Tests/test_normal_mode.c`).
 
 ---
 

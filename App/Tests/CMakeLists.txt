@@ -80,9 +80,35 @@ if(COVERAGE)
     target_link_options(test_prgm_exec PRIVATE --coverage)
 endif()
 
+# --- test_normal_mode ---
+# handle_normal_mode() and sub-handler host tests; HOST_TEST guards out LVGL/HAL/RTOS.
+
+add_executable(test_normal_mode
+    test_normal_mode.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calculator_core.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/prgm_exec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad/keypad_map.c
+)
+
+# Tests/ directory (stubs header) and HW/Keypad (keypad_map.h → keypad.h) on path
+target_include_directories(test_normal_mode PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad
+)
+
+target_compile_options(test_normal_mode PRIVATE -Wall -Wextra -DHOST_TEST=1)
+
+if(COVERAGE)
+    target_compile_options(test_normal_mode PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_normal_mode PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
 add_test(NAME expr_util         COMMAND test_expr_util)
 add_test(NAME persist_roundtrip COMMAND test_persist_roundtrip)
 add_test(NAME prgm_exec         COMMAND test_prgm_exec)
+add_test(NAME normal_mode       COMMAND test_normal_mode)

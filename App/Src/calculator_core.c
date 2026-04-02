@@ -8,21 +8,36 @@
  *  - Calculator input buffer management
  */
 
-#include "app_common.h"
-#include "app_init.h"
-#include "calc_engine.h"
-#include "graph.h"
-#include "persist.h"
-#include "prgm_exec.h"
-#include "calc_internal.h"
-#include "ui_matrix.h"
-#include "ui_prgm.h"
-#include "graph_ui.h"
-#include "ui_palette.h"
-#include "expr_util.h"
-#include "cmsis_os.h"
-#include "lvgl.h"
-#include "main.h"
+#ifdef HOST_TEST
+/* Host-test build: replace all LVGL/RTOS/platform headers with stubs.
+ * app_common.h (CalcMode_t, Token_t, GraphState_t) and the safe engine
+ * headers are included first; the stubs header follows to provide LVGL
+ * type/function no-ops and declarations for cross-module symbols. */
+#  include "app_common.h"
+#  include "app_init.h"
+#  include "calc_engine.h"
+#  include "persist.h"
+#  include "prgm_exec.h"
+#  include "expr_util.h"
+#  include "ui_palette.h"
+#  include "calculator_core_test_stubs.h"
+#else
+#  include "app_common.h"
+#  include "app_init.h"
+#  include "calc_engine.h"
+#  include "graph.h"
+#  include "persist.h"
+#  include "prgm_exec.h"
+#  include "calc_internal.h"
+#  include "ui_matrix.h"
+#  include "ui_prgm.h"
+#  include "graph_ui.h"
+#  include "ui_palette.h"
+#  include "expr_util.h"
+#  include "cmsis_os.h"
+#  include "lvgl.h"
+#  include "main.h"
+#endif
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,11 +98,6 @@ typedef struct {
     uint8_t  committed[MODE_ROW_COUNT]; /* Committed selection per row (persisted) */
 } ModeScreenState_t;
 
-typedef struct {
-    uint8_t    tab;             /* 0=MATRX, 1=EDIT */
-    uint8_t    item_cursor;
-    CalcMode_t return_mode;
-} MatrixMenuState_t;
 
 /*---------------------------------------------------------------------------
  * Private variables
@@ -117,11 +127,15 @@ bool         angle_degrees          = true;
 
 float ans = 0.0f;
 bool         ans_is_matrix  = false; /* true when ans holds a matrix slot index */
+#ifdef HOST_TEST
+bool                sto_pending    = false;  /* non-static so tests can read it */
+#else
 static bool         sto_pending    = false;  /* True after STO — next alpha stores ans */
+#endif
 
 HistoryEntry_t history[HISTORY_LINE_COUNT];
 uint8_t        history_count = 0;
-    int8_t         history_recall_offset = 0; /* 0=not recalling; N=Nth-most-recent entry */
+int8_t         history_recall_offset = 0; /* 0=not recalling; N=Nth-most-recent entry */
 static int8_t  matrix_scroll_focus  = -1;   /* history slot index with scroll focus; -1=none */
 static uint8_t matrix_scroll_offset = 0;    /* horizontal character scroll offset */
 
@@ -242,7 +256,6 @@ static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
 /* Matrix data lives in calc_matrices[] (calc_engine.c) — accessed via extern. */
 
 /* MATRIX menu state */
-static MatrixMenuState_t s_matrix_menu = {0};
 
 /* MATRIX EDIT sub-screen state */
 
@@ -258,9 +271,9 @@ static void ui_update_math_display(void);
 static void ui_update_test_display(void);
 
 /* Per-mode token handler forward declarations */
-static bool handle_mode_screen(Token_t t);
-static bool handle_math_menu(Token_t t);
-static bool handle_test_menu(Token_t t);
+static bool handle_mode_screen(Token_t t, ModeScreenState_t *s);
+static bool handle_math_menu(Token_t t, MathMenuState_t *s);
+static bool handle_test_menu(Token_t t, TestMenuState_t *s);
 static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret_mode, uint8_t *cursor, uint8_t *scroll);
 static bool handle_sto_pending(Token_t t);
 
@@ -369,13 +382,17 @@ void Calc_ApplyPersistBlock(const PersistBlock_t *in)
  *---------------------------------------------------------------------------*/
 
 void lvgl_lock(void) {
+#ifndef HOST_TEST
     if (xLVGL_Mutex != NULL)
         xSemaphoreTake(xLVGL_Mutex, portMAX_DELAY);
+#endif
 }
 
 void lvgl_unlock(void) {
+#ifndef HOST_TEST
     if (xLVGL_Mutex != NULL)
         xSemaphoreGive(xLVGL_Mutex);
+#endif
 }
 
 /*---------------------------------------------------------------------------
@@ -1186,15 +1203,15 @@ static void ui_update_test_display(void)
  *        at s_yeq.cursor_pos and restores the Y= screen; otherwise it inserts
  *        into the main expression.  Called from the MODE_MATH_MENU handler.
  */
-static void math_menu_insert(const char *ins)
+static void math_menu_insert(const char *ins, MathMenuState_t *s)
 {
     lvgl_lock();
     lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
 
-    if (s_math.return_mode == MODE_PRGM_EDITOR) {
+    if (s->return_mode == MODE_PRGM_EDITOR) {
         prgm_editor_menu_insert(ins);   /* F4: redirect to program editor */
-    } else if (s_math.return_mode == MODE_GRAPH_YEQ) {
+    } else if (s->return_mode == MODE_GRAPH_YEQ) {
         current_mode = MODE_GRAPH_YEQ;
         graph_ui_yeq_insert(ins);
     } else {
@@ -1202,7 +1219,7 @@ static void math_menu_insert(const char *ins)
         expr_insert_str(ins);
         Update_Calculator_Display();
     }
-    s_math.return_mode = MODE_NORMAL;
+    s->return_mode = MODE_NORMAL;
 }
 
 /**
@@ -1228,15 +1245,15 @@ void menu_insert_text(const char *ins, CalcMode_t *ret_mode)
  *        TEST menu.  Mirrors math_menu_insert — supports return to Y= or
  *        normal calculator input.
  */
-static void test_menu_insert(const char *ins)
+static void test_menu_insert(const char *ins, TestMenuState_t *s)
 {
     lvgl_lock();
     lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
 
-    if (s_test.return_mode == MODE_PRGM_EDITOR) {
+    if (s->return_mode == MODE_PRGM_EDITOR) {
         prgm_editor_menu_insert(ins);   /* F4: redirect to program editor */
-    } else if (s_test.return_mode == MODE_GRAPH_YEQ) {
+    } else if (s->return_mode == MODE_GRAPH_YEQ) {
         current_mode = MODE_GRAPH_YEQ;
         graph_ui_yeq_insert(ins);
     } else {
@@ -1244,7 +1261,7 @@ static void test_menu_insert(const char *ins)
         expr_insert_str(ins);
         Update_Calculator_Display();
     }
-    s_test.return_mode = MODE_NORMAL;
+    s->return_mode = MODE_NORMAL;
 }
 
 /*---------------------------------------------------------------------------
@@ -1293,9 +1310,9 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
         ui_update_test_display();
         break;
     case TOKEN_MATRX:
-        s_matrix_menu.return_mode = return_to;
-        s_matrix_menu.tab         = 0;
-        s_matrix_menu.item_cursor = 0;
+        matrix_menu_state.return_mode = return_to;
+        matrix_menu_state.tab         = 0;
+        matrix_menu_state.item_cursor = 0;
         current_mode       = MODE_MATRIX_MENU;
         lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_matrix_display();
@@ -1328,10 +1345,10 @@ CalcMode_t menu_close(Token_t menu_token)
         s_test.item_cursor = 0;
         break;
     case TOKEN_MATRX:
-        ret                = s_matrix_menu.return_mode;
-        s_matrix_menu.return_mode = MODE_NORMAL;
-        s_matrix_menu.tab         = 0;
-        s_matrix_menu.item_cursor = 0;
+        ret                           = matrix_menu_state.return_mode;
+        matrix_menu_state.return_mode = MODE_NORMAL;
+        matrix_menu_state.tab         = 0;
+        matrix_menu_state.item_cursor = 0;
         break;
     case TOKEN_PRGM:
         ret = prgm_menu_close();
@@ -1371,35 +1388,35 @@ void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
  * return), false if execution should fall through to the next handler.
  *---------------------------------------------------------------------------*/
 
-static bool handle_mode_screen(Token_t t)
+static bool handle_mode_screen(Token_t t, ModeScreenState_t *s)
 {
     switch (t) {
     case TOKEN_UP:
-        if (s_mode.row_selected > 0) s_mode.row_selected--;
+        if (s->row_selected > 0) s->row_selected--;
         lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
         return true;
     case TOKEN_DOWN:
-        if (s_mode.row_selected < MODE_ROW_COUNT - 1) s_mode.row_selected++;
+        if (s->row_selected < MODE_ROW_COUNT - 1) s->row_selected++;
         lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
         return true;
     case TOKEN_LEFT:
-        if (s_mode.cursor[s_mode.row_selected] > 0)
-            s_mode.cursor[s_mode.row_selected]--;
+        if (s->cursor[s->row_selected] > 0)
+            s->cursor[s->row_selected]--;
         lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
         return true;
     case TOKEN_RIGHT:
-        if (s_mode.cursor[s_mode.row_selected] < mode_option_count[s_mode.row_selected] - 1)
-            s_mode.cursor[s_mode.row_selected]++;
+        if (s->cursor[s->row_selected] < mode_option_count[s->row_selected] - 1)
+            s->cursor[s->row_selected]++;
         lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
         return true;
     case TOKEN_ENTER:
-        s_mode.committed[s_mode.row_selected] = s_mode.cursor[s_mode.row_selected];
-        if (s_mode.row_selected == 1)
-            Calc_SetDecimalMode(s_mode.committed[1]);
-        if (s_mode.row_selected == 2)
-            angle_degrees = (s_mode.committed[2] == 1);
-        if (s_mode.row_selected == 6)
-            graph_state.grid_on = (s_mode.committed[6] == 1);
+        s->committed[s->row_selected] = s->cursor[s->row_selected];
+        if (s->row_selected == 1)
+            Calc_SetDecimalMode(s->committed[1]);
+        if (s->row_selected == 2)
+            angle_degrees = (s->committed[2] == 1);
+        if (s->row_selected == 6)
+            graph_state.grid_on = (s->committed[6] == 1);
         lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
         return true;
     case TOKEN_CLEAR:
@@ -1440,46 +1457,46 @@ static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret_mode, uint8_t *curso
     return true;
 }
 
-static bool handle_math_menu(Token_t t)
+static bool handle_math_menu(Token_t t, MathMenuState_t *s)
 {
-    int total = (int)math_tab_item_count[s_math.tab];
+    int total = (int)math_tab_item_count[s->tab];
     switch (t) {
     case TOKEN_LEFT:
-        tab_move(&s_math.tab, &s_math.item_cursor, &s_math.scroll_offset, MATH_TAB_COUNT, true, ui_update_math_display);
+        tab_move(&s->tab, &s->item_cursor, &s->scroll_offset, MATH_TAB_COUNT, true, ui_update_math_display);
         return true;
     case TOKEN_RIGHT:
-        tab_move(&s_math.tab, &s_math.item_cursor, &s_math.scroll_offset, MATH_TAB_COUNT, false, ui_update_math_display);
+        tab_move(&s->tab, &s->item_cursor, &s->scroll_offset, MATH_TAB_COUNT, false, ui_update_math_display);
         return true;
     case TOKEN_UP:
-        if (s_math.item_cursor > 0) {
-            s_math.item_cursor--;
-        } else if (s_math.scroll_offset > 0) {
-            s_math.scroll_offset--;
+        if (s->item_cursor > 0) {
+            s->item_cursor--;
+        } else if (s->scroll_offset > 0) {
+            s->scroll_offset--;
         }
         lvgl_lock(); ui_update_math_display(); lvgl_unlock();
         return true;
     case TOKEN_DOWN:
-        if ((int)(s_math.scroll_offset + s_math.item_cursor) + 1 < total) {
-            if (s_math.item_cursor < MENU_VISIBLE_ROWS - 1)
-                s_math.item_cursor++;
-            else if ((int)(s_math.scroll_offset + MENU_VISIBLE_ROWS) < total)
-                s_math.scroll_offset++;
+        if ((int)(s->scroll_offset + s->item_cursor) + 1 < total) {
+            if (s->item_cursor < MENU_VISIBLE_ROWS - 1)
+                s->item_cursor++;
+            else if ((int)(s->scroll_offset + MENU_VISIBLE_ROWS) < total)
+                s->scroll_offset++;
         }
         lvgl_lock(); ui_update_math_display(); lvgl_unlock();
         return true;
     case TOKEN_ENTER: {
-        int idx = (int)s_math.scroll_offset + (int)s_math.item_cursor;
+        int idx = (int)s->scroll_offset + (int)s->item_cursor;
         if (idx < total) {
-            const char *ins = math_menu_items[s_math.tab][idx].insert;
-            if (ins != NULL) { math_menu_insert(ins); return true; }
+            const char *ins = math_menu_items[s->tab][idx].insert;
+            if (ins != NULL) { math_menu_insert(ins, s); return true; }
         }
         break;
     }
     case TOKEN_1 ... TOKEN_9: {
         int idx = (int)(t - TOKEN_0) - 1;
         if (idx < total) {
-            const char *ins = math_menu_items[s_math.tab][idx].insert;
-            if (ins != NULL) { math_menu_insert(ins); return true; }
+            const char *ins = math_menu_items[s->tab][idx].insert;
+            if (ins != NULL) { math_menu_insert(ins, s); return true; }
         }
         break;
     }
@@ -1488,7 +1505,7 @@ static bool handle_math_menu(Token_t t)
         menu_close(TOKEN_MATH);
         return true;
     default:
-        if (menu_handle_nav_keys(t, &s_math.return_mode, &s_math.item_cursor, &s_math.scroll_offset))
+        if (menu_handle_nav_keys(t, &s->return_mode, &s->item_cursor, &s->scroll_offset))
             return true;
     {
         CalcMode_t ret = menu_close(TOKEN_MATH);
@@ -1501,27 +1518,27 @@ static bool handle_math_menu(Token_t t)
     return true;
 }
 
-static bool handle_test_menu(Token_t t)
+static bool handle_test_menu(Token_t t, TestMenuState_t *s)
 {
     switch (t) {
     case TOKEN_UP:
-        if (s_test.item_cursor > 0) s_test.item_cursor--;
+        if (s->item_cursor > 0) s->item_cursor--;
         lvgl_lock(); ui_update_test_display(); lvgl_unlock();
         return true;
     case TOKEN_DOWN:
-        if (s_test.item_cursor < TEST_ITEM_COUNT - 1) s_test.item_cursor++;
+        if (s->item_cursor < TEST_ITEM_COUNT - 1) s->item_cursor++;
         lvgl_lock(); ui_update_test_display(); lvgl_unlock();
         return true;
     case TOKEN_ENTER: {
-        const char *ins = test_menu_items[s_test.item_cursor].insert;
-        if (ins != NULL) { test_menu_insert(ins); return true; }
+        const char *ins = test_menu_items[s->item_cursor].insert;
+        if (ins != NULL) { test_menu_insert(ins, s); return true; }
         break;
     }
     case TOKEN_1 ... TOKEN_6: {
         int idx = (int)(t - TOKEN_0) - 1;
         if (idx >= 0 && idx < TEST_ITEM_COUNT) {
             const char *ins = test_menu_items[idx].insert;
-            if (ins != NULL) { test_menu_insert(ins); return true; }
+            if (ins != NULL) { test_menu_insert(ins, s); return true; }
         }
         break;
     }
@@ -1530,7 +1547,7 @@ static bool handle_test_menu(Token_t t)
         menu_close(TOKEN_TEST);
         return true;
     default:
-        if (menu_handle_nav_keys(t, &s_test.return_mode, &s_test.item_cursor, NULL))
+        if (menu_handle_nav_keys(t, &s->return_mode, &s->item_cursor, NULL))
             return true;
     {
         CalcMode_t ret = menu_close(TOKEN_TEST);
@@ -1645,8 +1662,10 @@ static void commit_history_entry(const char *expr, const char *result_str,
                                  const CalcResult_t *r)
 {
     uint8_t idx = history_count % HISTORY_LINE_COUNT;
-    strncpy(history[idx].expression, expr, MAX_EXPR_LEN - 1);
-    history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
+    if (history[idx].expression != expr) {
+        strncpy(history[idx].expression, expr, MAX_EXPR_LEN - 1);
+        history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
+    }
     strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
     history[idx].result[MAX_RESULT_LEN - 1] = '\0';
     history[idx].has_matrix = false;
@@ -1750,7 +1769,8 @@ static void handle_history_nav(Token_t t)
 
     case TOKEN_UP:
         if ((expr_len == 0 || history_recall_offset > 0) &&
-            history_recall_offset < history_count) {
+            history_recall_offset < history_count &&
+            history_recall_offset < HISTORY_LINE_COUNT) {
             history_recall_offset++;
             history_load_offset(history_recall_offset);
         }
@@ -2009,10 +2029,10 @@ void Execute_Token(Token_t t)
     if (current_mode == MODE_GRAPH_ZOOM_FACTORS)  { if (handle_zoom_factors_mode(t))  return; }
     if (current_mode == MODE_GRAPH_ZBOX)          { if (handle_zbox_mode(t))          return; }
     if (current_mode == MODE_GRAPH_TRACE)         { if (handle_trace_mode(t))         return; }
-    if (current_mode == MODE_MODE_SCREEN)         { if (handle_mode_screen(t))        return; }
-    if (current_mode == MODE_MATH_MENU)           { if (handle_math_menu(t))          return; }
-    if (current_mode == MODE_TEST_MENU)           { if (handle_test_menu(t))          return; }
-    if (current_mode == MODE_MATRIX_MENU)         { if (handle_matrix_menu(t))        return; }
+    if (current_mode == MODE_MODE_SCREEN)         { if (handle_mode_screen(t, &s_mode))              return; }
+    if (current_mode == MODE_MATH_MENU)           { if (handle_math_menu(t, &s_math))                return; }
+    if (current_mode == MODE_TEST_MENU)           { if (handle_test_menu(t, &s_test))                return; }
+    if (current_mode == MODE_MATRIX_MENU)         { if (handle_matrix_menu(t, &matrix_menu_state))  return; }
     if (current_mode == MODE_MATRIX_EDIT)         { handle_matrix_edit(t); return; }
     if (current_mode == MODE_PRGM_MENU)           { if (handle_prgm_menu(t))          return; }
     /* F5b: ALPHA_LOCK in name-entry — same pattern as A6 editor fix below */

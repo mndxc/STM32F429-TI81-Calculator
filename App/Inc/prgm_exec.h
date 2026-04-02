@@ -123,6 +123,9 @@ extern ProgramStore_t g_prgm_store;
  * @brief  Zero g_prgm_store then attempt to load from FLASH sector 11.
  *         Safe to call before RTOS starts.  Silently keeps defaults on
  *         blank / corrupt sector.
+ *
+ * HOST_TEST note: guarded out of prgm_exec.c under HOST_TEST; define as a
+ * real (non-static) stub in any test .c file that links prgm_exec.c.
  */
 void Prgm_Init(void);
 
@@ -132,12 +135,18 @@ void Prgm_Init(void);
  *
  * Must be called with LVGL and other tasks stable (same rule as Persist_Save).
  * All write routines run from RAM to avoid AHB stall.
+ *
+ * HOST_TEST note: guarded out of prgm_exec.c under HOST_TEST; define as a
+ * real (non-static) stub in any test .c file that links prgm_exec.c.
  */
 bool Prgm_Save(void);
 
 /**
  * @brief  Load g_prgm_store from FLASH sector 11.
  * @return true on success, false if blank or corrupt.
+ *
+ * HOST_TEST note: guarded out of prgm_exec.c under HOST_TEST; define as a
+ * real (non-static) stub in any test .c file that links prgm_exec.c.
  */
 bool Prgm_Load(void);
 

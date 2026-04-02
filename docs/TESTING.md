@@ -11,11 +11,18 @@ The most robust part of the test suite runs on your development machine (Linux/m
 Run these commands from the **repo root** (the directory containing `CMakeLists.txt`):
 
 ```bash
-cmake -S App/Tests -B build/tests
-cmake --build build/tests
-./build/tests/test_calc_engine   # Expression evaluation tests (153 tests)
-./build/tests/test_expr_util     # Buffer & cursor logic tests (96 tests)
-./build/tests/test_persist_roundtrip # Serialization tests (52 tests)
+cmake -S App/Tests -B build-tests
+cmake --build build-tests
+ctest --test-dir build-tests   # runs all 5 suites (516 tests total)
+```
+
+Or run individual suites:
+```bash
+./build-tests/test_calc_engine        # Expression evaluation (169 tests)
+./build-tests/test_expr_util          # Buffer & cursor logic (96 tests)
+./build-tests/test_persist_roundtrip  # Serialization (52 tests)
+./build-tests/test_prgm_exec          # PRGM executor (95 tests)
+./build-tests/test_normal_mode        # handle_normal_mode dispatch (104 tests)
 ```
 
 ### Test Executables
@@ -23,6 +30,8 @@ cmake --build build/tests
 1.  **test_calc_engine**: Validates the shunting-yard algorithm, tokenization, and RPN evaluator. Covers arithmetic, matrices, and math functions.
 2.  **test_expr_util**: Validates UTF-8 cursor movement, multi-byte character insertion/deletion, and matrix token atomicity.
 3.  **test_persist_roundtrip**: Validates that state can be serialized to a buffer and restored exactly, including checksum verification.
+4.  **test_prgm_exec**: Validates the PRGM executor — `If`, `Goto/Lbl`, `IS>/DS<`, `Input/Disp`, subroutine calls, `Stop`.
+5.  **test_normal_mode**: Validates `handle_normal_mode()` and all 8 static sub-handlers — digit/operator/function insert, history navigation, STO, INS/DEL, and mode-dispatch transitions.
 
 ### Adding a New Test
 
@@ -35,9 +44,9 @@ cmake --build build/tests
 
 To check coverage on the host (run from repo root):
 ```bash
-cmake -S App/Tests -B build/tests -DCOVERAGE=ON
-cmake --build build/tests
-./build/tests/test_calc_engine
+cmake -S App/Tests -B build-tests -DCOVERAGE=ON
+cmake --build build-tests
+./build-tests/test_calc_engine
 # View results with gcov or lcov
 ```
 Target: **>80% branch coverage** for any new logic in `calc_engine.c`.
@@ -49,7 +58,7 @@ Target: **>80% branch coverage** for any new logic in `calc_engine.c`.
 Since the UI and hardware peripheral interactions (FLASH, LCD, Keypad) cannot be easily mocked on the host, they are validated manually.
 
 ### PRGM Hardware Test Plan
-The PRGM system has a dedicated 28-item test protocol. See [docs/prgm_manual_tests.md](prgm_manual_tests.md).
+The PRGM system has a dedicated 50-item test protocol. See [docs/prgm_manual_tests.md](prgm_manual_tests.md).
 
 ### CI Quality Gate
 The project enforces `-Werror` on all `App/` sources. Pull Requests will not be merged if they introduce compiler warnings.

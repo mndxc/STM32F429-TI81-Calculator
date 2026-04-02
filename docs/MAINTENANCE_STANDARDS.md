@@ -150,7 +150,7 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 
 | Number | Canonical source | Also in |
 |---|---|---|
-| Test counts (per-executable) | `cmake --build build/tests` output | `CLAUDE.md` "Host Tests", `docs/GETTING_STARTED.md` |
+| Test counts (per-executable) | `cmake --build build-tests` output | `docs/GETTING_STARTED.md` |
 | Overall test total | same | same |
 | Feature completion % | `CLAUDE.md` Feature table | `README.md` Status table |
 | Overall quality rating | `CLAUDE.md` "Project Quality" | — |
@@ -211,7 +211,7 @@ Check these first after any significant session — they are the highest-risk sy
 
 3. **`GraphState_t` struct** — `app_common.h` is canonical. Any new field must be reflected in `CLAUDE.md` "Graphing System → State".
 
-4. **Test counts** — drift every time a test is added. Always copy from `cmake --build build/tests` output; never estimate.
+4. **Test counts** — drift every time a test is added. Always copy from `cmake --build build-tests` output; never estimate.
 
 5. **Feature completion %** — `CLAUDE.md`'s feature table and `README.md`'s status table are independent text blocks describing the same truth.
 
@@ -228,14 +228,15 @@ Run after any significant session as a completeness check.
 ### Step 1 — Run host tests first
 
 ```bash
-cmake -S App/Tests -B build/tests && cmake --build build/tests
-./build/tests/test_calc_engine
-./build/tests/test_expr_util
-./build/tests/test_persist_roundtrip
-./build/tests/test_prgm_exec
+cmake -S App/Tests -B build-tests && cmake --build build-tests
+./build-tests/test_calc_engine
+./build-tests/test_expr_util
+./build-tests/test_persist_roundtrip
+./build-tests/test_prgm_exec
+./build-tests/test_normal_mode
 ```
 
-All four must exit 0. Copy exact test counts from this output — never estimate. Fix any failure before proceeding.
+All five must exit 0. Copy exact test counts from this output — never estimate. Fix any failure before proceeding.
 
 ### Step 2 — Identify what changed
 

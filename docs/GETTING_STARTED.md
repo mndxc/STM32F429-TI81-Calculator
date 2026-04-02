@@ -157,19 +157,26 @@ Once your software is ready, follow these steps to get the Neo-81 firmware runni
 
 ## 7. Host Tests
 
-The project includes a 396-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, persistent storage round-trips, and PRGM execution control flow.
+The project includes a 516-test host suite that runs on your development machine (no hardware required). It covers the expression tokenizer, shunting-yard evaluator, RPN engine, matrix operations, UTF-8 cursor logic, persistent storage round-trips, PRGM execution control flow, and handle_normal_mode dispatch.
 
 Run these commands from the **repo root** (the directory containing `CMakeLists.txt`):
 
 ```bash
-cmake -S App/Tests -B build/tests && cmake --build build/tests
-./build/tests/test_calc_engine        # 153 tests
-./build/tests/test_expr_util          # 96 tests
-./build/tests/test_persist_roundtrip  # 52 tests
-./build/tests/test_prgm_exec          # 95 tests
+cmake -S App/Tests -B build-tests && cmake --build build-tests
+ctest --test-dir build-tests   # runs all 5 suites (516 tests total)
 ```
 
-All four executables exit `0` on a full pass (396 total). These tests run automatically on every push via CI — running them locally before opening a PR is strongly recommended.
+Or run each executable individually:
+
+```bash
+./build-tests/test_calc_engine        # 169 tests
+./build-tests/test_expr_util          # 96 tests
+./build-tests/test_persist_roundtrip  # 52 tests
+./build-tests/test_prgm_exec          # 95 tests
+./build-tests/test_normal_mode        # 104 tests
+```
+
+All five executables exit `0` on a full pass (516 total). These tests run automatically on every push via CI — running them locally before opening a PR is strongly recommended.
 
 ---
 

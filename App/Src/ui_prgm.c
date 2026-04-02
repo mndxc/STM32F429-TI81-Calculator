@@ -1048,10 +1048,8 @@ bool handle_prgm_new_name(Token_t t)
     }
 }
 
-bool handle_prgm_editor(Token_t t)
+static void prgm_editor_handle_nav(Token_t t)
 {
-    char *line = prgm_edit_lines[prgm_edit_line];
-
     switch (t) {
     case TOKEN_UP:
         if (prgm_edit_line > 0) {
@@ -1071,7 +1069,7 @@ bool handle_prgm_editor(Token_t t)
             ui_update_prgm_new_display();
             lvgl_unlock();
         }
-        return true;
+        break;
     case TOKEN_DOWN:
     case TOKEN_ENTER:
         if (prgm_edit_line + 1 < prgm_edit_num_lines) {
@@ -1086,21 +1084,29 @@ bool handle_prgm_editor(Token_t t)
         prgm_edit_col = 0;
         prgm_editor_scroll_to_line();
         lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        return true;
+        break;
     case TOKEN_LEFT:
         if (prgm_edit_col > 0) {
             prgm_edit_col--;
             lvgl_lock(); prgm_editor_cursor_update(); lvgl_unlock();
         }
-        return true;
+        break;
     case TOKEN_RIGHT: {
-        uint8_t len = (uint8_t)strlen(line);
+        uint8_t len = (uint8_t)strlen(prgm_edit_lines[prgm_edit_line]);
         if (prgm_edit_col < len) {
             prgm_edit_col++;
             lvgl_lock(); prgm_editor_cursor_update(); lvgl_unlock();
         }
-        return true;
+        break;
     }
+    default: break;
+    }
+}
+
+static void prgm_editor_handle_del_clear(Token_t t)
+{
+    char *line = prgm_edit_lines[prgm_edit_line];
+    switch (t) {
     case TOKEN_DEL: {
         uint8_t len = (uint8_t)strlen(line);
         if (prgm_edit_col > 0) {
@@ -1122,7 +1128,7 @@ bool handle_prgm_editor(Token_t t)
             prgm_flatten_to_store();
             lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
         }
-        return true;
+        break;
     }
     case TOKEN_CLEAR:
         if (strlen(line) > 0) {
@@ -1143,24 +1149,69 @@ bool handle_prgm_editor(Token_t t)
             ui_update_prgm_display();
             lvgl_unlock();
         }
+        break;
+    default: break;
+    }
+}
+
+static void prgm_editor_handle_insert(Token_t t)
+{
+    switch (t) {
+    case TOKEN_0 ... TOKEN_9: {
+        if (prgm_label_full()) return;  /* B4: single-char label constraint */
+        char c[2] = {(char)('0' + (t - TOKEN_0)), '\0'};
+        prgm_editor_insert_str(c);
+        prgm_flatten_to_store();
+        lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
+        break;
+    }
+    case TOKEN_A ... TOKEN_Z: {
+        if (prgm_label_full()) return;  /* B4: single-char label constraint */
+        char c[2] = {(char)('A' + (t - TOKEN_A)), '\0'};
+        prgm_editor_insert_str(c);
+        prgm_flatten_to_store();
+        lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
+        break;
+    }
+    default: {
+        /* Try generic token-to-string mapping */
+        const char *s = prgm_token_to_str(t);
+        if (s) {
+            prgm_editor_insert_str(s);
+            prgm_flatten_to_store();
+            lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
+        }
+        break;
+    }
+    }
+}
+
+bool handle_prgm_editor(Token_t t)
+{
+    switch (t) {
+    case TOKEN_UP:
+    case TOKEN_DOWN:
+    case TOKEN_ENTER:
+    case TOKEN_LEFT:
+    case TOKEN_RIGHT:
+        prgm_editor_handle_nav(t);
+        return true;
+    case TOKEN_DEL:
+    case TOKEN_CLEAR:
+        prgm_editor_handle_del_clear(t);
         return true;
     case TOKEN_INS:
         insert_mode = !insert_mode;
         lvgl_lock(); prgm_editor_cursor_update(); lvgl_unlock();
         return true;
-
     case TOKEN_TEST:
-        /* F4: open TEST menu; selections will insert into editor via
-         * test_menu_insert() checking return_mode == MODE_PRGM_EDITOR */
+        /* open TEST menu; selections insert via test_menu_insert() */
         menu_open(TOKEN_TEST, MODE_PRGM_EDITOR);
         return true;
-
     case TOKEN_MATH:
-        /* F4: open MATH menu; selections will insert into editor via
-         * math_menu_insert() checking return_mode == MODE_PRGM_EDITOR */
+        /* open MATH menu; selections insert via math_menu_insert() */
         menu_open(TOKEN_MATH, MODE_PRGM_EDITOR);
         return true;
-
     case TOKEN_PRGM:
         /* Open CTL sub-menu */
         prgm_ctl_cursor = 0;
@@ -1172,34 +1223,45 @@ bool handle_prgm_editor(Token_t t)
         ui_update_prgm_ctl_display();
         lvgl_unlock();
         return true;
+    default:
+        prgm_editor_handle_insert(t);
+        return true;
+    }
+}
 
-    case TOKEN_0 ... TOKEN_9: {
-        if (prgm_label_full()) return true;  /* B4: single-char label constraint */
-        char c[2] = {(char)('0' + (t - TOKEN_0)), '\0'};
-        prgm_editor_insert_str(c);
-        prgm_flatten_to_store();
-        lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        return true;
+static void prgm_submenu_return_to_editor(lv_obj_t *hide_screen)
+{
+    current_mode = MODE_PRGM_EDITOR;
+    lvgl_lock();
+    lv_obj_add_flag(hide_screen,             LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_update_prgm_editor_display();
+    lvgl_unlock();
+}
+
+static void prgm_submenu_tab_switch(lv_obj_t *hide_screen, CalcMode_t to_mode)
+{
+    lv_obj_t *show_screen;
+    if (to_mode == MODE_PRGM_CTL_MENU) {
+        prgm_ctl_cursor = 0;
+        prgm_ctl_scroll = 0;
+        show_screen = ui_prgm_ctl_screen;
+    } else if (to_mode == MODE_PRGM_IO_MENU) {
+        prgm_io_cursor = 0;
+        show_screen = ui_prgm_io_screen;
+    } else {
+        prgm_exec_cursor = 0;
+        prgm_exec_scroll = 0;
+        show_screen = ui_prgm_exec_screen;
     }
-    case TOKEN_A ... TOKEN_Z: {
-        if (prgm_label_full()) return true;  /* B4: single-char label constraint */
-        char c[2] = {(char)('A' + (t - TOKEN_A)), '\0'};
-        prgm_editor_insert_str(c);
-        prgm_flatten_to_store();
-        lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        return true;
-    }
-    default: {
-        /* Try generic token-to-string mapping */
-        const char *s = prgm_token_to_str(t);
-        if (s) {
-            prgm_editor_insert_str(s);
-            prgm_flatten_to_store();
-            lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        }
-        return true;
-    }
-    }
+    current_mode = to_mode;
+    lvgl_lock();
+    lv_obj_add_flag(hide_screen,   LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+    if      (to_mode == MODE_PRGM_CTL_MENU)  ui_update_prgm_ctl_display();
+    else if (to_mode == MODE_PRGM_IO_MENU)   ui_update_prgm_io_display();
+    else                                      ui_update_prgm_exec_display();
+    lvgl_unlock();
 }
 
 bool handle_prgm_ctl_menu(Token_t t)
@@ -1227,12 +1289,7 @@ bool handle_prgm_ctl_menu(Token_t t)
             prgm_editor_insert_str(prgm_ctl_insert[idx]);
             prgm_flatten_to_store();
         }
-        current_mode = MODE_PRGM_EDITOR;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_ctl_screen,       LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_editor_screen,  LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_editor_display();
-        lvgl_unlock();
+        prgm_submenu_return_to_editor(ui_prgm_ctl_screen);
         return true;
     }
     case TOKEN_1 ... TOKEN_9: {
@@ -1241,42 +1298,19 @@ bool handle_prgm_ctl_menu(Token_t t)
             prgm_editor_insert_str(prgm_ctl_insert[idx]);
             prgm_flatten_to_store();
         }
-        current_mode = MODE_PRGM_EDITOR;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_ctl_screen,       LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_editor_screen,  LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_editor_display();
-        lvgl_unlock();
+        prgm_submenu_return_to_editor(ui_prgm_ctl_screen);
         return true;
     }
     case TOKEN_CLEAR:
-        current_mode = MODE_PRGM_EDITOR;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_ctl_screen,      LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_editor_display();
-        lvgl_unlock();
+        prgm_submenu_return_to_editor(ui_prgm_ctl_screen);
         return true;
     case TOKEN_RIGHT:
         /* CTL RIGHT → I/O */
-        prgm_io_cursor = 0;
-        current_mode = MODE_PRGM_IO_MENU;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_ctl_screen,   LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_io_screen,  LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_io_display();
-        lvgl_unlock();
+        prgm_submenu_tab_switch(ui_prgm_ctl_screen, MODE_PRGM_IO_MENU);
         return true;
     case TOKEN_LEFT:
         /* CTL LEFT → EXEC (wrap) */
-        prgm_exec_cursor = 0;
-        prgm_exec_scroll = 0;
-        current_mode = MODE_PRGM_EXEC_MENU;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_ctl_screen,    LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_exec_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_exec_display();
-        lvgl_unlock();
+        prgm_submenu_tab_switch(ui_prgm_ctl_screen, MODE_PRGM_EXEC_MENU);
         return true;
     default:
         return true;
@@ -1298,12 +1332,7 @@ bool handle_prgm_io_menu(Token_t t)
         int idx = (int)prgm_io_cursor;
         prgm_editor_insert_str(prgm_io_insert[idx]);
         prgm_flatten_to_store();
-        current_mode = MODE_PRGM_EDITOR;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_io_screen,       LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_editor_display();
-        lvgl_unlock();
+        prgm_submenu_return_to_editor(ui_prgm_io_screen);
         return true;
     }
     case TOKEN_1 ... TOKEN_5: {
@@ -1312,43 +1341,19 @@ bool handle_prgm_io_menu(Token_t t)
             prgm_editor_insert_str(prgm_io_insert[idx]);
             prgm_flatten_to_store();
         }
-        current_mode = MODE_PRGM_EDITOR;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_io_screen,       LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_editor_display();
-        lvgl_unlock();
+        prgm_submenu_return_to_editor(ui_prgm_io_screen);
         return true;
     }
     case TOKEN_CLEAR:
-        current_mode = MODE_PRGM_EDITOR;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_io_screen,       LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_editor_display();
-        lvgl_unlock();
+        prgm_submenu_return_to_editor(ui_prgm_io_screen);
         return true;
     case TOKEN_LEFT:
         /* I/O LEFT → CTL */
-        prgm_ctl_cursor = 0;
-        prgm_ctl_scroll = 0;
-        current_mode = MODE_PRGM_CTL_MENU;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_io_screen,     LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_ctl_screen,  LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_ctl_display();
-        lvgl_unlock();
+        prgm_submenu_tab_switch(ui_prgm_io_screen, MODE_PRGM_CTL_MENU);
         return true;
     case TOKEN_RIGHT:
         /* I/O RIGHT → EXEC (wrap) */
-        prgm_exec_cursor = 0;
-        prgm_exec_scroll = 0;
-        current_mode = MODE_PRGM_EXEC_MENU;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_io_screen,      LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_exec_screen,  LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_exec_display();
-        lvgl_unlock();
+        prgm_submenu_tab_switch(ui_prgm_io_screen, MODE_PRGM_EXEC_MENU);
         return true;
     default:
         return true;
@@ -1385,12 +1390,7 @@ bool handle_prgm_exec_menu(Token_t t)
             prgm_editor_insert_str(ins);
             prgm_flatten_to_store();
         }
-        current_mode = MODE_PRGM_EDITOR;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_exec_screen,     LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_editor_display();
-        lvgl_unlock();
+        prgm_submenu_return_to_editor(ui_prgm_exec_screen);
         return true;
     }
     case TOKEN_1 ... TOKEN_9: {
@@ -1428,33 +1428,15 @@ bool handle_prgm_exec_menu(Token_t t)
         return handle_prgm_exec_menu(TOKEN_ENTER);
     }
     case TOKEN_CLEAR:
-        current_mode = MODE_PRGM_EDITOR;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_exec_screen,     LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_editor_display();
-        lvgl_unlock();
+        prgm_submenu_return_to_editor(ui_prgm_exec_screen);
         return true;
     case TOKEN_LEFT:
         /* EXEC LEFT → I/O */
-        prgm_io_cursor = 0;
-        current_mode = MODE_PRGM_IO_MENU;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_exec_screen,  LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_io_screen,  LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_io_display();
-        lvgl_unlock();
+        prgm_submenu_tab_switch(ui_prgm_exec_screen, MODE_PRGM_IO_MENU);
         return true;
     case TOKEN_RIGHT:
         /* EXEC RIGHT → CTL (wrap) */
-        prgm_ctl_cursor = 0;
-        prgm_ctl_scroll = 0;
-        current_mode = MODE_PRGM_CTL_MENU;
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_exec_screen,   LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_ctl_screen,  LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_ctl_display();
-        lvgl_unlock();
+        prgm_submenu_tab_switch(ui_prgm_exec_screen, MODE_PRGM_CTL_MENU);
         return true;
     default:
         return true;

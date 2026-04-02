@@ -42,12 +42,11 @@ You can build and run the full test suite on any machine — no STM32 board requ
 ```bash
 git clone https://github.com/mndxc/STM32F429-TI81-Calculator.git
 cd STM32F429-TI81-Calculator
-cmake -S App/Tests -B build/tests && cmake --build build/tests
-./build/tests/test_calc_engine && ./build/tests/test_expr_util && \
-./build/tests/test_persist_roundtrip && ./build/tests/test_prgm_exec
+cmake -S App/Tests -B build-tests && cmake --build build-tests
+ctest --test-dir build-tests
 ```
 
-All 396 tests pass on plain x86/ARM Linux and macOS with any standard C compiler. No toolchain, no board, no USB cable needed.
+All 516 tests pass on plain x86/ARM Linux and macOS with any standard C compiler. No toolchain, no board, no USB cable needed.
 
 ---
 

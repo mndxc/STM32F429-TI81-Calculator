@@ -52,12 +52,14 @@ App/                            ← Custom application code (never touched by Cu
     lv_port_disp.c/h            LVGL display port — LTDC framebuffer flush with rotation
     lv_port_indev.c/h           LVGL input device port — keypad registration
   Tests/
-    CMakeLists.txt              Host test build (4 executables, 396 tests total)
-    test_calc_engine.c          153 tests: tokenizer, shunting-yard, RPN, matrix
+    CMakeLists.txt              Host test build (5 executables, 516 tests total)
+    test_calc_engine.c          169 tests: tokenizer, shunting-yard, RPN, matrix
     test_expr_util.c            96 tests: UTF-8 cursor, insert/delete, matrix atomicity
     test_persist_roundtrip.c    52 tests: PersistBlock_t checksum and round-trip
-    test_prgm_exec.c            95 tests:  active command handlers, control flow, subroutines, empty body, lookup, 2-deep nesting
+    test_prgm_exec.c            95 tests: active command handlers, control flow, subroutines, empty body, lookup, 2-deep nesting
+    test_normal_mode.c          104 tests: handle_normal_mode dispatch, all 8 sub-handlers
     prgm_exec_test_stubs.h      Inline stubs for host-compilation of prgm_exec.c
+    calculator_core_test_stubs.h  LVGL/RTOS/graph_ui/ui_matrix/ui_prgm stubs for host-compilation of calculator_core.c
 
 Core/                           ← CubeMX-generated code (regenerated from .ioc)
   Src/

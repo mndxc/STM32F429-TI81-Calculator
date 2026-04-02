@@ -10,7 +10,9 @@
 #ifndef APP_COMMON_H
 #define APP_COMMON_H
 
+#ifndef HOST_TEST
 #include "cmsis_os.h"   /* FreeRTOS queue and task types */
+#endif
 #include "keypad_map.h" /* Token_t and KeyDefinition_t */
 #include <stdint.h>
 #include <stdbool.h>
@@ -84,6 +86,7 @@ extern GraphState_t graph_state;
  * Shared handles
  *---------------------------------------------------------------------------*/
 
+#ifndef HOST_TEST
 /** Queue for passing keypad tokens from the keypad task to the core task. */
 extern osMessageQId      keypadQueueHandle;
 
@@ -92,6 +95,7 @@ extern SemaphoreHandle_t xLVGL_Mutex;
 
 /** Binary semaphore signalled by DefaultTask once LVGL is initialised. */
 extern SemaphoreHandle_t xLVGL_Ready;
+#endif /* HOST_TEST */
 
 /*---------------------------------------------------------------------------
  * Function declarations

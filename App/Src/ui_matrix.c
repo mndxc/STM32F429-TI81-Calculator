@@ -12,9 +12,7 @@
 lv_obj_t *ui_matrix_screen      = NULL;
 lv_obj_t *ui_matrix_edit_screen = NULL;
 
-uint8_t    matrix_tab             = 0;   /* 0=MATRX, 1=EDIT */
-uint8_t    matrix_item_cursor     = 0;
-CalcMode_t matrix_return_mode     = MODE_NORMAL;
+MatrixMenuState_t matrix_menu_state = {0};
 
 uint8_t    matrix_edit_idx        = 0;   /* 0=[A], 1=[B], 2=[C] */
 int16_t    matrix_edit_cursor     = 0;   /* flat cell index; -1 = dim mode */
@@ -160,14 +158,14 @@ void ui_update_matrix_display(void)
 {
     for (int i = 0; i < 2; i++) {
         lv_obj_set_style_text_color(matrix_tab_labels[i],
-            (i == (int)matrix_tab) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_GREY_INACTIVE), 0);
+            (i == (int)matrix_menu_state.tab) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_GREY_INACTIVE), 0);
     }
 
-    uint8_t item_count = matrix_tab_item_count[matrix_tab];
+    uint8_t item_count = matrix_tab_item_count[matrix_menu_state.tab];
     for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
         if (i < (int)item_count) {
             char buf[32];
-            if (matrix_tab == 0) {
+            if (matrix_menu_state.tab == 0) {
                 snprintf(buf, sizeof(buf), "%d:%s", i + 1, matrix_op_names[i]);
             } else {
                 snprintf(buf, sizeof(buf), "%d:%s %dx%d",
@@ -175,7 +173,7 @@ void ui_update_matrix_display(void)
                          calc_matrices[i].rows, calc_matrices[i].cols);
             }
             lv_obj_set_style_text_color(matrix_item_labels[i],
-                (i == (int)matrix_item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
+                (i == (int)matrix_menu_state.item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
             lv_label_set_text(matrix_item_labels[i], buf);
         } else {
             lv_label_set_text(matrix_item_labels[i], "");
@@ -238,34 +236,34 @@ void ui_update_matrix_edit_display(void)
 /*---------------------------------------------------------------------------
  * Token Handlers
  *---------------------------------------------------------------------------*/
-bool handle_matrix_menu(Token_t t)
+bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
 {
     switch (t) {
     case TOKEN_LEFT:
-        tab_move(&matrix_tab, &matrix_item_cursor, NULL, 2, true, ui_update_matrix_display);
+        tab_move(&s->tab, &s->item_cursor, NULL, 2, true, ui_update_matrix_display);
         return true;
     case TOKEN_RIGHT:
-        tab_move(&matrix_tab, &matrix_item_cursor, NULL, 2, false, ui_update_matrix_display);
+        tab_move(&s->tab, &s->item_cursor, NULL, 2, false, ui_update_matrix_display);
         return true;
     case TOKEN_UP:
-        if (matrix_item_cursor > 0) matrix_item_cursor--;
+        if (s->item_cursor > 0) s->item_cursor--;
         lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
         return true;
     case TOKEN_DOWN:
-        if (matrix_item_cursor < matrix_tab_item_count[matrix_tab] - 1) matrix_item_cursor++;
+        if (s->item_cursor < matrix_tab_item_count[s->tab] - 1) s->item_cursor++;
         lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
         return true;
     case TOKEN_ENTER: {
-        if (matrix_tab == 0) {
-            const char *ins = matrix_op_insert[matrix_item_cursor];
-            if (ins != NULL) { 
+        if (s->tab == 0) {
+            const char *ins = matrix_op_insert[s->item_cursor];
+            if (ins != NULL) {
                 lvgl_lock();
                 lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
                 lvgl_unlock();
-                menu_insert_text(ins, &matrix_return_mode); 
+                menu_insert_text(ins, &s->return_mode);
             }
         } else {
-            matrix_edit_idx    = matrix_item_cursor;
+            matrix_edit_idx    = s->item_cursor;
             matrix_edit_cursor     = 0;
             matrix_edit_scroll     = 0;
             matrix_edit_dim_field  = 0;
@@ -281,15 +279,15 @@ bool handle_matrix_menu(Token_t t)
     }
     case TOKEN_1 ... TOKEN_6: {
         int idx = (int)(t - TOKEN_0) - 1;
-        if (idx >= 0 && idx < (int)matrix_tab_item_count[matrix_tab]) {
-            matrix_item_cursor = (uint8_t)idx;
-            if (matrix_tab == 0) {
+        if (idx >= 0 && idx < (int)matrix_tab_item_count[s->tab]) {
+            s->item_cursor = (uint8_t)idx;
+            if (s->tab == 0) {
                 const char *ins = matrix_op_insert[idx];
-                if (ins != NULL) { 
+                if (ins != NULL) {
                     lvgl_lock();
                     lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
                     lvgl_unlock();
-                    menu_insert_text(ins, &matrix_return_mode); 
+                    menu_insert_text(ins, &s->return_mode);
                 }
             } else {
                 matrix_edit_idx    = (uint8_t)idx;
@@ -313,33 +311,33 @@ bool handle_matrix_menu(Token_t t)
         menu_close(TOKEN_MATRX);
         return true;
     case TOKEN_Y_EQUALS:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
+        s->return_mode = MODE_NORMAL;
+        s->tab         = 0;
+        s->item_cursor = 0;
         nav_to(MODE_GRAPH_YEQ);
         return true;
     case TOKEN_RANGE:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
+        s->return_mode = MODE_NORMAL;
+        s->tab         = 0;
+        s->item_cursor = 0;
         nav_to(MODE_GRAPH_RANGE);
         return true;
     case TOKEN_ZOOM:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
+        s->return_mode = MODE_NORMAL;
+        s->tab         = 0;
+        s->item_cursor = 0;
         nav_to(MODE_GRAPH_ZOOM);
         return true;
     case TOKEN_GRAPH:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
+        s->return_mode = MODE_NORMAL;
+        s->tab         = 0;
+        s->item_cursor = 0;
         nav_to(MODE_NORMAL);
         return true;
     case TOKEN_TRACE:
-        matrix_return_mode = MODE_NORMAL;
-        matrix_tab         = 0;
-        matrix_item_cursor = 0;
+        s->return_mode = MODE_NORMAL;
+        s->tab         = 0;
+        s->item_cursor = 0;
         nav_to(MODE_GRAPH_TRACE);
         return true;
     default: {
