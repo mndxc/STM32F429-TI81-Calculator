@@ -52,6 +52,7 @@ typedef enum {
 typedef enum {
     MATH_NUMBER,
     MATH_VAR_X,             /* X variable — value substituted at evaluation time */
+    MATH_VAR_T,             /* T variable — parametric free variable, substituted at eval time */
     MATH_OP_ADD,
     MATH_OP_SUB,
     MATH_OP_MUL,
@@ -217,6 +218,35 @@ CalcError_t Calc_PrepareGraphEquation(const char *expr, float ans,
  * @return              CalcResult_t containing value or error
  */
 CalcResult_t Calc_EvalGraphEquation(const GraphEquation_t *eq, float x_val,
+                                    bool angle_degrees);
+
+/**
+ * @brief Compiles a parametric equation string into a cached postfix form.
+ *
+ * Identical to Calc_PrepareGraphEquation() except "T" (or "t") is tokenized
+ * as MATH_VAR_T rather than as a stored variable.  "X" still tokenizes as
+ * MATH_VAR_X.  Pass the result to Calc_EvalParamEquation().
+ *
+ * @param expr  Null-terminated infix expression in terms of T (e.g. "cos(T)")
+ * @param ans   ANS value to bake in for any "ANS" reference in the expression
+ * @param out   Output postfix cache — must not be NULL
+ * @return      CALC_OK, or an error code if the expression is invalid
+ */
+CalcError_t Calc_PrepareParamEquation(const char *expr, float ans,
+                                      GraphEquation_t *out);
+
+/**
+ * @brief Evaluates a pre-compiled parametric equation at a specific t value.
+ *
+ * Substitutes t_val for every MATH_VAR_T token; MATH_VAR_X tokens resolve
+ * to the stored calc_variables['X'-'A'] value (not overridden).
+ *
+ * @param eq            Postfix cache produced by Calc_PrepareParamEquation()
+ * @param t_val         Parametric parameter value to substitute for T
+ * @param angle_degrees True for degrees, false for radians
+ * @return              CalcResult_t containing value or error
+ */
+CalcResult_t Calc_EvalParamEquation(const GraphEquation_t *eq, float t_val,
                                     bool angle_degrees);
 
 #endif /* CALC_ENGINE_H */

@@ -1,0 +1,1 @@
+/usr/bin/cc -g -arch arm64 -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/test_expr_util.dir/test_expr_util.c.o CMakeFiles/test_expr_util.dir/__/Src/expr_util.c.o -o test_expr_util  -lm

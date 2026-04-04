@@ -31,7 +31,7 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, FLASH persistence, and column-aligned history display with horizontal scroll.
 
-STAT is not yet implemented.
+STAT is ~95% complete: 1-Var statistics (n, x̄, Σx, Σx², Sx, σx), LinReg/LnReg/ExpReg/PwrReg with Pearson r (results stored in variables A/B), a scrolling DATA list editor (up to 99 x/y pairs), Scatter/XYLine/Histogram graph renderers, FLASH persistence (PersistBlock_t v6), and a 39-test host suite. Hardware validation (P30h) is the only remaining gate.
 
 ---
 
@@ -46,7 +46,7 @@ cmake -S App/Tests -B build-tests && cmake --build build-tests
 ctest --test-dir build-tests
 ```
 
-All 516 tests pass on plain x86/ARM Linux and macOS with any standard C compiler. No toolchain, no board, no USB cable needed.
+All host tests pass on plain x86/ARM Linux and macOS with any standard C compiler — see [docs/TESTING.md](docs/TESTING.md) for the current suite breakdown. No toolchain, no board, no USB cable needed.
 
 ---
 

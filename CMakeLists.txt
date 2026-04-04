@@ -69,6 +69,8 @@ set(APP_SOURCES
     App/Src/persist.c
     App/Src/prgm_exec.c
     App/Src/ui_matrix.c
+    App/Src/ui_stat.c
+    App/Src/calc_stat.c
     App/Src/ui_prgm.c
     App/Src/graph_ui.c
     App/Display/lv_port_disp.c

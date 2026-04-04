@@ -1,5 +1,7 @@
 # Contributor Testing Guide
 
+> **Canonical source for test counts.** This file is the single source of truth for suite names, per-suite assertion counts, and totals. All other docs link here rather than repeating numbers.
+
 The STM32F429-TI81-Calculator uses a dual-track testing strategy: host-compiled unit tests for core logic and manual hardware validation for the UI and PRGM backend.
 
 ## Host-Compiled Unit Tests
@@ -13,7 +15,7 @@ Run these commands from the **repo root** (the directory containing `CMakeLists.
 ```bash
 cmake -S App/Tests -B build-tests
 cmake --build build-tests
-ctest --test-dir build-tests   # runs all 5 suites (516 tests total)
+ctest --test-dir build-tests   # runs all 7 suites (488 assertions total)
 ```
 
 Or run individual suites:
@@ -23,6 +25,8 @@ Or run individual suites:
 ./build-tests/test_persist_roundtrip  # Serialization (52 tests)
 ./build-tests/test_prgm_exec          # PRGM executor (95 tests)
 ./build-tests/test_normal_mode        # handle_normal_mode dispatch (104 tests)
+./build-tests/test_param              # Parametric eval (28 tests)
+./build-tests/test_stat               # Statistical calculations (39 tests)
 ```
 
 ### Test Executables
@@ -32,6 +36,8 @@ Or run individual suites:
 3.  **test_persist_roundtrip**: Validates that state can be serialized to a buffer and restored exactly, including checksum verification.
 4.  **test_prgm_exec**: Validates the PRGM executor — `If`, `Goto/Lbl`, `IS>/DS<`, `Input/Disp`, subroutine calls, `Stop`.
 5.  **test_normal_mode**: Validates `handle_normal_mode()` and all 8 static sub-handlers — digit/operator/function insert, history navigation, STO, INS/DEL, and mode-dispatch transitions.
+6.  **test_param**: Validates `Calc_PrepareParamEquation` and `Calc_EvalParamEquation` — T variable substitution, circle identity, independence from stored variable 'T', degrees mode, error propagation.
+7.  **test_stat**: Validates `calc_stat.c` — 1-Var statistics, LinReg (including variable storage and Pearson r), LnReg, ExpReg, SortX, SortY, Clear, and degenerate/empty-input guards.
 
 ### Adding a New Test
 

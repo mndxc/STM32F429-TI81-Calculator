@@ -54,6 +54,11 @@ add_executable(test_persist_roundtrip
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
 )
 
+# persist.h now includes app_common.h which pulls in keypad_map.h
+target_include_directories(test_persist_roundtrip PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad
+)
+
 target_compile_options(test_persist_roundtrip PRIVATE -Wall -Wextra -DHOST_TEST=1)
 
 if(COVERAGE)
@@ -105,6 +110,42 @@ if(COVERAGE)
     target_link_options(test_normal_mode PRIVATE --coverage)
 endif()
 
+# --- test_param ---
+# Parametric equation preparation and evaluation; no LVGL/HAL/RTOS dependencies.
+
+add_executable(test_param
+    test_param.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+)
+
+target_compile_options(test_param PRIVATE -Wall -Wextra)
+
+if(COVERAGE)
+    target_compile_options(test_param PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_param PRIVATE --coverage)
+endif()
+
+# --- test_stat ---
+# Pure statistical math layer; no LVGL/HAL/RTOS dependencies.
+
+add_executable(test_stat
+    test_stat.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_stat.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+)
+
+# HW/Keypad path needed for keypad_map.h (pulled in via app_common.h → calc_stat.h)
+target_include_directories(test_stat PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad
+)
+
+target_compile_options(test_stat PRIVATE -Wall -Wextra -DHOST_TEST=1)
+
+if(COVERAGE)
+    target_compile_options(test_stat PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_stat PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
@@ -112,3 +153,5 @@ add_test(NAME expr_util         COMMAND test_expr_util)
 add_test(NAME persist_roundtrip COMMAND test_persist_roundtrip)
 add_test(NAME prgm_exec         COMMAND test_prgm_exec)
 add_test(NAME normal_mode       COMMAND test_normal_mode)
+add_test(NAME param             COMMAND test_param)
+add_test(NAME stat              COMMAND test_stat)

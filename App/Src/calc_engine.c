@@ -171,13 +171,15 @@ static CalcError_t try_tokenize_number(const char **p, TokenList_t *out, bool *m
 }
 
 /* Try to tokenize a named identifier or variable at *p.
- * Covers: ANS, X, matrix refs [A/B/C], T-transpose, pi, rand, named
- * functions (sin/cos/…), the 'e' constant, and user variables A–Z.
+ * Covers: ANS, X, T (param mode), matrix refs [A/B/C], T-transpose, pi,
+ * rand, named functions (sin/cos/…), the 'e' constant, and user variables A–Z.
+ * In param_mode=true, 'T'/'t' emits MATH_VAR_T (parametric free variable)
+ * instead of going through the transpose/variable path.
  * Returns CALC_OK with *matched==true on success, CALC_OK with *matched==false
  * if *p is not a known identifier, or an error code on overflow. */
 static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
                                             float ans, bool ans_is_matrix,
-                                            bool *matched)
+                                            bool param_mode, bool *matched)
 {
     *matched = false;
 
@@ -218,6 +220,19 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
         out->tokens[out->count].value = (float)((*p)[1] - 'A');
         out->count++;
         *p += 3;
+        *matched = true;
+        return CALC_OK;
+    }
+
+    /* Parametric free variable: T → MATH_VAR_T placeholder.
+       Only active when param_mode=true; must be checked before the transpose
+       check so 'T' is not consumed as a transpose operator in this context. */
+    if (param_mode && (**p == 'T' || **p == 't')) {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_VAR_T;
+        out->tokens[out->count].value = 0.0f;
+        out->count++;
+        (*p)++;
         *matched = true;
         return CALC_OK;
     }
@@ -403,7 +418,7 @@ static CalcError_t try_tokenize_operator(const char **p, TokenList_t *out, bool 
  *--------------------------------------------------------------------------*/
 
 static CalcError_t Tokenize(const char *expr, float ans, bool ans_is_matrix,
-                             TokenList_t *out)
+                             bool param_mode, TokenList_t *out)
 {
     out->count = 0;
     const char *p = expr;
@@ -418,7 +433,7 @@ static CalcError_t Tokenize(const char *expr, float ans, bool ans_is_matrix,
         if (err != CALC_OK) return err;
         if (matched) continue;
 
-        err = try_tokenize_identifier(&p, out, ans, ans_is_matrix, &matched);
+        err = try_tokenize_identifier(&p, out, ans, ans_is_matrix, param_mode, &matched);
         if (err != CALC_OK) return err;
         if (matched) continue;
 
@@ -454,8 +469,10 @@ static CalcError_t ImplicitMulPass(TokenList_t *list)
         MathTokenType_t next = list->tokens[i + 1].type;
 
         bool cur_is_value  = (cur  == MATH_NUMBER || cur  == MATH_VAR_X ||
+                              cur  == MATH_VAR_T  ||
                               cur  == MATH_PAREN_RIGHT || cur  == MATH_MATRIX_VAL);
         bool next_is_factor = (next == MATH_NUMBER || next == MATH_VAR_X ||
+                               next == MATH_VAR_T  ||
                                next == MATH_PAREN_LEFT ||
                                next == MATH_MATRIX_VAL || is_function(next));
 
@@ -537,7 +554,7 @@ static CalcError_t ShuntingYard(const TokenList_t *in, TokenList_t *out)
         CalcError_t err;
 
         if (tok.type == MATH_NUMBER || tok.type == MATH_VAR_X ||
-            tok.type == MATH_MATRIX_VAL) {
+            tok.type == MATH_VAR_T  || tok.type == MATH_MATRIX_VAL) {
             if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
             out->tokens[out->count++] = tok;
         }
@@ -1019,7 +1036,7 @@ static bool eval_binary_op(MathTokenType_t type,
  * Stage 3 — RPN evaluator
  *--------------------------------------------------------------------------*/
 
-static CalcResult_t EvaluateRPN(const TokenList_t *rpn, float x_val, bool angle_degrees)
+static CalcResult_t EvaluateRPN(const TokenList_t *rpn, float x_val, float t_val, bool angle_degrees)
 {
     CalcResult_t res = { 0.0f, CALC_OK, "", false, 0 };
 
@@ -1039,6 +1056,10 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, float x_val, bool angle_
         }
         if (tt == MATH_VAR_X) {
             if (!rpn_push(stack, is_matrix, &top, x_val, false, &res)) return res;
+            continue;
+        }
+        if (tt == MATH_VAR_T) {
+            if (!rpn_push(stack, is_matrix, &top, t_val, false, &res)) return res;
             continue;
         }
         if (tt == MATH_MATRIX_VAL) {
@@ -1115,7 +1136,7 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
     TokenList_t infix  = { .count = 0 };
     TokenList_t postfix = { .count = 0 };
 
-    CalcError_t err = Tokenize(expr, ans, ans_is_matrix, &infix);
+    CalcError_t err = Tokenize(expr, ans, ans_is_matrix, false, &infix);
     if (err != CALC_OK) {
         res.error = err;
         strncpy(res.error_msg, "Tokenize error",
@@ -1139,7 +1160,7 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
         return res;
     }
 
-    return EvaluateRPN(&postfix, calc_variables['X' - 'A'], angle_degrees);
+    return EvaluateRPN(&postfix, calc_variables['X' - 'A'], 0.0f, angle_degrees);
 }
 
 /**
@@ -1168,7 +1189,7 @@ CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
     TokenList_t infix   = { .count = 0 };
     TokenList_t postfix = { .count = 0 };
     /* Graph context is always scalar — ANS cannot be a matrix in Y= equations */
-    CalcError_t err = Tokenize(expr, ans, false, &infix);
+    CalcError_t err = Tokenize(expr, ans, false, false, &infix);
     if (err != CALC_OK) {
         res.error = err;
         strncpy(res.error_msg, "Tokenize error",
@@ -1189,7 +1210,7 @@ CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
                 sizeof(res.error_msg) - 1);
         return res;
     }
-    return EvaluateRPN(&postfix, x_val, angle_degrees);
+    return EvaluateRPN(&postfix, x_val, 0.0f, angle_degrees);
 }
 
 /**
@@ -1263,7 +1284,7 @@ CalcError_t Calc_PrepareGraphEquation(const char *expr, float ans,
     TokenList_t postfix = { .count = 0 };
 
     /* Graph context: ANS is always scalar, X emits MATH_VAR_X placeholder */
-    CalcError_t err = Tokenize(expr, ans, false, &infix);
+    CalcError_t err = Tokenize(expr, ans, false, false, &infix);
     if (err != CALC_OK) return err;
 
     err = ImplicitMulPass(&infix);
@@ -1284,5 +1305,39 @@ CalcResult_t Calc_EvalGraphEquation(const GraphEquation_t *eq, float x_val,
                                     bool angle_degrees)
 {
     /* GraphEquation_t and TokenList_t share the same memory layout */
-    return EvaluateRPN((const TokenList_t *)eq, x_val, angle_degrees);
+    return EvaluateRPN((const TokenList_t *)eq, x_val, 0.0f, angle_degrees);
+}
+
+CalcError_t Calc_PrepareParamEquation(const char *expr, float ans,
+                                      GraphEquation_t *out)
+{
+    if (expr == NULL || out == NULL) return CALC_ERR_SYNTAX;
+
+    TokenList_t infix   = { .count = 0 };
+    TokenList_t postfix = { .count = 0 };
+
+    /* Parametric context: 'T'/'t' emits MATH_VAR_T placeholder */
+    CalcError_t err = Tokenize(expr, ans, false, true, &infix);
+    if (err != CALC_OK) return err;
+
+    err = ImplicitMulPass(&infix);
+    if (err != CALC_OK) return err;
+
+    err = ShuntingYard(&infix, &postfix);
+    if (err != CALC_OK) return err;
+
+    out->count = postfix.count;
+    for (uint8_t i = 0; i < postfix.count; i++)
+        out->tokens[i] = postfix.tokens[i];
+
+    return CALC_OK;
+}
+
+CalcResult_t Calc_EvalParamEquation(const GraphEquation_t *eq, float t_val,
+                                    bool angle_degrees)
+{
+    /* x_val = stored X variable (not overridden in param mode); t_val is the
+       parametric free variable substituted for every MATH_VAR_T token. */
+    return EvaluateRPN((const TokenList_t *)eq,
+                       calc_variables['X' - 'A'], t_val, angle_degrees);
 }

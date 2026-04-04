@@ -31,6 +31,7 @@
 #  include "calc_internal.h"
 #  include "ui_matrix.h"
 #  include "ui_prgm.h"
+#  include "ui_stat.h"
 #  include "graph_ui.h"
 #  include "ui_palette.h"
 #  include "expr_util.h"
@@ -155,6 +156,10 @@ GraphState_t graph_state = {
     .y_scl    =   1.0f,
     .x_res    =   1.0f,
     .active   = false,
+    .t_min    =   0.0f,
+    .t_max    =   6.2832f,   /* 2π */
+    .t_step   =   0.1309f,   /* π/24 */
+    .param_mode = false,
 };
 
 /* MODE screen state */
@@ -330,6 +335,24 @@ void Calc_BuildPersistBlock(PersistBlock_t *out)
         memcpy(out->matrix_data[m], calc_matrices[m].data,
                CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM * sizeof(float));
     }
+
+    /* Parametric equations and T range */
+    for (int i = 0; i < GRAPH_NUM_PARAM; i++) {
+        memcpy(out->param_x[i], graph_state.param_x[i], sizeof(graph_state.param_x[i]));
+        memcpy(out->param_y[i], graph_state.param_y[i], sizeof(graph_state.param_y[i]));
+        out->param_enabled[i] = graph_state.param_enabled[i] ? 1u : 0u;
+    }
+    out->param_mode = graph_state.param_mode ? 1u : 0u;
+    out->t_min  = graph_state.t_min;
+    out->t_max  = graph_state.t_max;
+    out->t_step = graph_state.t_step;
+
+    /* STAT data list */
+    memcpy(out->stat_list_x, stat_data.list_x,
+           STAT_MAX_POINTS * sizeof(float));
+    memcpy(out->stat_list_y, stat_data.list_y,
+           STAT_MAX_POINTS * sizeof(float));
+    out->stat_list_len = stat_data.list_len;
 }
 
 /**
@@ -375,6 +398,30 @@ void Calc_ApplyPersistBlock(const PersistBlock_t *in)
         memcpy(calc_matrices[m].data, in->matrix_data[m],
                CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM * sizeof(float));
     }
+
+    /* Restore parametric equations and T range */
+    for (int i = 0; i < GRAPH_NUM_PARAM; i++) {
+        memcpy(graph_state.param_x[i], in->param_x[i], sizeof(graph_state.param_x[i]));
+        graph_state.param_x[i][sizeof(graph_state.param_x[i]) - 1] = '\0';
+        memcpy(graph_state.param_y[i], in->param_y[i], sizeof(graph_state.param_y[i]));
+        graph_state.param_y[i][sizeof(graph_state.param_y[i]) - 1] = '\0';
+        graph_state.param_enabled[i] = (in->param_enabled[i] != 0);
+    }
+    graph_state.param_mode = (in->param_mode != 0);
+    graph_state.t_min  = in->t_min;
+    graph_state.t_max  = in->t_max;
+    graph_state.t_step = (in->t_step > 0.0f) ? in->t_step : 0.1309f;
+    /* Re-sync MODE screen cursor for row 4 (Function|Param) */
+    s_mode.cursor[4]    = graph_state.param_mode ? 1 : 0;
+    s_mode.committed[4] = s_mode.cursor[4];
+
+    /* Restore STAT data list */
+    memcpy(stat_data.list_x, in->stat_list_x,
+           STAT_MAX_POINTS * sizeof(float));
+    memcpy(stat_data.list_y, in->stat_list_y,
+           STAT_MAX_POINTS * sizeof(float));
+    stat_data.list_len = (in->stat_list_len <= STAT_MAX_POINTS)
+                         ? in->stat_list_len : 0u;
 }
 
 /*---------------------------------------------------------------------------
@@ -1273,6 +1320,7 @@ static void test_menu_insert(const char *ins, TestMenuState_t *s)
 void hide_all_screens(void)
 {
     lv_obj_add_flag(ui_graph_yeq_screen,         LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_param_yeq_screen,         LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_graph_range_screen,        LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_graph_zoom_screen,         LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1281,6 +1329,9 @@ void hide_all_screens(void)
     lv_obj_add_flag(ui_test_screen,               LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_matrix_screen,             LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_matrix_edit_screen,        LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_stat_screen,               LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_stat_edit_screen,          LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_stat_results_screen,       LV_OBJ_FLAG_HIDDEN);
     hide_prgm_screens();
     Graph_SetVisible(false);
 }
@@ -1320,6 +1371,14 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
     case TOKEN_PRGM:
         prgm_menu_open(return_to);
         break;
+    case TOKEN_STAT:
+        stat_menu_state.return_mode  = return_to;
+        stat_menu_state.tab          = 0;
+        stat_menu_state.item_cursor  = 0;
+        current_mode = MODE_STAT_MENU;
+        lv_obj_clear_flag(ui_stat_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_stat_display();
+        break;
     default:
         break;
     }
@@ -1353,15 +1412,24 @@ CalcMode_t menu_close(Token_t menu_token)
     case TOKEN_PRGM:
         ret = prgm_menu_close();
         break;
+    case TOKEN_STAT:
+        ret                           = stat_menu_state.return_mode;
+        stat_menu_state.return_mode   = MODE_NORMAL;
+        stat_menu_state.tab           = 0;
+        stat_menu_state.item_cursor   = 0;
+        break;
     default:
         ret = MODE_NORMAL;
         break;
     }
     current_mode = ret;
     lvgl_lock();
-    lv_obj_add_flag(ui_math_screen,   LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_test_screen,   LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_math_screen,          LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_test_screen,          LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_matrix_screen,        LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_stat_screen,          LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_stat_edit_screen,     LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_stat_results_screen,  LV_OBJ_FLAG_HIDDEN);
     hide_prgm_screens();
     if (ret == MODE_GRAPH_YEQ)
         lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1415,6 +1483,10 @@ static bool handle_mode_screen(Token_t t, ModeScreenState_t *s)
             Calc_SetDecimalMode(s->committed[1]);
         if (s->row_selected == 2)
             angle_degrees = (s->committed[2] == 1);
+        if (s->row_selected == 4) {
+            graph_state.param_mode = (s->committed[4] == 1);
+            Graph_InvalidateCache();
+        }
         if (s->row_selected == 6)
             graph_state.grid_on = (s->committed[6] == 1);
         lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
@@ -1899,7 +1971,9 @@ static void handle_sto_key(void)
 static void handle_normal_graph_nav(Token_t t)
 {
     switch (t) {
-    case TOKEN_Y_EQUALS: nav_to(MODE_GRAPH_YEQ);   break;
+    case TOKEN_Y_EQUALS:
+        nav_to(graph_state.param_mode ? MODE_GRAPH_PARAM_YEQ : MODE_GRAPH_YEQ);
+        break;
     case TOKEN_RANGE:    nav_to(MODE_GRAPH_RANGE);  break;
     case TOKEN_ZOOM:     nav_to(MODE_GRAPH_ZOOM);   break;
     case TOKEN_GRAPH:    nav_to(MODE_NORMAL);        break;
@@ -1932,6 +2006,7 @@ void handle_normal_mode(Token_t t)
     case TOKEN_TEST:                menu_open(TOKEN_TEST,  MODE_NORMAL); break;
     case TOKEN_MATRX:               menu_open(TOKEN_MATRX, MODE_NORMAL); break;
     case TOKEN_PRGM:                menu_open(TOKEN_PRGM,  MODE_NORMAL); break;
+    case TOKEN_STAT:                menu_open(TOKEN_STAT,  MODE_NORMAL); break;
     case TOKEN_MTRX_A: case TOKEN_MTRX_B: case TOKEN_MTRX_C:
     case TOKEN_SIN: case TOKEN_COS: case TOKEN_TAN:
     case TOKEN_ASIN: case TOKEN_ACOS: case TOKEN_ATAN:
@@ -1947,6 +2022,10 @@ void handle_normal_mode(Token_t t)
     case TOKEN_Z:
         handle_function_insert(t);  break;
     case TOKEN_STO:                 handle_sto_key();            break;
+    case TOKEN_X_T:
+        /* In param mode insert T; in function mode insert X */
+        handle_function_insert(graph_state.param_mode ? TOKEN_T : TOKEN_X);
+        break;
     case TOKEN_Y_EQUALS: case TOKEN_RANGE: case TOKEN_ZOOM:
     case TOKEN_GRAPH:    case TOKEN_TRACE:
         handle_normal_graph_nav(t); break;
@@ -2029,11 +2108,15 @@ void Execute_Token(Token_t t)
     if (current_mode == MODE_GRAPH_ZOOM_FACTORS)  { if (handle_zoom_factors_mode(t))  return; }
     if (current_mode == MODE_GRAPH_ZBOX)          { if (handle_zbox_mode(t))          return; }
     if (current_mode == MODE_GRAPH_TRACE)         { if (handle_trace_mode(t))         return; }
+    if (current_mode == MODE_GRAPH_PARAM_YEQ)    { if (handle_param_yeq_mode(t))     return; }
     if (current_mode == MODE_MODE_SCREEN)         { if (handle_mode_screen(t, &s_mode))              return; }
     if (current_mode == MODE_MATH_MENU)           { if (handle_math_menu(t, &s_math))                return; }
     if (current_mode == MODE_TEST_MENU)           { if (handle_test_menu(t, &s_test))                return; }
     if (current_mode == MODE_MATRIX_MENU)         { if (handle_matrix_menu(t, &matrix_menu_state))  return; }
     if (current_mode == MODE_MATRIX_EDIT)         { handle_matrix_edit(t); return; }
+    if (current_mode == MODE_STAT_MENU)           { if (handle_stat_menu(t, &stat_menu_state))      return; }
+    if (current_mode == MODE_STAT_EDIT)           { if (handle_stat_edit(t))           return; }
+    if (current_mode == MODE_STAT_RESULTS)        { if (handle_stat_results(t))        return; }
     if (current_mode == MODE_PRGM_MENU)           { if (handle_prgm_menu(t))          return; }
     /* F5b: ALPHA_LOCK in name-entry — same pattern as A6 editor fix below */
     if (current_mode == MODE_PRGM_NEW_NAME ||
@@ -2182,6 +2265,9 @@ void StartCalcCoreTask(void const *argument)
     ui_init_math_screen();
     ui_init_test_screen();
     ui_init_matrix_screen();
+    ui_init_stat_screen();
+    ui_init_stat_edit_screen();
+    ui_init_stat_results_screen();
     ui_init_prgm_screens();
     cursor_timer = lv_timer_create(cursor_timer_cb, CURSOR_BLINK_MS, NULL);
     ui_update_zoom_display();   /* populate ZOOM labels with initial scroll=0 (defined in graph_ui.c) */
@@ -2190,6 +2276,7 @@ void StartCalcCoreTask(void const *argument)
     ui_update_test_display();
     ui_update_matrix_display();
     ui_update_matrix_edit_display();
+    ui_update_stat_display();
     /* Load programs from FLASH sector 11 before populating the PRGM menu */
     Prgm_Init();
 

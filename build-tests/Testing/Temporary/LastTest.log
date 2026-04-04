@@ -1,0 +1,210 @@
+Start testing: Apr 03 14:55 PDT
+----------------------------------------------------------
+1/7 Testing: calc_engine
+1/7 Test: calc_engine
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_calc_engine"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"calc_engine" start time: Apr 03 14:55 PDT
+Output:
+----------------------------------------------------------
+=== calc_engine test suite ===
+
+[1]  Basic arithmetic
+[2]  Negative numbers / unary minus
+[3]  Parentheses
+[4]  Trig (radians)
+[5]  Trig (degrees)
+[6]  Math functions
+[7]  TEST comparison operators
+[8]  Probability functions
+[9]  ANS substitution
+[10] Variable substitution
+[11] Calc_EvaluateAt (x-substitution)
+[12] Error handling
+[13] Calc_FormatResult
+[14] Matrix operations
+[15] Matrix row operations
+[16] Matrix subtraction and scalar scaling
+[17] ANS as matrix reference
+[18] round([M], n) element-wise
+[19] Boundary and edge cases
+[20] Tokenizer coverage (pi, e, implicit mul, T-after-paren)
+[19] Property: sin²(x)+cos²(x) = 1 (1000 samples)
+[20] Property: Calc_FormatResult sci-notation boundaries
+
+=== Results: 169/169 passed ===
+<end of output>
+Test time =   0.10 sec
+----------------------------------------------------------
+Test Passed.
+"calc_engine" end time: Apr 03 14:55 PDT
+"calc_engine" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/7 Testing: expr_util
+2/7 Test: expr_util
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_expr_util"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"expr_util" start time: Apr 03 14:55 PDT
+Output:
+----------------------------------------------------------
+Group 1: ExprUtil_Utf8CharSize
+Group 2: ExprUtil_Utf8ByteToGlyph
+Group 3: ExprUtil_MatrixTokenSizeBefore
+Group 4: ExprUtil_MatrixTokenSizeAt
+Group 5: ExprUtil_MoveCursorLeft
+Group 6: ExprUtil_MoveCursorRight
+Group 7: ExprUtil_InsertChar (insert mode)
+Group 8: ExprUtil_InsertChar (overwrite mode)
+Group 9: ExprUtil_InsertStr
+Group 10: ExprUtil_DeleteAtCursor
+Group 11: ExprUtil_PrependAns
+Group 12: Cursor round-trip
+
+Results: 96 passed, 0 failed
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"expr_util" end time: Apr 03 14:55 PDT
+"expr_util" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/7 Testing: persist_roundtrip
+3/7 Test: persist_roundtrip
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_persist_roundtrip"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"persist_roundtrip" start time: Apr 03 14:55 PDT
+Output:
+----------------------------------------------------------
+Group 1: Checksum stability
+Group 2: Persist_Validate (valid block)
+Group 3: Persist_Validate (invalid blocks)
+Group 4: Field round-trip
+Group 5: Block size and alignment
+
+Results: 52 passed, 0 failed
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"persist_roundtrip" end time: Apr 03 14:55 PDT
+"persist_roundtrip" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/7 Testing: prgm_exec
+4/7 Test: prgm_exec
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_prgm_exec"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"prgm_exec" start time: Apr 03 14:55 PDT
+Output:
+----------------------------------------------------------
+=== test_prgm_exec ===
+Group 1: Goto/Lbl
+Group 2: If single-line
+Group 6: IS>/DS<
+Group 7: Stop/Pause/Return
+Group 8: STO
+Group 9: General expression
+Group 10: Disp
+Group 11: Input/Prompt
+Group 12: ClrHome
+Group 13: Subroutine call
+Group 14: Complex programs
+Group 15: Empty body
+Group 16: prgm_lookup_slot
+Group 17: Nested subroutine 2 levels
+
+95 passed, 0 failed
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"prgm_exec" end time: Apr 03 14:55 PDT
+"prgm_exec" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/7 Testing: normal_mode
+5/7 Test: normal_mode
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_normal_mode"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"normal_mode" start time: Apr 03 14:55 PDT
+Output:
+----------------------------------------------------------
+Group 1: handle_digit_key
+Group 2: handle_arithmetic_op
+Group 3: handle_function_insert
+Group 4: handle_history_nav
+Group 5: handle_clear_key
+Group 6: handle_sto_key
+Group 7: INS toggle and DEL
+Group 8: dispatch — mode transitions
+Group 9: multi-step expression building
+Group 10: edge cases
+
+104 passed, 0 failed
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"normal_mode" end time: Apr 03 14:55 PDT
+"normal_mode" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/7 Testing: param
+6/7 Test: param
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_param"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"param" start time: Apr 03 14:55 PDT
+Output:
+----------------------------------------------------------
+[1]  Prepare parametric equation
+[2]  Eval linear parametric (X(t) = T)
+[3]  Eval circle parametric (cos(T) / sin(T))
+[4]  Eval scaled/offset parametric (2T+1)
+[5]  T variable independence from stored calc_variables['T'-'A']
+[6]  X variable usable in parametric expression
+[7]  Degrees mode in parametric trig
+[8]  Constant expression in parametric prepare/eval
+[9]  Error propagation in parametric eval
+
+Results: 28 passed, 0 failed
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"param" end time: Apr 03 14:55 PDT
+"param" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/7 Testing: stat
+7/7 Test: stat
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_stat"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"stat" start time: Apr 03 14:55 PDT
+Output:
+----------------------------------------------------------
+=== test_stat ===
+test_1var_basic
+test_1var_single
+test_1var_empty
+test_linreg_perfect
+test_linreg_stores_vars
+test_linreg_degenerate
+test_linreg_too_few
+test_lnreg
+test_expreg
+test_sort_x
+test_sort_y
+test_clear
+
+39 passed, 0 failed
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"stat" end time: Apr 03 14:55 PDT
+"stat" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Apr 03 14:55 PDT

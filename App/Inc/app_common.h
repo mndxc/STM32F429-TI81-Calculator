@@ -51,6 +51,10 @@ typedef enum {
     MODE_PRGM_EXEC_MENU,     /* PRGM EXEC sub-menu (subroutine slot picker) */
     MODE_PRGM_RUNNING,       /* Program execution in progress */
     MODE_PRGM_NEW_NAME,      /* Name-entry dialog for new program */
+    MODE_GRAPH_PARAM_YEQ,    /* Parametric X/Y pair editor (6 rows: X₁t..Y₃t) */
+    MODE_STAT_MENU,          /* STAT menu (CALC/DRAW/DATA tabs) active */
+    MODE_STAT_EDIT,          /* STAT DATA list editor active */
+    MODE_STAT_RESULTS,       /* STAT results screen active */
     MODE_STO,                /* Synthetic: STO pending — cursor shows green 'A'; never set as current_mode */
 } CalcMode_t;
 
@@ -59,6 +63,7 @@ typedef enum {
  *---------------------------------------------------------------------------*/
 
 #define GRAPH_NUM_EQ    4   /* Number of simultaneous Y= equations */
+#define GRAPH_NUM_PARAM 3   /* Number of simultaneous parametric X/Y pairs */
 
 /**
  * @brief Holds all state for the graphing subsystem.
@@ -77,10 +82,55 @@ typedef struct {
     float   x_res;          /* Graph resolution (1 = evaluate at every pixel column) */
     bool    active;         /* True when in graph mode */
     bool    grid_on;        /* True when grid dots are enabled (MODE row 7) */
+
+    /* Parametric equation pairs — X₁t/Y₁t, X₂t/Y₂t, X₃t/Y₃t */
+    char    param_x[GRAPH_NUM_PARAM][64];   /* X(t) equation strings */
+    char    param_y[GRAPH_NUM_PARAM][64];   /* Y(t) equation strings */
+    bool    param_enabled[GRAPH_NUM_PARAM]; /* Pair enable flags */
+
+    /* T range — default 0 to 2π in π/24 steps */
+    float   t_min;
+    float   t_max;
+    float   t_step;
+
+    /* Mode flag — driven by MODE row 4 */
+    bool    param_mode;     /* false=function (Y=), true=parametric (X/Y pairs) */
 } GraphState_t;
 
 /** Global graph state — owned by calculator_core.c */
 extern GraphState_t graph_state;
+
+/*---------------------------------------------------------------------------
+ * Statistics state
+ *---------------------------------------------------------------------------*/
+
+#define STAT_MAX_POINTS 99  /* Maximum number of (x,y) data points */
+
+/**
+ * @brief Holds the user's statistics data list.
+ *        Shared between ui_stat.c and calculator_core.c (persist).
+ */
+typedef struct {
+    float   list_x[STAT_MAX_POINTS];
+    float   list_y[STAT_MAX_POINTS];
+    uint8_t list_len;   /* Number of valid (x,y) pairs; 0 = empty */
+} StatData_t;
+
+/** Global stat data — owned by ui_stat.c */
+extern StatData_t stat_data;
+
+/**
+ * @brief Holds results from the most recent statistical calculation.
+ *        Populated by CalcStat_Compute1Var / CalcStat_ComputeLinReg etc.
+ */
+typedef struct {
+    float n, mean_x, sx, sigma_x, sum_x, sum_x2;
+    float reg_a, reg_b, reg_r;
+    bool  valid;
+} StatResults_t;
+
+/** Global stat results — owned by ui_stat.c */
+extern StatResults_t stat_results;
 
 /*---------------------------------------------------------------------------
  * Shared handles

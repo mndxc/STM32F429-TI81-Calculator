@@ -22,18 +22,22 @@ App/                            ← Custom application code (never touched by Cu
     persist.c                   FLASH sector 10 erase/write/load for calculator state
     prgm_exec.c                 Program storage (FLASH sector 11 erase/write/load) and execution engine
     ui_matrix.c                 Matrix cell editor UI (extracted module)
+    ui_stat.c                   STAT menu, DATA list editor, and results screen UI (extracted module)
+    calc_stat.c                 Pure statistical math layer — 1-Var, LinReg, LnReg, ExpReg, PwrReg, sort, clear
     ui_prgm.c                   Program menu and editor UI (extracted module)
   Inc/
     app_init.h                  App_RTOS_Init() and App_DefaultTask_Run() declarations
     app_common.h                Shared types, handles and function declarations
     calc_engine.h               Math engine interface
     calc_internal.h             Shared internal state for calculator UI modules
+    calc_stat.h                 Statistical math API (no LVGL/HAL dependencies)
     expr_util.h                 Expression buffer utility API
     graph.h                     Graphing subsystem interface
     graph_ui.h                  Graph screen UI interface
     persist.h                   Persistent storage API
     prgm_exec.h                 Program storage/FLASH persistence and execution engine API
     ui_matrix.h                 Matrix editor UI interface
+    ui_stat.h                   STAT menu UI interface (StatMenuState_t, handler protos)
     ui_prgm.h                   Program menu UI interface
     ui_palette.h                Named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)
   Fonts/
@@ -52,14 +56,16 @@ App/                            ← Custom application code (never touched by Cu
     lv_port_disp.c/h            LVGL display port — LTDC framebuffer flush with rotation
     lv_port_indev.c/h           LVGL input device port — keypad registration
   Tests/
-    CMakeLists.txt              Host test build (5 executables, 516 tests total)
-    test_calc_engine.c          169 tests: tokenizer, shunting-yard, RPN, matrix
-    test_expr_util.c            96 tests: UTF-8 cursor, insert/delete, matrix atomicity
-    test_persist_roundtrip.c    52 tests: PersistBlock_t checksum and round-trip
-    test_prgm_exec.c            95 tests: active command handlers, control flow, subroutines, empty body, lookup, 2-deep nesting
-    test_normal_mode.c          104 tests: handle_normal_mode dispatch, all 8 sub-handlers
+    CMakeLists.txt              Host test build (see docs/TESTING.md for suite list and counts)
+    test_calc_engine.c          Tokenizer, shunting-yard, RPN, matrix
+    test_expr_util.c            UTF-8 cursor, insert/delete, matrix atomicity
+    test_persist_roundtrip.c    PersistBlock_t checksum and round-trip
+    test_prgm_exec.c            Active command handlers, control flow, subroutines
+    test_normal_mode.c          handle_normal_mode dispatch, all 8 sub-handlers
+    test_param.c                Parametric equation preparation and evaluation
+    test_stat.c                 1-Var, LinReg/LnReg/ExpReg/PwrReg, SortX/Y, Clear
     prgm_exec_test_stubs.h      Inline stubs for host-compilation of prgm_exec.c
-    calculator_core_test_stubs.h  LVGL/RTOS/graph_ui/ui_matrix/ui_prgm stubs for host-compilation of calculator_core.c
+    calculator_core_test_stubs.h  LVGL/RTOS/graph_ui/ui_matrix/ui_prgm/ui_stat stubs for host-compilation of calculator_core.c
 
 Core/                           ← CubeMX-generated code (regenerated from .ioc)
   Src/
@@ -260,6 +266,7 @@ Current Unicode ranges: ASCII (0x20–0x7E), °²³¹, ȳ (U+0233), Σθπσ (Gr
 | `MODE_GRAPH_ZOOM`          | ZOOM preset menu                                        |
 | `MODE_GRAPH_TRACE`         | Trace cursor active on graph                            |
 | `MODE_GRAPH_ZBOX`          | ZBox rubber-band zoom selection                         |
+| `MODE_GRAPH_PARAM_YEQ`     | Parametric equation editor (X₁t/Y₁t … X₃t/Y₃t rows)   |
 | `MODE_MODE_SCREEN`         | MODE settings screen                                    |
 | `MODE_MATH_MENU`           | MATH/NUM/HYP/PRB function menu                          |
 | `MODE_GRAPH_ZOOM_FACTORS`  | ZOOM FACTORS sub-screen (XFact/YFact editing)           |
@@ -273,6 +280,9 @@ Current Unicode ranges: ASCII (0x20–0x7E), °²³¹, ȳ (U+0233), Σθπσ (Gr
 | `MODE_PRGM_EXEC_MENU`      | PRGM EXEC sub-menu (subroutine slot picker from editor) |
 | `MODE_PRGM_RUNNING`        | Program execution in progress                           |
 | `MODE_PRGM_NEW_NAME`       | Name-entry dialog for new program                       |
+| `MODE_STAT_MENU`           | STAT CALC/DRAW/DATA tab menu                            |
+| `MODE_STAT_EDIT`           | STAT DATA list editor (x,y pair entry)                  |
+| `MODE_STAT_RESULTS`        | STAT calculation results readout                        |
 
 Pressing 2nd or ALPHA a second time cancels the modifier (toggle). `STO→` sets
 a pending flag and automatically enters ALPHA mode for the next keypress so the
@@ -457,12 +467,18 @@ GraphState_t graph_state;   // defined in calculator_core.c, extern in app_commo
 
 typedef struct {
     char  equations[GRAPH_NUM_EQ][64];
-    bool  enabled[GRAPH_NUM_EQ];     // true if equation is plotted
+    bool  enabled[GRAPH_NUM_EQ];          // true if equation is plotted
     float x_min, x_max, y_min, y_max;
     float x_scl, y_scl;
-    float x_res;    // render step (1 = every pixel column, integer 1–8)
+    float x_res;     // render step (1 = every pixel column, integer 1–8)
     bool  active;
-    bool  grid_on;  // true when grid dots enabled (MODE row 7)
+    bool  grid_on;   // true when grid dots enabled (MODE row 7)
+    /* Parametric mode (MODE row 4 = Param) */
+    char  param_x[GRAPH_NUM_PARAM][64];   // X(t) expressions for 3 pairs
+    char  param_y[GRAPH_NUM_PARAM][64];   // Y(t) expressions for 3 pairs
+    bool  param_enabled[GRAPH_NUM_PARAM]; // true if pair is plotted
+    float t_min, t_max, t_step;           // T range (default 0, 2π, π/24)
+    bool  param_mode;                     // true when MODE row 4 = Param
 } GraphState_t;
 ```
 
@@ -689,7 +705,7 @@ FLASH sector map (STM32F429ZIT6, 2 MB dual-bank):
 | 0–3    | 0x08000000   | 16 KB each  | Firmware                                   |
 | 4      | 0x08010000   | 64 KB       | Firmware                                   |
 | 5–9    | 0x08020000   | 128 KB each | Firmware                                   |
-| **10** | **0x080C0000** | **128 KB** | **Calculator state (`PersistBlock_t`, 864 B)** |
+| **10** | **0x080C0000** | **128 KB** | **Calculator state (`PersistBlock_t`, 2060 B, v6)** |
 | **11** | **0x080E0000** | **128 KB** | **Program storage (37 slots)**             |
 
 > [!CAUTION]

@@ -60,6 +60,7 @@ extern lv_obj_t *ui_graph_yeq_screen;
 extern lv_obj_t *ui_graph_range_screen;
 extern lv_obj_t *ui_graph_zoom_screen;
 extern lv_obj_t *ui_graph_zoom_factors_screen;
+extern lv_obj_t *ui_param_yeq_screen;
 
 /* Shared UI functions */
 void cursor_render(lv_obj_t *box, lv_obj_t *inner, lv_obj_t *parent_label,

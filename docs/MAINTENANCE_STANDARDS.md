@@ -31,6 +31,17 @@
 
 Grading criteria only. Current ratings and the snapshot date live in `CLAUDE.md` "Quality Scorecard". When a dimension's rating changes: update `CLAUDE.md`, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
+**Scorecard Change Log** — `CLAUDE.md` must maintain a compact change log immediately after the scorecard table in the format below. This makes trends visible; a single snapshot date hides whether a B is stable or recently degraded from A-.
+
+```markdown
+### Scorecard Change Log
+| Date | Dimension | Old | New | Trigger |
+|---|---|---|---|---|
+| 2026-01-01 | Testing | B+ | A | P1 property tests added |
+```
+
+When a rating changes: add a row here, update the table above, and add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+
 | Dimension | Rises when | Falls when |
 |---|---|---|
 | Documentation | All doc files stay in sync; new gotchas added promptly | Docs drift from code; session log falls behind |
@@ -50,7 +61,7 @@ Grading criteria only. Current ratings and the snapshot date live in `CLAUDE.md`
 
 Standing rules that apply regardless of current rating. These define the floor — any new code that violates them is a defect, not a style preference.
 
-**Documentation:** `docs/PROJECT_HISTORY.md` is the canonical session log and history archive. All doc files must stay in sync with code after every change.
+**Documentation:** `docs/PROJECT_HISTORY.md` is the canonical session log and history archive. All doc files must stay in sync with code; artifact-based updates happen per-commit, session log and number sync happen once per session at close (see Update Rules).
 
 **API and header design:** Module prefixes (`Calc_*`, `Graph_*`, `Persist_*`, `Keypad_*`) are consistent. No circular dependencies. Do not mix implementation details into public headers.
 
@@ -90,19 +101,95 @@ If `increase`: immediately add one or more `[complexity]` items to `CLAUDE.md` "
 - Deleting dead code or unused state
 - Splitting a multi-responsibility function into focused helpers
 
+### Complexity Debt Ceiling
+
+**Hard limit: 3 open `[complexity]` items at any time.**
+
+Before starting any feature work (non-`[bug]`, non-`[docs]`), count the open `[complexity]` items in `CLAUDE.md` "Next session priorities". If the count is ≥ 3:
+
+1. Report the count to the user and list the open items by name.
+2. Do not begin the feature.
+3. Propose resolving one `[complexity]` item first.
+
+This limit applies regardless of how urgent the feature seems. `[hardware]` validation items and `[testing]` items do not count toward this limit.
+
+---
+
+## Breaking Change Protocol
+
+A **breaking change** is any modification that could cause existing saved state (flash persist block) or stored user programs to misbehave after a firmware update — without any visible error to the user.
+
+### Persist layout changes (`PersistBlock_t`)
+1. Increment `PERSIST_VERSION` in `persist.h`
+2. Add a migration case to the version-upgrade switch in `Persist_Load()`
+3. Update the hardcoded size assertion in `test_persist_roundtrip.c` (search `EXPECT_EQ((int)sizeof`)
+4. Document the migration in `docs/TECHNICAL.md` Persist Versions table
+
+### `CalcMode_t` value removal
+- Do not remove a mode value if it may be stored in `PersistBlock_t`
+- If removal is required: add a migration in `Persist_Load()` to remap the old value to a valid replacement; remove the old value only in a subsequent session after the migration has shipped
+
+### PRGM command removal or token change
+- Any command token that may exist in stored user programs must be handled for at least one firmware version after removal — map to `Disp "REMOVED"` or a no-op, not a crash
+- Update `docs/PRGM_COMMANDS.md` with a "Removed in vN" row rather than deleting the entry — the row is evidence of migration intent
+
+### Public API changes (header-level)
+- Renaming a public function used in test stubs (`App/Tests/`) requires updating the stub in the same commit as the rename
+- Do not change a function's parameter types or return type without checking all call sites across `App/Src/`, `App/Tests/`, and `Core/`
+
+---
+
+## Definition of Done
+
+An item in "Next session priorities" is **done** only when all applicable checkboxes below are met. Do not remove an item from "Next session priorities" until DoD is satisfied.
+
+- [ ] **Host tests pass** — `ctest --test-dir build-tests` exits 0 with no skipped suites
+- [ ] **Hardware validation complete** — or explicitly waived by appending `(hardware waiver: <reason>, <date>)` inline to the item's entry in "Next session priorities"
+- [ ] **Complexity delta rated** — rated neutral / increase / decrease; if `increase`, a `[complexity]` follow-up item exists in "Next session priorities"
+- [ ] **Session log entry added** — entry in `docs/PROJECT_HISTORY.md` Session Log at the appropriate tier (Minor or Major — see Entry Tiers in Update Rules)
+- [ ] **Artifact triggers actioned** — every applicable row in the Artifact-Based Update Triggers table has been acted on; if no rows fired, this is automatically satisfied
+
+### Hardware-Gated Items
+
+If an item is blocked on **hardware access only** and all other DoD checkboxes pass, it may be moved from **Active** to **Backlog** in `CLAUDE.md` with a `[hardware]` tag. Hardware-gated items:
+- Are **not** considered done
+- Do **not** count against the 3-item complexity debt ceiling
+- Must not be silently dropped — they stay in the backlog until hardware-validated and closed with a `docs/PROJECT_HISTORY.md` Resolved Items row
+
 ---
 
 ## Update Rules
 
 Rate complexity delta before every commit.
 
+### Artifact-Based Update Triggers
+
+These triggers fire regardless of change size. If the artifact changed, the update is **mandatory** — no size-based exception applies. Check this table before every commit.
+
+| If this changed | Always do this | Also verify |
+|---|---|---|
+| `App/Inc/persist.h` — `PersistBlock_t` layout | Update size assertion in `test_persist_roundtrip.c` | `docs/TECHNICAL.md` persist layout, `CLAUDE.md` PersistBlock_t size |
+| `App/Inc/app_common.h` — `CalcMode_t` values | Update `docs/TECHNICAL.md` Input Modes table | `CLAUDE.md` CalcMode_t block |
+| `App/Inc/app_common.h` — `GraphState_t` fields | Update `docs/TECHNICAL.md` Graphing → State section | `CLAUDE.md` GraphState_t block |
+| Any `App/Src/*.c` file added or removed | Update `docs/TECHNICAL.md` Project Structure listing | `docs/ARCHITECTURE.md` file tree |
+| Any `App/Tests/` test added or removed | Re-run `cmake --build build-tests`; copy authoritative count to `CLAUDE.md` Host Tests and `docs/GETTING_STARTED.md` | Scorecard Testing row if rating changed |
+| `docs/PRGM_COMMANDS.md` touched | Verify it matches `prgm_exec.c` dispatch table exactly | `docs/prgm_manual_tests.md` test IDs |
+| Any new public function or header added | Confirm module prefix convention (`Calc_*`, `Graph_*`, etc.) | `docs/ARCHITECTURE.md` module diagram if boundary changed |
+
 ### After Every Commit
 
-- **Session log** — add a bullet to `docs/PROJECT_HISTORY.md` "Session Log" section
-- **Complexity delta** — rate neutral / increase / decrease; if increase, add a `[complexity]` item to `CLAUDE.md` "Next session priorities"
+- **Complexity delta** — rate neutral / increase / decrease; record it as a `Complexity: <rating>` footer line in the commit message (e.g. `Complexity: neutral`); if increase, also add a `[complexity]` item to `CLAUDE.md` "Next session priorities"
 - **Completed item** — if the commit resolved a priority item, remove it from `CLAUDE.md` "Next session priorities" and update `Est. Done` % if applicable
 - **Test count changed** — update `CLAUDE.md` "Host Tests" and `docs/GETTING_STARTED.md` "Host Tests" in the same commit; update the scorecard Testing row if the rating changed
 - **RAM or FLASH size changed** — update `CLAUDE.md` "Memory regions" percentages
+
+### Once Per Session (at close)
+
+Run these once when closing a session — not after each individual commit. A five-commit session gets one session log entry, not five.
+
+- **Session log** — add one entry to `docs/PROJECT_HISTORY.md` "Session Log" (see Entry Tiers below)
+- **CLAUDE.md sync** — verify Feature Completion %, Est. Done values, and open priorities reflect the full session's work
+- **Public numbers** — if test counts, feature %, or memory % changed during the session, sync them across all docs (see Numbers to Keep in Sync)
 
 ### After a Small Change (single file, < ~100 lines, no new public API)
 
@@ -112,13 +199,9 @@ Rate complexity delta before every commit.
 
 ### After a Medium Change (multiple files, new logic, new API surface)
 
-Triggers: new `CalcMode_t` value, new `GraphState_t` field, new math function, `PersistBlock_t` layout change, test count change, PRGM command added/removed.
+**Check the Artifact-Based Update Triggers table first** — CalcMode_t, GraphState_t, PersistBlock_t, PRGM commands, and test count changes are all covered there. The items below are the only Medium Change requirements not already in that table:
 
-- **New `CalcMode_t` value** — update `docs/TECHNICAL.md` "Input Modes" table in the same commit; must match `App/Inc/app_common.h` exactly
-- **New `GraphState_t` field** — update `docs/TECHNICAL.md` "Graphing → State" struct to match `App/Inc/app_common.h`
-- **`PersistBlock_t` layout change** — update the hardcoded size literal in `test_persist_roundtrip.c` (search `EXPECT_EQ((int)sizeof(PersistBlock_t)`) to match `persist.h`; run host tests before committing
 - **New math function** — update `docs/TECHNICAL.md` Supported Functions table and `CLAUDE.md` Feature Completion Status
-- **PRGM command set changed** — update `docs/PRGM_COMMANDS.md` to match the `prgm_exec.c` dispatch table
 - **Gotcha created or resolved** — update `CLAUDE.md` "Common Gotchas" numbered list
 
 ### After a Large Change (new module, feature complete, major refactor)
@@ -128,14 +211,14 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 - **`docs/ARCHITECTURE.md`** — add/update the module in the Mermaid diagram and file tree
 - **`docs/TECHNICAL.md` Project Structure listing** — update `App/Src/` and `App/Inc/` entries
 - **`docs/GETTING_STARTED.md`** — verify build commands, OpenOCD paths, and test section are accurate
-- **`docs/TESTING.md`** — update if new test executables or coverage targets added
+- **`docs/TESTING.md`** — update if new test executables or coverage targets added (**canonical source for all test counts** — other docs link here)
 - **`README.md`** — update feature % if completion changed significantly (> ~5%)
 - **`CLAUDE.md` Feature Completion Status** — update the `~72%` header if overall completion changed
 - **`docs/PROJECT_HISTORY.md`** — add a session log entry and update Completed Features if applicable
 - **Scorecard above** — review all 10 dimensions; update any that changed
 - **Document Map above** — add any new doc file
 
-**Verification:** Could a new contributor build, flash, and run tests following only the docs, with no other guidance? If no, update the relevant doc before closing.
+**Verification — New Contributor Smoke Test:** Open a fresh terminal with no project-specific PATH configuration. Execute each numbered step in `docs/GETTING_STARTED.md` verbatim. If any step fails, requires knowledge not stated in the doc, or produces output that contradicts the doc text, update the doc before closing the session. Common failure points: OpenOCD version path, CMake minimum version, ARM toolchain PATH entry, test executable names.
 
 ### After a Quality Item is Resolved
 
@@ -143,6 +226,16 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 - **`CLAUDE.md` "Project Quality"** — update overall rating % if it changed
 - **Scorecard above** — update the affected dimension rating if it changed
 - **`docs/PROJECT_HISTORY.md`** — add a row to Resolved Items; add a Milestone Reviews entry if a rating changed or a major milestone was reached
+
+### PROJECT_HISTORY.md Entry Tiers
+
+Two tiers control how much to write per session. Choose based on impact, not commit count.
+
+**Minor** — routine work: test additions, small refactors, doc fixes, config changes, gotcha resolutions. Write **one summary bullet** for the whole session, regardless of how many commits it contains. Format: `Session YYYY-MM-DD — brief description (N commits).`
+
+**Major** — feature shipped, module added or extracted, scorecard rating changed, significant bug fixed, breaking change made. Write a **dedicated paragraph** entry. Always add a Completed Features or Resolved Items row in addition to the session log entry.
+
+When uncertain: if someone reading the history 6 months from now would want a paragraph rather than a bullet, it is Major.
 
 ---
 
@@ -156,6 +249,7 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 | Overall quality rating | `CLAUDE.md` "Project Quality" | — |
 | Memory layout % used | `docs/TECHNICAL.md` | `docs/ARCHITECTURE.md` (mirror) |
 | `PersistBlock_t` size (bytes) | `App/Inc/persist.h` comment | `test_persist_roundtrip.c`, `docs/TECHNICAL.md`, `CLAUDE.md` |
+| `PERSIST_VERSION` | `App/Inc/persist.h` | Migration case in `Persist_Load()`, `docs/TECHNICAL.md` Persist Versions table |
 | `CalcMode_t` values | `App/Inc/app_common.h` | `docs/TECHNICAL.md` "Input Modes" |
 | `GraphState_t` fields | `App/Inc/app_common.h` | `docs/TECHNICAL.md` "Graphing → State" |
 
@@ -176,7 +270,7 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 **When a file's responsibility changes:**
 - Update the one-liner in both locations above
 - Update the Mermaid diagram in `docs/ARCHITECTURE.md` if dependency structure changed
-- Add a session log entry in `CLAUDE.md` explaining the change
+- Add a session log entry in `docs/PROJECT_HISTORY.md` explaining the change
 - Update the scope comment at the top of the file (the `calc_internal.h` scope comment pattern)
 
 **When a test executable is added:**
@@ -203,21 +297,17 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 
 ## Staleness Hotspots
 
-Check these first after any significant session — they are the highest-risk sync points.
+The Full Update Checklist (below) is the authoritative procedure. This section highlights the highest-risk sync points for quick reference — each item maps to a checklist step. Check these first after any significant session.
 
-1. **`PersistBlock_t` size assertion** — `test_persist_roundtrip.c` has a hardcoded byte count that must match `persist.h`. Any layout change silently breaks CI if not updated. The only hotspot that causes an active test failure, not just doc drift.
+Items 1–3 (`PersistBlock_t`, `CalcMode_t`, `GraphState_t`) are covered by the Artifact-Based Update Triggers table in Update Rules — that table is the authoritative procedure for those. The items below are the remaining high-risk sync points not covered by the artifact table:
 
-2. **`CalcMode_t` enum — 3-way sync** — `app_common.h` is canonical. Any new mode must be added to `CLAUDE.md` "Input Mode System" AND `TECHNICAL.md` "Input Modes" in the same commit.
+1. **Test counts** — drift every time a test is added. Always copy from `cmake --build build-tests` output; never estimate.
 
-3. **`GraphState_t` struct** — `app_common.h` is canonical. Any new field must be reflected in `CLAUDE.md` "Graphing System → State".
+2. **Feature completion %** — `CLAUDE.md`'s feature table and `README.md`'s status table are independent text blocks describing the same truth.
 
-4. **Test counts** — drift every time a test is added. Always copy from `cmake --build build-tests` output; never estimate.
+3. **`CLAUDE.md` Architecture file list** — the `App/Src/` table is manually maintained; easy to forget when adding a new extracted module.
 
-5. **Feature completion %** — `CLAUDE.md`'s feature table and `README.md`'s status table are independent text blocks describing the same truth.
-
-6. **`CLAUDE.md` Architecture file list** — the `App/Src/` table is manually maintained; easy to forget when adding a new extracted module.
-
-7. **Memory layout %** — in both `TECHNICAL.md` (canonical) and `ARCHITECTURE.md` (mirror); neither is computed automatically.
+4. **Memory layout %** — in both `TECHNICAL.md` (canonical) and `ARCHITECTURE.md` (mirror); neither is computed automatically.
 
 ---
 
@@ -225,60 +315,83 @@ Check these first after any significant session — they are the highest-risk sy
 
 Run after any significant session as a completeness check.
 
+Steps marked **[AI]** can be executed entirely by an AI session. Steps marked **[Human]** require hardware access or manual judgment and must be handed off explicitly — they are not skippable by an AI.
+
 ### Step 1 — Run host tests first
 
+**[AI]**
 ```bash
 cmake -S App/Tests -B build-tests && cmake --build build-tests
-./build-tests/test_calc_engine
-./build-tests/test_expr_util
-./build-tests/test_persist_roundtrip
-./build-tests/test_prgm_exec
-./build-tests/test_normal_mode
+ctest --test-dir build-tests
 ```
 
-All five must exit 0. Copy exact test counts from this output — never estimate. Fix any failure before proceeding.
+All suites must exit 0. See [docs/TESTING.md](TESTING.md) for the authoritative suite list. Fix any failure before proceeding.
 
 ### Step 2 — Identify what changed
 
+**[AI]**
 ```bash
-git log --oneline $(git log --format="%H" -- CLAUDE.md | sed -n '2p')..HEAD
-git diff HEAD~N HEAD --stat   # replace N with the commit count above
+git log --oneline -15          # review recent commits; identify the session boundary
+git diff <first-session-hash>^..HEAD --stat   # stat of all changes in this session
 ```
 
-For each commit note: new `CalcMode_t` values? New `GraphState_t` fields? `PersistBlock_t` change? New `App/Src/` files? Test count change?
+For each commit note: new `CalcMode_t` values? New `GraphState_t` fields? `PersistBlock_t` change? New `App/Src/` files? Test count change? Any artifact triggers (see table above) fired? Any `Complexity: increase` footers?
 
 ### Step 3 — Verify `CLAUDE.md` is current
+
+**[AI]**
 - [ ] Feature Completion Status % reflects what shipped
 - [ ] Feature table `Est. Done` values are correct
-- [ ] All completed priority items removed from "Next session priorities"
+- [ ] All completed priority items removed from "Next session priorities" (DoD satisfied)
 - [ ] Complexity increases have a `[complexity]` follow-up item
+- [ ] Open `[complexity]` items ≤ 3 (debt ceiling); if exceeded, report to user before proceeding
 - [ ] TECHNICAL.md Project Structure listing covers every `App/Src/` file
 - [ ] `CalcMode_t` block matches `App/Inc/app_common.h` exactly
 - [ ] `GraphState_t` block matches `App/Inc/app_common.h` exactly
 - [ ] "Host Tests" counts match Step 1 output
+- [ ] Scorecard Change Log row added if any rating changed this session
 
 ### Step 4 — Update `PROJECT_HISTORY.md` (single history source)
-- [ ] Session Log — add a bullet for the session just completed
-- [ ] Completed Features — add a row if a feature shipped
-- [ ] Resolved Items — add a row if a significant quality item was resolved
-- [ ] Milestone Reviews — add an entry if a rating changed or a major milestone was reached
-- [ ] Scorecard above — update a dimension rating only if it changed
+
+**[AI]** — Apply the Entry Tiers from the Update Rules section: one entry per session, not one per commit. Choose Minor (summary bullet) or Major (dedicated paragraph) based on impact.
+- [ ] Session Log — one entry for the session (Minor: one-line summary; Major: short paragraph)
+- [ ] Completed Features — add a row if a feature shipped (Major tier only)
+- [ ] Resolved Items — add a row if a significant quality item was resolved (Major tier only)
+- [ ] Milestone Reviews — add an entry if a rating changed or a major milestone was reached (Major tier only)
 
 ### Step 5 — Sync the public numbers
+
+**[AI]**
 - [ ] Test counts match across `CLAUDE.md` and `GETTING_STARTED.md`
 - [ ] Feature completion % matches across `CLAUDE.md` and `README.md`
 - [ ] Memory layout % matches across `TECHNICAL.md` and `ARCHITECTURE.md`
 
 ### Step 6 — Verify cross-references
+
+**[AI]** — Run only if Step 2 shows any file added, removed, or moved (`git diff --stat` includes a line with `=>` or shows a new/deleted filename). Skip entirely if no filesystem changes occurred this session.
 - [ ] Every file linked from `README.md` exists in `docs/`
 - [ ] Every module listed in `ARCHITECTURE.md` exists in `App/Src/` or `App/Inc/`
 - [ ] Every file path in `PROJECT_HISTORY.md` Resolved Items still exists
+
+### Step 7 — Hardware-gated items
+
+**[Human]** — AI must list these explicitly at session close; do not mark them complete.
+- [ ] All open `[hardware]` items in "Next session priorities" reviewed; any newly unblocked items promoted to Active
+- [ ] Flash firmware and run any manual test plans for items under hardware validation
 
 ---
 
 ## Periodic Code Review
 
-Use at natural milestones — after a major feature, before a new module, or when the codebase feels like it has grown faster than it has been simplified.
+**Auto-trigger:** Run a Periodic Code Review at the start of any session where the following command reports ≥ 3 files changed by ≥ 50 lines since the last review entry in `docs/PROJECT_HISTORY.md`:
+
+```bash
+git log --oneline --all | grep "periodic.*review\|code.*review" | head -1
+# find the hash above, then:
+git diff <hash>..HEAD --stat | awk -F'[|+]' 'NF>2 && $3+0 >= 50' | wc -l
+```
+
+Also run manually after any major feature, before adding a new module, or when the codebase feels like it has grown faster than it has been simplified.
 
 ### Phase 1 — Structural scan (delegate to an Explore agent)
 
@@ -306,6 +419,8 @@ Tag mapping for review items:
 - `[refactor]` — function extraction, named constants, dispatch tables (mechanical, no logic change)
 - `[testing]` — coverage gaps surfaced by the review
 - `[bug]` — incorrect behaviour surfaced by the review
+- `[complexity]` — a function or file that has grown past the complexity thresholds and needs extraction or simplification
+- `[hardware]` — a validation item that requires physical hardware access to close
 
 Order by effort: `[docs]` items first (minutes each), then `[refactor]` items by ascending line count.
 
@@ -317,14 +432,46 @@ If the review surfaces a non-obvious structural insight for future sessions, sav
 
 ## Git Workflow
 
+### Commit Message Convention
+
+This project uses Conventional Commits. Prefix every commit message with a type:
+
+| Type | Use for |
+|---|---|
+| `feat:` | New calculator behaviour, UI feature, new math function |
+| `fix:` | Bug fix — incorrect behaviour, crash, display glitch |
+| `refactor:` | Code restructuring with no behaviour change |
+| `test:` | New or updated host tests |
+| `docs:` | Documentation-only changes |
+| `chore:` | Build config, toolchain, CMakeLists, .gitignore |
+| `perf:` | Performance improvement |
+
+Always include a `Complexity:` footer on every commit:
+
+```
+feat: add LinReg to STAT CALC menu
+
+Complexity: increase
+```
+
+```
+refactor: extract param_yeq helpers into ui_param_yeq.c
+
+Complexity: decrease
+```
+
+The `Complexity:` footer is the persistent record of the delta rating — future sessions can run `git log --grep="Complexity: increase"` to audit debt accumulation.
+
+### Staging and Committing
+
 Stage specific files by name rather than `git add -A` to avoid accidentally committing build artefacts or sensitive files.
 
 ```bash
-git add App/Src/calculator_core.c App/Src/app_init.c App/Inc/app_common.h \
-        App/Src/graph.c App/Inc/graph.h \
-        App/HW/Keypad/keypad.c App/HW/Keypad/keypad.h \
-        Core/Inc/FreeRTOSConfig.h CLAUDE.md
-git commit -m "description"
+# Stage only the files that changed — never git add -A
+git add App/Src/<changed>.c App/Inc/<changed>.h CLAUDE.md
+git commit -m "type: description
+
+Complexity: neutral|increase|decrease"
 git push
 ```
 
@@ -344,3 +491,22 @@ Drivers/CMSIS/
 Middlewares/Third_Party/FreeRTOS/
 Middlewares/ST/
 ```
+
+---
+
+## Updating This Document
+
+This document may be updated when:
+- A new recurring type of change arises that is not covered by existing rules
+- A rule proves unworkable in practice — document the failure case in `docs/PROJECT_HISTORY.md` before changing the rule
+- A new module or subsystem type is added that needs its own artifact trigger row
+- A scorecard dimension's rise/fall criteria no longer match how the codebase actually evolves
+
+**Process:**
+1. Propose the change to the user before editing this file
+2. Add a note to `docs/PROJECT_HISTORY.md` Session Log when a significant rule changes
+3. If a scorecard dimension's rise/fall criteria change, immediately re-evaluate the current rating against the new criteria and update `CLAUDE.md`
+
+**Do not add rules to solve one-time problems.** If a rule would only have applied to a single past incident, capture the incident in `docs/PROJECT_HISTORY.md` instead. Rules that exist for one past event become noise that dilutes the signal of rules that apply broadly.
+
+**Removing rules:** A rule may be removed if it has not fired in 10+ sessions and the scenario it guards against no longer exists in the codebase. Document the removal reason in `docs/PROJECT_HISTORY.md`.

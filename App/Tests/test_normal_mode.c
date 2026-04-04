@@ -40,6 +40,7 @@
 lv_obj_t *ui_matrix_screen             = NULL;
 lv_obj_t *ui_matrix_edit_screen        = NULL;
 lv_obj_t *ui_graph_yeq_screen          = NULL;
+lv_obj_t *ui_param_yeq_screen          = NULL;
 lv_obj_t *ui_graph_range_screen        = NULL;
 lv_obj_t *ui_graph_zoom_screen         = NULL;
 lv_obj_t *ui_graph_zoom_factors_screen = NULL;
@@ -57,6 +58,16 @@ osMessageQId      keypadQueueHandle = NULL;
 
 /* Matrix menu state (normally owned by ui_matrix.c) */
 MatrixMenuState_t matrix_menu_state = {0, 0, MODE_NORMAL};
+
+/* STAT screen pointers (normally owned by ui_stat.c) */
+lv_obj_t *ui_stat_screen         = NULL;
+lv_obj_t *ui_stat_edit_screen    = NULL;
+lv_obj_t *ui_stat_results_screen = NULL;
+
+/* STAT state (normally owned by ui_stat.c) */
+StatMenuState_t stat_menu_state = {0, 0, MODE_NORMAL};
+StatData_t    stat_data    = {0};
+StatResults_t stat_results = {0};
 
 /* Program store and editor buffers (normally owned by prgm_exec.c / ui_prgm.c) */
 ProgramStore_t g_prgm_store;

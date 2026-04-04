@@ -709,7 +709,7 @@ static const char *prgm_token_to_str(Token_t t)
     case TOKEN_E_X:     return "exp(";
     case TOKEN_TEN_X:   return "10^(";
     case TOKEN_SQUARE:  return "^2";
-    case TOKEN_X_INV:   return "^-1";
+    case TOKEN_X_INV:   return "\xEE\x80\x81";  /* ⁻¹ U+E001 */
     case TOKEN_MTRX_A:  return "[A]";
     case TOKEN_MTRX_B:  return "[B]";
     case TOKEN_MTRX_C:  return "[C]";
@@ -759,44 +759,108 @@ static int prgm_menu_total(void)
     return PRGM_MAX_PROGRAMS;  /* all tabs show all 37 slots */
 }
 
-bool handle_prgm_menu(Token_t t)
+/* Handle keys while the ERASE confirmation dialog is active. */
+static bool handle_erase_confirm(Token_t t)
 {
-    /* --- Erase confirmation dialog intercepts most keys --- */
-    if (prgm_erase_confirm) {
-        switch (t) {
-        case TOKEN_UP:
-        case TOKEN_DOWN:
-            prgm_erase_confirm_choice ^= 1;
-            lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
-            return true;
-        case TOKEN_1:
-            /* Immediately cancel (A4) */
-            prgm_erase_confirm = false;
-            lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
-            return true;
-        case TOKEN_2:
-            /* Immediately erase (A4) */
+    switch (t) {
+    case TOKEN_UP:
+    case TOKEN_DOWN:
+        prgm_erase_confirm_choice ^= 1;
+        lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
+        return true;
+    case TOKEN_1:
+        /* Immediately cancel (A4) */
+        prgm_erase_confirm = false;
+        lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
+        return true;
+    case TOKEN_2:
+        /* Immediately erase (A4) */
+        memset(g_prgm_store.names[prgm_erase_confirm_slot],  0, PRGM_NAME_LEN + 1);
+        memset(g_prgm_store.bodies[prgm_erase_confirm_slot], 0, PRGM_BODY_LEN);
+        prgm_erase_confirm = false;
+        lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
+        return true;
+    case TOKEN_ENTER:
+        if (prgm_erase_confirm_choice == 1) {
             memset(g_prgm_store.names[prgm_erase_confirm_slot],  0, PRGM_NAME_LEN + 1);
             memset(g_prgm_store.bodies[prgm_erase_confirm_slot], 0, PRGM_BODY_LEN);
-            prgm_erase_confirm = false;
-            lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
-            return true;
-        case TOKEN_ENTER:
-            if (prgm_erase_confirm_choice == 1) {
-                memset(g_prgm_store.names[prgm_erase_confirm_slot],  0, PRGM_NAME_LEN + 1);
-                memset(g_prgm_store.bodies[prgm_erase_confirm_slot], 0, PRGM_BODY_LEN);
-            }
-            prgm_erase_confirm = false;
-            lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
-            return true;
-        case TOKEN_CLEAR:
-            prgm_erase_confirm = false;
-            lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
-            return true;
-        default:
-            return true; /* absorb all other keys during confirmation */
         }
+        prgm_erase_confirm = false;
+        lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
+        return true;
+    case TOKEN_CLEAR:
+        prgm_erase_confirm = false;
+        lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
+        return true;
+    default:
+        return true; /* absorb all other keys during confirmation */
     }
+}
+
+/* ENTER on the EXEC tab: insert prgmNAME into the calculator expression (C1). */
+static void enter_exec_tab(int abs_pos)
+{
+    if (abs_pos >= PRGM_MAX_PROGRAMS) return;
+    char slot_id[3];
+    prgm_slot_id_str((uint8_t)abs_pos, slot_id);
+    const char *uname = g_prgm_store.names[abs_pos];
+    snprintf(expression, MAX_EXPR_LEN, "prgm%s",
+             uname[0] != '\0' ? uname : slot_id);
+    expr_len   = (uint8_t)strlen(expression);
+    cursor_pos = expr_len;
+    CalcMode_t exec_ret = prgm_return_mode;
+    prgm_return_mode   = MODE_NORMAL;
+    prgm_tab           = 0;
+    prgm_item_cursor   = 0;
+    prgm_scroll_offset = 0;
+    current_mode = exec_ret;
+    lvgl_lock();
+    lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
+    lvgl_unlock();
+    Update_Calculator_Display();
+}
+
+/* ENTER on the EDIT tab: open editor for used slot, name-entry for empty slot. */
+static void enter_edit_tab(int abs_pos)
+{
+    if (abs_pos >= PRGM_MAX_PROGRAMS) return;
+    bool has_name = prgm_slot_is_used((uint8_t)abs_pos);
+    bool has_body = (g_prgm_store.bodies[abs_pos][0] != '\0');
+    if (has_name || has_body) {
+        /* D3: body-only slot opens editor directly (no name-entry) */
+        prgm_editor_from_new = false;
+        prgm_open_editor((uint8_t)abs_pos);
+    } else {
+        /* Empty slot — show name-entry screen; auto-engage ALPHA */
+        prgm_new_slot        = (uint8_t)abs_pos;
+        prgm_new_name_len    = 0;
+        prgm_new_name_cursor = 0;
+        memset(prgm_new_name, 0, sizeof(prgm_new_name));
+        prgm_editor_from_new = false;
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_screen,       LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_prgm_new_display();
+        lvgl_unlock();
+        current_mode = MODE_ALPHA;
+        return_mode  = MODE_PRGM_NEW_NAME;
+    }
+}
+
+/* ENTER on the ERASE tab: show confirmation dialog for selected slot (A1). */
+static void enter_erase_tab(int abs_pos)
+{
+    if (abs_pos >= PRGM_MAX_PROGRAMS) return;
+    prgm_erase_confirm        = true;
+    prgm_erase_confirm_slot   = (uint8_t)abs_pos;
+    prgm_erase_confirm_choice = 0;
+    lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
+}
+
+bool handle_prgm_menu(Token_t t)
+{
+    if (prgm_erase_confirm)
+        return handle_erase_confirm(t);
 
     int total = prgm_menu_total();
     switch (t) {
@@ -834,61 +898,9 @@ bool handle_prgm_menu(Token_t t)
         return true;
     case TOKEN_ENTER: {
         int abs_pos = (int)prgm_scroll_offset + (int)prgm_item_cursor;
-        if (prgm_tab == 0) {
-            /* EXEC (C1): insert prgmNAME into calculator expression */
-            if (abs_pos < PRGM_MAX_PROGRAMS) {
-                char slot_id[3];
-                prgm_slot_id_str((uint8_t)abs_pos, slot_id);
-                const char *uname = g_prgm_store.names[abs_pos];
-                snprintf(expression, MAX_EXPR_LEN, "prgm%s",
-                         uname[0] != '\0' ? uname : slot_id);
-                expr_len   = (uint8_t)strlen(expression);
-                cursor_pos = expr_len;
-                CalcMode_t exec_ret = prgm_return_mode;
-                prgm_return_mode   = MODE_NORMAL;
-                prgm_tab           = 0;
-                prgm_item_cursor   = 0;
-                prgm_scroll_offset = 0;
-                current_mode = exec_ret;
-                lvgl_lock();
-                lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
-                lvgl_unlock();
-                Update_Calculator_Display();
-            }
-        } else if (prgm_tab == 1) {
-            /* EDIT: slot index == abs_pos directly */
-            if (abs_pos < PRGM_MAX_PROGRAMS) {
-                bool has_name = prgm_slot_is_used((uint8_t)abs_pos);
-                bool has_body = (g_prgm_store.bodies[abs_pos][0] != '\0');
-                if (has_name || has_body) {
-                    /* D3: body-only slot opens editor directly (no name-entry) */
-                    prgm_editor_from_new = false;
-                    prgm_open_editor((uint8_t)abs_pos);
-                } else {
-                    /* Empty slot — show name-entry screen; auto-engage ALPHA */
-                    prgm_new_slot        = (uint8_t)abs_pos;
-                    prgm_new_name_len    = 0;
-                    prgm_new_name_cursor = 0;
-                    memset(prgm_new_name, 0, sizeof(prgm_new_name));
-                    prgm_editor_from_new = false;
-                    lvgl_lock();
-                    lv_obj_add_flag(ui_prgm_screen,       LV_OBJ_FLAG_HIDDEN);
-                    lv_obj_clear_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
-                    ui_update_prgm_new_display();
-                    lvgl_unlock();
-                    current_mode = MODE_ALPHA;
-                    return_mode  = MODE_PRGM_NEW_NAME;
-                }
-            }
-        } else {
-            /* ERASE: show confirmation for selected slot (A1: all 37 slots) */
-            if (abs_pos < PRGM_MAX_PROGRAMS) {
-                prgm_erase_confirm        = true;
-                prgm_erase_confirm_slot   = (uint8_t)abs_pos;
-                prgm_erase_confirm_choice = 0;
-                lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
-            }
-        }
+        if (prgm_tab == 0)      enter_exec_tab(abs_pos);
+        else if (prgm_tab == 1) enter_edit_tab(abs_pos);
+        else                    enter_erase_tab(abs_pos);
         return true;
     }
     case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4: case TOKEN_5:

@@ -18,7 +18,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-04-02**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-03**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -33,7 +33,13 @@ Snapshot as of **2026-04-02**. Grading criteria (what causes each dimension to r
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (6/10 files over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), 516-test host suite with CI including property-based invariant tests and handle_normal_mode coverage.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (7/12 files over 500-line threshold with ui_stat.c added). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) with CI including property-based invariant tests, handle_normal_mode coverage, parametric eval tests, and stat math tests.
+
+### Scorecard Change Log
+
+| Date | Dimension | Old | New | Trigger |
+|---|---|---|---|---|
+| 2026-04-03 | Testing | B+ | A | P1 property-based invariant tests + handle_normal_mode coverage added |
 
 ---
 
@@ -74,7 +80,7 @@ Behaviours that differ from the original hardware by design:
 
 | Feature | Original TI-81 | This implementation |
 |---------|---------------|---------------------|
-| Menu vs. expression glyph inconsistency | Menu labels and expression buffer used the same internal token glyphs throughout | **Known inconsistency:** menu labels display proper Unicode glyphs (³, ³√(, sin⁻¹( etc.) but the expression buffer renders the underlying ASCII insert strings (`^3`, `^(1/3)`, `^-1`). Both paths evaluate correctly; only the display differs. Root cause: the expression buffer has no glyph-substitution layer — full fix requires a token-based renderer. Known gap, not a regression. |
+| Menu vs. expression glyph inconsistency | Menu labels and expression buffer used the same internal token glyphs throughout | **Known inconsistency:** menu labels, Y= row labels, and display-only token→string mappings use proper Unicode glyphs (³, ³√(, sin⁻¹(, Y₁–Y₄ etc.) but the expression buffer retains ASCII insert strings (`^3`, `^(1/3)`, `^-1`). Both paths evaluate correctly; only the display differs. Root cause: the expression buffer has no glyph-substitution layer — full fix requires a token-based renderer. Intentional deviation (Option B), not a regression. |
 
 ---
 
@@ -97,47 +103,33 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **6. ZBox render speed** — See Known Issues entry "ZBox arrow key lag" for root cause and suggested fix (throttle redraws / lightweight overlay).
 
-**18. Expand font glyph set for VARS/STAT display** — Regenerate both LVGL font files adding the following codepoints to the `lv_font_conv` commands in gotcha #14:
-- ȳ — U+0233 (`-r 0x0233`)
-- x̄ — **resolved via custom PUA glyph U+E000** in `JetBrainsMono-Regular-Custom.ttf`. No precomposed Unicode codepoint exists; the custom TTF adds a dedicated x-with-macron glyph at U+E000 (Private Use Area), counterpart to U+0233 ȳ. Use `\uE000` in code to render x̄.
-- Subscripts ₁₂₃₄ — U+2081–U+2084 (`-r 0x2081-0x2084`)
-- Subscript t — ₜ U+209C (`-r 0x209C`); note: subscript capital T does not exist in Unicode — ₜ (lowercase) is the only option. **Not present in the custom TTF** — requires further font editing.
-- Superscript T — ᵀ U+1D40 (`-r 0x1D40`). **Not present in the custom TTF** — requires further font editing.
-- Superscript ⁻ alone — U+207B **not present in the custom TTF**; use U+E001 (see below) for the combined ⁻¹ glyph instead.
-- Superscript ⁻¹ — **resolved via custom PUA glyph U+E001** in `JetBrainsMono-Regular-Custom.ttf`. No single precomposed ⁻¹ codepoint exists in Unicode; the custom TTF adds a dedicated superscript-negative-one glyph at U+E001 (Private Use Area). Use `\uE001` in code wherever ⁻¹ is needed (e.g. cos⁻¹, sin⁻¹, tan⁻¹). Renders as one tight unit at both 20 and 24 px.
-- **Already in font — no change needed:** ¹ (U+00B9), ² (U+00B2), ³ (U+00B3), Σ (U+03A3), σ (U+03C3)
-- **Source font:** use `JetBrainsMono-Regular-Custom.ttf` (not the stock TTF) for all regeneration — it contains the two PUA glyphs above in addition to all standard JetBrains Mono glyphs.
-- Files: `App/Fonts/jetbrains_mono_24.c`, `App/Fonts/jetbrains_mono_20.c`, `CLAUDE.md` gotcha #14 (update `-r` ranges to include new codepoints)
-- **Follow-up — known ASCII workaround replacement sites** (scan, replace, flash-verify each):
-
-  | UI location | Item(s) | Current ASCII | Target display | Codepoint(s) | In font? |
-  |---|---|---|---|---|---|
-  | 2nd+SIN key label | — | `sin^-1(` | `sin⁻¹(` | U+E001 | ✅ |
-  | 2nd+COS key label | — | `cos^-1(` | `cos⁻¹(` | U+E001 | ✅ |
-  | 2nd+TAN key label | — | `tan^-1(` | `tan⁻¹(` | U+E001 | ✅ |
-  | x⁻¹ key label | — | `x^-1` | `x⁻¹` | U+E001 | ✅ |
-  | MATH tab | item 3 | `^3` | `³` (cubed) | U+00B3 | ✅ already |
-  | MATH tab | item 4 | `3sqrt(` | `³√(` (cube root) | U+00B3 + U+221A | ✅ already |
-  | MATH HYP tab | items 4–6 | `asinh(` / `acosh(` / `atanh(` | `sinh⁻¹(` / `cosh⁻¹(` / `tanh⁻¹(` | U+E001 | ✅ |
-  | VARS XY tab | item 2 | `x-bar` / `xbar` | `x̄` | U+E000 | ✅ |
-  | VARS XY tab | item 4 | `ox` / `sigmax` | `σx` | U+03C3 + ASCII x | ✅ already |
-  | VARS XY tab | item 5 | `y-bar` / `ybar` | `ȳ` | U+0233 | ✅ |
-  | VARS XY tab | item 7 | `oy` / `sigmay` | `σy` | U+03C3 + ASCII y | ✅ already |
-  | VARS Σ tab | items 1–5 | `Ex` / `Ex2` / `Ey` / `Ey2` / `Exy` | `Σx` / `Σx²` / `Σy` / `Σy²` / `Σxy` | U+03A3 + U+00B2 where needed | ✅ already |
-  | Y-VARS Y/ON/OFF tabs | items 1–4+ | `Y1` / `Y2` / `Y3` / `Y4` | `Y₁` / `Y₂` / `Y₃` / `Y₄` | U+2081–U+2084 | ✅ |
-  | Y= menu equation labels | Y1–Y4 rows | `Y1` / `Y2` / `Y3` / `Y4` | `Y₁` / `Y₂` / `Y₃` / `Y₄` | U+2081–U+2084 | ✅ |
-
-  After all replacements: build, flash to hardware, visually verify each glyph at the relevant font size (menu items use 20px; key labels / Y= labels use 24px).
+**18. (resolved)** — Font files already contained all required codepoints. Completed: Y= row labels now use Y₁–Y₄ (`graph_ui.c`); TOKEN_X_INV display-only mappings now use ⁻¹ U+E001 (`graph_ui.c`, `ui_prgm.c`). Expression buffer insertion of `^-1` kept as-is (Option B — intentional deviation, see Deliberate Deviations table). VARS/Y-VARS Unicode strings deferred to when those menus are implemented — font already has all needed codepoints. Needs hardware flash-verify (visual check at 20px and 24px). **Note for VARS/Y-VARS implementation:** use x̄ = U+E000 (`\xEE\x80\x80`), ȳ = U+0233, Σ = U+03A3, σ = U+03C3, ₁₂₃₄ = U+2081–2084, ⁻¹ = U+E001 (`\xEE\x80\x81`) directly in string literals — all codepoints are in both font files.
 
 
-**[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, 516 host tests pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
+**[complexity] P35 — Parametric graphing complexity follow-up** — P34 added MATH_VAR_T to the tokenizer/evaluator (Tokenize + EvaluateRPN now have param_mode/t_val parameters), added Graph_RenderParametric + Graph_InvalidateCache to graph.c, added handle_param_yeq_mode + 9-field RANGE layout to graph_ui.c, and a new CalcMode_t + GraphState_t fields throughout. graph_ui.c is now substantially larger. Consider extracting param_yeq mode helpers (param_yeq_reflow_rows, handle_param_yeq_mode) into a new `ui_param_yeq.c` translation unit if graph_ui.c crosses the 500-line threshold review criterion. Assess at next code-organisation review.
+
+**[hardware] P35h — Parametric graphing hardware validation** — P34 implementation complete but never run on hardware. Pre-flight: firmware builds 0 errors, all host assertions pass. Validate: (1) MODE row 4 Param toggle changes Y= screen to X₁t/Y₁t layout; (2) equation entry with T key works in param Y=; (3) GRAPH renders a circle from `cos(T)`/`sin(T)` with Tmin=0, Tmax=6.28, Tstep=0.13; (4) RANGE shows 9 fields in param mode; (5) TRACE shows T=/X=/Y= readout; (6) persist survives power-off/on with param equations intact. Files: `App/Src/graph_ui.c`, `App/Src/graph.c`, `App/Src/calculator_core.c`.
+
+**[hardware] P28 — cursor_render() hardware validation** — Code refactor committed 2026-04-01; hardware verification never performed. Execute all 29 tests in `docs/p28_cursor_manual_tests.md`. Pre-flight: firmware builds 0 errors, flash and power-cycle. When all 29 tests pass, delete `docs/p28_cursor_manual_tests.md` and add a row to `docs/PROJECT_HISTORY.md`. Files: `docs/p28_cursor_manual_tests.md`.
+
+**[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, all host assertions pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
 
 **[refactor] P24 — (resolved)** — `try_tokenize_identifier` dispatch table was already in place from a prior session; named-function chain replaced. `try_tokenize_number` sub-parsers also already extracted.
 
 
-**[refactor] Split `handle_prgm_menu` (194 lines)** — The EXEC/EDIT/ERASE tab handler mixes tab switching, ENTER dispatch, and ERASE confirmation; extract per-tab helpers. Coordinate with existing `[complexity] ui_prgm.c EXEC sub-menu extraction` item before starting — overlapping scope. Zero logic change. Files: `App/Src/ui_prgm.c`.
-
 #### Backlog
+
+**P29 — DRAW menu** — `2nd+PRGM` currently does nothing (falls to `default` in `handle_normal_mode()`). Full spec in `docs/MENU_SPECS.md` lines 243–256. Implementation order: (1) `ClrDraw` + `PT-On/Off/Chg` (pixel ops on `graph_buf`); (2) `Line(x1,y1,x2,y2)` (Bresenham over graph coords); (3) `DrawF` (expression eval + render pass); (4) `Shade(yLow,yHigh)` (region fill between two functions). Requires: new `CalcMode_t` for DRAW menu, coordinate mapping (graph world → pixel), draw-layer persistence across re-renders. Files: `App/Src/calculator_core.c`, `App/Src/graph.c`, `App/Src/graph_ui.c`, `App/HW/Keypad/keypad_map.h`.
+
+**[complexity] P30 — STAT menu complexity follow-up** — P30 added calc_stat.c, ui_stat.c, three new modes (MODE_STAT_MENU/EDIT/RESULTS), 796 B to PersistBlock_t, and three graph renderers. ui_stat.c is a new ~470-line file. No single file crossed a new 500-line boundary. Assess at next code-organisation review whether handle_stat_menu warrants extraction.
+
+**[hardware] P30h — STAT hardware validation** — P30 implementation complete, 39 host assertions pass. Validate on hardware: (1) `2nd+MATRX` opens STAT menu with CALC/DRAW/DATA tabs; (2) DATA→Edit→enter 5 pairs (e.g. (1,3),(2,5),(3,7),(4,9),(5,11)); (3) CALC→1-Var shows n=5, x̄=3, Sx≈1.5811; (4) CALC→LinReg shows a=2, b=1, r=1; variables A and B are set in calc engine; (5) DATA→xSort then DATA→ySort reorder correctly; (6) DRAW→Scatter and DRAW→xyLine plot on graph canvas (set RANGE window to match data bounds first); (7) DRAW→Hist shows histogram; (8) 2nd+ON→power cycle→data list persists; (9) old firmware flash (version 5 persist) boots with empty stat list. Files: `App/Src/ui_stat.c`, `App/Src/calc_stat.c`, `App/Src/graph.c`.
+
+**P31 — VARS menu** — VARS key currently does nothing. Full spec in `docs/MENU_SPECS.md` lines 260–322. 5-tab menu. Implementation order: (1) RNG tab — insert Xmin/Xmax/Ymin/Ymax/Xscl/Yscl/Xres values from existing `GraphState_t` (no new storage needed); (2) DIM tab — insert matrix dimension values from existing matrix structs; (3) XY/Σ/LR tabs — now unblocked (P30 done), populate from `stat_results` (n, mean_x, sx, sigma_x, sum_x, sum_x2, reg_a, reg_b, reg_r). Files: `App/Src/calculator_core.c`, `App/Inc/app_common.h`, new `App/Src/ui_vars.c`.
+
+**P32 — Y-VARS menu** — `2nd+VARS` currently does nothing. Full spec in `docs/MENU_SPECS.md` lines 326–371. 3-tab menu (Y / ON / OFF). Y tab inserts equation reference tokens (requires new `TOKEN_Y1`–`TOKEN_Y4` in `keypad_map.h`); ON/OFF tabs toggle `graph_state.enabled[]` flags directly. Parametric entries (X₁t, Y₁t etc.) deferred until parametric graphing is implemented. Files: `App/Src/calculator_core.c`, `App/HW/Keypad/keypad_map.h`, `App/Inc/app_common.h`, new `App/Src/ui_yvars.c`.
+
+**P33 — MODE screen unimplemented rows** — MODE screen rows 1, 5, 6, and 8 display correctly but have no effect on calculator behaviour. Row 4 (`Function | Param`) is now fully wired (P34 complete). Row 1 (`Normal | Sci | Eng`): output format only — medium effort, no new subsystems needed. Rows 5/6/8 (`Connected | Dot`, `Sequential | Simul`, `Real | Polar | Param`) gate further graphing subsystems. Implementation order: (1) Row 1 Sci/Eng notation — wire to number formatter in `calc_engine.c`; (2) Row 5 Connected/Dot — wire to graph renderer in `graph.c`. Spec: `docs/MENU_SPECS.md` lines 25–43. Files: `App/Src/calculator_core.c`, `App/Src/calc_engine.c`, `App/Src/graph.c`, `App/Inc/app_common.h`.
 
 **[hardware] P7 — Physical TI-81 ribbon pad ↔ STM32 GPIO wiring table** — STM32 GPIO side complete. Remaining: trace each TI-81 PCB ribbon pad to A-line/B-line with a multimeter on a donor board. Requires physical hardware access; indefinite timeline. Files: `docs/GETTING_STARTED.md`.
 

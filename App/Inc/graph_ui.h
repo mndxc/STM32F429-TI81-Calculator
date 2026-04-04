@@ -21,6 +21,7 @@ extern lv_obj_t *ui_graph_yeq_screen;
 extern lv_obj_t *ui_graph_range_screen;
 extern lv_obj_t *ui_graph_zoom_screen;
 extern lv_obj_t *ui_graph_zoom_factors_screen;
+extern lv_obj_t *ui_param_yeq_screen;
 
 /*---------------------------------------------------------------------------
  * Initialisation
@@ -69,6 +70,9 @@ float graph_ui_get_zoom_x_fact(void);
 float graph_ui_get_zoom_y_fact(void);
 void  graph_ui_set_zoom_facts(float x_fact, float y_fact);
 
+/** Reposition parametric Y= cursor box. Called by cursor_timer_cb. */
+void param_yeq_cursor_update(void);
+
 /*---------------------------------------------------------------------------
  * Token handler functions (called from Execute_Token dispatcher)
  *---------------------------------------------------------------------------*/
@@ -78,5 +82,6 @@ bool handle_zoom_mode(Token_t t);
 bool handle_zoom_factors_mode(Token_t t);
 bool handle_zbox_mode(Token_t t);
 bool handle_trace_mode(Token_t t);
+bool handle_param_yeq_mode(Token_t t);
 
 #endif /* APP_GRAPH_UI_H */

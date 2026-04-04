@@ -187,11 +187,15 @@ extern lv_obj_t *ui_mode_screen;
 extern lv_obj_t *ui_matrix_screen;
 extern lv_obj_t *ui_matrix_edit_screen;
 extern lv_obj_t *ui_graph_yeq_screen;
+extern lv_obj_t *ui_param_yeq_screen;
 extern lv_obj_t *ui_graph_range_screen;
 extern lv_obj_t *ui_graph_zoom_screen;
 extern lv_obj_t *ui_graph_zoom_factors_screen;
 extern lv_obj_t *ui_prgm_editor_screen;
 extern lv_obj_t *ui_prgm_new_screen;
+extern lv_obj_t *ui_stat_screen;
+extern lv_obj_t *ui_stat_edit_screen;
+extern lv_obj_t *ui_stat_results_screen;
 
 /* calc_internal.h function declarations (defined in calculator_core.c) */
 void Update_Calculator_Display(void);
@@ -237,6 +241,31 @@ static inline void matrix_edit_cursor_update(void)        {}
 static inline bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
     { (void)t; (void)s; return false; }
 static inline void handle_matrix_edit(Token_t t) { (void)t; }
+
+/*---------------------------------------------------------------------------
+ * ui_stat.h replacement
+ *---------------------------------------------------------------------------*/
+
+typedef struct {
+    uint8_t    tab;
+    uint8_t    item_cursor;
+    CalcMode_t return_mode;
+} StatMenuState_t;
+
+extern StatMenuState_t stat_menu_state;
+
+/* stat_data and stat_results are extern in app_common.h; defined in test_normal_mode.c */
+
+static inline void ui_init_stat_screen(void)           {}
+static inline void ui_init_stat_edit_screen(void)      {}
+static inline void ui_init_stat_results_screen(void)   {}
+static inline void ui_update_stat_display(void)        {}
+static inline void ui_update_stat_edit_display(void)   {}
+static inline void ui_update_stat_results_display(void){}
+static inline bool handle_stat_menu(Token_t t, StatMenuState_t *s)
+    { (void)t; (void)s; return false; }
+static inline bool handle_stat_edit(Token_t t)    { (void)t; return false; }
+static inline bool handle_stat_results(Token_t t) { (void)t; return false; }
 
 /*---------------------------------------------------------------------------
  * ui_prgm.h replacement
@@ -335,7 +364,14 @@ static inline bool handle_trace_mode(Token_t t)        { (void)t; return false; 
  * graph.h replacement
  *---------------------------------------------------------------------------*/
 
-static inline void Graph_SetVisible(bool v) { (void)v; }
+static inline void Graph_SetVisible(bool v)                  { (void)v; }
+static inline void Graph_InvalidateCache(void)               {}
+static inline void Graph_DrawScatter(const StatData_t *d)    { (void)d; }
+static inline void Graph_DrawXYLine(const StatData_t *d)     { (void)d; }
+static inline void Graph_DrawHistogram(const StatData_t *d)  { (void)d; }
+
+/* graph_ui.h — parametric handler stub */
+static inline bool handle_param_yeq_mode(Token_t t) { (void)t; return false; }
 
 /*---------------------------------------------------------------------------
  * persist.h extras — Persist_Save / Persist_Load defined in persist.c

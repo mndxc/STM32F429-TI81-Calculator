@@ -18,6 +18,7 @@
 #ifndef HOST_TEST
 #  include "stm32f4xx_hal.h"
 #endif
+#include "app_common.h"    /* GRAPH_NUM_PARAM */
 #include "calc_engine.h"   /* CalcMatrix_t, CALC_MATRIX_MAX_DIM */
 
 /*---------------------------------------------------------------------------
@@ -25,7 +26,7 @@
  *---------------------------------------------------------------------------*/
 
 #define PERSIST_MAGIC       0xCA1CC0DEU   /* Marker — "calc code" */
-#define PERSIST_VERSION     4U            /* Bumped when Y= enabled flags added */
+#define PERSIST_VERSION     6U            /* Bumped when STAT data list added */
 #define PERSIST_FLASH_ADDR  0x080C0000U   /* Sector 10, 128 KB, unused by firmware */
 #ifndef HOST_TEST
 #  define PERSIST_SECTOR    FLASH_SECTOR_10
@@ -55,6 +56,8 @@
  *   grid_on          — grid display toggle (MODE row 7)
  *   matrix_rows/cols — row and column counts for [A][B][C] (1–6 each)
  *   _pad             — alignment padding (do not use)
+ *   param_x/y/…      — parametric equations and T range
+ *   stat_list_x/y/len — STAT data list (up to STAT_MAX_POINTS pairs)
  *   checksum         — 32-bit XOR of all preceding words; computed last
  *
  * graph_state.active is NOT saved — always boot with graph hidden.
@@ -84,8 +87,24 @@ typedef struct {
     /* Matrices [A], [B], [C] — 3 × 6×6 floats each (432 B total).
        Only the 3 user matrices are saved; the ANS matrix (index 3) is transient. */
     float    matrix_data[3][CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM]; /* 432 B */
+
+    /* Parametric equations and T range */
+    char     param_x[GRAPH_NUM_PARAM][64];   /* X(t) equation strings — 192 B */
+    char     param_y[GRAPH_NUM_PARAM][64];   /* Y(t) equation strings — 192 B */
+    uint8_t  param_enabled[GRAPH_NUM_PARAM]; /* Pair enable flags — 3 B */
+    uint8_t  param_mode;                     /* 0=function, 1=parametric — 1 B */
+    float    t_min;                          /* 4 B */
+    float    t_max;                          /* 4 B */
+    float    t_step;                         /* 4 B */
+
+    /* Statistics data list */
+    float    stat_list_x[STAT_MAX_POINTS];  /* 396 B */
+    float    stat_list_y[STAT_MAX_POINTS];  /* 396 B */
+    uint8_t  stat_list_len;                 /*   1 B */
+    uint8_t  _stat_pad[3];                  /*   3 B */
+
     uint32_t checksum;            /*   4 B — XOR of all preceding words */
-} PersistBlock_t;                 /* Total: 864 B */
+} PersistBlock_t;                 /* Total: 2064 B */
 
 _Static_assert(sizeof(PersistBlock_t) % 4 == 0,
                "PersistBlock_t must be a multiple of 4 bytes");

@@ -130,12 +130,56 @@ test_calc_engine/fast:
 	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_calc_engine.dir/build.make App/Tests/CMakeFiles/test_calc_engine.dir/build
 .PHONY : test_calc_engine/fast
 
+# Convenience name for target.
+App/Tests/CMakeFiles/test_expr_util.dir/rule:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 App/Tests/CMakeFiles/test_expr_util.dir/rule
+.PHONY : App/Tests/CMakeFiles/test_expr_util.dir/rule
+
+# Convenience name for target.
+test_expr_util: App/Tests/CMakeFiles/test_expr_util.dir/rule
+.PHONY : test_expr_util
+
+# fast build rule for target.
+test_expr_util/fast:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_expr_util.dir/build.make App/Tests/CMakeFiles/test_expr_util.dir/build
+.PHONY : test_expr_util/fast
+
+# Convenience name for target.
+App/Tests/CMakeFiles/test_persist_roundtrip.dir/rule:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 App/Tests/CMakeFiles/test_persist_roundtrip.dir/rule
+.PHONY : App/Tests/CMakeFiles/test_persist_roundtrip.dir/rule
+
+# Convenience name for target.
+test_persist_roundtrip: App/Tests/CMakeFiles/test_persist_roundtrip.dir/rule
+.PHONY : test_persist_roundtrip
+
+# fast build rule for target.
+test_persist_roundtrip/fast:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/build
+.PHONY : test_persist_roundtrip/fast
+
+# Convenience name for target.
+App/Tests/CMakeFiles/test_prgm_exec.dir/rule:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 App/Tests/CMakeFiles/test_prgm_exec.dir/rule
+.PHONY : App/Tests/CMakeFiles/test_prgm_exec.dir/rule
+
+# Convenience name for target.
+test_prgm_exec: App/Tests/CMakeFiles/test_prgm_exec.dir/rule
+.PHONY : test_prgm_exec
+
+# fast build rule for target.
+test_prgm_exec/fast:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/build
+.PHONY : test_prgm_exec/fast
+
 __/Src/calc_engine.o: __/Src/calc_engine.c.o
 .PHONY : __/Src/calc_engine.o
 
 # target to build an object file
 __/Src/calc_engine.c.o:
 	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_calc_engine.dir/build.make App/Tests/CMakeFiles/test_calc_engine.dir/__/Src/calc_engine.c.o
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/__/Src/calc_engine.c.o
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/__/Src/calc_engine.c.o
 .PHONY : __/Src/calc_engine.c.o
 
 __/Src/calc_engine.i: __/Src/calc_engine.c.i
@@ -144,6 +188,8 @@ __/Src/calc_engine.i: __/Src/calc_engine.c.i
 # target to preprocess a source file
 __/Src/calc_engine.c.i:
 	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_calc_engine.dir/build.make App/Tests/CMakeFiles/test_calc_engine.dir/__/Src/calc_engine.c.i
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/__/Src/calc_engine.c.i
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/__/Src/calc_engine.c.i
 .PHONY : __/Src/calc_engine.c.i
 
 __/Src/calc_engine.s: __/Src/calc_engine.c.s
@@ -152,7 +198,81 @@ __/Src/calc_engine.s: __/Src/calc_engine.c.s
 # target to generate assembly for a file
 __/Src/calc_engine.c.s:
 	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_calc_engine.dir/build.make App/Tests/CMakeFiles/test_calc_engine.dir/__/Src/calc_engine.c.s
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/__/Src/calc_engine.c.s
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/__/Src/calc_engine.c.s
 .PHONY : __/Src/calc_engine.c.s
+
+__/Src/expr_util.o: __/Src/expr_util.c.o
+.PHONY : __/Src/expr_util.o
+
+# target to build an object file
+__/Src/expr_util.c.o:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_expr_util.dir/build.make App/Tests/CMakeFiles/test_expr_util.dir/__/Src/expr_util.c.o
+.PHONY : __/Src/expr_util.c.o
+
+__/Src/expr_util.i: __/Src/expr_util.c.i
+.PHONY : __/Src/expr_util.i
+
+# target to preprocess a source file
+__/Src/expr_util.c.i:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_expr_util.dir/build.make App/Tests/CMakeFiles/test_expr_util.dir/__/Src/expr_util.c.i
+.PHONY : __/Src/expr_util.c.i
+
+__/Src/expr_util.s: __/Src/expr_util.c.s
+.PHONY : __/Src/expr_util.s
+
+# target to generate assembly for a file
+__/Src/expr_util.c.s:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_expr_util.dir/build.make App/Tests/CMakeFiles/test_expr_util.dir/__/Src/expr_util.c.s
+.PHONY : __/Src/expr_util.c.s
+
+__/Src/persist.o: __/Src/persist.c.o
+.PHONY : __/Src/persist.o
+
+# target to build an object file
+__/Src/persist.c.o:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/__/Src/persist.c.o
+.PHONY : __/Src/persist.c.o
+
+__/Src/persist.i: __/Src/persist.c.i
+.PHONY : __/Src/persist.i
+
+# target to preprocess a source file
+__/Src/persist.c.i:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/__/Src/persist.c.i
+.PHONY : __/Src/persist.c.i
+
+__/Src/persist.s: __/Src/persist.c.s
+.PHONY : __/Src/persist.s
+
+# target to generate assembly for a file
+__/Src/persist.c.s:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/__/Src/persist.c.s
+.PHONY : __/Src/persist.c.s
+
+__/Src/prgm_exec.o: __/Src/prgm_exec.c.o
+.PHONY : __/Src/prgm_exec.o
+
+# target to build an object file
+__/Src/prgm_exec.c.o:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/__/Src/prgm_exec.c.o
+.PHONY : __/Src/prgm_exec.c.o
+
+__/Src/prgm_exec.i: __/Src/prgm_exec.c.i
+.PHONY : __/Src/prgm_exec.i
+
+# target to preprocess a source file
+__/Src/prgm_exec.c.i:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/__/Src/prgm_exec.c.i
+.PHONY : __/Src/prgm_exec.c.i
+
+__/Src/prgm_exec.s: __/Src/prgm_exec.c.s
+.PHONY : __/Src/prgm_exec.s
+
+# target to generate assembly for a file
+__/Src/prgm_exec.c.s:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/__/Src/prgm_exec.c.s
+.PHONY : __/Src/prgm_exec.c.s
 
 test_calc_engine.o: test_calc_engine.c.o
 .PHONY : test_calc_engine.o
@@ -178,6 +298,78 @@ test_calc_engine.c.s:
 	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_calc_engine.dir/build.make App/Tests/CMakeFiles/test_calc_engine.dir/test_calc_engine.c.s
 .PHONY : test_calc_engine.c.s
 
+test_expr_util.o: test_expr_util.c.o
+.PHONY : test_expr_util.o
+
+# target to build an object file
+test_expr_util.c.o:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_expr_util.dir/build.make App/Tests/CMakeFiles/test_expr_util.dir/test_expr_util.c.o
+.PHONY : test_expr_util.c.o
+
+test_expr_util.i: test_expr_util.c.i
+.PHONY : test_expr_util.i
+
+# target to preprocess a source file
+test_expr_util.c.i:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_expr_util.dir/build.make App/Tests/CMakeFiles/test_expr_util.dir/test_expr_util.c.i
+.PHONY : test_expr_util.c.i
+
+test_expr_util.s: test_expr_util.c.s
+.PHONY : test_expr_util.s
+
+# target to generate assembly for a file
+test_expr_util.c.s:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_expr_util.dir/build.make App/Tests/CMakeFiles/test_expr_util.dir/test_expr_util.c.s
+.PHONY : test_expr_util.c.s
+
+test_persist_roundtrip.o: test_persist_roundtrip.c.o
+.PHONY : test_persist_roundtrip.o
+
+# target to build an object file
+test_persist_roundtrip.c.o:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o
+.PHONY : test_persist_roundtrip.c.o
+
+test_persist_roundtrip.i: test_persist_roundtrip.c.i
+.PHONY : test_persist_roundtrip.i
+
+# target to preprocess a source file
+test_persist_roundtrip.c.i:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.i
+.PHONY : test_persist_roundtrip.c.i
+
+test_persist_roundtrip.s: test_persist_roundtrip.c.s
+.PHONY : test_persist_roundtrip.s
+
+# target to generate assembly for a file
+test_persist_roundtrip.c.s:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_persist_roundtrip.dir/build.make App/Tests/CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.s
+.PHONY : test_persist_roundtrip.c.s
+
+test_prgm_exec.o: test_prgm_exec.c.o
+.PHONY : test_prgm_exec.o
+
+# target to build an object file
+test_prgm_exec.c.o:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o
+.PHONY : test_prgm_exec.c.o
+
+test_prgm_exec.i: test_prgm_exec.c.i
+.PHONY : test_prgm_exec.i
+
+# target to preprocess a source file
+test_prgm_exec.c.i:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.i
+.PHONY : test_prgm_exec.c.i
+
+test_prgm_exec.s: test_prgm_exec.c.s
+.PHONY : test_prgm_exec.s
+
+# target to generate assembly for a file
+test_prgm_exec.c.s:
+	cd /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests && $(MAKE) $(MAKESILENT) -f App/Tests/CMakeFiles/test_prgm_exec.dir/build.make App/Tests/CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.s
+.PHONY : test_prgm_exec.c.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -187,12 +379,33 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... test_calc_engine"
+	@echo "... test_expr_util"
+	@echo "... test_persist_roundtrip"
+	@echo "... test_prgm_exec"
 	@echo "... __/Src/calc_engine.o"
 	@echo "... __/Src/calc_engine.i"
 	@echo "... __/Src/calc_engine.s"
+	@echo "... __/Src/expr_util.o"
+	@echo "... __/Src/expr_util.i"
+	@echo "... __/Src/expr_util.s"
+	@echo "... __/Src/persist.o"
+	@echo "... __/Src/persist.i"
+	@echo "... __/Src/persist.s"
+	@echo "... __/Src/prgm_exec.o"
+	@echo "... __/Src/prgm_exec.i"
+	@echo "... __/Src/prgm_exec.s"
 	@echo "... test_calc_engine.o"
 	@echo "... test_calc_engine.i"
 	@echo "... test_calc_engine.s"
+	@echo "... test_expr_util.o"
+	@echo "... test_expr_util.i"
+	@echo "... test_expr_util.s"
+	@echo "... test_persist_roundtrip.o"
+	@echo "... test_persist_roundtrip.i"
+	@echo "... test_persist_roundtrip.s"
+	@echo "... test_prgm_exec.o"
+	@echo "... test_prgm_exec.i"
+	@echo "... test_prgm_exec.s"
 .PHONY : help
 
 
