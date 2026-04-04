@@ -60,7 +60,7 @@ graph TD
 
     subgraph "UI Logic (Embedded Only)"
         CC["calculator_core.c (Dispatcher)"]
-        GUI["graph_ui.c / ui_param_yeq.c / ui_matrix.c / ui_prgm.c / ui_stat.c / ui_draw.c"]
+        GUI["graph_ui.c / ui_param_yeq.c / ui_matrix.c / ui_prgm.c / ui_stat.c / ui_draw.c / ui_vars.c"]
         G["graph.c + graph_draw.c (Renderer + Draw Layer)"]
     end
 

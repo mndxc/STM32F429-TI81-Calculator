@@ -56,6 +56,7 @@ typedef enum {
     MODE_STAT_EDIT,          /* STAT DATA list editor active */
     MODE_STAT_RESULTS,       /* STAT results screen active */
     MODE_DRAW_MENU,          /* DRAW menu (single-list, 7 items) active */
+    MODE_VARS_MENU,          /* VARS menu (5-tab: XY/Σ/LR/DIM/RNG) active */
     MODE_STO,                /* Synthetic: STO pending — cursor shows green 'A'; never set as current_mode */
 } CalcMode_t;
 

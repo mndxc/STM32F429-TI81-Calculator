@@ -34,6 +34,7 @@
 #  include "ui_prgm.h"
 #  include "ui_stat.h"
 #  include "ui_draw.h"
+#  include "ui_vars.h"
 #  include "graph_ui.h"
 #  include "ui_palette.h"
 #  include "expr_util.h"
@@ -1335,6 +1336,7 @@ void hide_all_screens(void)
     lv_obj_add_flag(ui_stat_edit_screen,          LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_stat_results_screen,       LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_draw_screen,               LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_vars_screen,               LV_OBJ_FLAG_HIDDEN);
     hide_prgm_screens();
     Graph_SetVisible(false);
 }
@@ -1389,6 +1391,15 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
         lv_obj_clear_flag(ui_draw_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_draw_display();
         break;
+    case TOKEN_VARS:
+        vars_menu_state.return_mode  = return_to;
+        vars_menu_state.tab          = 0;
+        vars_menu_state.item_cursor  = 0;
+        vars_menu_state.scroll_offset = 0;
+        current_mode = MODE_VARS_MENU;
+        lv_obj_clear_flag(ui_vars_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_vars_display();
+        break;
     default:
         break;
     }
@@ -1433,6 +1444,13 @@ CalcMode_t menu_close(Token_t menu_token)
         draw_menu_state.return_mode  = MODE_NORMAL;
         draw_menu_state.item_cursor  = 0;
         break;
+    case TOKEN_VARS:
+        ret                             = vars_menu_state.return_mode;
+        vars_menu_state.return_mode     = MODE_NORMAL;
+        vars_menu_state.tab             = 0;
+        vars_menu_state.item_cursor     = 0;
+        vars_menu_state.scroll_offset   = 0;
+        break;
     default:
         ret = MODE_NORMAL;
         break;
@@ -1446,6 +1464,7 @@ CalcMode_t menu_close(Token_t menu_token)
     lv_obj_add_flag(ui_stat_edit_screen,     LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_stat_results_screen,  LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_draw_screen,          LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_vars_screen,          LV_OBJ_FLAG_HIDDEN);
     hide_prgm_screens();
     if (ret == MODE_GRAPH_YEQ)
         lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
@@ -2193,6 +2212,7 @@ void handle_normal_mode(Token_t t)
     case TOKEN_PRGM:                menu_open(TOKEN_PRGM,  MODE_NORMAL); break;
     case TOKEN_STAT:                menu_open(TOKEN_STAT,  MODE_NORMAL); break;
     case TOKEN_DRAW:                menu_open(TOKEN_DRAW,  MODE_NORMAL); break;
+    case TOKEN_VARS:                menu_open(TOKEN_VARS,  MODE_NORMAL); break;
     case TOKEN_MTRX_A: case TOKEN_MTRX_B: case TOKEN_MTRX_C:
     case TOKEN_SIN: case TOKEN_COS: case TOKEN_TAN:
     case TOKEN_ASIN: case TOKEN_ACOS: case TOKEN_ATAN:
@@ -2304,6 +2324,7 @@ void Execute_Token(Token_t t)
     if (current_mode == MODE_STAT_EDIT)           { if (handle_stat_edit(t))           return; }
     if (current_mode == MODE_STAT_RESULTS)        { if (handle_stat_results(t))        return; }
     if (current_mode == MODE_DRAW_MENU)           { if (handle_draw_menu(t))           return; }
+    if (current_mode == MODE_VARS_MENU)           { if (handle_vars_menu(t))           return; }
     if (current_mode == MODE_PRGM_MENU)           { if (handle_prgm_menu(t))          return; }
     /* F5b: ALPHA_LOCK in name-entry — same pattern as A6 editor fix below */
     if (current_mode == MODE_PRGM_NEW_NAME ||
@@ -2456,6 +2477,7 @@ void StartCalcCoreTask(void const *argument)
     ui_init_stat_edit_screen();
     ui_init_stat_results_screen();
     ui_init_draw_screen();
+    ui_init_vars_screen();
     ui_init_prgm_screens();
     cursor_timer = lv_timer_create(cursor_timer_cb, CURSOR_BLINK_MS, NULL);
     ui_update_zoom_display();   /* populate ZOOM labels with initial scroll=0 (defined in graph_ui.c) */
@@ -2465,6 +2487,7 @@ void StartCalcCoreTask(void const *argument)
     ui_update_matrix_display();
     ui_update_matrix_edit_display();
     ui_update_stat_display();
+    ui_update_vars_display();
     /* Load programs from FLASH sector 11 before populating the PRGM menu */
     Prgm_Init();
 

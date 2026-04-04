@@ -257,9 +257,9 @@ DRAW
 
 ---
 
-### VARS menu (VARS key)
+### VARS menu (VARS key) — **IMPLEMENTED** (`ui_vars.c`, hardware validation pending P31h)
 
-Five tabs: XY / Σ / LR / DIM / RNG. Tab LEFT/RIGHT; item UP/DOWN or number key; ENTER inserts the variable name at the cursor.
+Five tabs: XY / Σ / LR / DIM / RNG. Tab LEFT/RIGHT; item UP/DOWN or number key; ENTER inserts the current numeric value of the selected variable at the cursor. DIM tab has 6 items (Arow–Ccol); RNG tab has 10 items with scroll. ȳ/Sy/σy/Σy/Σy²/Σxy computed on-the-fly from `stat_data`; RegEQ inserts `aX+b` from `stat_results.reg_a/reg_b`.
 
 > **Font note:** x̄ (U+E000 custom PUA glyph) and ȳ (U+0233) are in the custom TTF and regenerated font files. Σ (U+03A3) is already in the font. See CLAUDE.md gotcha #14 for font regeneration commands.
 
