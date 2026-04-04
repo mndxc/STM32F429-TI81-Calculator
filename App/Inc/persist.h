@@ -104,7 +104,7 @@ typedef struct {
     uint8_t  _stat_pad[3];                  /*   3 B */
 
     uint32_t checksum;            /*   4 B — XOR of all preceding words */
-} PersistBlock_t;                 /* Total: 2064 B */
+} PersistBlock_t;                 /* Total: 2060 B */
 
 _Static_assert(sizeof(PersistBlock_t) % 4 == 0,
                "PersistBlock_t must be a multiple of 4 bytes");

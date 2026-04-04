@@ -193,13 +193,25 @@ typedef struct {
  * Individual command handlers — one per PRGM command type.
  * Each receives the full line and the 0-based line index ln.
  * prgm_run_pc is already ln+1 when the handler is called.
+ *
+ * Structured comment format used by scripts/check_sync.sh:
+ *   CMD: <token>  — must match the prefix string in cmd_table[] exactly
+ *   Syntax:       — as entered by the user
+ *   Effect:       — what the command does at runtime
  *---------------------------------------------------------------------------*/
 
+/* CMD: Lbl
+ * Syntax: Lbl <A-Z|0-9>
+ * Effect: No-op during sequential execution; marks a jump target for Goto. */
 static void cmd_lbl(const char *line, uint16_t ln)
 {
     (void)line; (void)ln; /* no-op during sequential execution */
 }
 
+/* CMD: Goto
+ * Syntax: Goto <A-Z|0-9>
+ * Effect: Scans program lines for a matching Lbl; sets PC to that line.
+ *         Halts execution if label is not found. */
 static void cmd_goto(const char *line, uint16_t ln)
 {
     (void)ln;
@@ -215,6 +227,10 @@ static void cmd_goto(const char *line, uint16_t ln)
     prgm_run_active = false; /* label not found */
 }
 
+/* CMD: If
+ * Syntax: If <expr>
+ * Effect: Evaluates <expr>; if zero or error, skips the immediately following
+ *         line (single-line If — no Then/Else/End block). */
 static void cmd_if(const char *line, uint16_t ln)
 {
     (void)ln;
@@ -246,6 +262,9 @@ static bool parse_incdec_args(const char *line, int prefix_len,
     return j > 0;
 }
 
+/* CMD: IS>(
+ * Syntax: IS>(<var>,<expr>)
+ * Effect: Increments <var> by 1; if the new value > <expr>, skips the next line. */
 static void cmd_is_gt(const char *line, uint16_t ln)
 {
     char var, val_buf[MAX_EXPR_LEN];
@@ -257,6 +276,9 @@ static void cmd_is_gt(const char *line, uint16_t ln)
         prgm_run_pc = ln + 2; /* skip next line */
 }
 
+/* CMD: DS<(
+ * Syntax: DS<(<var>,<expr>)
+ * Effect: Decrements <var> by 1; if the new value < <expr>, skips the next line. */
 static void cmd_ds_lt(const char *line, uint16_t ln)
 {
     char var, val_buf[MAX_EXPR_LEN];
@@ -269,11 +291,19 @@ static void cmd_ds_lt(const char *line, uint16_t ln)
 }
 
 
+/* CMD: End
+ * Syntax: End
+ * Effect: No-op; retained for compatibility — no block structures in this
+ *         implementation (Then/Else/While/For removed per TI-81 spec). */
 static void cmd_end(const char *line, uint16_t ln)
 {
     (void)line; (void)ln; /* no-op: no block structures in simplified CTL spec */
 }
 
+/* CMD: Pause
+ * Syntax: Pause
+ * Effect: Suspends execution; waits for the user to press ENTER before
+ *         continuing. Sets prgm_waiting_input with no target variable. */
 static void cmd_pause(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
@@ -281,6 +311,9 @@ static void cmd_pause(const char *line, uint16_t ln)
     prgm_input_var     = 0;
 }
 
+/* CMD: Stop
+ * Syntax: Stop
+ * Effect: Terminates program execution immediately; returns to normal mode. */
 static void cmd_stop(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
@@ -288,6 +321,11 @@ static void cmd_stop(const char *line, uint16_t ln)
 }
 
 
+/* CMD: prgm
+ * Syntax: prgm<NAME>
+ * Effect: Pushes current PC/index onto call stack (depth 4) and begins
+ *         executing the named program. Returns here on Stop or end-of-program.
+ *         Silently continues (no error) if the named program is not found. */
 static void cmd_prgm_call(const char *line, uint16_t ln)
 {
     (void)ln;
@@ -305,6 +343,9 @@ static void cmd_prgm_call(const char *line, uint16_t ln)
     }
 }
 
+/* CMD: ClrHome
+ * Syntax: ClrHome
+ * Effect: Clears the history display; resets history_count and recall offset. */
 static void cmd_clrhome(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
@@ -315,6 +356,9 @@ static void cmd_clrhome(const char *line, uint16_t ln)
 #endif
 }
 
+/* CMD: DispHome
+ * Syntax: DispHome
+ * Effect: Switches the display to the home (calculator) screen. */
 static void cmd_disphome(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
@@ -326,6 +370,10 @@ static void cmd_disphome(const char *line, uint16_t ln)
 #endif
 }
 
+/* CMD: DispGraph
+ * Syntax: DispGraph
+ * Effect: Renders the current graph and switches to the graph screen.
+ *         Waits 20 ms for DefaultTask to flush before rendering. */
 static void cmd_dispgraph(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
@@ -340,6 +388,11 @@ static void cmd_dispgraph(const char *line, uint16_t ln)
 }
 
 
+/* CMD: Disp
+ * Syntax: Disp "<string>"  |  Disp <expr>  |  Disp <var>
+ * Effect: String literal → left-aligned in expression row.
+ *         Expression/variable → evaluated and right-aligned in result row;
+ *         also updates ANS. Appends one history entry and refreshes display. */
 static void cmd_disp(const char *line, uint16_t ln)
 {
     (void)ln;
@@ -374,6 +427,11 @@ static void cmd_disp(const char *line, uint16_t ln)
 #endif
 }
 
+/* CMD: Input
+ * Syntax: Input <A-Z>
+ * Effect: Displays "?" prompt, clears the expression buffer, and suspends
+ *         execution waiting for the user to type a value and press ENTER.
+ *         The entered value is stored in the specified variable. */
 static void cmd_input(const char *line, uint16_t ln)
 {
     (void)ln;

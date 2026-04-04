@@ -8,12 +8,12 @@
 
 | File | What goes stale |
 |---|---|
-| `CLAUDE.md` | Feature %, priority list, `CalcMode_t` block, `GraphState_t` block, test counts, overall quality rating, scorecard dimension ratings |
+| `CLAUDE.md` | Feature %, priority list, overall quality rating, scorecard dimension ratings |
 | `docs/PROJECT_HISTORY.md` | Session log, completed features, resolved items, milestone reviews — update after every session |
-| `README.md` | Feature status table (% complete, notes) |
-| `docs/GETTING_STARTED.md` | Test counts, OpenOCD path version, toolchain PATH entries |
+| `README.md` | Feature status narrative (prose descriptions per area) |
+| `docs/GETTING_STARTED.md` | OpenOCD path version, toolchain PATH entries (test counts: links to `docs/TESTING.md`) |
 | `docs/TECHNICAL.md` | Supported functions table, Input Modes table, memory layout %, FLASH sector contents, font regeneration commands |
-| `docs/ARCHITECTURE.md` | Module dependency diagram, file tree listing, memory layout % (mirrors TECHNICAL.md) |
+| `docs/ARCHITECTURE.md` | Module dependency diagram, file tree listing (memory layout: links to TECHNICAL.md — no numeric mirror) |
 | `docs/MENU_SPECS.md` | Menu layouts, navigation rules, implementation status — single source of truth for all menus |
 | `docs/PRGM_COMMANDS.md` | PRGM command set; update when commands are added, removed, or renamed |
 | `docs/prgm_manual_tests.md` | PRGM hardware test plan; update test IDs when command set changes |
@@ -23,6 +23,8 @@
 | `docs/TROUBLESHOOTING.md` | Troubleshooting steps for common build, flash, and runtime issues |
 | `docs/PCB_DESIGN.md` | Custom PCB design notes (paused) |
 | `App/Tests/test_persist_roundtrip.c` | Hardcoded `PersistBlock_t` size assertion — must match `persist.h` |
+| `scripts/check_sync.sh` | Hard-coded file paths and grep patterns — update when doc structure changes |
+| `scripts/update_test_counts.sh` | Suite executable names — update when a new test executable is added |
 | This file | Scorecard grading criteria (Rises when / Falls when) — ratings live in `CLAUDE.md` |
 
 ---
@@ -168,11 +170,11 @@ These triggers fire regardless of change size. If the artifact changed, the upda
 
 | If this changed | Always do this | Also verify |
 |---|---|---|
-| `App/Inc/persist.h` — `PersistBlock_t` layout | Update size assertion in `test_persist_roundtrip.c` | `docs/TECHNICAL.md` persist layout, `CLAUDE.md` PersistBlock_t size |
-| `App/Inc/app_common.h` — `CalcMode_t` values | Update `docs/TECHNICAL.md` Input Modes table | `CLAUDE.md` CalcMode_t block |
-| `App/Inc/app_common.h` — `GraphState_t` fields | Update `docs/TECHNICAL.md` Graphing → State section | `CLAUDE.md` GraphState_t block |
+| `App/Inc/persist.h` — `PersistBlock_t` layout | Update size assertion in `test_persist_roundtrip.c` | `docs/TECHNICAL.md` persist layout |
+| `App/Inc/app_common.h` — `CalcMode_t` values | Update `docs/TECHNICAL.md` Input Modes table | — (no CLAUDE.md block exists; read `app_common.h` directly for current values) |
+| `App/Inc/app_common.h` — `GraphState_t` fields | Update `docs/TECHNICAL.md` Graphing → State section | — (no CLAUDE.md block exists; read `app_common.h` directly for current values) |
 | Any `App/Src/*.c` file added or removed | Update `docs/TECHNICAL.md` Project Structure listing | `docs/ARCHITECTURE.md` file tree |
-| Any `App/Tests/` test added or removed | Re-run `cmake --build build-tests`; copy authoritative count to `CLAUDE.md` Host Tests and `docs/GETTING_STARTED.md` | Scorecard Testing row if rating changed |
+| Any `App/Tests/` test added or removed | Re-run `cmake --build build-tests`; update `docs/TESTING.md` assertion counts (it is the canonical source — run `scripts/update_test_counts.sh`) | Scorecard Testing row if rating changed |
 | `docs/PRGM_COMMANDS.md` touched | Verify it matches `prgm_exec.c` dispatch table exactly | `docs/prgm_manual_tests.md` test IDs |
 | Any new public function or header added | Confirm module prefix convention (`Calc_*`, `Graph_*`, etc.) | `docs/ARCHITECTURE.md` module diagram if boundary changed |
 
@@ -180,8 +182,8 @@ These triggers fire regardless of change size. If the artifact changed, the upda
 
 - **Complexity delta** — rate neutral / increase / decrease; record it as a `Complexity: <rating>` footer line in the commit message (e.g. `Complexity: neutral`); if increase, also add a `[complexity]` item to `CLAUDE.md` "Next session priorities"
 - **Completed item** — if the commit resolved a priority item, remove it from `CLAUDE.md` "Next session priorities" and update `Est. Done` % if applicable
-- **Test count changed** — update `CLAUDE.md` "Host Tests" and `docs/GETTING_STARTED.md` "Host Tests" in the same commit; update the scorecard Testing row if the rating changed
-- **RAM or FLASH size changed** — update `CLAUDE.md` "Memory regions" percentages
+- **Test count changed** — update `docs/TESTING.md` assertion counts (run `scripts/update_test_counts.sh`); update the scorecard Testing row if the rating changed
+- **RAM or FLASH size changed** — update `docs/TECHNICAL.md` Memory Layout section (lines 686–688)
 
 ### Once Per Session (at close)
 
@@ -243,12 +245,12 @@ When uncertain: if someone reading the history 6 months from now would want a pa
 
 | Number | Canonical source | Also in |
 |---|---|---|
-| Test counts (per-executable) | `cmake --build build-tests` output | `docs/GETTING_STARTED.md` |
-| Overall test total | same | same |
-| Feature completion % | `CLAUDE.md` Feature table | `README.md` Status table |
+| Test counts (per-executable) | `docs/TESTING.md` (canonical) | — (`docs/GETTING_STARTED.md` links here; no hardcoded mirror) |
+| Overall test total | `docs/TESTING.md` | — |
+| Feature completion % | `CLAUDE.md` Feature table | `README.md` Status narrative (prose, not a mirrored table) |
 | Overall quality rating | `CLAUDE.md` "Project Quality" | — |
-| Memory layout % used | `docs/TECHNICAL.md` | `docs/ARCHITECTURE.md` (mirror) |
-| `PersistBlock_t` size (bytes) | `App/Inc/persist.h` comment | `test_persist_roundtrip.c`, `docs/TECHNICAL.md`, `CLAUDE.md` |
+| Memory layout % used | `docs/TECHNICAL.md` lines 686–688 | — (`docs/ARCHITECTURE.md` links here; no numeric mirror) |
+| `PersistBlock_t` size (bytes) | `App/Inc/persist.h` comment | `test_persist_roundtrip.c`, `docs/TECHNICAL.md` |
 | `PERSIST_VERSION` | `App/Inc/persist.h` | Migration case in `Persist_Load()`, `docs/TECHNICAL.md` Persist Versions table |
 | `CalcMode_t` values | `App/Inc/app_common.h` | `docs/TECHNICAL.md` "Input Modes" |
 | `GraphState_t` fields | `App/Inc/app_common.h` | `docs/TECHNICAL.md` "Graphing → State" |
@@ -348,7 +350,7 @@ For each commit note: new `CalcMode_t` values? New `GraphState_t` fields? `Persi
 - [ ] TECHNICAL.md Project Structure listing covers every `App/Src/` file
 - [ ] `CalcMode_t` block matches `App/Inc/app_common.h` exactly
 - [ ] `GraphState_t` block matches `App/Inc/app_common.h` exactly
-- [ ] "Host Tests" counts match Step 1 output
+- [ ] `docs/TESTING.md` assertion counts match Step 1 output (run `scripts/check_sync.sh` to verify all sync points at once)
 - [ ] Scorecard Change Log row added if any rating changed this session
 
 ### Step 4 — Update `PROJECT_HISTORY.md` (single history source)
@@ -361,10 +363,10 @@ For each commit note: new `CalcMode_t` values? New `GraphState_t` fields? `Persi
 
 ### Step 5 — Sync the public numbers
 
-**[AI]**
-- [ ] Test counts match across `CLAUDE.md` and `GETTING_STARTED.md`
-- [ ] Feature completion % matches across `CLAUDE.md` and `README.md`
-- [ ] Memory layout % matches across `TECHNICAL.md` and `ARCHITECTURE.md`
+**[AI]** — Run `scripts/check_sync.sh` first; it validates most of these automatically. Address any reported drift before proceeding.
+- [ ] `scripts/check_sync.sh` exits 0 (or all reported drifts are explained and resolved)
+- [ ] Feature completion % in `CLAUDE.md` narrative matches `README.md` Status section
+- [ ] Memory layout % in `docs/TECHNICAL.md` lines 686–688 reflects current build (check after any file size change)
 
 ### Step 6 — Verify cross-references
 
