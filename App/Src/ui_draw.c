@@ -18,6 +18,7 @@
 #include "ui_draw.h"
 #include "calc_internal.h"
 #include "graph.h"
+#include "graph_draw.h"
 #include "ui_palette.h"
 #include <string.h>
 
