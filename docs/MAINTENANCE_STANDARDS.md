@@ -177,6 +177,7 @@ These triggers fire regardless of change size. If the artifact changed, the upda
 | Any `App/Tests/` test added or removed | Re-run `cmake --build build-tests`; update `docs/TESTING.md` assertion counts (it is the canonical source — run `scripts/update_test_counts.sh`) | Scorecard Testing row if rating changed |
 | `docs/PRGM_COMMANDS.md` touched | Verify it matches `prgm_exec.c` dispatch table exactly | `docs/prgm_manual_tests.md` test IDs |
 | Any new public function or header added | Confirm module prefix convention (`Calc_*`, `Graph_*`, etc.) | `docs/ARCHITECTURE.md` module diagram if boundary changed |
+| New `App/Src/ui_*.c` module with symbols referenced in `calculator_core.c` | Add a stub section to `App/Tests/calculator_core_test_stubs.h` (typedef + extern + static inline no-ops) and concrete definitions in `App/Tests/test_normal_mode.c` | Rebuild `build-tests` — confirm no undeclared identifier errors before committing |
 
 ### After Every Commit
 

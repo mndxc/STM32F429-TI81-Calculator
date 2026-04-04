@@ -8,7 +8,12 @@
  *   - LVGL constant and function no-ops so calculator_core.c compiles unchanged
  *   - FreeRTOS / CMSIS-RTOS type and function stubs
  *   - External-function no-op stubs for graph_ui.c, ui_matrix.c, ui_prgm.c,
- *     persist.c, and app_init.c symbols referenced in calculator_core.c
+ *     ui_stat.c, ui_draw.c, ui_vars.c, persist.c, and app_init.c symbols
+ *     referenced in calculator_core.c
+ *
+ * Rule: every new App/Src/ui_*.c module whose symbols appear in
+ * calculator_core.c needs a stub section here + definitions in
+ * test_normal_mode.c. See MAINTENANCE_STANDARDS.md Artifact-Based Triggers.
  *   - calc_internal.h replacement: HistoryEntry_t, display constants, and
  *     extern declarations for all shared state (defined in calculator_core.c)
  *   - ui_matrix.h replacement: MatrixMenuState_t and inline no-op stubs
