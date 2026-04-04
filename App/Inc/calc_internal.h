@@ -14,6 +14,7 @@
  *
  *   calculator_core.c   — dispatcher, main screen, token handling
  *   graph_ui.c          — graph editor screens (Y=, RANGE, ZOOM, TRACE, ZBox)
+ *   ui_param_yeq.c      — parametric Y= editor screen (X₁t/Y₁t … X₃t/Y₃t)
  *   ui_matrix.c         — matrix cell editor and MATRIX menu
  *   ui_prgm.c           — program menu, line editor, and CTL/I/O sub-menus
  *

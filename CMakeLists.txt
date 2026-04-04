@@ -67,6 +67,7 @@ set(APP_SOURCES
     App/Src/expr_util.c
     App/Src/graph.c
     App/Src/graph_draw.c
+    App/Src/ui_param_yeq.c
     App/Src/persist.c
     App/Src/prgm_exec.c
     App/Src/ui_matrix.c
