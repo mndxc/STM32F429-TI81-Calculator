@@ -32,6 +32,7 @@
 #  include "ui_matrix.h"
 #  include "ui_prgm.h"
 #  include "ui_stat.h"
+#  include "ui_draw.h"
 #  include "graph_ui.h"
 #  include "ui_palette.h"
 #  include "expr_util.h"
@@ -1332,6 +1333,7 @@ void hide_all_screens(void)
     lv_obj_add_flag(ui_stat_screen,               LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_stat_edit_screen,          LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_stat_results_screen,       LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_draw_screen,               LV_OBJ_FLAG_HIDDEN);
     hide_prgm_screens();
     Graph_SetVisible(false);
 }
@@ -1379,6 +1381,13 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
         lv_obj_clear_flag(ui_stat_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_stat_display();
         break;
+    case TOKEN_DRAW:
+        draw_menu_state.return_mode  = return_to;
+        draw_menu_state.item_cursor  = 0;
+        current_mode = MODE_DRAW_MENU;
+        lv_obj_clear_flag(ui_draw_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_update_draw_display();
+        break;
     default:
         break;
     }
@@ -1418,6 +1427,11 @@ CalcMode_t menu_close(Token_t menu_token)
         stat_menu_state.tab           = 0;
         stat_menu_state.item_cursor   = 0;
         break;
+    case TOKEN_DRAW:
+        ret                          = draw_menu_state.return_mode;
+        draw_menu_state.return_mode  = MODE_NORMAL;
+        draw_menu_state.item_cursor  = 0;
+        break;
     default:
         ret = MODE_NORMAL;
         break;
@@ -1430,6 +1444,7 @@ CalcMode_t menu_close(Token_t menu_token)
     lv_obj_add_flag(ui_stat_screen,          LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_stat_edit_screen,     LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_stat_results_screen,  LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ui_draw_screen,          LV_OBJ_FLAG_HIDDEN);
     hide_prgm_screens();
     if (ret == MODE_GRAPH_YEQ)
         lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1773,6 +1788,154 @@ static void history_load_offset(uint8_t offset)
     Update_Calculator_Display();
 }
 
+/* ---------------------------------------------------------------------------
+ * DRAW command execution helpers
+ * These functions are only compiled in the firmware build (not HOST_TEST)
+ * because they use graph.h which pulls in LVGL types.
+ * -------------------------------------------------------------------------*/
+
+#ifndef HOST_TEST
+
+/* Evaluate a sub-expression string [start, end) as a float.
+ * Used to evaluate individual arguments of DRAW commands. */
+static float eval_draw_arg(const char *start, const char *end)
+{
+    char buf[32];
+    /* Trim leading whitespace */
+    while (start < end && *start == ' ') start++;
+    size_t len = (size_t)(end - start);
+    if (len == 0 || len >= sizeof(buf)) return 0.0f;
+    memcpy(buf, start, len);
+    buf[len] = '\0';
+    CalcResult_t r = Calc_Evaluate(buf, ans, ans_is_matrix, angle_degrees);
+    return (r.error == CALC_OK && !r.has_matrix) ? r.value : 0.0f;
+}
+
+/* Parse up to max_args comma-separated arguments from "(arg0,arg1,...)" at *p.
+ * Handles nested parentheses so expressions like "sin(X)" work as arguments.
+ * Advances *p past the closing ')'. Returns number of args parsed. */
+static uint8_t parse_draw_args(const char **p, float *args, uint8_t max_args)
+{
+    if (**p != '(') return 0;
+    (*p)++;
+    uint8_t count = 0;
+    while (**p && **p != ')' && count < max_args) {
+        const char *start = *p;
+        uint8_t depth = 0;
+        while (**p) {
+            if (**p == '(') { depth++; (*p)++; continue; }
+            if (**p == ')') { if (depth == 0) break; depth--; (*p)++; continue; }
+            if (**p == ',' && depth == 0) break;
+            (*p)++;
+        }
+        args[count++] = eval_draw_arg(start, *p);
+        if (**p == ',') (*p)++;
+    }
+    if (**p == ')') (*p)++;
+    return count;
+}
+
+/* Try to execute a DRAW command in the expression buffer.
+ * Returns true and shows "Done" if the expression is a recognised DRAW command;
+ * returns false if not a DRAW command (caller falls through to Calc_Evaluate). */
+static bool try_execute_draw_command(void)
+{
+    const uint16_t draw_white  = 0xFFFF;
+    const uint16_t shade_grey  = 0x8410; /* mid-grey 50 % */
+
+    /* ClrDraw */
+    if (strcmp(expression, "ClrDraw") == 0) {
+        Graph_DrawLayerClear();
+        if (Graph_IsVisible())
+            Graph_Render(angle_degrees);
+        return true;
+    }
+
+    /* Line(x1,y1,x2,y2) */
+    if (strncmp(expression, "Line(", 5) == 0) {
+        const char *p = expression + 4;
+        float args[4] = {0};
+        if (parse_draw_args(&p, args, 4) == 4) {
+            int32_t px1 = Graph_MathXToPx(args[0]);
+            int32_t py1 = Graph_MathYToPx(args[1]);
+            int32_t px2 = Graph_MathXToPx(args[2]);
+            int32_t py2 = Graph_MathYToPx(args[3]);
+            Graph_DrawLayerLine(px1, py1, px2, py2, draw_white);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* PT-On(x,y) */
+    if (strncmp(expression, "PT-On(", 6) == 0) {
+        const char *p = expression + 5;
+        float args[2] = {0};
+        if (parse_draw_args(&p, args, 2) >= 2) {
+            Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
+                                    Graph_MathYToPx(args[1]), draw_white);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* PT-Off(x,y) */
+    if (strncmp(expression, "PT-Off(", 7) == 0) {
+        const char *p = expression + 6;
+        float args[2] = {0};
+        if (parse_draw_args(&p, args, 2) >= 2) {
+            Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
+                                    Graph_MathYToPx(args[1]), 0x0000);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* PT-Chg(x,y) */
+    if (strncmp(expression, "PT-Chg(", 7) == 0) {
+        const char *p = expression + 6;
+        float args[2] = {0};
+        if (parse_draw_args(&p, args, 2) >= 2) {
+            int32_t px = Graph_MathXToPx(args[0]);
+            int32_t py = Graph_MathYToPx(args[1]);
+            uint16_t cur = Graph_DrawLayerGetPixel(px, py);
+            Graph_DrawLayerSetPixel(px, py, cur ? 0x0000 : draw_white);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* DrawF <expr> */
+    if (strncmp(expression, "DrawF ", 6) == 0) {
+        const char *expr_part = expression + 6;
+        if (strlen(expr_part) > 0) {
+            Graph_DrawF(expr_part, draw_white, angle_degrees);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* Shade(yLow,yHigh) */
+    if (strncmp(expression, "Shade(", 6) == 0) {
+        const char *p = expression + 5;
+        float args[2] = {0};
+        if (parse_draw_args(&p, args, 2) >= 2) {
+            Graph_Shade(args[0], args[1], shade_grey);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+#endif /* HOST_TEST */
+
 /* Evaluate (or run) the current expression on TOKEN_ENTER.
  * Called only when expr_len > 0. */
 static void history_enter_evaluate(void)
@@ -1794,6 +1957,27 @@ static void history_enter_evaluate(void)
             prgm_run_start((uint8_t)slot);
         return;
     }
+#ifndef HOST_TEST
+    /* DRAW commands execute as statements — display "Done", skip Calc_Evaluate */
+    if (try_execute_draw_command()) {
+        uint8_t hidx = history_count % HISTORY_LINE_COUNT;
+        strncpy(history[hidx].expression, expression, MAX_EXPR_LEN - 1);
+        history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
+        strncpy(history[hidx].result, "Done", MAX_RESULT_LEN - 1);
+        history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
+        history[hidx].has_matrix = false;
+        history_count++;
+        expr_len              = 0;
+        cursor_pos            = 0;
+        expression[0]         = '\0';
+        history_recall_offset = 0;
+        lvgl_lock();
+        ui_update_history();
+        lvgl_unlock();
+        Update_Calculator_Display();
+        return;
+    }
+#endif /* HOST_TEST */
     CalcResult_t result = Calc_Evaluate(expression, ans, ans_is_matrix, angle_degrees);
     char result_str[MAX_RESULT_LEN];
     format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
@@ -2007,6 +2191,7 @@ void handle_normal_mode(Token_t t)
     case TOKEN_MATRX:               menu_open(TOKEN_MATRX, MODE_NORMAL); break;
     case TOKEN_PRGM:                menu_open(TOKEN_PRGM,  MODE_NORMAL); break;
     case TOKEN_STAT:                menu_open(TOKEN_STAT,  MODE_NORMAL); break;
+    case TOKEN_DRAW:                menu_open(TOKEN_DRAW,  MODE_NORMAL); break;
     case TOKEN_MTRX_A: case TOKEN_MTRX_B: case TOKEN_MTRX_C:
     case TOKEN_SIN: case TOKEN_COS: case TOKEN_TAN:
     case TOKEN_ASIN: case TOKEN_ACOS: case TOKEN_ATAN:
@@ -2117,6 +2302,7 @@ void Execute_Token(Token_t t)
     if (current_mode == MODE_STAT_MENU)           { if (handle_stat_menu(t, &stat_menu_state))      return; }
     if (current_mode == MODE_STAT_EDIT)           { if (handle_stat_edit(t))           return; }
     if (current_mode == MODE_STAT_RESULTS)        { if (handle_stat_results(t))        return; }
+    if (current_mode == MODE_DRAW_MENU)           { if (handle_draw_menu(t))           return; }
     if (current_mode == MODE_PRGM_MENU)           { if (handle_prgm_menu(t))          return; }
     /* F5b: ALPHA_LOCK in name-entry — same pattern as A6 editor fix below */
     if (current_mode == MODE_PRGM_NEW_NAME ||
@@ -2268,6 +2454,7 @@ void StartCalcCoreTask(void const *argument)
     ui_init_stat_screen();
     ui_init_stat_edit_screen();
     ui_init_stat_results_screen();
+    ui_init_draw_screen();
     ui_init_prgm_screens();
     cursor_timer = lv_timer_create(cursor_timer_cb, CURSOR_BLINK_MS, NULL);
     ui_update_zoom_display();   /* populate ZOOM labels with initial scroll=0 (defined in graph_ui.c) */

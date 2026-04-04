@@ -8,6 +8,7 @@
 #define APP_UI_STAT_H
 
 #include "app_common.h"
+#include "lvgl.h"
 
 /*---------------------------------------------------------------------------
  * Menu navigation state

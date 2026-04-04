@@ -49,7 +49,7 @@ lv_obj_t *ui_stat_results_screen = NULL;
 StatMenuState_t stat_menu_state  = {0, 0, MODE_NORMAL};
 
 /* Global stat data and results — persist-serialized in calculator_core.c */
-StatData_t    stat_data    = {{{0}}, {{0}}, 0};
+StatData_t    stat_data    = {{0}, {0}, 0};
 StatResults_t stat_results = {0};
 
 /* DATA editor state */
@@ -311,7 +311,7 @@ void ui_update_stat_edit_display(void)
             continue;
         }
 
-        char xbuf[14], ybuf[14];
+        char xbuf[20], ybuf[20];
         if (row < (int)stat_data.list_len) {
             stat_fmt(stat_data.list_x[row], xbuf, sizeof(xbuf));
             stat_fmt(stat_data.list_y[row], ybuf, sizeof(ybuf));
@@ -329,7 +329,7 @@ void ui_update_stat_edit_display(void)
                 snprintf(ybuf, sizeof(ybuf), "%s", stat_edit_buf);
         }
 
-        char line[40];
+        char line[50];
         snprintf(line, sizeof(line), "%2d: %-10s %-10s",
                  row + 1, xbuf, ybuf);
 

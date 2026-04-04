@@ -63,10 +63,18 @@ typedef struct {
 } YeqEditorState_t;
 
 /*---------------------------------------------------------------------------
+ * Forward declarations
+ *---------------------------------------------------------------------------*/
+
+static float range_field_value(uint8_t field);
+
+/*---------------------------------------------------------------------------
  * Constants
  *---------------------------------------------------------------------------*/
 
-#define ZOOM_ITEM_COUNT  8
+#define ZOOM_ITEM_COUNT       8
+#define RANGE_ROW_COUNT_FUNC  7
+#define RANGE_ROW_COUNT_PARAM 9
 
 static const char * const zoom_item_names[ZOOM_ITEM_COUNT] = {
     "Box", "Zoom In", "Zoom Out", "Set Factors",
@@ -111,8 +119,6 @@ static lv_obj_t *param_cursor_box   = NULL;
 static lv_obj_t *param_cursor_inner = NULL;
 
 /* RANGE editor labels and cursor — 9 rows max (7 func, 9 param) */
-#define RANGE_ROW_COUNT_FUNC  7
-#define RANGE_ROW_COUNT_PARAM 9
 static lv_obj_t *ui_lbl_range_rows[RANGE_ROW_COUNT_PARAM];
 static lv_obj_t *range_cursor_box    = NULL;
 static lv_obj_t *range_cursor_inner  = NULL;
@@ -238,7 +244,7 @@ static void ui_init_param_yeq_screen(lv_obj_t *parent)
         lv_obj_set_width(ui_lbl_param_eq[i], DISPLAY_W - 61);
         lv_obj_set_style_text_font(ui_lbl_param_eq[i], &jetbrains_mono_24, 0);
         lv_obj_set_style_text_color(ui_lbl_param_eq[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_obj_set_long_mode(ui_lbl_param_eq[i], LV_LABEL_LONG_WRAP);
+        lv_label_set_long_mode(ui_lbl_param_eq[i], LV_LABEL_LONG_WRAP);
         lv_label_set_text(ui_lbl_param_eq[i], "");
     }
 

@@ -196,6 +196,7 @@ extern lv_obj_t *ui_prgm_new_screen;
 extern lv_obj_t *ui_stat_screen;
 extern lv_obj_t *ui_stat_edit_screen;
 extern lv_obj_t *ui_stat_results_screen;
+extern lv_obj_t *ui_draw_screen;
 
 /* calc_internal.h function declarations (defined in calculator_core.c) */
 void Update_Calculator_Display(void);
@@ -266,6 +267,22 @@ static inline bool handle_stat_menu(Token_t t, StatMenuState_t *s)
     { (void)t; (void)s; return false; }
 static inline bool handle_stat_edit(Token_t t)    { (void)t; return false; }
 static inline bool handle_stat_results(Token_t t) { (void)t; return false; }
+
+/*---------------------------------------------------------------------------
+ * ui_draw.h replacement
+ *---------------------------------------------------------------------------*/
+
+typedef struct {
+    uint8_t    item_cursor;
+    CalcMode_t return_mode;
+} DrawMenuState_t;
+
+extern DrawMenuState_t draw_menu_state;
+
+static inline void ui_init_draw_screen(void)        {}
+static inline void ui_update_draw_display(void)     {}
+static inline bool handle_draw_menu(Token_t t)
+    { (void)t; return false; }
 
 /*---------------------------------------------------------------------------
  * ui_prgm.h replacement

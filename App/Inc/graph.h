@@ -91,4 +91,46 @@ void Graph_DrawXYLine(const StatData_t *d);
  */
 void Graph_DrawHistogram(const StatData_t *d);
 
+/*---------------------------------------------------------------------------
+ * Draw layer — persistent user-drawn overlay (DRAW menu operations)
+ *
+ * The draw layer is a separate SDRAM buffer (0x0000 = transparent sentinel).
+ * Graph_Render / Graph_RenderParametric blend it over equations after rendering.
+ * ClrDraw zeros the buffer; pressing GRAPH re-applies the layer automatically.
+ *---------------------------------------------------------------------------*/
+
+/** Clears all user-drawn content from the draw layer. */
+void Graph_DrawLayerClear(void);
+
+/** Sets one draw-layer pixel at canvas coordinates (px, py). */
+void Graph_DrawLayerSetPixel(int32_t px, int32_t py, uint16_t color);
+
+/** Returns the current draw-layer color at (px, py); 0x0000 = transparent. */
+uint16_t Graph_DrawLayerGetPixel(int32_t px, int32_t py);
+
+/** Draws a Bresenham line between canvas pixel coordinates on the draw layer. */
+void Graph_DrawLayerLine(int32_t px1, int32_t py1, int32_t px2, int32_t py2,
+                         uint16_t color);
+
+/**
+ * @brief Evaluates expr at every pixel column and draws the resulting curve
+ *        onto the draw layer.
+ */
+void Graph_DrawF(const char *expr, uint16_t color, bool angle_degrees);
+
+/**
+ * @brief Fills the draw layer between y_low and y_high at every pixel column.
+ *        y_low and y_high are math-world Y coordinates.
+ */
+void Graph_Shade(float y_low, float y_high, uint16_t fill_color);
+
+/** True if the graph screen is currently visible. */
+bool Graph_IsVisible(void);
+
+/** Converts math-world X to canvas pixel column (clamped to [0, GRAPH_W-1]). */
+int32_t Graph_MathXToPx(float x);
+
+/** Converts math-world Y to canvas pixel row (clamped to [0, GRAPH_H-1]). */
+int32_t Graph_MathYToPx(float y);
+
 #endif /* GRAPH_MODULE_H */
