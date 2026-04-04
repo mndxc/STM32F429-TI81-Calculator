@@ -17,8 +17,9 @@ App/                            ← Custom application code (never touched by Cu
     calculator_core.c           Calculator UI, token processing, expression building
     calc_engine.c               Expression parser and evaluator (shunting-yard + RPN)
     expr_util.c                 Pure expression-buffer helpers (UTF-8, insert, delete, cursor)
-    graph.c                     Graph canvas, axes, tick marks, curve renderer
-    graph_ui.c                  Graph screen UI and handlers (extracted module)
+    graph.c                     Graph canvas, axes, tick marks, curve renderer, STAT plot renderers
+    graph_draw.c                Draw layer — persistent user-drawn overlay (DRAW menu; SDRAM 0xD0080800)
+    graph_ui.c                  Graph screen UI and handlers (Y=, RANGE, ZOOM, TRACE, ZBox)
     persist.c                   FLASH sector 10 erase/write/load for calculator state
     prgm_exec.c                 Program storage (FLASH sector 11 erase/write/load) and execution engine
     ui_matrix.c                 Matrix cell editor UI (extracted module)
@@ -26,6 +27,7 @@ App/                            ← Custom application code (never touched by Cu
     calc_stat.c                 Pure statistical math layer — 1-Var, LinReg, LnReg, ExpReg, PwrReg, sort, clear
     ui_prgm.c                   Program menu and editor UI (extracted module)
     ui_draw.c                   DRAW menu UI and command dispatch (extracted module)
+    ui_param_yeq.c              Parametric Y= editor screen (X₁t/Y₁t … X₃t/Y₃t; extracted module)
   Inc/
     app_init.h                  App_RTOS_Init() and App_DefaultTask_Run() declarations
     app_common.h                Shared types, handles and function declarations
@@ -33,14 +35,16 @@ App/                            ← Custom application code (never touched by Cu
     calc_internal.h             Shared internal state for calculator UI modules
     calc_stat.h                 Statistical math API (no LVGL/HAL dependencies)
     expr_util.h                 Expression buffer utility API
-    graph.h                     Graphing subsystem interface
-    graph_ui.h                  Graph screen UI interface
+    graph.h                     Graphing subsystem interface (Y= renderer, trace, ZBox, stat plots)
+    graph_draw.h                Draw layer API (Graph_DrawLayer*, Graph_DrawF, Graph_Shade, Graph_ApplyDrawLayer)
+    graph_ui.h                  Graph screen UI interface (re-exports ui_param_yeq.h)
     persist.h                   Persistent storage API
     prgm_exec.h                 Program storage/FLASH persistence and execution engine API
     ui_matrix.h                 Matrix editor UI interface
     ui_stat.h                   STAT menu UI interface (StatMenuState_t, handler protos)
     ui_prgm.h                   Program menu UI interface
     ui_draw.h                   DRAW menu UI interface (DrawMenuState_t, handler protos)
+    ui_param_yeq.h              Parametric Y= editor interface (param_yeq_init_screen, handler)
     ui_palette.h                Named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)
   Fonts/
     JetBrainsMono-Regular.ttf        Source font (Apache 2.0)
@@ -688,9 +692,9 @@ openocd \
 ## Memory Layout
 
 ```
-RAM:     192 KB @ 0x20000000   (~49% used — LVGL heap moved to SDRAM, Session 18)
+RAM:     192 KB @ 0x20000000   (~47% used — LVGL heap moved to SDRAM, Session 18)
 CCMRAM:   64 KB @ 0x10000000   (~59% used: prgm_store 19 KB + prgm_flash_buf 19 KB + RamFunc code)
-FLASH:     2 MB @ 0x08000000   (~36% used)
+FLASH:     2 MB @ 0x08000000   (~38% used)
 SDRAM:    64 MB @ 0xD0000000   (external, IS42S16400J; linker SDRAM region defined from 0xD0070800)
 ```
 
