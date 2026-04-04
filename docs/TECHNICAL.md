@@ -25,6 +25,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_stat.c                   STAT menu, DATA list editor, and results screen UI (extracted module)
     calc_stat.c                 Pure statistical math layer — 1-Var, LinReg, LnReg, ExpReg, PwrReg, sort, clear
     ui_prgm.c                   Program menu and editor UI (extracted module)
+    ui_draw.c                   DRAW menu UI and command dispatch (extracted module)
   Inc/
     app_init.h                  App_RTOS_Init() and App_DefaultTask_Run() declarations
     app_common.h                Shared types, handles and function declarations
@@ -39,6 +40,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_matrix.h                 Matrix editor UI interface
     ui_stat.h                   STAT menu UI interface (StatMenuState_t, handler protos)
     ui_prgm.h                   Program menu UI interface
+    ui_draw.h                   DRAW menu UI interface (DrawMenuState_t, handler protos)
     ui_palette.h                Named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)
   Fonts/
     JetBrainsMono-Regular.ttf        Source font (Apache 2.0)
@@ -282,6 +284,7 @@ Current Unicode ranges: ASCII (0x20–0x7E), °²³¹, ȳ (U+0233), Σθπσ (Gr
 | `MODE_STAT_MENU`           | STAT CALC/DRAW/DATA tab menu                            |
 | `MODE_STAT_EDIT`           | STAT DATA list editor (x,y pair entry)                  |
 | `MODE_STAT_RESULTS`        | STAT calculation results readout                        |
+| `MODE_DRAW_MENU`           | DRAW 7-item menu (`2nd+PRGM`): ClrDraw, Line(, PT-On/Off/Chg(, DrawF, Shade( |
 
 Pressing 2nd or ALPHA a second time cancels the modifier (toggle). `STO→` sets
 a pending flag and automatically enters ALPHA mode for the next keypress so the
@@ -304,8 +307,11 @@ destination variable can be typed without pressing ALPHA manually.
 11. `MODE_TEST_MENU`
 12. `MODE_MATRIX_MENU`
 13. `MODE_MATRIX_EDIT`
-14. STO pending check — fires if `sto_pending`, then falls through
-15. Main switch (`MODE_NORMAL`)
+14. `MODE_PRGM_MENU` / `MODE_PRGM_EDITOR` / `MODE_PRGM_CTL_MENU` / `MODE_PRGM_IO_MENU` / `MODE_PRGM_EXEC_MENU` / `MODE_PRGM_RUNNING` / `MODE_PRGM_NEW_NAME`
+15. `MODE_STAT_MENU` / `MODE_STAT_EDIT` / `MODE_STAT_RESULTS`
+16. `MODE_DRAW_MENU`
+17. STO pending check — fires if `sto_pending`, then falls through
+18. Main switch (`MODE_NORMAL`)
 
 Navigation helpers (all static in `calculator_core.c`):
 

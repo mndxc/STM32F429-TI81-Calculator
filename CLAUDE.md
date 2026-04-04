@@ -18,7 +18,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-04-03**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-04**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -116,10 +116,14 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[refactor] P24 — (resolved)** — `try_tokenize_identifier` dispatch table was already in place from a prior session; named-function chain replaced. `try_tokenize_number` sub-parsers also already extracted.
 
+**[complexity] P29 — DRAW menu complexity follow-up** — P29 added `ui_draw.c` (new translation unit, ~140 lines), extended `graph.c` by ~115 lines (draw layer API: `Graph_DrawLayerClear/SetPixel/GetPixel/Line/DrawF/Shade`, `apply_draw_layer`, coordinate mapping helpers, `Graph_IsVisible`), and extended `calculator_core.c` by ~187 lines (`try_execute_draw_command`, `parse_draw_args`, `eval_draw_arg`, `menu_open/close` TOKEN_DRAW cases, `hide_all_screens` + `Execute_Token` dispatch). `graph.c` has likely crossed the 500-line threshold. Assess at next code-organisation review whether draw-layer functions warrant extraction into a `graph_draw.c` translation unit, and whether `try_execute_draw_command` in `calculator_core.c` warrants a dedicated `ui_draw_exec.c`.
+
+**[hardware] P29h — DRAW menu hardware validation** — P29 implementation complete, build clean, host tests pass. Validate on hardware: (1) `2nd+PRGM` opens DRAW menu with 7 items; digit shortcuts 1–7 work; UP/DOWN navigation works; CLEAR exits; (2) `ClrDraw` entered from expression buffer clears draw layer and shows "Done"; (3) `Line(0,0,5,5)` draws a diagonal line on the graph canvas; (4) `PT-On(2,3)` sets a pixel; `PT-Off(2,3)` clears it; `PT-Chg(2,3)` toggles it; (5) `DrawF sin(X)` draws the sine curve as a white overlay; (6) `Shade(-1,1)` shades the band between y=−1 and y=1; (7) draw layer persists across GRAPH re-renders (e.g. ZOOM then return — drawn content remains); (8) `ClrDraw` clears all drawn content. Files: `App/Src/ui_draw.c`, `App/Src/graph.c`, `App/Src/calculator_core.c`.
+
 
 #### Backlog
 
-**P29 — DRAW menu** — `2nd+PRGM` currently does nothing (falls to `default` in `handle_normal_mode()`). Full spec in `docs/MENU_SPECS.md` lines 243–256. Implementation order: (1) `ClrDraw` + `PT-On/Off/Chg` (pixel ops on `graph_buf`); (2) `Line(x1,y1,x2,y2)` (Bresenham over graph coords); (3) `DrawF` (expression eval + render pass); (4) `Shade(yLow,yHigh)` (region fill between two functions). Requires: new `CalcMode_t` for DRAW menu, coordinate mapping (graph world → pixel), draw-layer persistence across re-renders. Files: `App/Src/calculator_core.c`, `App/Src/graph.c`, `App/Src/graph_ui.c`, `App/HW/Keypad/keypad_map.h`.
+**P29 — (resolved)** — DRAW menu implemented. `2nd+PRGM` opens 7-item single-list menu (MODE_DRAW_MENU). ClrDraw executes immediately; Line(, PT-On(, PT-Off(, PT-Chg(, DrawF, Shade( insert text into expression buffer. Persistent draw layer in SDRAM at 0xD0080800 (320×240 RGB565, 0x0000=transparent). `apply_draw_layer()` blends over graph_buf at end of every render pass. `try_execute_draw_command()` in `calculator_core.c` evaluates DRAW commands from expression buffer. New files: `ui_draw.h`, `ui_draw.c`. Hardware validation pending (P29h).
 
 **[complexity] P30 — STAT menu complexity follow-up** — P30 added calc_stat.c, ui_stat.c, three new modes (MODE_STAT_MENU/EDIT/RESULTS), 796 B to PersistBlock_t, and three graph renderers. ui_stat.c is a new ~470-line file. No single file crossed a new 500-line boundary. Assess at next code-organisation review whether handle_stat_menu warrants extraction.
 
