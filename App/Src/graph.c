@@ -654,8 +654,9 @@ void Graph_DrawZBox(int32_t px, int32_t py,
         Graph_Render(angle_degrees);
     }
 
-    lv_color_t box_color = lv_color_hex(COLOR_WHITE);  /* white rectangle */
-    lv_color_t cur_color = lv_color_hex(COLOR_YELLOW);  /* yellow crosshair */
+    /* Precompute RGB565 pixel values — avoids per-pixel LVGL call overhead in the loops */
+    uint16_t box_px = lv_color_to_u16(lv_color_hex(COLOR_WHITE));
+    uint16_t cur_px = lv_color_to_u16(lv_color_hex(COLOR_YELLOW));
 
     if (corner1_set) {
         /* Normalise corners so x0 <= x1 and y0 <= y1 */
@@ -668,18 +669,18 @@ void Graph_DrawZBox(int32_t px, int32_t py,
         for (int32_t x = x0; x <= x1c; x++) {
             if (x >= 0 && x < GRAPH_W) {
                 if (y0 >= 0 && y0 < GRAPH_H)
-                    lv_canvas_set_px(graph_canvas, x, y0, box_color, LV_OPA_COVER);
+                    graph_buf[y0 * GRAPH_W + x] = box_px;
                 if (y1c >= 0 && y1c < GRAPH_H)
-                    lv_canvas_set_px(graph_canvas, x, y1c, box_color, LV_OPA_COVER);
+                    graph_buf[y1c * GRAPH_W + x] = box_px;
             }
         }
         /* Left and right edges */
         for (int32_t y = y0; y <= y1c; y++) {
             if (y >= 0 && y < GRAPH_H) {
                 if (x0 >= 0 && x0 < GRAPH_W)
-                    lv_canvas_set_px(graph_canvas, x0, y, box_color, LV_OPA_COVER);
+                    graph_buf[y * GRAPH_W + x0] = box_px;
                 if (x1c >= 0 && x1c < GRAPH_W)
-                    lv_canvas_set_px(graph_canvas, x1c, y, box_color, LV_OPA_COVER);
+                    graph_buf[y * GRAPH_W + x1c] = box_px;
             }
         }
     }
@@ -689,13 +690,16 @@ void Graph_DrawZBox(int32_t px, int32_t py,
     for (int32_t dx = -ARM; dx <= ARM; dx++) {
         int32_t cx = px + dx;
         if (cx >= 0 && cx < GRAPH_W && py >= 0 && py < GRAPH_H)
-            lv_canvas_set_px(graph_canvas, cx, py, cur_color, LV_OPA_COVER);
+            graph_buf[py * GRAPH_W + cx] = cur_px;
     }
     for (int32_t dy = -ARM; dy <= ARM; dy++) {
         int32_t cy = py + dy;
         if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
-            lv_canvas_set_px(graph_canvas, px, cy, cur_color, LV_OPA_COVER);
+            graph_buf[cy * GRAPH_W + px] = cur_px;
     }
+
+    /* Mark canvas dirty once after all pixel writes — replaces per-pixel invalidation */
+    lv_obj_invalidate(graph_canvas);
 
     /* Update X/Y readout with math coordinates of current cursor */
     char x_buf[16], y_buf[16], label_buf[20];
