@@ -34,6 +34,7 @@
 #  include "calc_internal.h"
 #  include "ui_mode.h"
 #  include "ui_input.h"
+#  include "ui_math_menu.h"
 #  include "ui_matrix.h"
 #  include "ui_prgm.h"
 #  include "ui_stat.h"
@@ -57,9 +58,6 @@
  *---------------------------------------------------------------------------*/
 
 /* Scrollable menu geometry */
-#define MATH_TAB_COUNT      4           /* MATH menu tabs: MATH NUM HYP PRB */
-#define TEST_ITEM_COUNT     6           /* TEST menu items: = ≠ > ≥ < ≤ */
-
 #define MATRIX_MAX_DIM      CALC_MATRIX_MAX_DIM  /* alias — actual size in calc_engine.h */
 #define MATRIX_LIST_VISIBLE 7                    /* visible cell rows in the list editor */
 #define MATRIX_TAB_COUNT    2           /* MATRX and EDIT tabs */
@@ -79,25 +77,8 @@ extern const uint32_t TI81_LookupTable_Size;
  *---------------------------------------------------------------------------*/
 
 
-typedef struct {
-    const char *display;
-    const char *insert;
-} MenuItem_t;
-
 /* Editor / cursor state structs — group logically related static variables so they
  * can be snapshot, serialized, and reasoned about as a unit. */
-
-typedef struct {
-    uint8_t    tab;             /* 0=MATH 1=NUM 2=HYP 3=PRB */
-    uint8_t    item_cursor;     /* Visible-row index of highlight */
-    uint8_t    scroll_offset;
-    CalcMode_t return_mode;     /* Mode to restore after selection */
-} MathMenuState_t;
-
-typedef struct {
-    uint8_t    item_cursor;
-    CalcMode_t return_mode;
-} TestMenuState_t;
 
 /*---------------------------------------------------------------------------
  * Private variables
@@ -157,69 +138,8 @@ GraphState_t graph_state = {
     .param_mode = false,
 };
 
-/* MATH menu state */
-static lv_obj_t *ui_math_screen = NULL;
-static MathMenuState_t s_math = {0};
-static lv_obj_t *math_tab_labels[MATH_TAB_COUNT];
-static lv_obj_t *math_item_labels[MENU_VISIBLE_ROWS];
-static lv_obj_t *math_scroll_ind[2];   /* [0]=top(↑), [1]=bottom(↓) — amber overlay */
-
-/* MATH menu data */
-static const char * const math_tab_names[MATH_TAB_COUNT] = {"MATH", "NUM", "HYP", "PRB"};
-static const uint8_t math_tab_item_count[MATH_TAB_COUNT] = {8, 4, 6, 3};
-/* Merged display+insert data for each MATH menu item */
-static const MenuItem_t math_menu_items[MATH_TAB_COUNT][8] = {
-    { /* MATH tab */
-        {"R>P(",    "R>P("},
-        {"P>R(",    "P>R("},
-        {"\xC2\xB3",                    "^3"},       /* ³  U+00B3  — display only; engine reads ^3 */
-        {"\xC2\xB3\xE2\x88\x9A(",      "^(1/3)"},   /* ³√( U+00B3+U+221A — display only */
-        {"!",       "!"},
-        {"deg",     "\xC2\xB0"},
-        {"rad",     "r"},
-        {"nDeriv(", "nDeriv("},
-    },
-    { /* NUM tab */
-        {"Round(",  "round("},
-        {"IPart(",  "iPart("},
-        {"FPart(",  "fPart("},
-        {"Int(",    "int("},
-        {NULL, NULL}, {NULL, NULL}, {NULL, NULL}, {NULL, NULL},
-    },
-    { /* HYP tab */
-        {"sinh(",   "sinh("},
-        {"cosh(",   "cosh("},
-        {"tanh(",   "tanh("},
-        {"sinh\xEE\x80\x81(",  "asinh("},   /* sinh⁻¹( — display; engine reads asinh( */
-        {"cosh\xEE\x80\x81(",  "acosh("},   /* cosh⁻¹( — display; engine reads acosh( */
-        {"tanh\xEE\x80\x81(",  "atanh("},   /* tanh⁻¹( — display; engine reads atanh( */
-        {NULL, NULL}, {NULL, NULL},
-    },
-    { /* PRB tab */
-        {"Rand",    "rand"},
-        {"nPr",     " nPr "},
-        {"nCr",     " nCr "},
-        {NULL, NULL}, {NULL, NULL}, {NULL, NULL}, {NULL, NULL}, {NULL, NULL},
-    },
-};
-
-/* TEST menu state */
-static lv_obj_t  *ui_test_screen = NULL;
-static TestMenuState_t s_test = {0};
-static lv_obj_t  *test_title_label                  = NULL;
-static lv_obj_t  *test_item_labels[TEST_ITEM_COUNT];
-
-/* TEST menu data */
-static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
-    {"=",             "="},
-    {"\xE2\x89\xA0",  "\xE2\x89\xA0"},   /* U+2260 ≠ */
-    {">",             ">"},
-    {"\xE2\x89\xA5",  "\xE2\x89\xA5"},   /* U+2265 ≥ */
-    {"<",             "<"},
-    {"\xE2\x89\xA4",  "\xE2\x89\xA4"},   /* U+2264 ≤ */
-};
-
-/* Matrix data lives in calc_matrices[] (calc_engine.c) — accessed via extern. */
+/* Matrix data lives in calc_matrices[] (calc_engine.c) — accessed via extern.
+ * MATH/TEST menu state, data tables, and LVGL objects live in ui_math_menu.c. */
 
 /* MATRIX menu state */
 
@@ -229,16 +149,8 @@ static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
 
 
 /*---------------------------------------------------------------------------
- * Forward declarations for display helpers defined later in this file
+ * Forward declarations for helpers defined later in this file
  *---------------------------------------------------------------------------*/
-
-static void ui_update_math_display(void);
-static void ui_update_test_display(void);
-
-/* Per-mode token handler forward declarations */
-static bool handle_math_menu(Token_t t, MathMenuState_t *s);
-static bool handle_test_menu(Token_t t, TestMenuState_t *s);
-static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret_mode, uint8_t *cursor, uint8_t *scroll);
 
 /* Private sub-handlers that remain here (use private statics) */
 static void history_load_offset(uint8_t offset);
@@ -485,69 +397,7 @@ lv_obj_t *screen_create(lv_obj_t *parent)
     return scr;
 }
 
-/* Creates the MATH/NUM/HYP/PRB menu screen (hidden at startup). */
-static void ui_init_math_screen(void)
-{
-    lv_obj_t *scr = lv_scr_act();
-    ui_math_screen = screen_create(scr);
-
-    /* Tab bar: 4 tab names at fixed x positions */
-    static const int16_t tab_x[MATH_TAB_COUNT] = {4, 80, 140, 205};
-    for (int i = 0; i < MATH_TAB_COUNT; i++) {
-        math_tab_labels[i] = lv_label_create(ui_math_screen);
-        lv_obj_set_pos(math_tab_labels[i], tab_x[i], 4);
-        lv_obj_set_style_text_font(math_tab_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(math_tab_labels[i], lv_color_hex(COLOR_GREY_INACTIVE), 0);
-        lv_label_set_text(math_tab_labels[i], math_tab_names[i]);
-    }
-
-    /* MENU_VISIBLE_ROWS dynamic item labels — text set by ui_update_math_display() */
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        math_item_labels[i] = lv_label_create(ui_math_screen);
-        lv_obj_set_pos(math_item_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(math_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(math_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(math_item_labels[i], "");
-    }
-
-    /* Scroll indicator overlays — amber arrow, opaque bg covers colon beneath */
-    for (int i = 0; i < 2; i++) {
-        int row = (i == 0) ? 0 : (MENU_VISIBLE_ROWS - 1);
-        math_scroll_ind[i] = lv_label_create(ui_math_screen);
-        lv_obj_set_pos(math_scroll_ind[i], 18, 30 + row * 30);
-        lv_obj_set_style_text_font(math_scroll_ind[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(math_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
-        lv_obj_set_style_bg_color(math_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
-        lv_obj_set_style_bg_opa(math_scroll_ind[i], LV_OPA_COVER, 0);
-        lv_obj_set_style_pad_all(math_scroll_ind[i], 0, 0);
-        lv_label_set_text(math_scroll_ind[i], "");
-        lv_obj_add_flag(math_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
-    }
-}
-
-/* Creates the TEST menu screen (hidden at startup). */
-static void ui_init_test_screen(void)
-{
-    lv_obj_t *scr = lv_scr_act();
-    ui_test_screen = screen_create(scr);
-
-    /* "TEST" title at the top row */
-    test_title_label = lv_label_create(ui_test_screen);
-    lv_obj_set_pos(test_title_label, 4, 4);
-    lv_obj_set_style_text_font(test_title_label, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(test_title_label, lv_color_hex(COLOR_YELLOW), 0);
-    lv_label_set_text(test_title_label, "TEST");
-
-    /* Item labels — text set by ui_update_test_display() */
-    for (int i = 0; i < TEST_ITEM_COUNT; i++) {
-        test_item_labels[i] = lv_label_create(ui_test_screen);
-        lv_obj_set_pos(test_item_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(test_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(test_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(test_item_labels[i], "");
-    }
-}
-
+/* ui_init_math_screen() and ui_init_test_screen() moved to ui_math_menu.c. */
 
 /*---------------------------------------------------------------------------
  * UI update functions
@@ -1047,96 +897,13 @@ void ui_output_row(uint8_t row_1based, const char *text)
     lv_label_set_text(disp_rows[row], text);
 }
 
-/*---------------------------------------------------------------------------
- * MATH menu display helper
- *---------------------------------------------------------------------------*/
-
-/* Redraws tab bar and visible item rows for the current MATH menu state.
- * Must be called under lvgl_lock(). */
-static void ui_update_math_display(void)
-{
-    /* Tab labels */
-    for (int i = 0; i < MATH_TAB_COUNT; i++) {
-        lv_obj_set_style_text_color(math_tab_labels[i],
-            (i == (int)s_math.tab) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_GREY_INACTIVE), 0);
-    }
-
-    /* Hide both scroll indicators; re-shown below if needed */
-    lv_obj_add_flag(math_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(math_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-
-    int total = (int)math_tab_item_count[s_math.tab];
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        int idx = (int)s_math.scroll_offset + i;
-        if (idx >= total) {
-            lv_label_set_text(math_item_labels[i], "");
-            continue;
-        }
-        bool more_below = (s_math.scroll_offset + MENU_VISIBLE_ROWS < (uint8_t)total)
-                          && (i == MENU_VISIBLE_ROWS - 1);
-        bool more_above = (s_math.scroll_offset > 0) && (i == 0);
-        char buf[40];
-        const char *name = math_menu_items[s_math.tab][idx].display;
-        if (more_below) {
-            /* Space holds the arrow's slot; amber ↓ overlay drawn on top */
-            snprintf(buf, sizeof(buf), "%d %s", idx + 1, name);
-            lv_label_set_text(math_scroll_ind[1], "\xE2\x86\x93");
-            lv_obj_clear_flag(math_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-        } else if (more_above) {
-            snprintf(buf, sizeof(buf), "%d %s", idx + 1, name);
-            lv_label_set_text(math_scroll_ind[0], "\xE2\x86\x91");
-            lv_obj_clear_flag(math_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-        } else {
-            snprintf(buf, sizeof(buf), "%d:%s", idx + 1, name);
-        }
-
-        lv_obj_set_style_text_color(math_item_labels[i],
-            (i == (int)s_math.item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(math_item_labels[i], buf);
-    }
-}
-
-/* Refreshes the TEST menu item labels based on s_test.item_cursor. */
-static void ui_update_test_display(void)
-{
-    for (int i = 0; i < TEST_ITEM_COUNT; i++) {
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%d:%s", i + 1, test_menu_items[i].display);
-        lv_obj_set_style_text_color(test_item_labels[i],
-            (i == (int)s_test.item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(test_item_labels[i], buf);
-    }
-}
-
+/* ui_update_math_display(), ui_update_test_display(), math_menu_insert(),
+ * test_menu_insert(), menu_handle_nav_keys(), handle_math_menu(), and
+ * handle_test_menu() moved to ui_math_menu.c. */
 
 /*---------------------------------------------------------------------------
  * Token execution
  *---------------------------------------------------------------------------*/
-
-/**
- * @brief Inserts a MATH menu item into the active destination and exits the
- *        MATH menu.  If the menu was opened from the Y= editor it inserts
- *        at s_yeq.cursor_pos and restores the Y= screen; otherwise it inserts
- *        into the main expression.  Called from the MODE_MATH_MENU handler.
- */
-static void math_menu_insert(const char *ins, MathMenuState_t *s)
-{
-    lvgl_lock();
-    lv_obj_add_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
-    lvgl_unlock();
-
-    if (s->return_mode == MODE_PRGM_EDITOR) {
-        prgm_editor_menu_insert(ins);   /* F4: redirect to program editor */
-    } else if (s->return_mode == MODE_GRAPH_YEQ) {
-        current_mode = MODE_GRAPH_YEQ;
-        graph_ui_yeq_insert(ins);
-    } else {
-        current_mode = MODE_NORMAL;
-        expr_insert_str(ins);
-        Update_Calculator_Display();
-    }
-    s->return_mode = MODE_NORMAL;
-}
 
 /**
  * @brief Generic cross-module helper that takes a menu item and inserts it
@@ -1154,30 +921,6 @@ void menu_insert_text(const char *ins, CalcMode_t *ret_mode)
         Update_Calculator_Display();
     }
     *ret_mode = MODE_NORMAL;
-}
-
-/**
- * @brief Inserts a TEST menu item into the active destination and exits the
- *        TEST menu.  Mirrors math_menu_insert — supports return to Y= or
- *        normal calculator input.
- */
-static void test_menu_insert(const char *ins, TestMenuState_t *s)
-{
-    lvgl_lock();
-    lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
-    lvgl_unlock();
-
-    if (s->return_mode == MODE_PRGM_EDITOR) {
-        prgm_editor_menu_insert(ins);   /* F4: redirect to program editor */
-    } else if (s->return_mode == MODE_GRAPH_YEQ) {
-        current_mode = MODE_GRAPH_YEQ;
-        graph_ui_yeq_insert(ins);
-    } else {
-        current_mode = MODE_NORMAL;
-        expr_insert_str(ins);
-        Update_Calculator_Display();
-    }
-    s->return_mode = MODE_NORMAL;
 }
 
 /*---------------------------------------------------------------------------
@@ -1217,20 +960,10 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
     hide_all_screens();
     switch (menu_token) {
     case TOKEN_MATH:
-        s_math.return_mode   = return_to;
-        s_math.tab           = 0;
-        s_math.item_cursor   = 0;
-        s_math.scroll_offset = 0;
-        current_mode       = MODE_MATH_MENU;
-        lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_math_display();
+        math_menu_open(return_to);
         break;
     case TOKEN_TEST:
-        s_test.return_mode  = return_to;
-        s_test.item_cursor  = 0;
-        current_mode      = MODE_TEST_MENU;
-        lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_test_display();
+        test_menu_open(return_to);
         break;
     case TOKEN_MATRX:
         matrix_menu_state.return_mode = return_to;
@@ -1289,15 +1022,10 @@ CalcMode_t menu_close(Token_t menu_token)
     CalcMode_t ret;
     switch (menu_token) {
     case TOKEN_MATH:
-        ret                = s_math.return_mode;
-        s_math.return_mode   = MODE_NORMAL;
-        s_math.item_cursor   = 0;
-        s_math.scroll_offset = 0;
+        ret = math_menu_close();
         break;
     case TOKEN_TEST:
-        ret              = s_test.return_mode;
-        s_test.return_mode = MODE_NORMAL;
-        s_test.item_cursor = 0;
+        ret = test_menu_close();
         break;
     case TOKEN_MATRX:
         ret                           = matrix_menu_state.return_mode;
@@ -1373,132 +1101,9 @@ void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
  * return), false if execution should fall through to the next handler.
  *---------------------------------------------------------------------------*/
 
-/* handle_mode_screen() moved to ui_mode.c; declared in ui_mode.h. */
-
-/* Shared nav-key handler for menus that can jump to graph screens.
- * Resets ret_mode and cursor (and scroll if non-NULL) then calls nav_to().
- * Returns true if the token was a nav key, false otherwise. */
-static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret_mode, uint8_t *cursor, uint8_t *scroll)
-{
-    CalcMode_t target;
-    switch (t) {
-    case TOKEN_Y_EQUALS: target = MODE_GRAPH_YEQ;   break;
-    case TOKEN_RANGE:    target = MODE_GRAPH_RANGE;  break;
-    case TOKEN_ZOOM:     target = MODE_GRAPH_ZOOM;   break;
-    case TOKEN_GRAPH:    target = MODE_NORMAL;        break;
-    case TOKEN_TRACE:    target = MODE_GRAPH_TRACE;  break;
-    default:             return false;
-    }
-    *ret_mode = MODE_NORMAL;
-    *cursor   = 0;
-    if (scroll) *scroll = 0;
-    nav_to(target);
-    return true;
-}
-
-static bool handle_math_menu(Token_t t, MathMenuState_t *s)
-{
-    int total = (int)math_tab_item_count[s->tab];
-    switch (t) {
-    case TOKEN_LEFT:
-        tab_move(&s->tab, &s->item_cursor, &s->scroll_offset, MATH_TAB_COUNT, true, ui_update_math_display);
-        return true;
-    case TOKEN_RIGHT:
-        tab_move(&s->tab, &s->item_cursor, &s->scroll_offset, MATH_TAB_COUNT, false, ui_update_math_display);
-        return true;
-    case TOKEN_UP:
-        if (s->item_cursor > 0) {
-            s->item_cursor--;
-        } else if (s->scroll_offset > 0) {
-            s->scroll_offset--;
-        }
-        lvgl_lock(); ui_update_math_display(); lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        if ((int)(s->scroll_offset + s->item_cursor) + 1 < total) {
-            if (s->item_cursor < MENU_VISIBLE_ROWS - 1)
-                s->item_cursor++;
-            else if ((int)(s->scroll_offset + MENU_VISIBLE_ROWS) < total)
-                s->scroll_offset++;
-        }
-        lvgl_lock(); ui_update_math_display(); lvgl_unlock();
-        return true;
-    case TOKEN_ENTER: {
-        int idx = (int)s->scroll_offset + (int)s->item_cursor;
-        if (idx < total) {
-            const char *ins = math_menu_items[s->tab][idx].insert;
-            if (ins != NULL) { math_menu_insert(ins, s); return true; }
-        }
-        break;
-    }
-    case TOKEN_1 ... TOKEN_9: {
-        int idx = (int)(t - TOKEN_0) - 1;
-        if (idx < total) {
-            const char *ins = math_menu_items[s->tab][idx].insert;
-            if (ins != NULL) { math_menu_insert(ins, s); return true; }
-        }
-        break;
-    }
-    case TOKEN_CLEAR:
-    case TOKEN_MATH:
-        menu_close(TOKEN_MATH);
-        return true;
-    default:
-        if (menu_handle_nav_keys(t, &s->return_mode, &s->item_cursor, &s->scroll_offset))
-            return true;
-    {
-        CalcMode_t ret = menu_close(TOKEN_MATH);
-        if (ret == MODE_GRAPH_YEQ)
-            return true;
-        return false; /* fall through to main switch */
-    }
-    }
-    /* Execution reaches here only from ENTER/number when item not found */
-    return true;
-}
-
-static bool handle_test_menu(Token_t t, TestMenuState_t *s)
-{
-    switch (t) {
-    case TOKEN_UP:
-        if (s->item_cursor > 0) s->item_cursor--;
-        lvgl_lock(); ui_update_test_display(); lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        if (s->item_cursor < TEST_ITEM_COUNT - 1) s->item_cursor++;
-        lvgl_lock(); ui_update_test_display(); lvgl_unlock();
-        return true;
-    case TOKEN_ENTER: {
-        const char *ins = test_menu_items[s->item_cursor].insert;
-        if (ins != NULL) { test_menu_insert(ins, s); return true; }
-        break;
-    }
-    case TOKEN_1 ... TOKEN_6: {
-        int idx = (int)(t - TOKEN_0) - 1;
-        if (idx >= 0 && idx < TEST_ITEM_COUNT) {
-            const char *ins = test_menu_items[idx].insert;
-            if (ins != NULL) { test_menu_insert(ins, s); return true; }
-        }
-        break;
-    }
-    case TOKEN_CLEAR:
-    case TOKEN_TEST:
-        menu_close(TOKEN_TEST);
-        return true;
-    default:
-        if (menu_handle_nav_keys(t, &s->return_mode, &s->item_cursor, NULL))
-            return true;
-    {
-        CalcMode_t ret = menu_close(TOKEN_TEST);
-        if (ret == MODE_GRAPH_YEQ)
-            return true;
-        return false; /* fall through to main switch */
-    }
-    }
-    return true;
-}
-
-/* handle_sto_pending, handle_digit_key, handle_arithmetic_op moved to ui_input.c. */
+/* handle_mode_screen() moved to ui_mode.c; declared in ui_mode.h.
+ * handle_math_menu(), handle_test_menu(), menu_handle_nav_keys() moved to ui_math_menu.c.
+ * handle_sto_pending, handle_digit_key, handle_arithmetic_op moved to ui_input.c. */
 
 /**
  * @brief Write a completed evaluation into the next history slot and refresh the display.
@@ -1562,153 +1167,8 @@ static void history_load_offset(uint8_t offset)
     Update_Calculator_Display();
 }
 
-/* ---------------------------------------------------------------------------
- * DRAW command execution helpers
- * These functions are only compiled in the firmware build (not HOST_TEST)
- * because they use graph.h which pulls in LVGL types.
- * -------------------------------------------------------------------------*/
-
-#ifndef HOST_TEST
-
-/* Evaluate a sub-expression string [start, end) as a float.
- * Used to evaluate individual arguments of DRAW commands. */
-static float eval_draw_arg(const char *start, const char *end)
-{
-    char buf[32];
-    /* Trim leading whitespace */
-    while (start < end && *start == ' ') start++;
-    size_t len = (size_t)(end - start);
-    if (len == 0 || len >= sizeof(buf)) return 0.0f;
-    memcpy(buf, start, len);
-    buf[len] = '\0';
-    CalcResult_t r = Calc_Evaluate(buf, ans, ans_is_matrix, angle_degrees);
-    return (r.error == CALC_OK && !r.has_matrix) ? r.value : 0.0f;
-}
-
-/* Parse up to max_args comma-separated arguments from "(arg0,arg1,...)" at *p.
- * Handles nested parentheses so expressions like "sin(X)" work as arguments.
- * Advances *p past the closing ')'. Returns number of args parsed. */
-static uint8_t parse_draw_args(const char **p, float *args, uint8_t max_args)
-{
-    if (**p != '(') return 0;
-    (*p)++;
-    uint8_t count = 0;
-    while (**p && **p != ')' && count < max_args) {
-        const char *start = *p;
-        uint8_t depth = 0;
-        while (**p) {
-            if (**p == '(') { depth++; (*p)++; continue; }
-            if (**p == ')') { if (depth == 0) break; depth--; (*p)++; continue; }
-            if (**p == ',' && depth == 0) break;
-            (*p)++;
-        }
-        args[count++] = eval_draw_arg(start, *p);
-        if (**p == ',') (*p)++;
-    }
-    if (**p == ')') (*p)++;
-    return count;
-}
-
-/* Try to execute a DRAW command in the expression buffer.
- * Returns true and shows "Done" if the expression is a recognised DRAW command;
- * returns false if not a DRAW command (caller falls through to Calc_Evaluate). */
-static bool try_execute_draw_command(void)
-{
-    const uint16_t draw_white  = 0xFFFF;
-    const uint16_t shade_grey  = 0x8410; /* mid-grey 50 % */
-
-    /* ClrDraw */
-    if (strcmp(expression, "ClrDraw") == 0) {
-        Graph_DrawLayerClear();
-        if (Graph_IsVisible())
-            Graph_Render(angle_degrees);
-        return true;
-    }
-
-    /* Line(x1,y1,x2,y2) */
-    if (strncmp(expression, "Line(", 5) == 0) {
-        const char *p = expression + 4;
-        float args[4] = {0};
-        if (parse_draw_args(&p, args, 4) == 4) {
-            int32_t px1 = Graph_MathXToPx(args[0]);
-            int32_t py1 = Graph_MathYToPx(args[1]);
-            int32_t px2 = Graph_MathXToPx(args[2]);
-            int32_t py2 = Graph_MathYToPx(args[3]);
-            Graph_DrawLayerLine(px1, py1, px2, py2, draw_white);
-            if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
-        }
-        return true;
-    }
-
-    /* PT-On(x,y) */
-    if (strncmp(expression, "PT-On(", 6) == 0) {
-        const char *p = expression + 5;
-        float args[2] = {0};
-        if (parse_draw_args(&p, args, 2) >= 2) {
-            Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
-                                    Graph_MathYToPx(args[1]), draw_white);
-            if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
-        }
-        return true;
-    }
-
-    /* PT-Off(x,y) */
-    if (strncmp(expression, "PT-Off(", 7) == 0) {
-        const char *p = expression + 6;
-        float args[2] = {0};
-        if (parse_draw_args(&p, args, 2) >= 2) {
-            Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
-                                    Graph_MathYToPx(args[1]), 0x0000);
-            if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
-        }
-        return true;
-    }
-
-    /* PT-Chg(x,y) */
-    if (strncmp(expression, "PT-Chg(", 7) == 0) {
-        const char *p = expression + 6;
-        float args[2] = {0};
-        if (parse_draw_args(&p, args, 2) >= 2) {
-            int32_t px = Graph_MathXToPx(args[0]);
-            int32_t py = Graph_MathYToPx(args[1]);
-            uint16_t cur = Graph_DrawLayerGetPixel(px, py);
-            Graph_DrawLayerSetPixel(px, py, cur ? 0x0000 : draw_white);
-            if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
-        }
-        return true;
-    }
-
-    /* DrawF <expr> */
-    if (strncmp(expression, "DrawF ", 6) == 0) {
-        const char *expr_part = expression + 6;
-        if (strlen(expr_part) > 0) {
-            Graph_DrawF(expr_part, draw_white, angle_degrees);
-            if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
-        }
-        return true;
-    }
-
-    /* Shade(yLow,yHigh) */
-    if (strncmp(expression, "Shade(", 6) == 0) {
-        const char *p = expression + 5;
-        float args[2] = {0};
-        if (parse_draw_args(&p, args, 2) >= 2) {
-            Graph_Shade(args[0], args[1], shade_grey);
-            if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
-        }
-        return true;
-    }
-
-    return false;
-}
-
-#endif /* HOST_TEST */
+/* eval_draw_arg(), parse_draw_args(), try_execute_draw_command() moved to ui_draw.c.
+ * try_execute_draw_command() is declared in ui_draw.h (already included above). */
 
 /* Evaluate (or run) the current expression on TOKEN_ENTER.
  * Called only when expr_len > 0. */
@@ -1915,8 +1375,8 @@ void Execute_Token(Token_t t)
     if (current_mode == MODE_GRAPH_TRACE)         { if (handle_trace_mode(t))         return; }
     if (current_mode == MODE_GRAPH_PARAM_YEQ)    { if (handle_param_yeq_mode(t))     return; }
     if (current_mode == MODE_MODE_SCREEN)         { if (handle_mode_screen(t))                        return; }
-    if (current_mode == MODE_MATH_MENU)           { if (handle_math_menu(t, &s_math))                return; }
-    if (current_mode == MODE_TEST_MENU)           { if (handle_test_menu(t, &s_test))                return; }
+    if (current_mode == MODE_MATH_MENU)           { if (handle_math_menu(t))                          return; }
+    if (current_mode == MODE_TEST_MENU)           { if (handle_test_menu(t))                          return; }
     if (current_mode == MODE_MATRIX_MENU)         { if (handle_matrix_menu(t, &matrix_menu_state))  return; }
     if (current_mode == MODE_MATRIX_EDIT)         { handle_matrix_edit(t); return; }
     if (current_mode == MODE_STAT_MENU)           { if (handle_stat_menu(t, &stat_menu_state))      return; }

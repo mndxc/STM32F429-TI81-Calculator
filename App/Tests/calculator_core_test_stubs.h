@@ -189,6 +189,8 @@ extern GraphState_t graph_state;
 /* LVGL screen pointers — ui_mode_screen defined in ui_mode.c (HOST_TEST block);
  * the rest are stub-defined in test_normal_mode.c */
 extern lv_obj_t *ui_mode_screen;
+extern lv_obj_t *ui_math_screen;
+extern lv_obj_t *ui_test_screen;
 extern lv_obj_t *ui_matrix_screen;
 extern lv_obj_t *ui_matrix_edit_screen;
 extern lv_obj_t *ui_graph_yeq_screen;
@@ -312,6 +314,24 @@ static inline bool handle_yvars_menu(Token_t t)
     { (void)t; return false; }
 
 /*---------------------------------------------------------------------------
+ * ui_math_menu.h replacement
+ *---------------------------------------------------------------------------*/
+
+extern lv_obj_t *ui_math_screen;
+extern lv_obj_t *ui_test_screen;
+
+static inline void ui_init_math_screen(void)         {}
+static inline void ui_init_test_screen(void)         {}
+static inline void ui_update_math_display(void)      {}
+static inline void ui_update_test_display(void)      {}
+static inline bool handle_math_menu(Token_t t)       { (void)t; return false; }
+static inline bool handle_test_menu(Token_t t)       { (void)t; return false; }
+static inline void math_menu_open(CalcMode_t r)      { (void)r; current_mode = MODE_MATH_MENU; }
+static inline void test_menu_open(CalcMode_t r)      { (void)r; current_mode = MODE_TEST_MENU; }
+static inline CalcMode_t math_menu_close(void)       { return MODE_NORMAL; }
+static inline CalcMode_t test_menu_close(void)       { return MODE_NORMAL; }
+
+/*---------------------------------------------------------------------------
  * ui_draw.h replacement
  *---------------------------------------------------------------------------*/
 
@@ -322,10 +342,10 @@ typedef struct {
 
 extern DrawMenuState_t draw_menu_state;
 
-static inline void ui_init_draw_screen(void)        {}
-static inline void ui_update_draw_display(void)     {}
-static inline bool handle_draw_menu(Token_t t)
-    { (void)t; return false; }
+static inline void ui_init_draw_screen(void)         {}
+static inline void ui_update_draw_display(void)      {}
+static inline bool handle_draw_menu(Token_t t)       { (void)t; return false; }
+static inline bool try_execute_draw_command(void)    { return false; }
 
 /*---------------------------------------------------------------------------
  * ui_prgm.h replacement

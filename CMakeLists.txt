@@ -65,6 +65,7 @@ set(APP_SOURCES
     App/Src/calculator_core.c
     App/Src/ui_mode.c
     App/Src/ui_input.c
+    App/Src/ui_math_menu.c
     App/Src/calc_engine.c
     App/Src/expr_util.c
     App/Src/graph.c

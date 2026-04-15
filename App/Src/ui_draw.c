@@ -129,6 +129,149 @@ static void draw_menu_select(void)
     menu_insert_text(ins, &draw_menu_state.return_mode);
 }
 
+/*---------------------------------------------------------------------------
+ * DRAW command execution (from expression buffer, on TOKEN_ENTER)
+ * Called by history_enter_evaluate() in calculator_core.c.
+ *---------------------------------------------------------------------------*/
+
+/* Evaluate a sub-expression string [start, end) as a float.
+ * Used to evaluate individual arguments of DRAW commands. */
+static float eval_draw_arg(const char *start, const char *end)
+{
+    char buf[32];
+    /* Trim leading whitespace */
+    while (start < end && *start == ' ') start++;
+    size_t len = (size_t)(end - start);
+    if (len == 0 || len >= sizeof(buf)) return 0.0f;
+    memcpy(buf, start, len);
+    buf[len] = '\0';
+    CalcResult_t r = Calc_Evaluate(buf, ans, ans_is_matrix, angle_degrees);
+    return (r.error == CALC_OK && !r.has_matrix) ? r.value : 0.0f;
+}
+
+/* Parse up to max_args comma-separated arguments from "(arg0,arg1,...)" at *p.
+ * Handles nested parentheses so expressions like "sin(X)" work as arguments.
+ * Advances *p past the closing ')'. Returns number of args parsed. */
+static uint8_t parse_draw_args(const char **p, float *args, uint8_t max_args)
+{
+    if (**p != '(') return 0;
+    (*p)++;
+    uint8_t count = 0;
+    while (**p && **p != ')' && count < max_args) {
+        const char *start = *p;
+        uint8_t depth = 0;
+        while (**p) {
+            if (**p == '(') { depth++; (*p)++; continue; }
+            if (**p == ')') { if (depth == 0) break; depth--; (*p)++; continue; }
+            if (**p == ',' && depth == 0) break;
+            (*p)++;
+        }
+        args[count++] = eval_draw_arg(start, *p);
+        if (**p == ',') (*p)++;
+    }
+    if (**p == ')') (*p)++;
+    return count;
+}
+
+/* Try to execute a DRAW command in the expression buffer.
+ * Returns true if the expression is a recognised DRAW command (caller shows
+ * "Done" and clears the expression buffer); false if not a DRAW command. */
+bool try_execute_draw_command(void)
+{
+    const uint16_t draw_white  = 0xFFFF;
+    const uint16_t shade_grey  = 0x8410; /* mid-grey 50 % */
+
+    /* ClrDraw */
+    if (strcmp(expression, "ClrDraw") == 0) {
+        Graph_DrawLayerClear();
+        if (Graph_IsVisible())
+            Graph_Render(angle_degrees);
+        return true;
+    }
+
+    /* Line(x1,y1,x2,y2) */
+    if (strncmp(expression, "Line(", 5) == 0) {
+        const char *p = expression + 4;
+        float args[4] = {0};
+        if (parse_draw_args(&p, args, 4) == 4) {
+            int32_t px1 = Graph_MathXToPx(args[0]);
+            int32_t py1 = Graph_MathYToPx(args[1]);
+            int32_t px2 = Graph_MathXToPx(args[2]);
+            int32_t py2 = Graph_MathYToPx(args[3]);
+            Graph_DrawLayerLine(px1, py1, px2, py2, draw_white);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* PT-On(x,y) */
+    if (strncmp(expression, "PT-On(", 6) == 0) {
+        const char *p = expression + 5;
+        float args[2] = {0};
+        if (parse_draw_args(&p, args, 2) >= 2) {
+            Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
+                                    Graph_MathYToPx(args[1]), draw_white);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* PT-Off(x,y) */
+    if (strncmp(expression, "PT-Off(", 7) == 0) {
+        const char *p = expression + 6;
+        float args[2] = {0};
+        if (parse_draw_args(&p, args, 2) >= 2) {
+            Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
+                                    Graph_MathYToPx(args[1]), 0x0000);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* PT-Chg(x,y) */
+    if (strncmp(expression, "PT-Chg(", 7) == 0) {
+        const char *p = expression + 6;
+        float args[2] = {0};
+        if (parse_draw_args(&p, args, 2) >= 2) {
+            int32_t px = Graph_MathXToPx(args[0]);
+            int32_t py = Graph_MathYToPx(args[1]);
+            uint16_t cur = Graph_DrawLayerGetPixel(px, py);
+            Graph_DrawLayerSetPixel(px, py, cur ? 0x0000 : draw_white);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* DrawF <expr> */
+    if (strncmp(expression, "DrawF ", 6) == 0) {
+        const char *expr_part = expression + 6;
+        if (strlen(expr_part) > 0) {
+            Graph_DrawF(expr_part, draw_white, angle_degrees);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    /* Shade(yLow,yHigh) */
+    if (strncmp(expression, "Shade(", 6) == 0) {
+        const char *p = expression + 5;
+        float args[2] = {0};
+        if (parse_draw_args(&p, args, 2) >= 2) {
+            Graph_Shade(args[0], args[1], shade_grey);
+            if (Graph_IsVisible())
+                Graph_Render(angle_degrees);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 bool handle_draw_menu(Token_t t)
 {
     switch (t) {

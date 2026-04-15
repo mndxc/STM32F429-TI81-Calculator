@@ -16,6 +16,7 @@
  *   graph_ui.c          — graph editor screens (Y=, RANGE, ZOOM, TRACE, ZBox)
  *   ui_param_yeq.c      — parametric Y= editor screen (X₁t/Y₁t … X₃t/Y₃t)
  *   ui_matrix.c         — matrix cell editor and MATRIX menu
+ *   ui_math_menu.c      — MATH/NUM/HYP/PRB and TEST menus
  *   ui_prgm.c           — program menu, line editor, and CTL/I/O sub-menus
  *   ui_mode.c           — MODE settings screen
  *   ui_input.c          — normal-mode expression input handlers
@@ -37,8 +38,9 @@
 #include "app_common.h"
 #include "lvgl.h"
 #include "calc_engine.h"
-#include "ui_mode.h"    /* ModeScreenState_t, s_mode, ui_mode_open, handle_mode_screen */
-#include "ui_input.h"   /* expr_delete_at_cursor, handle_normal_mode, handle_sto_pending */
+#include "ui_mode.h"      /* ModeScreenState_t, s_mode, ui_mode_open, handle_mode_screen */
+#include "ui_input.h"     /* expr_delete_at_cursor, handle_normal_mode, handle_sto_pending */
+#include "ui_math_menu.h" /* ui_math_screen, ui_test_screen, math/test menu open/close/handlers */
 
 /* LVGL Fonts */
 extern const lv_font_t jetbrains_mono_24;

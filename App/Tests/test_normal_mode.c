@@ -68,6 +68,10 @@ lv_obj_t *ui_stat_results_screen = NULL;
 /* STAT state (normally owned by ui_stat.c) */
 StatMenuState_t stat_menu_state = {0, 0, MODE_NORMAL};
 
+/* MATH/TEST menu screen pointers (normally owned by ui_math_menu.c) */
+lv_obj_t *ui_math_screen = NULL;
+lv_obj_t *ui_test_screen = NULL;
+
 /* DRAW screen pointer and state (normally owned by ui_draw.c) */
 lv_obj_t *ui_draw_screen = NULL;
 DrawMenuState_t draw_menu_state = {0, MODE_NORMAL};

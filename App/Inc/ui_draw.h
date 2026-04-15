@@ -43,4 +43,15 @@ void ui_update_draw_display(void);
 /** Token handler for MODE_DRAW_MENU.  Returns true to consume token. */
 bool handle_draw_menu(Token_t t);
 
+/**
+ * @brief Try to execute a DRAW command from the current expression buffer.
+ *
+ * Called from history_enter_evaluate() in calculator_core.c on TOKEN_ENTER.
+ * Returns true if the expression was a recognised DRAW command (Line(, PT-On(,
+ * PT-Off(, PT-Chg(, DrawF, Shade(, ClrDraw); the caller is responsible for
+ * showing "Done" and clearing the expression buffer.
+ * Returns false if not a DRAW command (caller falls through to Calc_Evaluate).
+ */
+bool try_execute_draw_command(void);
+
 #endif /* APP_UI_DRAW_H */

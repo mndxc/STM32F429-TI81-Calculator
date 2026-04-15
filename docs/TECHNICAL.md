@@ -23,6 +23,7 @@ App/                            ← Custom application code (never touched by Cu
     persist.c                   FLASH sector 10 erase/write/load for calculator state
     prgm_exec.c                 Program storage (FLASH sector 11 erase/write/load) and execution engine
     ui_input.c                  Normal-mode expression input handlers (extracted from calculator_core.c)
+    ui_math_menu.c              MATH/NUM/HYP/PRB and TEST menu UI — state, LVGL init, display, and token handlers (extracted module)
     ui_matrix.c                 Matrix cell editor UI (extracted module)
     ui_mode.c                   MODE settings screen — state, LVGL init, display, and token handler (extracted module)
     ui_stat.c                   STAT menu, DATA list editor, and results screen UI (extracted module)
@@ -45,6 +46,7 @@ App/                            ← Custom application code (never touched by Cu
     persist.h                   Persistent storage API
     prgm_exec.h                 Program storage/FLASH persistence and execution engine API
     ui_input.h                  Normal-mode input handler API (expr_insert_str, expr_delete_at_cursor, handle_normal_mode, handle_sto_pending)
+    ui_math_menu.h              MATH/TEST menu UI interface (screen pointers, open/close/handler protos)
     ui_matrix.h                 Matrix editor UI interface
     ui_mode.h                   MODE screen state and API (ModeScreenState_t, ui_mode_init, handle_mode_screen)
     ui_stat.h                   STAT menu UI interface (StatMenuState_t, handler protos)
