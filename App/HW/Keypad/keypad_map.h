@@ -168,6 +168,12 @@ typedef enum {
     TOKEN_PRGM_PROMPT,
     TOKEN_PRGM_CLRHOME,
 
+    /* Y= equation reference tokens — produced by the Y-VARS menu Y tab */
+    TOKEN_Y1,   /* Y₁ equation reference */
+    TOKEN_Y2,   /* Y₂ equation reference */
+    TOKEN_Y3,   /* Y₃ equation reference */
+    TOKEN_Y4,   /* Y₄ equation reference */
+
     TOKEN_MAX       /* Sentinel — useful for array sizing */
 
 } Token_t;

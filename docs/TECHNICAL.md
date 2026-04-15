@@ -28,6 +28,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_prgm.c                   Program menu and editor UI (extracted module)
     ui_draw.c                   DRAW menu UI and command dispatch (extracted module)
     ui_vars.c                   VARS menu UI — 5-tab (XY/Σ/LR/DIM/RNG) value-insert menu (extracted module)
+    ui_yvars.c                  Y-VARS menu UI — 3-tab (Y/ON/OFF) equation-reference insert and enable/disable menu (extracted module)
     ui_param_yeq.c              Parametric Y= editor screen (X₁t/Y₁t … X₃t/Y₃t; extracted module)
   Inc/
     app_init.h                  App_RTOS_Init() and App_DefaultTask_Run() declarations
@@ -46,6 +47,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_prgm.h                   Program menu UI interface
     ui_draw.h                   DRAW menu UI interface (DrawMenuState_t, handler protos)
     ui_vars.h                   VARS menu UI interface (VarsMenuState_t, handler protos)
+    ui_yvars.h                  Y-VARS menu UI interface (YVarsMenuState_t, handler protos)
     ui_param_yeq.h              Parametric Y= editor interface (param_yeq_init_screen, handler)
     ui_palette.h                Named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)
   Fonts/

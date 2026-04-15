@@ -203,6 +203,7 @@ extern lv_obj_t *ui_stat_edit_screen;
 extern lv_obj_t *ui_stat_results_screen;
 extern lv_obj_t *ui_draw_screen;
 extern lv_obj_t *ui_vars_screen;
+extern lv_obj_t *ui_yvars_screen;
 
 /* calc_internal.h function declarations (defined in calculator_core.c) */
 void Update_Calculator_Display(void);
@@ -290,6 +291,23 @@ extern VarsMenuState_t vars_menu_state;
 static inline void ui_init_vars_screen(void)        {}
 static inline void ui_update_vars_display(void)     {}
 static inline bool handle_vars_menu(Token_t t)
+    { (void)t; return false; }
+
+/*---------------------------------------------------------------------------
+ * ui_yvars.h replacement
+ *---------------------------------------------------------------------------*/
+
+typedef struct {
+    uint8_t    tab;
+    uint8_t    item_cursor;
+    CalcMode_t return_mode;
+} YVarsMenuState_t;
+
+extern YVarsMenuState_t yvars_menu_state;
+
+static inline void ui_init_yvars_screen(void)       {}
+static inline void ui_update_yvars_display(void)    {}
+static inline bool handle_yvars_menu(Token_t t)
     { (void)t; return false; }
 
 /*---------------------------------------------------------------------------

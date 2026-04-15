@@ -146,6 +146,22 @@ if(COVERAGE)
     target_link_options(test_stat PRIVATE --coverage)
 endif()
 
+# --- test_yvars ---
+# Y-VARS calc_engine integration: Calc_RegisterYEquations, Y₁–Y₄ tokenize/eval.
+# Pure engine test — no LVGL/HAL/RTOS dependencies.
+
+add_executable(test_yvars
+    test_yvars.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+)
+
+target_compile_options(test_yvars PRIVATE -Wall -Wextra)
+
+if(COVERAGE)
+    target_compile_options(test_yvars PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_yvars PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
@@ -155,3 +171,4 @@ add_test(NAME prgm_exec         COMMAND test_prgm_exec)
 add_test(NAME normal_mode       COMMAND test_normal_mode)
 add_test(NAME param             COMMAND test_param)
 add_test(NAME stat              COMMAND test_stat)
+add_test(NAME yvars             COMMAND test_yvars)

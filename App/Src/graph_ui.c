@@ -1165,6 +1165,10 @@ bool handle_yeq_mode(Token_t t)
         menu_open(TOKEN_VARS, MODE_GRAPH_YEQ);
         return true;
     }
+    if (t == TOKEN_Y_VARS) {
+        menu_open(TOKEN_Y_VARS, MODE_GRAPH_YEQ);
+        return true;
+    }
 
     if (handle_yeq_insertion(t)) {
         lvgl_lock();

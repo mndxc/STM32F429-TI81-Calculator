@@ -76,6 +76,7 @@ set(APP_SOURCES
     App/Src/ui_prgm.c
     App/Src/ui_draw.c
     App/Src/ui_vars.c
+    App/Src/ui_yvars.c
     App/Src/graph_ui.c
     App/Display/lv_port_disp.c
     App/Display/lv_port_indev.c

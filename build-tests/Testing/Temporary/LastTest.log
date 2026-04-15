@@ -1,10 +1,10 @@
-Start testing: Apr 03 14:55 PDT
+Start testing: Apr 15 12:25 PDT
 ----------------------------------------------------------
-1/7 Testing: calc_engine
-1/7 Test: calc_engine
+1/8 Testing: calc_engine
+1/8 Test: calc_engine
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_calc_engine"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"calc_engine" start time: Apr 03 14:55 PDT
+"calc_engine" start time: Apr 15 12:25 PDT
 Output:
 ----------------------------------------------------------
 === calc_engine test suite ===
@@ -34,18 +34,18 @@ Output:
 
 === Results: 169/169 passed ===
 <end of output>
-Test time =   0.10 sec
+Test time =   0.25 sec
 ----------------------------------------------------------
 Test Passed.
-"calc_engine" end time: Apr 03 14:55 PDT
+"calc_engine" end time: Apr 15 12:25 PDT
 "calc_engine" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-2/7 Testing: expr_util
-2/7 Test: expr_util
+2/8 Testing: expr_util
+2/8 Test: expr_util
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_expr_util"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"expr_util" start time: Apr 03 14:55 PDT
+"expr_util" start time: Apr 15 12:25 PDT
 Output:
 ----------------------------------------------------------
 Group 1: ExprUtil_Utf8CharSize
@@ -63,18 +63,18 @@ Group 12: Cursor round-trip
 
 Results: 96 passed, 0 failed
 <end of output>
-Test time =   0.03 sec
+Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"expr_util" end time: Apr 03 14:55 PDT
+"expr_util" end time: Apr 15 12:25 PDT
 "expr_util" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-3/7 Testing: persist_roundtrip
-3/7 Test: persist_roundtrip
+3/8 Testing: persist_roundtrip
+3/8 Test: persist_roundtrip
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_persist_roundtrip"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"persist_roundtrip" start time: Apr 03 14:55 PDT
+"persist_roundtrip" start time: Apr 15 12:25 PDT
 Output:
 ----------------------------------------------------------
 Group 1: Checksum stability
@@ -85,18 +85,18 @@ Group 5: Block size and alignment
 
 Results: 52 passed, 0 failed
 <end of output>
-Test time =   0.03 sec
+Test time =   0.22 sec
 ----------------------------------------------------------
 Test Passed.
-"persist_roundtrip" end time: Apr 03 14:55 PDT
+"persist_roundtrip" end time: Apr 15 12:25 PDT
 "persist_roundtrip" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-4/7 Testing: prgm_exec
-4/7 Test: prgm_exec
+4/8 Testing: prgm_exec
+4/8 Test: prgm_exec
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_prgm_exec"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"prgm_exec" start time: Apr 03 14:55 PDT
+"prgm_exec" start time: Apr 15 12:25 PDT
 Output:
 ----------------------------------------------------------
 === test_prgm_exec ===
@@ -117,18 +117,18 @@ Group 17: Nested subroutine 2 levels
 
 95 passed, 0 failed
 <end of output>
-Test time =   0.03 sec
+Test time =   0.22 sec
 ----------------------------------------------------------
 Test Passed.
-"prgm_exec" end time: Apr 03 14:55 PDT
+"prgm_exec" end time: Apr 15 12:25 PDT
 "prgm_exec" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-5/7 Testing: normal_mode
-5/7 Test: normal_mode
+5/8 Testing: normal_mode
+5/8 Test: normal_mode
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_normal_mode"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"normal_mode" start time: Apr 03 14:55 PDT
+"normal_mode" start time: Apr 15 12:25 PDT
 Output:
 ----------------------------------------------------------
 Group 1: handle_digit_key
@@ -144,18 +144,18 @@ Group 10: edge cases
 
 104 passed, 0 failed
 <end of output>
-Test time =   0.03 sec
+Test time =   0.32 sec
 ----------------------------------------------------------
 Test Passed.
-"normal_mode" end time: Apr 03 14:55 PDT
+"normal_mode" end time: Apr 15 12:25 PDT
 "normal_mode" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-6/7 Testing: param
-6/7 Test: param
+6/8 Testing: param
+6/8 Test: param
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_param"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"param" start time: Apr 03 14:55 PDT
+"param" start time: Apr 15 12:25 PDT
 Output:
 ----------------------------------------------------------
 [1]  Prepare parametric equation
@@ -167,21 +167,22 @@ Output:
 [7]  Degrees mode in parametric trig
 [8]  Constant expression in parametric prepare/eval
 [9]  Error propagation in parametric eval
+  FAIL [line 252]: sqrt(-1) → error at eval time
 
-Results: 28 passed, 0 failed
+Results: 27 passed, 1 failed
 <end of output>
-Test time =   0.03 sec
+Test time =   0.21 sec
 ----------------------------------------------------------
-Test Passed.
-"param" end time: Apr 03 14:55 PDT
+Test Failed.
+"param" end time: Apr 15 12:25 PDT
 "param" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-7/7 Testing: stat
-7/7 Test: stat
+7/8 Testing: stat
+7/8 Test: stat
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_stat"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"stat" start time: Apr 03 14:55 PDT
+"stat" start time: Apr 15 12:25 PDT
 Output:
 ----------------------------------------------------------
 === test_stat ===
@@ -200,11 +201,36 @@ test_clear
 
 39 passed, 0 failed
 <end of output>
-Test time =   0.03 sec
+Test time =   0.30 sec
 ----------------------------------------------------------
 Test Passed.
-"stat" end time: Apr 03 14:55 PDT
+"stat" end time: Apr 15 12:25 PDT
 "stat" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-End testing: Apr 03 14:55 PDT
+8/8 Testing: yvars
+8/8 Test: yvars
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_yvars"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"yvars" start time: Apr 15 12:25 PDT
+Output:
+----------------------------------------------------------
+=== test_yvars ===
+[1]  Y₁–Y₄ unregistered (no equations set) → 0
+[2]  Y₁=5 registered constant equation
+[3]  Y₁=X: evaluates at stored X variable
+[4]  Multiple equation slots
+[5]  Empty equation slot evaluates to 0
+[6]  Reentrancy guard: Y₁=Y₁ inner reference returns 0
+[7]  Y₁=sin(X) via EvaluateAt
+
+20 passed, 0 failed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"yvars" end time: Apr 15 12:25 PDT
+"yvars" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Apr 15 12:25 PDT

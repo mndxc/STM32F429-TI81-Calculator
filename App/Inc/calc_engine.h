@@ -87,6 +87,11 @@ typedef enum {
     MATH_OP_FACT,           /* !  — factorial (postfix unary) */
     MATH_OP_NPR,            /* nPr — permutations (binary) */
     MATH_OP_NCR,            /* nCr — combinations (binary) */
+    /* Y= equation references — evaluated at x_val when encountered in RPN */
+    MATH_VAR_Y1,   /* Y₁ — evaluates graph_state.equations[0] at x_val */
+    MATH_VAR_Y2,   /* Y₂ */
+    MATH_VAR_Y3,   /* Y₃ */
+    MATH_VAR_Y4,   /* Y₄ */
     /* Matrix value reference — value field holds matrix index (0=A, 1=B, 2=C, 3=ANS) */
     MATH_MATRIX_VAL,
     /* Matrix operations */
@@ -137,6 +142,19 @@ extern CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT];
 /*---------------------------------------------------------------------------
  * Function declarations
  *--------------------------------------------------------------------------*/
+
+/**
+ * @brief Registers the Y= equation string array so that Y₁–Y₄ references in
+ *        expressions can be evaluated recursively.
+ *
+ * Must be called once at startup, passing a pointer to
+ * graph_state.equations[][64].  In HOST_TEST builds the pointer can be NULL
+ * — references then evaluate to 0.
+ *
+ * @param eqs    Pointer to an array of GRAPH_NUM_EQ strings (each [64] bytes)
+ * @param count  Number of valid equation slots (must be <= GRAPH_NUM_EQ)
+ */
+void Calc_RegisterYEquations(const char (*eqs)[64], uint8_t count);
 
 /**
  * @brief Evaluates an infix expression string.

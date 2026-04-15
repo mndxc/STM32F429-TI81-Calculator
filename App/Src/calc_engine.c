@@ -35,10 +35,24 @@ CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT] = {
 /* Decimal display mode: 0=Float, 1=Fix0 … 10=Fix9 (mirrors MODE screen row 2) */
 static uint8_t calc_decimal_mode = 0;
 
+/* Registered Y= equation strings — set via Calc_RegisterYEquations().
+ * NULL until registered; Y₁–Y₄ tokens evaluate to 0.0 when NULL. */
+static const char (*s_yeq)[64] = NULL;
+static uint8_t s_yeq_count = 0;
+
+/* Reentrancy guard — prevents infinite recursion when a Y= equation
+ * references another Y= equation (or itself). */
+static int s_y_eval_depth = 0;
 
 void Calc_SetDecimalMode(uint8_t mode)
 {
     calc_decimal_mode = mode;
+}
+
+void Calc_RegisterYEquations(const char (*eqs)[64], uint8_t count)
+{
+    s_yeq       = eqs;
+    s_yeq_count = count;
 }
 
 /*---------------------------------------------------------------------------
@@ -336,6 +350,24 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
         return CALC_OK;
     }
 
+    /* Y₁–Y₄ equation references: "Y" + U+2081..U+2084 (E2 82 81..84).
+     * Must be checked before the single-char uppercase variable handler so
+     * 'Y' is not consumed alone. */
+    if ((*p)[0] == 'Y' &&
+        (unsigned char)(*p)[1] == 0xE2u &&
+        (unsigned char)(*p)[2] == 0x82u &&
+        (unsigned char)(*p)[3] >= 0x81u &&
+        (unsigned char)(*p)[3] <= 0x84u) {
+        uint8_t idx = (unsigned char)(*p)[3] - 0x81u;  /* 0=Y₁, 1=Y₂, 2=Y₃, 3=Y₄ */
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = (MathTokenType_t)(MATH_VAR_Y1 + idx);
+        out->tokens[out->count].value = (float)idx;
+        out->count++;
+        *p += 4;
+        *matched = true;
+        return CALC_OK;
+    }
+
     /* User variables A–Z (uppercase; skip X — handled above as graph var) */
     if (isupper((unsigned char)**p) && **p != 'X') {
         if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
@@ -468,11 +500,13 @@ static CalcError_t ImplicitMulPass(TokenList_t *list)
         MathTokenType_t cur  = list->tokens[i].type;
         MathTokenType_t next = list->tokens[i + 1].type;
 
+        bool cur_is_y  = (cur  >= MATH_VAR_Y1 && cur  <= MATH_VAR_Y4);
+        bool next_is_y = (next >= MATH_VAR_Y1 && next <= MATH_VAR_Y4);
         bool cur_is_value  = (cur  == MATH_NUMBER || cur  == MATH_VAR_X ||
-                              cur  == MATH_VAR_T  ||
+                              cur  == MATH_VAR_T  || cur_is_y ||
                               cur  == MATH_PAREN_RIGHT || cur  == MATH_MATRIX_VAL);
         bool next_is_factor = (next == MATH_NUMBER || next == MATH_VAR_X ||
-                               next == MATH_VAR_T  ||
+                               next == MATH_VAR_T  || next_is_y ||
                                next == MATH_PAREN_LEFT ||
                                next == MATH_MATRIX_VAL || is_function(next));
 
@@ -554,7 +588,8 @@ static CalcError_t ShuntingYard(const TokenList_t *in, TokenList_t *out)
         CalcError_t err;
 
         if (tok.type == MATH_NUMBER || tok.type == MATH_VAR_X ||
-            tok.type == MATH_VAR_T  || tok.type == MATH_MATRIX_VAL) {
+            tok.type == MATH_VAR_T  || tok.type == MATH_MATRIX_VAL ||
+            (tok.type >= MATH_VAR_Y1 && tok.type <= MATH_VAR_Y4)) {
             if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
             out->tokens[out->count++] = tok;
         }
@@ -1060,6 +1095,20 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, float x_val, float t_val
         }
         if (tt == MATH_VAR_T) {
             if (!rpn_push(stack, is_matrix, &top, t_val, false, &res)) return res;
+            continue;
+        }
+        if (tt >= MATH_VAR_Y1 && tt <= MATH_VAR_Y4) {
+            uint8_t idx = (uint8_t)(tt - MATH_VAR_Y1);
+            float y_val = 0.0f;
+            if (s_yeq != NULL && idx < s_yeq_count &&
+                s_yeq[idx][0] != '\0' && s_y_eval_depth == 0) {
+                s_y_eval_depth++;
+                CalcResult_t yr = Calc_EvaluateAt(s_yeq[idx], x_val, 0.0f, angle_degrees);
+                s_y_eval_depth--;
+                if (yr.error != CALC_OK) { res = yr; return res; }
+                y_val = yr.value;
+            }
+            if (!rpn_push(stack, is_matrix, &top, y_val, false, &res)) return res;
             continue;
         }
         if (tt == MATH_MATRIX_VAL) {

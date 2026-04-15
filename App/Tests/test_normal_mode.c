@@ -74,6 +74,10 @@ DrawMenuState_t draw_menu_state = {0, MODE_NORMAL};
 /* VARS screen pointer and state (normally owned by ui_vars.c) */
 lv_obj_t *ui_vars_screen = NULL;
 VarsMenuState_t vars_menu_state = {0, 0, 0, MODE_NORMAL};
+
+/* Y-VARS screen pointer and state (normally owned by ui_yvars.c) */
+lv_obj_t *ui_yvars_screen = NULL;
+YVarsMenuState_t yvars_menu_state = {0, 0, MODE_NORMAL};
 StatData_t    stat_data    = {0};
 StatResults_t stat_results = {0};
 
