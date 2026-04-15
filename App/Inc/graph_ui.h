@@ -1,9 +1,12 @@
 /**
  * @file    graph_ui.h
- * @brief   Graph screen UI handlers and helpers (Y=, RANGE, ZOOM, TRACE, ZBox).
+ * @brief   Graph screen UI handlers and helpers (Y=, ZOOM, TRACE, ZBox).
  *
  * Extracted from calculator_core.c following the same pattern as ui_matrix.h
  * and ui_prgm.h. Zero behavioral changes — purely a file organisation refactor.
+ *
+ * RANGE and ZOOM FACTORS screens are in graph_ui_range.h / graph_ui_range.c.
+ * Including this header also pulls in graph_ui_range.h via the include below.
  */
 
 #ifndef APP_GRAPH_UI_H
@@ -11,6 +14,7 @@
 
 #include "app_common.h"
 #include "ui_param_yeq.h"
+#include "graph_ui_range.h"
 #include "lvgl.h"
 #include <stdbool.h>
 
@@ -19,9 +23,7 @@
  * hide_all_screens() and menu_close() in calculator_core.c can reach them)
  *---------------------------------------------------------------------------*/
 extern lv_obj_t *ui_graph_yeq_screen;
-extern lv_obj_t *ui_graph_range_screen;
 extern lv_obj_t *ui_graph_zoom_screen;
-extern lv_obj_t *ui_graph_zoom_factors_screen;
 extern lv_obj_t *ui_param_yeq_screen;
 
 /*---------------------------------------------------------------------------
@@ -39,18 +41,6 @@ void yeq_reflow_rows(void);
 /** Reposition Y= cursor box over the insertion point. Called by cursor_timer_cb. */
 void yeq_cursor_update(void);
 
-/** Reposition RANGE cursor box over the active field. Called by cursor_timer_cb. */
-void range_cursor_update(void);
-
-/** Reposition ZOOM FACTORS cursor box. Called by cursor_timer_cb. */
-void zoom_factors_cursor_update(void);
-
-/** Redraw all RANGE field labels from graph_state. Called by StartCalcCoreTask after persist load. */
-void ui_update_range_display(void);
-
-/** Redraw ZOOM FACTORS labels from s_zf state. Called by StartCalcCoreTask after persist load. */
-void ui_update_zoom_factors_display(void);
-
 /** Redraw ZOOM item rows. Called by StartCalcCoreTask init. */
 void ui_update_zoom_display(void);
 
@@ -65,19 +55,15 @@ void graph_ui_yeq_insert(const char *ins);
 void graph_ui_sync_yeq_labels(void);
 
 /*---------------------------------------------------------------------------
- * Persist accessors — s_zf is private to graph_ui.c
+ * zoom_menu_reset — called from graph_ui_range.c (handle_range/zoom_factors_mode)
  *---------------------------------------------------------------------------*/
-float graph_ui_get_zoom_x_fact(void);
-float graph_ui_get_zoom_y_fact(void);
-void  graph_ui_set_zoom_facts(float x_fact, float y_fact);
+void zoom_menu_reset(void);
 
 /*---------------------------------------------------------------------------
  * Token handler functions (called from Execute_Token dispatcher)
  *---------------------------------------------------------------------------*/
 bool handle_yeq_mode(Token_t t);
-bool handle_range_mode(Token_t t);
 bool handle_zoom_mode(Token_t t);
-bool handle_zoom_factors_mode(Token_t t);
 bool handle_zbox_mode(Token_t t);
 bool handle_trace_mode(Token_t t);
 

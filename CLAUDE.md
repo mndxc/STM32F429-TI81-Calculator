@@ -33,7 +33,7 @@ Snapshot as of **2026-04-15**. Grading criteria (what causes each dimension to r
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1652 lines, graph_ui.c 1743 lines, calculator_core.c 1591 lines, graph.c 881 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) with CI including property-based invariant tests, handle_normal_mode coverage, parametric eval tests, and stat math tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1652 lines, graph_ui.c 1131 lines, calculator_core.c 1591 lines, graph.c 881 lines, graph_ui_range.c 718 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) with CI including property-based invariant tests, handle_normal_mode coverage, parametric eval tests, and stat math tests.
 
 ### Scorecard Change Log
 
@@ -103,7 +103,7 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 **18. (resolved)** — Font files already contained all required codepoints. Completed: Y= row labels now use Y₁–Y₄ (`graph_ui.c`); TOKEN_X_INV display-only mappings now use ⁻¹ U+E001 (`graph_ui.c`, `ui_prgm.c`). Expression buffer insertion of `^-1` kept as-is (Option B — intentional deviation, see Deliberate Deviations table). VARS/Y-VARS Unicode strings deferred to when those menus are implemented — font already has all needed codepoints. Needs hardware flash-verify (visual check at 20px and 24px). **Note for VARS/Y-VARS implementation:** use x̄ = U+E000 (`\xEE\x80\x80`), ȳ = U+0233, Σ = U+03A3, σ = U+03C3, ₁₂₃₄ = U+2081–2084, ⁻¹ = U+E001 (`\xEE\x80\x81`) directly in string literals — all codepoints are in both font files.
 
 
-**[complexity] P35 — Parametric graphing complexity follow-up (resolved)** — `ui_param_yeq.c` (325 lines) / `ui_param_yeq.h` (40 lines) extracted from `graph_ui.c`; graph_ui.c reduced 2026 → 1743 lines. Remaining graph_ui.c organisation debt tracked under ongoing code-organisation review.
+**[complexity] P35 — Parametric graphing complexity follow-up (resolved)** — `ui_param_yeq.c` (325 lines) / `ui_param_yeq.h` (40 lines) extracted from `graph_ui.c`; graph_ui.c reduced 2026 → 1743 → 1131 lines (second pass: `graph_ui_range.c` 718 lines extracted). Remaining graph_ui.c organisation debt tracked under ongoing code-organisation review.
 
 **[hardware] P35h — Parametric graphing hardware validation** — P34 implementation complete but never run on hardware. Pre-flight: firmware builds 0 errors, all host assertions pass. Validate: (1) MODE row 4 Param toggle changes Y= screen to X₁t/Y₁t layout; (2) equation entry with T key works in param Y=; (3) GRAPH renders a circle from `cos(T)`/`sin(T)` with Tmin=0, Tmax=6.28, Tstep=0.13; (4) RANGE shows 9 fields in param mode; (5) TRACE shows T=/X=/Y= readout; (6) persist survives power-off/on with param equations intact. Files: `App/Src/graph_ui.c`, `App/Src/graph.c`, `App/Src/calculator_core.c`.
 

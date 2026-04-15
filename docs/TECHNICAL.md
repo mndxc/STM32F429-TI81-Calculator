@@ -19,7 +19,8 @@ App/                            ← Custom application code (never touched by Cu
     expr_util.c                 Pure expression-buffer helpers (UTF-8, insert, delete, cursor)
     graph.c                     Graph canvas, axes, tick marks, curve renderer, STAT plot renderers
     graph_draw.c                Draw layer — persistent user-drawn overlay (DRAW menu; SDRAM 0xD0080800)
-    graph_ui.c                  Graph screen UI and handlers (Y=, RANGE, ZOOM, TRACE, ZBox)
+    graph_ui.c                  Graph screen UI and handlers (Y=, ZOOM, TRACE, ZBox)
+    graph_ui_range.c            RANGE field editor and ZOOM FACTORS editor screens (extracted from graph_ui.c)
     persist.c                   FLASH sector 10 erase/write/load for calculator state
     prgm_exec.c                 Program storage (FLASH sector 11 erase/write/load) and execution engine
     ui_input.c                  Normal-mode expression input handlers (extracted from calculator_core.c)
@@ -42,7 +43,8 @@ App/                            ← Custom application code (never touched by Cu
     expr_util.h                 Expression buffer utility API
     graph.h                     Graphing subsystem interface (Y= renderer, trace, ZBox, stat plots)
     graph_draw.h                Draw layer API (Graph_DrawLayer*, Graph_DrawF, Graph_Shade, Graph_ApplyDrawLayer)
-    graph_ui.h                  Graph screen UI interface (re-exports ui_param_yeq.h)
+    graph_ui.h                  Graph screen UI interface (includes graph_ui_range.h and ui_param_yeq.h)
+    graph_ui_range.h            RANGE and ZOOM FACTORS screen API (screen pointers, nav entry points, handlers)
     persist.h                   Persistent storage API
     prgm_exec.h                 Program storage/FLASH persistence and execution engine API
     ui_input.h                  Normal-mode input handler API (expr_insert_str, expr_delete_at_cursor, handle_normal_mode, handle_sto_pending)
