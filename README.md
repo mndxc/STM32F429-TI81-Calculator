@@ -27,11 +27,21 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 ## Status
 
-**PRGM is feature-complete and host-tested (hardware validation pending):** The text interpreter implements the TI-81 PRGM spec — `If` (single-line), `Goto/Lbl`, `IS>(`, `DS<(`, `Pause`, `Stop`, subroutine calls (depth 4), `Disp`, `Input`, `ClrHome`, `DispHome`, `DispGraph`, assignment, and expression lines. Execution model: entering `prgmNAME` runs the program and displays `Done`. Programs persist in FLASH. A 95-test host suite (`test_prgm_exec`) validates all active command handlers and control-flow paths. Hardware validation (P10) is the only remaining gate.
+The core calculator experience is complete and daily-usable on the STM32F429I-DISC1 development board. A custom PCB to replace the original TI-81 internals while keeping the original shell is in progress.
 
-MATRIX is ~95% complete: variable dimensions (1–6×6), full arithmetic (+, −, ×, scalar×matrix), det, transpose, all row operations, scrolling cell editor with dim-mode resizing, FLASH persistence, and column-aligned history display with horizontal scroll.
+**Working today:**
+- Arithmetic, expression evaluation, operator precedence, parentheses, history recall
+- A–Z variables, Ans; full MATH / TRIG / ANGLE / TEST function menus
+- Function graphing (Y₁–Y₄), parametric mode, TRACE, ZOOM, RANGE, DRAW overlay
+- Matrix operations — 3 matrices up to 6×6; arithmetic, det, transpose, row operations
+- Statistics — 1-Var, four regression models, scatter / XYLine / histogram plots
+- PRGM editor and executor — `If`, `Goto/Lbl`, loops, `Disp`, `Input`, subroutines; programs persist across power-off
+- VARS / Y-VARS menus; all results persist in FLASH
 
-STAT is ~95% complete: 1-Var statistics (n, x̄, Σx, Σx², Sx, σx), LinReg/LnReg/ExpReg/PwrReg with Pearson r (results stored in variables A/B), a scrolling DATA list editor (up to 99 x/y pairs), Scatter/XYLine/Histogram graph renderers, FLASH persistence (PersistBlock_t v6), and a 39-test host suite. Hardware validation (P30h) is the only remaining gate.
+**Still in progress:**
+- Sci / Eng notation and remaining MODE screen options
+- Startup splash screen
+- Custom PCB (drop-in replacement for original TI-81 internals)
 
 ---
 
@@ -63,84 +73,6 @@ All host tests pass on plain x86/ARM Linux and macOS with any standard C compile
 | Understand display stability and power-off behaviour | [docs/DISPLAY_STABILITY.md](docs/DISPLAY_STABILITY.md) |
 | Understand power management and Stop mode | [docs/POWER_MANAGEMENT.md](docs/POWER_MANAGEMENT.md) |
 | Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
-
-### Documentation map
-
-```mermaid
-flowchart TD
-    README["📖 README.md\nProject overview & nav hub"]
-    CLAUDE["🤖 AI Dev Context\nCLAUDE.md · session state,\nfeature backlog & gotchas\nused by Claude Code only"]
-
-    subgraph onboard["🚀 Getting Started"]
-        CONTRIBUTING["CONTRIBUTING.md\nHow to contribute"]
-        COC["CODE_OF_CONDUCT.md\nCommunity standards"]
-        GETTING["GETTING_STARTED.md\nBuild · wire · flash"]
-    end
-
-    subgraph tech["🏗️ Technical Reference"]
-        ARCH["ARCHITECTURE.md\nSystem design & diagrams"]
-        TECHNICAL["TECHNICAL.md\nFull implementation reference"]
-        MENU["MENU_SPECS.md\nAll menu layouts & nav rules"]
-        POWER["POWER_MANAGEMENT.md\nStop mode sleep/wake spec"]
-        DISPLAY["DISPLAY_STABILITY.md\nPixel clock & display config"]
-    end
-
-    subgraph process["📏 Process & History"]
-        MAINT["MAINTENANCE_STANDARDS.md\nQuality gates & update rules"]
-        HISTORY["PROJECT_HISTORY.md\nSession log & milestones"]
-    end
-
-    subgraph testing["🧪 Testing & Debugging"]
-        TESTING["TESTING.md\nHost + hardware test strategy"]
-        PRGM_MANUAL["prgm_manual_tests.md\nPRGM 50-test hardware plan"]
-        TROUBLESHOOT["TROUBLESHOOTING.md\nCommon issues & fixes"]
-    end
-
-    subgraph features["📝 Feature Docs"]
-        PRGM_CMD["PRGM_COMMANDS.md\nPRGM command reference"]
-    end
-
-    README --> CONTRIBUTING
-    README --> GETTING
-    README --> ARCH
-    README --> TECHNICAL
-    README --> MAINT
-    README --> TESTING
-    README --> TROUBLESHOOT
-    README --> MENU
-    README --> POWER
-
-    CLAUDE --> MAINT
-    CLAUDE --> HISTORY
-
-    CONTRIBUTING --> COC
-    CONTRIBUTING --> GETTING
-    CONTRIBUTING --> ARCH
-    CONTRIBUTING --> MAINT
-    CONTRIBUTING --> TECHNICAL
-
-    ARCH --> TECHNICAL
-
-    MAINT --> HISTORY
-
-    TESTING --> TECHNICAL
-    TESTING --> PRGM_MANUAL
-    TROUBLESHOOT --> TECHNICAL
-    TROUBLESHOOT --> GETTING
-```
-
-> `CLAUDE.md` is read automatically by Claude Code at session start. Human contributors can ignore it — everything a contributor needs is linked from the table above and from `CONTRIBUTING.md`.
-
-### Datasheets
-
-| File | Component |
-|---|---|
-| [TI81Guidebook.pdf](docs/Datasheets/TI81Guidebook.pdf) | TI-81 user manual — calculator behaviour, key layout, PRGM syntax (pages 133–150) |
-| [RT9471Charger.pdf](docs/Datasheets/RT9471Charger.pdf) | Richtek RT9471 — LiPo charger with power-path management |
-| [W25Q128JVSIQFlashMem.pdf](docs/Datasheets/W25Q128JVSIQFlashMem.pdf) | Winbond W25Q128JV — 16MB SPI NOR flash for firmware XIP + user data |
-| [RT4812Boost.pdf](docs/Datasheets/RT4812Boost.pdf) | Richtek RT4812 — 5V boost (DNF Rev1; reserved for Rev2 with RPi Zero 2 W) |
-| [RT8059Buck.pdf](docs/Datasheets/RT8059Buck.pdf) | Richtek RT8059 — 3.3V main buck |
-| [TPD4E05U06DQARDiode.pdf](docs/Datasheets/TPD4E05U06DQARDiode.pdf) | TI TPD4E05U06DQAR — USB ESD protection |
 
 ---
 
