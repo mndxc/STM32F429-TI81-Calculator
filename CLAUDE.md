@@ -18,7 +18,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-04-04**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-15**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -33,7 +33,7 @@ Snapshot as of **2026-04-04**. Grading criteria (what causes each dimension to r
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (graph_ui.c 1743 lines, calculator_core.c 2502 lines, graph.c 881 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) with CI including property-based invariant tests, handle_normal_mode coverage, parametric eval tests, and stat math tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1652 lines, graph_ui.c 1743 lines, calculator_core.c 2131 lines, graph.c 881 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) with CI including property-based invariant tests, handle_normal_mode coverage, parametric eval tests, and stat math tests.
 
 ### Scorecard Change Log
 

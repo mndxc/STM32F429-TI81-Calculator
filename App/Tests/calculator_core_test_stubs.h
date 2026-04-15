@@ -186,7 +186,7 @@ extern uint8_t cursor_pos;
 
 extern GraphState_t graph_state;
 
-/* LVGL screen pointers — ui_mode_screen defined in calculator_core.c;
+/* LVGL screen pointers — ui_mode_screen defined in ui_mode.c (HOST_TEST block);
  * the rest are stub-defined in test_normal_mode.c */
 extern lv_obj_t *ui_mode_screen;
 extern lv_obj_t *ui_matrix_screen;
@@ -205,15 +205,16 @@ extern lv_obj_t *ui_draw_screen;
 extern lv_obj_t *ui_vars_screen;
 extern lv_obj_t *ui_yvars_screen;
 
-/* calc_internal.h function declarations (defined in calculator_core.c) */
+/* calc_internal.h function declarations (defined in calculator_core.c or
+ * the ui_* sub-module that owns each function) */
 void Update_Calculator_Display(void);
 void ui_update_status_bar(void);
 void ui_update_history(void);
 void ui_refresh_display(void);
 void ui_output_row(uint8_t row_1based, const char *text);
-void expr_delete_at_cursor(void);
 void format_calc_result(const CalcResult_t *r, char *buf, int buf_size, float *ans_ptr);
-void handle_normal_mode(Token_t t);
+void handle_history_nav(Token_t t);        /* defined in calculator_core.c */
+void reset_matrix_scroll_focus(void);      /* defined in calculator_core.c */
 void lvgl_lock(void);
 void lvgl_unlock(void);
 void hide_all_screens(void);
@@ -418,6 +419,17 @@ static inline bool handle_zoom_mode(Token_t t)         { (void)t; return false; 
 static inline bool handle_zoom_factors_mode(Token_t t) { (void)t; return false; }
 static inline bool handle_zbox_mode(Token_t t)         { (void)t; return false; }
 static inline bool handle_trace_mode(Token_t t)        { (void)t; return false; }
+
+/*---------------------------------------------------------------------------
+ * ui_mode.h replacement
+ * The LVGL-dependent functions are guarded by #ifndef HOST_TEST in ui_mode.h.
+ * Provide inline stubs here so ui_input.c (TOKEN_MODE case) compiles cleanly.
+ *---------------------------------------------------------------------------*/
+
+static inline void ui_mode_init(void)            {}
+static inline void ui_mode_open(void)            { current_mode = MODE_MODE_SCREEN; }
+static inline void ui_update_mode_display(void)  {}
+static inline bool handle_mode_screen(Token_t t) { (void)t; return false; }
 
 /*---------------------------------------------------------------------------
  * graph.h replacement

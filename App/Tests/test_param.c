@@ -246,10 +246,12 @@ static void test_error_propagation(void)
     printf("[9]  Error propagation in parametric eval\n");
     GraphEquation_t eq;
 
-    /* sqrt of a negative T value at runtime */
-    Calc_PrepareParamEquation("sqrt(T)", 0.0f, &eq);
+    /* sqrt of a negative T value at runtime.
+     * Use the Unicode √ glyph (\xE2\x88\x9A) — the tokenizer maps this to
+     * MATH_FUNC_SQRT; the ASCII string "sqrt" is not in the function table. */
+    Calc_PrepareParamEquation("\xE2\x88\x9A(T)", 0.0f, &eq);
     CalcResult_t r = Calc_EvalParamEquation(&eq, -1.0f, false);
-    CHECK(r.error != CALC_OK, "sqrt(-1) → error at eval time");
+    CHECK(r.error != CALC_OK, "sqrt(-1) \xe2\x86\x92 error at eval time");
 
     /* Division by zero via T */
     Calc_PrepareParamEquation("1/T", 0.0f, &eq);

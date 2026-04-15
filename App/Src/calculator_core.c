@@ -20,6 +20,8 @@
 #  include "prgm_exec.h"
 #  include "expr_util.h"
 #  include "ui_palette.h"
+#  include "ui_mode.h"
+#  include "ui_input.h"
 #  include "calculator_core_test_stubs.h"
 #else
 #  include "app_common.h"
@@ -30,6 +32,8 @@
 #  include "persist.h"
 #  include "prgm_exec.h"
 #  include "calc_internal.h"
+#  include "ui_mode.h"
+#  include "ui_input.h"
 #  include "ui_matrix.h"
 #  include "ui_prgm.h"
 #  include "ui_stat.h"
@@ -53,8 +57,6 @@
  *---------------------------------------------------------------------------*/
 
 /* Scrollable menu geometry */
-#define MODE_ROW_COUNT      8           /* Rows in the MODE screen */
-#define MODE_MAX_COLS       11          /* Max options per MODE row (row 1 has 11) */
 #define MATH_TAB_COUNT      4           /* MATH menu tabs: MATH NUM HYP PRB */
 #define TEST_ITEM_COUNT     6           /* TEST menu items: = ≠ > ≥ < ≤ */
 
@@ -97,13 +99,6 @@ typedef struct {
     CalcMode_t return_mode;
 } TestMenuState_t;
 
-typedef struct {
-    uint8_t  row_selected;
-    uint8_t  cursor[MODE_ROW_COUNT];    /* Arrow-key highlight per row */
-    uint8_t  committed[MODE_ROW_COUNT]; /* Committed selection per row (persisted) */
-} ModeScreenState_t;
-
-
 /*---------------------------------------------------------------------------
  * Private variables
  *---------------------------------------------------------------------------*/
@@ -132,17 +127,13 @@ bool         angle_degrees          = true;
 
 float ans = 0.0f;
 bool         ans_is_matrix  = false; /* true when ans holds a matrix slot index */
-#ifdef HOST_TEST
-bool                sto_pending    = false;  /* non-static so tests can read it */
-#else
-static bool         sto_pending    = false;  /* True after STO — next alpha stores ans */
-#endif
+bool                sto_pending    = false;  /* True after STO — next alpha stores ans */
 
 HistoryEntry_t history[HISTORY_LINE_COUNT];
 uint8_t        history_count = 0;
 int8_t         history_recall_offset = 0; /* 0=not recalling; N=Nth-most-recent entry */
-static int8_t  matrix_scroll_focus  = -1;   /* history slot index with scroll focus; -1=none */
-static uint8_t matrix_scroll_offset = 0;    /* horizontal character scroll offset */
+int8_t         matrix_scroll_focus  = -1;   /* history slot with scroll focus; -1=none */
+uint8_t        matrix_scroll_offset = 0;    /* horizontal character scroll offset */
 
 /* Matrix history ring buffer — stores CalcMatrix_t for the last MATRIX_RING_COUNT results */
 static CalcMatrix_t matrix_ring[MATRIX_RING_COUNT];
@@ -165,40 +156,6 @@ GraphState_t graph_state = {
     .t_step   =   0.1309f,   /* π/24 */
     .param_mode = false,
 };
-
-/* MODE screen state */
-lv_obj_t *ui_mode_screen = NULL;
-/* Row 2 starts at 1 = Degree to match angle_degrees=true default */
-static ModeScreenState_t s_mode = {
-    .row_selected = 0,
-    .cursor    = {0, 0, 1, 0, 0, 0, 0, 0},
-    .committed = {0, 0, 1, 0, 0, 0, 0, 0},
-};
-
-/* MODE screen option strings and positions */
-static const char * const mode_options[MODE_ROW_COUNT][MODE_MAX_COLS] = {
-    {"Normal", "Sci", "Eng", NULL},
-    {"Float", "0","1","2","3","4","5","6","7","8","9"},
-    {"Radian", "Degree", NULL},
-    {"Func",   "Param",  NULL},
-    {"Connected", "Dot", NULL},
-    {"Sequential","Simul",NULL},
-    {"Grid off","Grid on",NULL},
-    {"Polar",  "Seq",    NULL},
-};
-static const uint8_t mode_option_count[MODE_ROW_COUNT] = {3, 11, 2, 2, 2, 2, 2, 2};
-/* x-pixel start position for each option within its row */
-static const int16_t mode_option_x[MODE_ROW_COUNT][MODE_MAX_COLS] = {
-    {4, 112, 215, 0, 0, 0, 0, 0, 0, 0, 0},
-    {4, 80, 104, 128, 152, 176, 200, 224, 248, 272, 296},
-    {4, 165, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {4, 165, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {4, 165, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {4, 200, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {4, 165, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {4, 165, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-};
-static lv_obj_t *mode_option_labels[MODE_ROW_COUNT][MODE_MAX_COLS];
 
 /* MATH menu state */
 static lv_obj_t *ui_math_screen = NULL;
@@ -275,28 +232,19 @@ static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
  * Forward declarations for display helpers defined later in this file
  *---------------------------------------------------------------------------*/
 
-static void ui_update_mode_display(void);
 static void ui_update_math_display(void);
 static void ui_update_test_display(void);
 
 /* Per-mode token handler forward declarations */
-static bool handle_mode_screen(Token_t t, ModeScreenState_t *s);
 static bool handle_math_menu(Token_t t, MathMenuState_t *s);
 static bool handle_test_menu(Token_t t, TestMenuState_t *s);
 static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret_mode, uint8_t *cursor, uint8_t *scroll);
-static bool handle_sto_pending(Token_t t);
 
-/* handle_normal_mode sub-handlers */
-static void handle_digit_key(Token_t t);
-static void handle_arithmetic_op(Token_t t);
-static void handle_history_nav(Token_t t);
-static void handle_function_insert(Token_t t);
+/* Private sub-handlers that remain here (use private statics) */
 static void history_load_offset(uint8_t offset);
 static void history_enter_evaluate(void);
-static void handle_clear_key(void);
-static void handle_mode_key(void);
-static void handle_sto_key(void);
-static void handle_normal_graph_nav(Token_t t);
+void        handle_history_nav(Token_t t);  /* non-static: called from ui_input.c */
+void        reset_matrix_scroll_focus(void); /* clears scroll focus statics; called from ui_input.c */
 
 /*---------------------------------------------------------------------------
  * Persistent storage helpers
@@ -535,27 +483,6 @@ lv_obj_t *screen_create(lv_obj_t *parent)
     lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(scr, LV_OBJ_FLAG_HIDDEN);
     return scr;
-}
-
-/* Creates the MODE settings screen (hidden at startup). */
-static void ui_init_mode_screen(void)
-{
-    lv_obj_t *scr = lv_scr_act();
-    ui_mode_screen = screen_create(scr);
-
-    memset(mode_option_labels, 0, sizeof(mode_option_labels));
-
-    for (int r = 0; r < MODE_ROW_COUNT; r++) {
-        int n = mode_option_count[r];
-        for (int c = 0; c < n; c++) {
-            lv_obj_t *lbl = lv_label_create(ui_mode_screen);
-            lv_obj_set_pos(lbl, mode_option_x[r][c], r * 30);
-            lv_obj_set_style_text_font(lbl, &jetbrains_mono_24, 0);
-            lv_obj_set_style_text_color(lbl, lv_color_hex(COLOR_GREY_INACTIVE), 0);
-            lv_label_set_text(lbl, mode_options[r][c]);
-            mode_option_labels[r][c] = lbl;
-        }
-    }
 }
 
 /* Creates the MATH/NUM/HYP/PRB menu screen (hidden at startup). */
@@ -1097,45 +1024,8 @@ void Update_Calculator_Display(void)
     lvgl_unlock();
 }
 
-/**
- * @brief If the expression is empty, prepend "ANS" and set cursor_pos to 3.
- *
- * Mirrors TI-81 behaviour where pressing a binary operator on a fresh line
- * automatically inserts ANS as the left-hand operand.  cursor_pos is also
- * advanced so subsequent insertions append after "ANS" rather than before it.
- */
-static void expr_prepend_ans_if_empty(void)
-{
-    ExprUtil_PrependAns(expression, &expr_len, &cursor_pos, MAX_EXPR_LEN);
-}
-
-/**
- * @brief Inserts or overwrites a single character at cursor_pos.
- *
- * In overwrite mode (insert_mode == false) and cursor is not at the end of
- * the expression, the character at cursor_pos is replaced and the cursor
- * advances.  In insert mode, or when at the end, characters shift right.
- */
-static void expr_insert_char(char c)
-{
-    ExprUtil_InsertChar(expression, &expr_len, &cursor_pos, MAX_EXPR_LEN, insert_mode, c);
-}
-
-/**
- * @brief Inserts a string at cursor_pos and advances the cursor by its length.
- */
-static void expr_insert_str(const char *s)
-{
-    ExprUtil_InsertStr(expression, &expr_len, &cursor_pos, MAX_EXPR_LEN, s);
-}
-
-/**
- * @brief Deletes the character immediately before cursor_pos (backspace).
- */
-void expr_delete_at_cursor(void)
-{
-    ExprUtil_DeleteAtCursor(expression, &expr_len, &cursor_pos);
-}
+/* expr_prepend_ans_if_empty, expr_insert_char, expr_insert_str,
+ * expr_delete_at_cursor moved to ui_input.c; declared in ui_input.h. */
 
 /**
  * @brief Refreshes the display after history changes.
@@ -1155,31 +1045,6 @@ void ui_output_row(uint8_t row_1based, const char *text)
     lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_WHITE), 0);
     lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
     lv_label_set_text(disp_rows[row], text);
-}
-
-/*---------------------------------------------------------------------------
- * MODE screen display helper
- *---------------------------------------------------------------------------*/
-
-/* Redraws all MODE screen option labels with correct highlight colours.
- * Must be called under lvgl_lock(). */
-static void ui_update_mode_display(void)
-{
-    for (int r = 0; r < MODE_ROW_COUNT; r++) {
-        int n = mode_option_count[r];
-        for (int c = 0; c < n; c++) {
-            lv_obj_t *lbl = mode_option_labels[r][c];
-            if (lbl == NULL) continue;
-            lv_color_t col;
-            if (r == s_mode.row_selected && c == (int)s_mode.cursor[r])
-                col = lv_color_hex(COLOR_YELLOW);
-            else if (c == (int)s_mode.committed[r])
-                col = lv_color_hex(COLOR_WHITE);   /* white — committed */
-            else
-                col = lv_color_hex(COLOR_GREY_INACTIVE);   /* dim — not selected */
-            lv_obj_set_style_text_color(lbl, col, 0);
-        }
-    }
 }
 
 /*---------------------------------------------------------------------------
@@ -1508,57 +1373,7 @@ void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
  * return), false if execution should fall through to the next handler.
  *---------------------------------------------------------------------------*/
 
-static bool handle_mode_screen(Token_t t, ModeScreenState_t *s)
-{
-    switch (t) {
-    case TOKEN_UP:
-        if (s->row_selected > 0) s->row_selected--;
-        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        if (s->row_selected < MODE_ROW_COUNT - 1) s->row_selected++;
-        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-        return true;
-    case TOKEN_LEFT:
-        if (s->cursor[s->row_selected] > 0)
-            s->cursor[s->row_selected]--;
-        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-        return true;
-    case TOKEN_RIGHT:
-        if (s->cursor[s->row_selected] < mode_option_count[s->row_selected] - 1)
-            s->cursor[s->row_selected]++;
-        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-        return true;
-    case TOKEN_ENTER:
-        s->committed[s->row_selected] = s->cursor[s->row_selected];
-        if (s->row_selected == 1)
-            Calc_SetDecimalMode(s->committed[1]);
-        if (s->row_selected == 2)
-            angle_degrees = (s->committed[2] == 1);
-        if (s->row_selected == 4) {
-            graph_state.param_mode = (s->committed[4] == 1);
-            Graph_InvalidateCache();
-        }
-        if (s->row_selected == 6)
-            graph_state.grid_on = (s->committed[6] == 1);
-        lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
-        return true;
-    case TOKEN_CLEAR:
-    case TOKEN_MODE:
-        current_mode = MODE_NORMAL;
-        lvgl_lock();
-        lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
-        lvgl_unlock();
-        return true;
-    default:
-        /* Any other key exits MODE screen and is processed normally */
-        current_mode = MODE_NORMAL;
-        lvgl_lock();
-        lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
-        lvgl_unlock();
-        return false; /* fall through to main switch */
-    }
-}
+/* handle_mode_screen() moved to ui_mode.c; declared in ui_mode.h. */
 
 /* Shared nav-key handler for menus that can jump to graph screens.
  * Resets ret_mode and cursor (and scroll if non-NULL) then calls nav_to().
@@ -1683,94 +1498,7 @@ static bool handle_test_menu(Token_t t, TestMenuState_t *s)
     return true;
 }
 
-static bool handle_sto_pending(Token_t t)
-{
-    if (t >= TOKEN_A && t <= TOKEN_Z) {
-        sto_pending = false;
-        static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        uint8_t var_idx = t - TOKEN_A;
-
-        CalcResult_t result = Calc_Evaluate(expression, ans, ans_is_matrix, angle_degrees);
-
-        char result_str[MAX_RESULT_LEN];
-        char expr_hist[MAX_EXPR_LEN + 4];  /* expression + "->A\0" */
-        snprintf(expr_hist, sizeof(expr_hist), "%s->%c", expression, var_names[var_idx]);
-
-        if (result.error != CALC_OK) {
-            strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
-            result_str[MAX_RESULT_LEN - 1] = '\0';
-        } else if (result.has_matrix) {
-            strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
-            result_str[MAX_RESULT_LEN - 1] = '\0';
-        } else {
-            calc_variables[var_idx] = result.value;
-            ans = result.value;
-            ans_is_matrix = false;
-            Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
-        }
-
-        uint8_t idx = history_count % HISTORY_LINE_COUNT;
-        strncpy(history[idx].expression, expr_hist, MAX_EXPR_LEN - 1);
-        history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
-        strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
-        history[idx].result[MAX_RESULT_LEN - 1] = '\0';
-        history[idx].has_matrix = false;
-        matrix_scroll_focus  = -1;
-        matrix_scroll_offset = 0;
-        history_count++;
-
-        expr_len              = 0;
-        cursor_pos            = 0;
-        expression[0]         = '\0';
-        history_recall_offset = 0;
-
-        lvgl_lock();
-        ui_update_history();
-        ui_update_status_bar();
-        lvgl_unlock();
-        return true;
-    } else if (t == TOKEN_CLEAR || t == TOKEN_2ND || t == TOKEN_ALPHA) {
-        sto_pending = false;
-        lvgl_lock();
-        ui_update_status_bar();
-        lvgl_unlock();
-        return true;
-    }
-    /* Any other key cancels STO silently and falls through */
-    sto_pending = false;
-    lvgl_lock();
-    ui_update_status_bar();
-    lvgl_unlock();
-    return false;
-}
-
-static void handle_digit_key(Token_t t)
-{
-    if (t == TOKEN_DECIMAL) {
-        expr_insert_char('.');
-    } else {
-        expr_insert_char((char)((t - TOKEN_0) + '0'));
-    }
-    Update_Calculator_Display();
-}
-
-static void handle_arithmetic_op(Token_t t)
-{
-    switch (t) {
-    case TOKEN_ADD:    expr_prepend_ans_if_empty(); expr_insert_char('+');      break;
-    case TOKEN_SUB:    expr_prepend_ans_if_empty(); expr_insert_char('-');      break;
-    case TOKEN_MULT:   expr_prepend_ans_if_empty(); expr_insert_char('*');      break;
-    case TOKEN_DIV:    expr_prepend_ans_if_empty(); expr_insert_char('/');      break;
-    case TOKEN_SQUARE: expr_prepend_ans_if_empty(); expr_insert_str("^2");      break;
-    case TOKEN_X_INV:  expr_prepend_ans_if_empty(); expr_insert_str("^-1");     break;
-    case TOKEN_POWER:  expr_prepend_ans_if_empty(); expr_insert_char('^');      break;
-    case TOKEN_L_PAR:  expr_insert_char('(');                                   break;
-    case TOKEN_R_PAR:  expr_insert_char(')');                                   break;
-    case TOKEN_NEG:    expr_insert_char('-');                                   break;
-    default: break;
-    }
-    Update_Calculator_Display();
-}
+/* handle_sto_pending, handle_digit_key, handle_arithmetic_op moved to ui_input.c. */
 
 /**
  * @brief Write a completed evaluation into the next history slot and refresh the display.
@@ -1812,6 +1540,15 @@ static void commit_history_entry(const char *expr, const char *result_str,
     lvgl_lock();
     ui_update_history();
     lvgl_unlock();
+}
+
+/**
+ * @brief Resets the matrix history scroll state (called from ui_input.c after STO).
+ */
+void reset_matrix_scroll_focus(void)
+{
+    matrix_scroll_focus  = -1;
+    matrix_scroll_offset = 0;
 }
 
 /* Load a history entry at the given scroll offset into the expression buffer. */
@@ -2025,7 +1762,7 @@ static void history_enter_evaluate(void)
     history_recall_offset = 0;
 }
 
-static void handle_history_nav(Token_t t)
+void handle_history_nav(Token_t t)
 {
     switch (t) {
 
@@ -2107,157 +1844,8 @@ static void handle_history_nav(Token_t t)
     }
 }
 
-static void handle_function_insert(Token_t t)
-{
-    switch (t) {
-    case TOKEN_MTRX_A: expr_insert_str("[A]"); break;
-    case TOKEN_MTRX_B: expr_insert_str("[B]"); break;
-    case TOKEN_MTRX_C: expr_insert_str("[C]"); break;
-
-    case TOKEN_SIN:   expr_insert_str("sin(");  break;
-    case TOKEN_COS:   expr_insert_str("cos(");  break;
-    case TOKEN_TAN:   expr_insert_str("tan(");  break;
-    case TOKEN_ASIN:  expr_insert_str("sin\xEE\x80\x81("); break;   /* sin⁻¹( */
-    case TOKEN_ACOS:  expr_insert_str("cos\xEE\x80\x81("); break;   /* cos⁻¹( */
-    case TOKEN_ATAN:  expr_insert_str("tan\xEE\x80\x81("); break;   /* tan⁻¹( */
-    case TOKEN_ABS:   expr_insert_str("abs(");  break;
-    case TOKEN_LN:    expr_insert_str("ln(");   break;
-    case TOKEN_LOG:   expr_insert_str("log(");  break;
-    case TOKEN_SQRT:  expr_insert_str("\xE2\x88\x9A("); break;
-    case TOKEN_EE:    expr_insert_str("*10^");  break;
-    case TOKEN_E_X:   expr_insert_str("exp(");  break;
-    case TOKEN_TEN_X: expr_insert_str("10^(");  break;
-    case TOKEN_PI:    expr_insert_str("π");     break;
-    case TOKEN_ANS:   expr_insert_str("ANS");   break;
-    case TOKEN_THETA: expr_insert_str("θ");     break;
-    case TOKEN_SPACE: expr_insert_char(' ');    break;
-    case TOKEN_COMMA: expr_insert_char(',');    break;
-    case TOKEN_QUOTES: expr_insert_char('"');   break;
-    case TOKEN_QSTN_M: expr_insert_char('?');   break;
-
-    case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
-    case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
-    case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
-    case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
-    case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
-    case TOKEN_Z: {
-        static const char alpha_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        char ch[2] = { alpha_chars[t - TOKEN_A], '\0' };
-        expr_insert_str(ch);
-        break;
-    }
-
-    default: break;
-    }
-    Update_Calculator_Display();
-}
-
-static void handle_clear_key(void)
-{
-    if (graph_state.active) {
-        lvgl_lock();
-        Graph_SetVisible(false);
-        lvgl_unlock();
-        return;
-    }
-    expr_len      = 0;
-    cursor_pos    = 0;
-    expression[0] = '\0';
-    Update_Calculator_Display();
-}
-
-static void handle_mode_key(void)
-{
-    memcpy(s_mode.cursor, s_mode.committed, sizeof(s_mode.cursor));
-    s_mode.row_selected = 0;
-    current_mode = MODE_MODE_SCREEN;
-    lvgl_lock();
-    lv_obj_clear_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
-    ui_update_mode_display();
-    lvgl_unlock();
-}
-
-static void handle_sto_key(void)
-{
-    if (expr_len == 0) {
-        expr_prepend_ans_if_empty();
-        Update_Calculator_Display();
-    }
-    sto_pending = true;
-    lvgl_lock();
-    ui_update_status_bar();
-    lvgl_unlock();
-}
-
-static void handle_normal_graph_nav(Token_t t)
-{
-    switch (t) {
-    case TOKEN_Y_EQUALS:
-        nav_to(graph_state.param_mode ? MODE_GRAPH_PARAM_YEQ : MODE_GRAPH_YEQ);
-        break;
-    case TOKEN_RANGE:    nav_to(MODE_GRAPH_RANGE);  break;
-    case TOKEN_ZOOM:     nav_to(MODE_GRAPH_ZOOM);   break;
-    case TOKEN_GRAPH:    nav_to(MODE_NORMAL);        break;
-    case TOKEN_TRACE:    nav_to(MODE_GRAPH_TRACE);  break;
-    default:             break;
-    }
-}
-
-void handle_normal_mode(Token_t t)
-{
-    switch (t) {
-    case TOKEN_0 ... TOKEN_9:
-    case TOKEN_DECIMAL:
-        handle_digit_key(t);        break;
-    case TOKEN_ADD: case TOKEN_SUB: case TOKEN_MULT: case TOKEN_DIV:
-    case TOKEN_SQUARE: case TOKEN_X_INV: case TOKEN_POWER:
-    case TOKEN_L_PAR: case TOKEN_R_PAR: case TOKEN_NEG:
-        handle_arithmetic_op(t);    break;
-    case TOKEN_LEFT: case TOKEN_RIGHT:
-    case TOKEN_UP:   case TOKEN_DOWN:
-    case TOKEN_ENTER: case TOKEN_ENTRY:
-        handle_history_nav(t);      break;
-    case TOKEN_CLEAR:               handle_clear_key();         break;
-    case TOKEN_DEL:                 expr_delete_at_cursor();
-                                    Update_Calculator_Display(); break;
-    case TOKEN_INS:                 insert_mode = !insert_mode;
-                                    Update_Calculator_Display(); break;
-    case TOKEN_MODE:                handle_mode_key();           break;
-    case TOKEN_MATH:                menu_open(TOKEN_MATH,  MODE_NORMAL); break;
-    case TOKEN_TEST:                menu_open(TOKEN_TEST,  MODE_NORMAL); break;
-    case TOKEN_MATRX:               menu_open(TOKEN_MATRX, MODE_NORMAL); break;
-    case TOKEN_PRGM:                menu_open(TOKEN_PRGM,  MODE_NORMAL); break;
-    case TOKEN_STAT:                menu_open(TOKEN_STAT,  MODE_NORMAL); break;
-    case TOKEN_DRAW:                menu_open(TOKEN_DRAW,  MODE_NORMAL); break;
-    case TOKEN_VARS:                menu_open(TOKEN_VARS,    MODE_NORMAL); break;
-    case TOKEN_Y_VARS:              menu_open(TOKEN_Y_VARS,  MODE_NORMAL); break;
-    case TOKEN_MTRX_A: case TOKEN_MTRX_B: case TOKEN_MTRX_C:
-    case TOKEN_SIN: case TOKEN_COS: case TOKEN_TAN:
-    case TOKEN_ASIN: case TOKEN_ACOS: case TOKEN_ATAN:
-    case TOKEN_ABS: case TOKEN_LN: case TOKEN_LOG: case TOKEN_SQRT:
-    case TOKEN_EE: case TOKEN_E_X: case TOKEN_TEN_X:
-    case TOKEN_PI: case TOKEN_ANS: case TOKEN_THETA:
-    case TOKEN_SPACE: case TOKEN_COMMA: case TOKEN_QUOTES: case TOKEN_QSTN_M:
-    case TOKEN_A: case TOKEN_B: case TOKEN_C: case TOKEN_D: case TOKEN_E:
-    case TOKEN_F: case TOKEN_G: case TOKEN_H: case TOKEN_I: case TOKEN_J:
-    case TOKEN_K: case TOKEN_L: case TOKEN_M: case TOKEN_N: case TOKEN_O:
-    case TOKEN_P: case TOKEN_Q: case TOKEN_R: case TOKEN_S: case TOKEN_T:
-    case TOKEN_U: case TOKEN_V: case TOKEN_W: case TOKEN_X: case TOKEN_Y:
-    case TOKEN_Z:
-        handle_function_insert(t);  break;
-    case TOKEN_STO:                 handle_sto_key();            break;
-    case TOKEN_X_T:
-        /* In param mode insert T; in function mode insert X */
-        handle_function_insert(graph_state.param_mode ? TOKEN_T : TOKEN_X);
-        break;
-    case TOKEN_Y_EQUALS: case TOKEN_RANGE: case TOKEN_ZOOM:
-    case TOKEN_GRAPH:    case TOKEN_TRACE:
-        handle_normal_graph_nav(t); break;
-    default:                        break;
-    }
-}
-
-
+/* handle_function_insert, handle_clear_key, handle_sto_key,
+ * handle_normal_graph_nav, handle_normal_mode moved to ui_input.c. */
 
 /**
  * @brief Processes a single calculator token from the keypad queue.
@@ -2313,14 +1901,7 @@ void Execute_Token(Token_t t)
 
     /*--- TOKEN_MODE: always opens MODE screen from any mode ----------------*/
     if (t == TOKEN_MODE) {
-        memcpy(s_mode.cursor, s_mode.committed, sizeof(s_mode.cursor));
-        s_mode.row_selected = 0;
-        current_mode = MODE_MODE_SCREEN;
-        lvgl_lock();
-        hide_all_screens();
-        lv_obj_clear_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
-        ui_update_mode_display();
-        lvgl_unlock();
+        ui_mode_open();
         return;
     }
 
@@ -2333,7 +1914,7 @@ void Execute_Token(Token_t t)
     if (current_mode == MODE_GRAPH_ZBOX)          { if (handle_zbox_mode(t))          return; }
     if (current_mode == MODE_GRAPH_TRACE)         { if (handle_trace_mode(t))         return; }
     if (current_mode == MODE_GRAPH_PARAM_YEQ)    { if (handle_param_yeq_mode(t))     return; }
-    if (current_mode == MODE_MODE_SCREEN)         { if (handle_mode_screen(t, &s_mode))              return; }
+    if (current_mode == MODE_MODE_SCREEN)         { if (handle_mode_screen(t))                        return; }
     if (current_mode == MODE_MATH_MENU)           { if (handle_math_menu(t, &s_math))                return; }
     if (current_mode == MODE_TEST_MENU)           { if (handle_test_menu(t, &s_test))                return; }
     if (current_mode == MODE_MATRIX_MENU)         { if (handle_matrix_menu(t, &matrix_menu_state))  return; }
@@ -2488,7 +2069,7 @@ void StartCalcCoreTask(void const *argument)
     ui_init_styles();
     ui_init_screen();
     ui_init_graph_screens();
-    ui_init_mode_screen();
+    ui_mode_init();
     ui_init_math_screen();
     ui_init_test_screen();
     ui_init_matrix_screen();

@@ -91,6 +91,8 @@ endif()
 add_executable(test_normal_mode
     test_normal_mode.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calculator_core.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_mode.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_input.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/prgm_exec.c

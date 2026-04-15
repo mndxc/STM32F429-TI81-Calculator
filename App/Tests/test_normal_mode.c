@@ -31,6 +31,7 @@
 #include <string.h>
 #include "prgm_exec.h"
 #include "calculator_core_test_stubs.h"
+#include "ui_input.h"
 
 /* -------------------------------------------------------------------------
  * Stub definitions for external symbols not provided by linked .c files

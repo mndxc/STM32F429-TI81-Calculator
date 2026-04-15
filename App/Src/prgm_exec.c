@@ -19,12 +19,6 @@
  * Embedded-only UI dependencies.  In host builds these are replaced by
  * prgm_exec_test_stubs.h so the execution engine remains testable without
  * hardware or LVGL.
- *
- * The calc_internal.h inclusion is a cross-layer dependency: it pulls in the
- * UI super-module's shared state so that handle_normal_mode() can be called
- * after evaluating a program expression line.  Long-term fix: extract a
- * calc_evaluate_and_commit() helper from handle_normal_mode and call that
- * instead — tracked as part of the P22 refactor in CLAUDE.md.
  */
 #  include "ui_prgm.h"
 #  include "calc_internal.h"
@@ -622,103 +616,7 @@ void prgm_run_start(uint8_t idx)
     prgm_run_loop();
 }
 
-#ifndef HOST_TEST
-/**
- * @brief Token handler for MODE_PRGM_RUNNING.
- *
- * Intercepts tokens while a program is executing (waiting at Pause/Input/
- * Prompt).  CLEAR aborts; ENTER resumes; other tokens feed the expression
- * input buffer while waiting for Input/Prompt.
- */
-bool handle_prgm_running(Token_t t)
-{
-    if (prgm_waiting_input) {
-        if (t == TOKEN_ENTER) {
-            if (prgm_input_var != 0) {
-                /* Evaluate and store to the target variable */
-                CalcResult_t r = Calc_Evaluate(expression, ans, ans_is_matrix,
-                                               angle_degrees);
-                char res_buf[MAX_RESULT_LEN];
-                format_calc_result(&r, res_buf, MAX_RESULT_LEN, &ans);
-                if (r.error == CALC_OK && !r.has_matrix) {
-                    calc_variables[prgm_input_var - 'A'] = r.value;
-                    ans           = r.value;
-                    ans_is_matrix = false;
-                }
-                /* Append expression + result to history */
-                uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-                strncpy(history[hidx].expression, expression, MAX_EXPR_LEN - 1);
-                history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
-                strncpy(history[hidx].result, res_buf, MAX_RESULT_LEN - 1);
-                history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
-                history_count++;
-            }
-            expression[0]     = '\0';
-            expr_len          = 0;
-            cursor_pos        = 0;
-            prgm_waiting_input = false;
-            prgm_input_var    = 0;
-            lvgl_lock(); ui_update_history(); lvgl_unlock();
-            prgm_run_loop();  /* resume execution */
-            return true;
-        }
-        if (t == TOKEN_DEL) {
-            expr_delete_at_cursor();
-            Update_Calculator_Display();
-            return true;
-        }
-        if (t == TOKEN_CLEAR) {
-            if (expr_len > 0) {
-                expression[0] = '\0'; expr_len = 0; cursor_pos = 0;
-                Update_Calculator_Display();
-            } else {
-                /* Abort on CLEAR with empty expression */
-                prgm_run_active    = false;
-                prgm_waiting_input = false;
-                prgm_call_top      = 0;
-                current_mode       = MODE_NORMAL;
-                lvgl_lock(); ui_refresh_display(); lvgl_unlock();
-            }
-            return true;
-        }
-        /* Block keys that would navigate away or change mode */
-        switch (t) {
-        case TOKEN_GRAPH: case TOKEN_Y_EQUALS: case TOKEN_RANGE:
-        case TOKEN_ZOOM:  case TOKEN_TRACE:
-        case TOKEN_MATH:  case TOKEN_TEST:    case TOKEN_MATRX:
-        case TOKEN_PRGM:  case TOKEN_STO:     case TOKEN_INS:
-        case TOKEN_LEFT:  case TOKEN_RIGHT:
-        case TOKEN_UP:    case TOKEN_DOWN:
-        case TOKEN_2ND:   case TOKEN_ALPHA:   case TOKEN_A_LOCK:
-        case TOKEN_QUIT:
-            return true; /* consume silently */
-        default: {
-            /* Route expression tokens through the normal-mode handler.
-             * Safe subset: expression-building keys never change current_mode. */
-            CalcMode_t saved = current_mode;
-            current_mode = MODE_NORMAL;
-            handle_normal_mode(t);
-            current_mode = saved;
-            return true;
-        }
-        }
-    }
-
-    /* Not waiting for input — abort on CLEAR, consume everything else */
-    if (t == TOKEN_CLEAR) {
-        prgm_run_active    = false;
-        prgm_waiting_input = false;
-        prgm_call_top      = 0;
-        expression[0]      = '\0';
-        expr_len           = 0;
-        cursor_pos         = 0;
-        current_mode       = MODE_NORMAL;
-        lvgl_lock(); ui_refresh_display(); lvgl_unlock();
-        return true;
-    }
-    return true; /* consume all tokens while running */
-}
-#endif /* HOST_TEST */
+/* handle_prgm_running() was moved to ui_prgm.c — declared in ui_prgm.h. */
 
 void prgm_reset_execution_state(void)
 {

@@ -17,9 +17,11 @@
  *   ui_param_yeq.c      — parametric Y= editor screen (X₁t/Y₁t … X₃t/Y₃t)
  *   ui_matrix.c         — matrix cell editor and MATRIX menu
  *   ui_prgm.c           — program menu, line editor, and CTL/I/O sub-menus
+ *   ui_mode.c           — MODE settings screen
+ *   ui_input.c          — normal-mode expression input handlers
  *
- * These four files form a single logical "super-module" that was split purely
- * to keep individual translation units at a manageable size.  They share
+ * These files form a single logical "super-module" that was split purely to
+ * keep individual translation units at a manageable size.  They share
  * calculator state (current_mode, ans, history, expression, …) and LVGL object
  * pointers as if they were one file, which is why the externs here are numerous.
  *
@@ -35,6 +37,8 @@
 #include "app_common.h"
 #include "lvgl.h"
 #include "calc_engine.h"
+#include "ui_mode.h"    /* ModeScreenState_t, s_mode, ui_mode_open, handle_mode_screen */
+#include "ui_input.h"   /* expr_delete_at_cursor, handle_normal_mode, handle_sto_pending */
 
 /* LVGL Fonts */
 extern const lv_font_t jetbrains_mono_24;
@@ -48,6 +52,7 @@ extern bool         cursor_visible;
 extern float ans;
 extern bool ans_is_matrix;
 extern bool angle_degrees;
+extern bool sto_pending;
 
 /* Menu visible rows constant */
 #define MENU_VISIBLE_ROWS 7
@@ -81,7 +86,6 @@ lv_obj_t *screen_create(lv_obj_t *parent);
 void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll, uint8_t tab_count, bool left, void (*update)(void));
 void menu_insert_text(const char *ins, CalcMode_t *ret_mode);
 
-
 #define DISPLAY_W           320
 #define DISPLAY_H           240
 #define DISP_ROW_COUNT      8           /* Visible text rows on the main screen */
@@ -106,6 +110,8 @@ typedef struct {
 extern HistoryEntry_t history[HISTORY_LINE_COUNT];
 extern uint8_t        history_count;
 extern int8_t         history_recall_offset;
+extern int8_t         matrix_scroll_focus;   /* history slot with scroll focus; -1=none */
+extern uint8_t        matrix_scroll_offset;  /* horizontal character scroll offset */
 
 extern char         expression[MAX_EXPR_LEN];
 extern uint8_t      expr_len;
@@ -114,8 +120,8 @@ extern uint8_t      cursor_pos;
 void ui_update_history(void);
 void ui_refresh_display(void);
 void ui_output_row(uint8_t row_1based, const char *text);
-void expr_delete_at_cursor(void);
 void format_calc_result(const CalcResult_t *r, char *buf, int buf_size, float *ans_ptr);
-void handle_normal_mode(Token_t t);
+void handle_history_nav(Token_t t);      /* sub-handler for history/cursor nav keys */
+void reset_matrix_scroll_focus(void);   /* clears matrix_scroll_focus/offset */
 
 #endif /* APP_CALC_INTERNAL_H */
