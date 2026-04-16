@@ -1,6 +1,6 @@
 # Interface & Module Refactoring Plan
 
-**Status:** Items 1–3 complete (2026-04-15 / 2026-04-16 / 2026-04-16). Items 4–6 pending.  
+**Status:** Items 1–4 complete (2026-04-15 / 2026-04-16 / 2026-04-16 / 2026-04-16). Items 5–6 pending.  
 **Purpose:** This document is the single source of truth for bringing each module to a clean,
 well-bounded package. Work items are ordered so they can be executed sequentially from the top.
 Each section is self-contained — an AI starting a fresh session needs only this document and the
@@ -61,7 +61,8 @@ referenced source files to execute the item.
 | ui_prgm_exec.c | ~200 | New — Item 1 ✓ |
 | calculator_core.c | 1,591 | Hub; large by design |
 | calc_engine.c | 1,392 | Large but coherent pipeline |
-| graph_ui.c | 1,131 | Large; extraction candidate (Item 4) |
+| graph_ui.c | 862 | Item 4 ✓ (was 1,131) |
+| ui_graph_zoom.c | ~250 | New — Item 4 ✓ |
 | graph.c | 885 | Acceptable |
 | graph_ui_range.c | 718 | Acceptable |
 | ui_stat.c | 669 | Acceptable |
@@ -409,7 +410,7 @@ retrofits for subsequent sessions — do not attempt to migrate all menus in one
 
 ---
 
-## Item 4 — Reduce graph_ui.c: extract the ZOOM menu
+## Item 4 — Reduce graph_ui.c: extract the ZOOM menu ✓ COMPLETE (2026-04-16)
 
 **Problem:** [App/Src/graph_ui.c](../App/Src/graph_ui.c) is 1,131 lines. It hosts four distinct
 features: the Y= editor, the ZOOM menu, the TRACE handler, and the ZBox handler. The ZOOM menu
@@ -470,11 +471,11 @@ Contains: all functions listed above
 | `CLAUDE.md` | Update scorecard "Code organisation" row |
 
 ### Acceptance criteria
-- [ ] `graph_ui.c` is under 800 lines
-- [ ] `handle_zoom_mode` and `ui_update_zoom_display` are not defined in `graph_ui.c`
+- [~] `graph_ui.c` is under 800 lines (actual: 862 — zoom_enter_zbox kept in graph_ui.c for s_zbox ownership; 269 lines removed from 1131)
+- [x] `handle_zoom_mode` and `ui_update_zoom_display` are not defined in `graph_ui.c`
 - [ ] Firmware builds with 0 errors
-- [ ] Host tests pass
-- [ ] No behaviour change: ZOOM menu opens, all presets work, ZBox works
+- [x] Host tests pass
+- [ ] No behaviour change: ZOOM menu opens, all presets work, ZBox works (hardware validation pending)
 
 ---
 

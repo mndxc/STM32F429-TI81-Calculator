@@ -1,12 +1,14 @@
 /**
  * @file    graph_ui.h
- * @brief   Graph screen UI handlers and helpers (Y=, ZOOM, TRACE, ZBox).
+ * @brief   Graph screen UI handlers and helpers (Y=, TRACE, ZBox).
  *
  * Extracted from calculator_core.c following the same pattern as ui_matrix.h
  * and ui_prgm.h. Zero behavioral changes — purely a file organisation refactor.
  *
  * RANGE and ZOOM FACTORS screens are in graph_ui_range.h / graph_ui_range.c.
- * Including this header also pulls in graph_ui_range.h via the include below.
+ * ZOOM menu is in ui_graph_zoom.h / ui_graph_zoom.c.
+ * Including this header also pulls in graph_ui_range.h and ui_param_yeq.h
+ * via the includes below.
  */
 
 #ifndef APP_GRAPH_UI_H
@@ -23,7 +25,7 @@
  * hide_all_screens() and menu_close() in calculator_core.c can reach them)
  *---------------------------------------------------------------------------*/
 extern lv_obj_t *ui_graph_yeq_screen;
-extern lv_obj_t *ui_graph_zoom_screen;
+/* ui_graph_zoom_screen declared in ui_graph_zoom.h */
 extern lv_obj_t *ui_param_yeq_screen;
 
 /*---------------------------------------------------------------------------
@@ -41,9 +43,6 @@ void yeq_reflow_rows(void);
 /** Reposition Y= cursor box over the insertion point. Called by cursor_timer_cb. */
 void yeq_cursor_update(void);
 
-/** Redraw ZOOM item rows. Called by StartCalcCoreTask init. */
-void ui_update_zoom_display(void);
-
 /**
  * Insert @p ins into the active Y= equation at the current cursor position,
  * then restore the Y= screen. Called by math_menu_insert, test_menu_insert,
@@ -55,15 +54,10 @@ void graph_ui_yeq_insert(const char *ins);
 void graph_ui_sync_yeq_labels(void);
 
 /*---------------------------------------------------------------------------
- * zoom_menu_reset — called from graph_ui_range.c (handle_range/zoom_factors_mode)
- *---------------------------------------------------------------------------*/
-void zoom_menu_reset(void);
-
-/*---------------------------------------------------------------------------
  * Token handler functions (called from Execute_Token dispatcher)
  *---------------------------------------------------------------------------*/
 bool handle_yeq_mode(Token_t t);
-bool handle_zoom_mode(Token_t t);
+/* handle_zoom_mode declared in ui_graph_zoom.h */
 bool handle_zbox_mode(Token_t t);
 bool handle_trace_mode(Token_t t);
 

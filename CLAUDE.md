@@ -20,7 +20,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-04-16** (updated Item 3). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-16** (updated Item 4). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -35,7 +35,7 @@ Snapshot as of **2026-04-16** (updated Item 3). Grading criteria (what causes ea
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1276 lines, graph_ui.c 1131 lines, calculator_core.c 1591 lines, graph.c 881 lines, graph_ui_range.c 718 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 694 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1276 lines, graph_ui.c 862 lines, calculator_core.c 1591 lines, graph.c 881 lines, graph_ui_range.c 718 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 694 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
 
 ### Scorecard Change Log
 
@@ -45,6 +45,7 @@ Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware valida
 | 2026-04-15 | Code organisation | B | B | ui_prgm.c extracted CTL/IO/EXEC sub-menus → 1652→1276 lines; still over 500-line threshold |
 | 2026-04-16 | API / header design | A | A | ExprBuffer_t wrapper added (Item 2); three raw globals → single struct; complexity delta: neutral |
 | 2026-04-16 | Testing | A | A | MenuState_t helpers added (Item 3); test_menu_state.c 43 assertions; suite grows to 10 suites / 694 assertions; complexity delta: neutral |
+| 2026-04-16 | Code organisation | B | B | ZOOM menu extracted graph_ui.c → ui_graph_zoom.c (1131→862 lines); <800 target missed by 62 lines (zoom_enter_zbox kept in graph_ui.c for s_zbox ownership); complexity delta: neutral |
 
 ---
 

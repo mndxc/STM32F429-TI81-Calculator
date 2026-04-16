@@ -13,7 +13,8 @@
  * set.  It is intended to be included ONLY by the following translation units:
  *
  *   calculator_core.c   — dispatcher, main screen, token handling
- *   graph_ui.c          — graph editor screens (Y=, RANGE, ZOOM, TRACE, ZBox)
+ *   graph_ui.c          — graph editor screens (Y=, TRACE, ZBox)
+ *   ui_graph_zoom.c     — ZOOM menu screen (extracted from graph_ui.c — Item 4)
  *   ui_param_yeq.c      — parametric Y= editor screen (X₁t/Y₁t … X₃t/Y₃t)
  *   ui_matrix.c         — matrix cell editor and MATRIX menu
  *   ui_math_menu.c      — MATH/NUM/HYP/PRB and TEST menus
@@ -64,12 +65,12 @@ extern bool sto_pending;
 extern lv_obj_t *ui_matrix_screen;
 extern lv_obj_t *ui_matrix_edit_screen;
 
-/* Graph screen pointers (defined in graph_ui.c) */
-extern lv_obj_t *ui_graph_yeq_screen;
-extern lv_obj_t *ui_graph_range_screen;
-extern lv_obj_t *ui_graph_zoom_screen;
-extern lv_obj_t *ui_graph_zoom_factors_screen;
-extern lv_obj_t *ui_param_yeq_screen;
+/* Graph screen pointers */
+extern lv_obj_t *ui_graph_yeq_screen;          /* defined in graph_ui.c */
+extern lv_obj_t *ui_graph_range_screen;        /* defined in graph_ui_range.c */
+extern lv_obj_t *ui_graph_zoom_screen;         /* defined in ui_graph_zoom.c */
+extern lv_obj_t *ui_graph_zoom_factors_screen; /* defined in graph_ui_range.c */
+extern lv_obj_t *ui_param_yeq_screen;          /* defined in ui_param_yeq.c */
 
 /* Shared UI functions */
 void cursor_render(lv_obj_t *box, lv_obj_t *inner, lv_obj_t *parent_label,
@@ -82,7 +83,10 @@ CalcMode_t menu_close(Token_t menu_token);
 void menu_open(Token_t menu_token, CalcMode_t return_to);
 void ui_update_status_bar(void);
 void graph_ui_yeq_insert(const char *ins);
-void ui_update_zoom_display(void);
+/* ui_update_zoom_display declared in ui_graph_zoom.h */
+/* zoom_enter_zbox: defined in graph_ui.c; initialises s_zbox (ZBox state owner)
+ * then enters MODE_GRAPH_ZBOX. Called from zoom_execute_item in ui_graph_zoom.c. */
+void zoom_enter_zbox(void);
 void lvgl_lock(void);
 void lvgl_unlock(void);
 lv_obj_t *screen_create(lv_obj_t *parent);

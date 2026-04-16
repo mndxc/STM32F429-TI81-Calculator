@@ -45,6 +45,7 @@
 #  include "ui_vars.h"
 #  include "ui_yvars.h"
 #  include "graph_ui.h"
+#  include "ui_graph_zoom.h"
 #  include "ui_palette.h"
 #  include "expr_util.h"
 #  include "cmsis_os.h"
