@@ -4,7 +4,9 @@
 
 ## Standards & Maintenance
 
-Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before starting any significant work. It defines:
+Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before starting any significant work.
+
+For structural/interface refactoring work, read **[docs/INTERFACE_REFACTOR_PLAN.md](docs/INTERFACE_REFACTOR_PLAN.md)** — 6 ordered items covering ui_prgm.c extraction, ExpressionBuffer_t, MenuState_t, graph_state ownership, and persist sub-struct design. Execute top-to-bottom; each item is self-contained. It defines:
 - What to update after each commit (Update Rules and Full Update Checklist)
 - Which numbers must stay in sync across files (Numbers to Keep in Sync)
 - File structure rules and module naming conventions
@@ -33,13 +35,14 @@ Snapshot as of **2026-04-15**. Grading criteria (what causes each dimension to r
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1652 lines, graph_ui.c 1131 lines, calculator_core.c 1591 lines, graph.c 881 lines, graph_ui_range.c 718 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) with CI including property-based invariant tests, handle_normal_mode coverage, parametric eval tests, and stat math tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1276 lines, graph_ui.c 1131 lines, calculator_core.c 1591 lines, graph.c 881 lines, graph_ui_range.c 718 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) with CI including property-based invariant tests, handle_normal_mode coverage, parametric eval tests, and stat math tests.
 
 ### Scorecard Change Log
 
 | Date | Dimension | Old | New | Trigger |
 |---|---|---|---|---|
 | 2026-04-03 | Testing | B+ | A | P1 property-based invariant tests + handle_normal_mode coverage added |
+| 2026-04-15 | Code organisation | B | B | ui_prgm.c extracted CTL/IO/EXEC sub-menus → 1652→1276 lines; still over 500-line threshold |
 
 ---
 

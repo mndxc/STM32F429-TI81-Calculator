@@ -12,6 +12,9 @@
  * Remaining: hardware validation (P10). Command reference: docs/PRGM_COMMANDS.md
  */
 #include "ui_prgm.h"
+#include "ui_prgm_ctl.h"
+#include "ui_prgm_io.h"
+#include "ui_prgm_exec.h"
 #include "ui_palette.h"
 #include "calc_internal.h"
 #include "prgm_exec.h"
@@ -21,8 +24,6 @@
 
 /* PRGM menu/editor geometry */
 #define PRGM_TAB_COUNT          3   /* EXEC, EDIT, NEW */
-#define PRGM_CTL_ITEM_COUNT     8   /* CTL sub-menu items */
-#define PRGM_IO_ITEM_COUNT      5   /* I/O sub-menu items */
 #define PRGM_EDITOR_VISIBLE     7   /* Visible editor rows (matches MENU_VISIBLE_ROWS) */
 /* PRGM_MAX_LINES and PRGM_MAX_LINE_LEN are defined in prgm_exec.h (via ui_prgm.h) */
 
@@ -70,54 +71,16 @@ static lv_obj_t   *prgm_edit_cursor_inner    = NULL;
 /* Working line buffer for active program — plain .bss; shared with prgm_exec.c */
 char               prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
 
-/* PRGM CTL sub-menu state */
-static lv_obj_t   *ui_prgm_ctl_screen        = NULL;
-static uint8_t     prgm_ctl_cursor           = 0;
-static uint8_t     prgm_ctl_scroll           = 0;
-static lv_obj_t   *prgm_ctl_labels[MENU_VISIBLE_ROWS];
-static lv_obj_t   *prgm_ctl_scroll_ind[2];
-
-/* PRGM I/O sub-menu state */
-static lv_obj_t   *ui_prgm_io_screen        = NULL;
-static lv_obj_t *prgm_sub_tab_labels_ctl[3];   /* CTL, I/O, EXEC */
-static lv_obj_t *prgm_sub_tab_labels_io[3];    /* CTL, I/O, EXEC */
-
-/* PRGM EXEC sub-menu (subroutine slot picker from inside editor) */
-static lv_obj_t   *ui_prgm_exec_screen        = NULL;
-static lv_obj_t   *prgm_sub_tab_labels_exec[3]; /* CTL, I/O, EXEC */
-static lv_obj_t   *prgm_exec_labels[MENU_VISIBLE_ROWS];
-static lv_obj_t   *prgm_exec_scroll_ind[2];
-static uint8_t     prgm_exec_cursor           = 0;
-static uint8_t     prgm_exec_scroll           = 0;
-
 /* PRGM runtime Menu( screen — shown during program execution */
 static lv_obj_t   *ui_prgm_menu_screen         = NULL;
 static lv_obj_t   *prgm_menu_title_lbl          = NULL;
 static lv_obj_t   *prgm_menu_item_labels[MENU_VISIBLE_ROWS];
 static lv_obj_t   *prgm_menu_scroll_ind[2];
 
-static uint8_t     prgm_io_cursor            = 0;
-static lv_obj_t   *prgm_io_labels[PRGM_IO_ITEM_COUNT];
-
 /* PRGM executor state — defined in prgm_exec.c */
 
 /* PRGM menu / editor static data */
 static const char * const prgm_tab_names[PRGM_TAB_COUNT] = {"EXEC", "EDIT", "ERASE"};
-/* CTL items: display name | text to insert into program line */
-static const char * const prgm_ctl_display[PRGM_CTL_ITEM_COUNT] = {
-    "1:Lbl ",   "2:Goto ",  "3:If ",   "4:IS>(",
-    "5:DS<(",   "6:Pause",  "7:End",   "8:Stop",
-};
-static const char * const prgm_ctl_insert[PRGM_CTL_ITEM_COUNT] = {
-    "Lbl ",     "Goto ",    "If ",     "IS>(",
-    "DS<(",     "Pause",    "End",     "Stop",
-};
-static const char * const prgm_io_display[PRGM_IO_ITEM_COUNT] = {
-    "1:Disp ",  "2:Input ", "3:DispHome", "4:DispGraph", "5:ClrHome",
-};
-static const char * const prgm_io_insert[PRGM_IO_ITEM_COUNT] = {
-    "Disp ",    "Input ",   "DispHome",   "DispGraph",   "ClrHome",
-};
 
 /*===========================================================================
  * PRGM — program editor, sub-menus, and menu
@@ -269,103 +232,14 @@ static void ui_init_prgm_editor_screen(void)
     cursor_box_create(ui_prgm_editor_screen, true,
                       &prgm_edit_cursor_box, &prgm_edit_cursor_inner);
 
-    /* --- CTL sub-menu --- */
-    ui_prgm_ctl_screen = screen_create(scr);
+    /* --- CTL sub-menu — owned by ui_prgm_ctl.c --- */
+    ui_init_prgm_ctl_screen(scr);
 
-    {
-        static const char * const sub_names[3] = {"CTL", "I/O", "EXEC"};
-        static const int sub_x[3] = {4, 80, 156};
-        for (int i = 0; i < 3; i++) {
-            prgm_sub_tab_labels_ctl[i] = lv_label_create(ui_prgm_ctl_screen);
-            lv_obj_set_pos(prgm_sub_tab_labels_ctl[i], sub_x[i], 4);
-            lv_obj_set_style_text_font(prgm_sub_tab_labels_ctl[i], &jetbrains_mono_24, 0);
-            lv_obj_set_style_text_color(prgm_sub_tab_labels_ctl[i],
-                lv_color_hex(i == 0 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
-            lv_label_set_text(prgm_sub_tab_labels_ctl[i], sub_names[i]);
-        }
-    }
+    /* --- I/O sub-menu — owned by ui_prgm_io.c --- */
+    ui_init_prgm_io_screen(scr);
 
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        prgm_ctl_labels[i] = lv_label_create(ui_prgm_ctl_screen);
-        lv_obj_set_pos(prgm_ctl_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(prgm_ctl_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_ctl_labels[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(prgm_ctl_labels[i], "");
-    }
-
-    for (int i = 0; i < 2; i++) {
-        int row = (i == 0) ? 0 : (MENU_VISIBLE_ROWS - 1);
-        prgm_ctl_scroll_ind[i] = lv_label_create(ui_prgm_ctl_screen);
-        lv_obj_set_pos(prgm_ctl_scroll_ind[i], 18, 30 + row * 30);
-        lv_obj_set_style_text_font(prgm_ctl_scroll_ind[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_ctl_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
-        lv_obj_set_style_bg_color(prgm_ctl_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
-        lv_obj_set_style_bg_opa(prgm_ctl_scroll_ind[i], LV_OPA_COVER, 0);
-        lv_obj_set_style_pad_all(prgm_ctl_scroll_ind[i], 0, 0);
-        lv_label_set_text(prgm_ctl_scroll_ind[i], i == 0 ? "\xE2\x86\x91" : "\xE2\x86\x93");
-        lv_obj_add_flag(prgm_ctl_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
-    }
-
-    /* --- I/O sub-menu --- */
-    ui_prgm_io_screen = screen_create(scr);
-
-    {
-        static const char * const sub_names[3] = {"CTL", "I/O", "EXEC"};
-        static const int sub_x[3] = {4, 80, 156};
-        for (int i = 0; i < 3; i++) {
-            prgm_sub_tab_labels_io[i] = lv_label_create(ui_prgm_io_screen);
-            lv_obj_set_pos(prgm_sub_tab_labels_io[i], sub_x[i], 4);
-            lv_obj_set_style_text_font(prgm_sub_tab_labels_io[i], &jetbrains_mono_24, 0);
-            lv_obj_set_style_text_color(prgm_sub_tab_labels_io[i],
-                lv_color_hex(i == 1 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
-            lv_label_set_text(prgm_sub_tab_labels_io[i], sub_names[i]);
-        }
-    }
-
-    for (int i = 0; i < PRGM_IO_ITEM_COUNT; i++) {
-        prgm_io_labels[i] = lv_label_create(ui_prgm_io_screen);
-        lv_obj_set_pos(prgm_io_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(prgm_io_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_io_labels[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(prgm_io_labels[i], "");
-    }
-
-    /* --- EXEC sub-menu (subroutine slot picker) --- */
-    ui_prgm_exec_screen = screen_create(scr);
-
-    {
-        static const char * const sub_names[3] = {"CTL", "I/O", "EXEC"};
-        static const int sub_x[3] = {4, 80, 156};
-        for (int i = 0; i < 3; i++) {
-            prgm_sub_tab_labels_exec[i] = lv_label_create(ui_prgm_exec_screen);
-            lv_obj_set_pos(prgm_sub_tab_labels_exec[i], sub_x[i], 4);
-            lv_obj_set_style_text_font(prgm_sub_tab_labels_exec[i], &jetbrains_mono_24, 0);
-            lv_obj_set_style_text_color(prgm_sub_tab_labels_exec[i],
-                lv_color_hex(i == 2 ? COLOR_YELLOW : COLOR_GREY_INACTIVE), 0);
-            lv_label_set_text(prgm_sub_tab_labels_exec[i], sub_names[i]);
-        }
-    }
-
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        prgm_exec_labels[i] = lv_label_create(ui_prgm_exec_screen);
-        lv_obj_set_pos(prgm_exec_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(prgm_exec_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_exec_labels[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(prgm_exec_labels[i], "");
-    }
-
-    for (int i = 0; i < 2; i++) {
-        int row = (i == 0) ? 0 : (MENU_VISIBLE_ROWS - 1);
-        prgm_exec_scroll_ind[i] = lv_label_create(ui_prgm_exec_screen);
-        lv_obj_set_pos(prgm_exec_scroll_ind[i], 4, 30 + row * 30);
-        lv_obj_set_style_text_font(prgm_exec_scroll_ind[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_exec_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
-        lv_obj_set_style_bg_color(prgm_exec_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
-        lv_obj_set_style_bg_opa(prgm_exec_scroll_ind[i], LV_OPA_COVER, 0);
-        lv_obj_set_style_pad_all(prgm_exec_scroll_ind[i], 0, 0);
-        lv_label_set_text(prgm_exec_scroll_ind[i], i == 0 ? "\xE2\x86\x91" : "\xE2\x86\x93");
-        lv_obj_add_flag(prgm_exec_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
-    }
+    /* --- EXEC sub-menu — owned by ui_prgm_exec.c --- */
+    ui_init_prgm_exec_screen(scr);
 }
 
 /* Returns the display identifier string for a program slot (0-based index).
@@ -477,7 +351,7 @@ void prgm_parse_from_store(uint8_t idx)
 }
 
 /* Reassembles g_prgm_store body from prgm_edit_lines. */
-static void prgm_flatten_to_store(void)
+void prgm_flatten_to_store(void)
 {
     char *body = g_prgm_store.bodies[prgm_edit_idx];
     size_t off = 0;
@@ -557,70 +431,6 @@ static void ui_update_prgm_editor_display(void)
     prgm_editor_cursor_update();
 }
 
-/* Updates CTL sub-menu labels and cursor highlight. */
-static void ui_update_prgm_ctl_display(void)
-{
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        int idx = (int)prgm_ctl_scroll + i;
-        if (idx < PRGM_CTL_ITEM_COUNT) {
-            lv_label_set_text(prgm_ctl_labels[i], prgm_ctl_display[idx]);
-            lv_obj_set_style_text_color(prgm_ctl_labels[i],
-                lv_color_hex(i == (int)prgm_ctl_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
-        } else {
-            lv_label_set_text(prgm_ctl_labels[i], "");
-        }
-    }
-    if (prgm_ctl_scroll > 0)
-        lv_obj_clear_flag(prgm_ctl_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-    else
-        lv_obj_add_flag(prgm_ctl_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-    if ((int)(prgm_ctl_scroll + MENU_VISIBLE_ROWS) < PRGM_CTL_ITEM_COUNT)
-        lv_obj_clear_flag(prgm_ctl_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-    else
-        lv_obj_add_flag(prgm_ctl_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-}
-
-/* Updates I/O sub-menu labels and cursor highlight. */
-static void ui_update_prgm_io_display(void)
-{
-    for (int i = 0; i < PRGM_IO_ITEM_COUNT; i++) {
-        lv_label_set_text(prgm_io_labels[i], prgm_io_display[i]);
-        lv_obj_set_style_text_color(prgm_io_labels[i],
-            lv_color_hex(i == (int)prgm_io_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
-    }
-}
-
-/* Updates EXEC sub-menu (slot picker) labels, cursor highlight, and scroll indicators.
- * Must be called under lvgl_lock. */
-static void ui_update_prgm_exec_display(void)
-{
-    char buf[24];
-    char id[3];
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        int slot = (int)prgm_exec_scroll + i;
-        if (slot < PRGM_MAX_PROGRAMS) {
-            prgm_slot_id_str((uint8_t)slot, id);
-            const char *name = g_prgm_store.names[slot];
-            if (name[0] != '\0')
-                snprintf(buf, sizeof(buf), "%s:Prgm%s  %s", id, id, name);
-            else
-                snprintf(buf, sizeof(buf), "%s:Prgm%s", id, id);
-            lv_label_set_text(prgm_exec_labels[i], buf);
-            lv_obj_set_style_text_color(prgm_exec_labels[i],
-                lv_color_hex(i == (int)prgm_exec_cursor ? COLOR_YELLOW : COLOR_WHITE), 0);
-        } else {
-            lv_label_set_text(prgm_exec_labels[i], "");
-        }
-    }
-    if (prgm_exec_scroll > 0)
-        lv_obj_clear_flag(prgm_exec_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-    else
-        lv_obj_add_flag(prgm_exec_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-    if ((int)(prgm_exec_scroll + MENU_VISIBLE_ROWS) < PRGM_MAX_PROGRAMS)
-        lv_obj_clear_flag(prgm_exec_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-    else
-        lv_obj_add_flag(prgm_exec_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-}
 
 /* Updates the new-program name-entry label and cursor. */
 static void ui_update_prgm_new_display(void)
@@ -647,7 +457,7 @@ static void prgm_editor_scroll_to_line(void)
 }
 
 /* Inserts string at current cursor position in the current editor line. */
-static void prgm_editor_insert_str(const char *s)
+void prgm_editor_insert_str(const char *s)
 {
     if (!s || !*s) return;
     char *line = prgm_edit_lines[prgm_edit_line];
@@ -1226,13 +1036,11 @@ bool handle_prgm_editor(Token_t t)
         return true;
     case TOKEN_PRGM:
         /* Open CTL sub-menu */
-        prgm_ctl_cursor = 0;
-        prgm_ctl_scroll = 0;
         current_mode = MODE_PRGM_CTL_MENU;
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(ui_prgm_ctl_screen,  LV_OBJ_FLAG_HIDDEN);
-        ui_update_prgm_ctl_display();
+        ui_prgm_ctl_reset_and_show();
         lvgl_unlock();
         return true;
     default:
@@ -1241,7 +1049,7 @@ bool handle_prgm_editor(Token_t t)
     }
 }
 
-static void prgm_submenu_return_to_editor(lv_obj_t *hide_screen)
+void prgm_submenu_return_to_editor(lv_obj_t *hide_screen)
 {
     current_mode = MODE_PRGM_EDITOR;
     lvgl_lock();
@@ -1251,211 +1059,27 @@ static void prgm_submenu_return_to_editor(lv_obj_t *hide_screen)
     lvgl_unlock();
 }
 
-static void prgm_submenu_tab_switch(lv_obj_t *hide_screen, CalcMode_t to_mode)
+void prgm_submenu_tab_switch(lv_obj_t *hide_screen, CalcMode_t to_mode)
 {
     lv_obj_t *show_screen;
-    if (to_mode == MODE_PRGM_CTL_MENU) {
-        prgm_ctl_cursor = 0;
-        prgm_ctl_scroll = 0;
-        show_screen = ui_prgm_ctl_screen;
-    } else if (to_mode == MODE_PRGM_IO_MENU) {
-        prgm_io_cursor = 0;
-        show_screen = ui_prgm_io_screen;
-    } else {
-        prgm_exec_cursor = 0;
-        prgm_exec_scroll = 0;
-        show_screen = ui_prgm_exec_screen;
-    }
     current_mode = to_mode;
     lvgl_lock();
-    lv_obj_add_flag(hide_screen,   LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
-    if      (to_mode == MODE_PRGM_CTL_MENU)  ui_update_prgm_ctl_display();
-    else if (to_mode == MODE_PRGM_IO_MENU)   ui_update_prgm_io_display();
-    else                                      ui_update_prgm_exec_display();
+    lv_obj_add_flag(hide_screen, LV_OBJ_FLAG_HIDDEN);
+    if (to_mode == MODE_PRGM_CTL_MENU) {
+        show_screen = ui_prgm_ctl_screen;
+        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_prgm_ctl_reset_and_show();
+    } else if (to_mode == MODE_PRGM_IO_MENU) {
+        show_screen = ui_prgm_io_screen;
+        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_prgm_io_reset_and_show();
+    } else {
+        show_screen = ui_prgm_exec_screen;
+        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_prgm_exec_reset_and_show();
+    }
     lvgl_unlock();
 }
-
-bool handle_prgm_ctl_menu(Token_t t)
-{
-    switch (t) {
-    case TOKEN_UP:
-        if (prgm_ctl_cursor > 0)
-            prgm_ctl_cursor--;
-        else if (prgm_ctl_scroll > 0)
-            prgm_ctl_scroll--;
-        lvgl_lock(); ui_update_prgm_ctl_display(); lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        if ((int)(prgm_ctl_scroll + prgm_ctl_cursor) + 1 < PRGM_CTL_ITEM_COUNT) {
-            if (prgm_ctl_cursor < MENU_VISIBLE_ROWS - 1)
-                prgm_ctl_cursor++;
-            else if ((int)(prgm_ctl_scroll + MENU_VISIBLE_ROWS) < PRGM_CTL_ITEM_COUNT)
-                prgm_ctl_scroll++;
-        }
-        lvgl_lock(); ui_update_prgm_ctl_display(); lvgl_unlock();
-        return true;
-    case TOKEN_ENTER: {
-        int idx = (int)prgm_ctl_scroll + (int)prgm_ctl_cursor;
-        if (idx < PRGM_CTL_ITEM_COUNT) {
-            prgm_editor_insert_str(prgm_ctl_insert[idx]);
-            prgm_flatten_to_store();
-        }
-        prgm_submenu_return_to_editor(ui_prgm_ctl_screen);
-        return true;
-    }
-    case TOKEN_1 ... TOKEN_9: {
-        int idx = (int)(t - TOKEN_1);
-        if (idx < PRGM_CTL_ITEM_COUNT) {
-            prgm_editor_insert_str(prgm_ctl_insert[idx]);
-            prgm_flatten_to_store();
-        }
-        prgm_submenu_return_to_editor(ui_prgm_ctl_screen);
-        return true;
-    }
-    case TOKEN_CLEAR:
-        prgm_submenu_return_to_editor(ui_prgm_ctl_screen);
-        return true;
-    case TOKEN_RIGHT:
-        /* CTL RIGHT → I/O */
-        prgm_submenu_tab_switch(ui_prgm_ctl_screen, MODE_PRGM_IO_MENU);
-        return true;
-    case TOKEN_LEFT:
-        /* CTL LEFT → EXEC (wrap) */
-        prgm_submenu_tab_switch(ui_prgm_ctl_screen, MODE_PRGM_EXEC_MENU);
-        return true;
-    default:
-        return true;
-    }
-}
-
-bool handle_prgm_io_menu(Token_t t)
-{
-    switch (t) {
-    case TOKEN_UP:
-        if (prgm_io_cursor > 0) prgm_io_cursor--;
-        lvgl_lock(); ui_update_prgm_io_display(); lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        if (prgm_io_cursor < PRGM_IO_ITEM_COUNT - 1) prgm_io_cursor++;
-        lvgl_lock(); ui_update_prgm_io_display(); lvgl_unlock();
-        return true;
-    case TOKEN_ENTER: {
-        int idx = (int)prgm_io_cursor;
-        prgm_editor_insert_str(prgm_io_insert[idx]);
-        prgm_flatten_to_store();
-        prgm_submenu_return_to_editor(ui_prgm_io_screen);
-        return true;
-    }
-    case TOKEN_1 ... TOKEN_5: {
-        int idx = (int)(t - TOKEN_1);
-        if (idx < PRGM_IO_ITEM_COUNT) {
-            prgm_editor_insert_str(prgm_io_insert[idx]);
-            prgm_flatten_to_store();
-        }
-        prgm_submenu_return_to_editor(ui_prgm_io_screen);
-        return true;
-    }
-    case TOKEN_CLEAR:
-        prgm_submenu_return_to_editor(ui_prgm_io_screen);
-        return true;
-    case TOKEN_LEFT:
-        /* I/O LEFT → CTL */
-        prgm_submenu_tab_switch(ui_prgm_io_screen, MODE_PRGM_CTL_MENU);
-        return true;
-    case TOKEN_RIGHT:
-        /* I/O RIGHT → EXEC (wrap) */
-        prgm_submenu_tab_switch(ui_prgm_io_screen, MODE_PRGM_EXEC_MENU);
-        return true;
-    default:
-        return true;
-    }
-}
-
-bool handle_prgm_exec_menu(Token_t t)
-{
-    switch (t) {
-    case TOKEN_UP:
-        if (prgm_exec_cursor > 0)
-            prgm_exec_cursor--;
-        else if (prgm_exec_scroll > 0)
-            prgm_exec_scroll--;
-        lvgl_lock(); ui_update_prgm_exec_display(); lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        if ((int)(prgm_exec_scroll + prgm_exec_cursor) + 1 < PRGM_MAX_PROGRAMS) {
-            if (prgm_exec_cursor < MENU_VISIBLE_ROWS - 1)
-                prgm_exec_cursor++;
-            else if ((int)(prgm_exec_scroll + MENU_VISIBLE_ROWS) < PRGM_MAX_PROGRAMS)
-                prgm_exec_scroll++;
-        }
-        lvgl_lock(); ui_update_prgm_exec_display(); lvgl_unlock();
-        return true;
-    case TOKEN_ENTER: {
-        int slot = (int)prgm_exec_scroll + (int)prgm_exec_cursor;
-        if (slot < PRGM_MAX_PROGRAMS) {
-            char slot_id[3];
-            prgm_slot_id_str((uint8_t)slot, slot_id);
-            const char *uname = g_prgm_store.names[slot];
-            char ins[PRGM_NAME_LEN + 6]; /* "prgm" + name/id + NUL */
-            snprintf(ins, sizeof(ins), "prgm%s", uname[0] != '\0' ? uname : slot_id);
-            prgm_editor_insert_str(ins);
-            prgm_flatten_to_store();
-        }
-        prgm_submenu_return_to_editor(ui_prgm_exec_screen);
-        return true;
-    }
-    case TOKEN_1 ... TOKEN_9: {
-        int slot = (int)(t - TOKEN_1);
-        if (slot < PRGM_MAX_PROGRAMS) {
-            prgm_exec_scroll = (slot >= MENU_VISIBLE_ROWS)
-                ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
-            prgm_exec_cursor = (uint8_t)(slot - (int)prgm_exec_scroll);
-            return handle_prgm_exec_menu(TOKEN_ENTER);
-        }
-        return true;
-    }
-    case TOKEN_0: {
-        int slot = 9;
-        prgm_exec_scroll = (slot >= MENU_VISIBLE_ROWS)
-            ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
-        prgm_exec_cursor = (uint8_t)(slot - (int)prgm_exec_scroll);
-        return handle_prgm_exec_menu(TOKEN_ENTER);
-    }
-    case TOKEN_A ... TOKEN_Z: {
-        int slot = 10 + (int)(t - TOKEN_A);
-        if (slot < PRGM_MAX_PROGRAMS) {
-            prgm_exec_scroll = (slot >= MENU_VISIBLE_ROWS)
-                ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
-            prgm_exec_cursor = (uint8_t)(slot - (int)prgm_exec_scroll);
-            return handle_prgm_exec_menu(TOKEN_ENTER);
-        }
-        return true;
-    }
-    case TOKEN_THETA: {
-        int slot = 36;
-        prgm_exec_scroll = (slot >= MENU_VISIBLE_ROWS)
-            ? (uint8_t)(slot - MENU_VISIBLE_ROWS + 1) : 0;
-        prgm_exec_cursor = (uint8_t)(slot - (int)prgm_exec_scroll);
-        return handle_prgm_exec_menu(TOKEN_ENTER);
-    }
-    case TOKEN_CLEAR:
-        prgm_submenu_return_to_editor(ui_prgm_exec_screen);
-        return true;
-    case TOKEN_LEFT:
-        /* EXEC LEFT → I/O */
-        prgm_submenu_tab_switch(ui_prgm_exec_screen, MODE_PRGM_IO_MENU);
-        return true;
-    case TOKEN_RIGHT:
-        /* EXEC RIGHT → CTL (wrap) */
-        prgm_submenu_tab_switch(ui_prgm_exec_screen, MODE_PRGM_CTL_MENU);
-        return true;
-    default:
-        return true;
-    }
-}
-
-
 
 
 /** Show (or refresh) the runtime Menu( overlay.  Must be called under lvgl_lock(). */

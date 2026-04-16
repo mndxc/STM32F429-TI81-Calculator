@@ -30,6 +30,9 @@ App/                            ← Custom application code (never touched by Cu
     ui_stat.c                   STAT menu, DATA list editor, and results screen UI (extracted module)
     calc_stat.c                 Pure statistical math layer — 1-Var, LinReg, LnReg, ExpReg, PwrReg, sort, clear
     ui_prgm.c                   Program menu and editor UI (extracted module)
+    ui_prgm_ctl.c               PRGM CTL sub-menu — Lbl/Goto/If/IS>/DS</,Pause/End/Stop (extracted from ui_prgm.c)
+    ui_prgm_io.c                PRGM I/O sub-menu — Disp/Input/DispHome/DispGraph/ClrHome (extracted from ui_prgm.c)
+    ui_prgm_exec.c              PRGM EXEC sub-menu — subroutine slot picker (extracted from ui_prgm.c)
     ui_draw.c                   DRAW menu UI and command dispatch (extracted module)
     ui_vars.c                   VARS menu UI — 5-tab (XY/Σ/LR/DIM/RNG) value-insert menu (extracted module)
     ui_yvars.c                  Y-VARS menu UI — 3-tab (Y/ON/OFF) equation-reference insert and enable/disable menu (extracted module)
@@ -52,7 +55,10 @@ App/                            ← Custom application code (never touched by Cu
     ui_matrix.h                 Matrix editor UI interface
     ui_mode.h                   MODE screen state and API (ModeScreenState_t, ui_mode_init, handle_mode_screen)
     ui_stat.h                   STAT menu UI interface (StatMenuState_t, handler protos)
-    ui_prgm.h                   Program menu UI interface
+    ui_prgm.h                   Program menu UI interface (includes shared helpers used by CTL/IO/EXEC sub-modules)
+    ui_prgm_ctl.h               PRGM CTL sub-menu interface (screen pointer, init, reset, display-update, handler)
+    ui_prgm_io.h                PRGM I/O sub-menu interface (screen pointer, init, reset, display-update, handler)
+    ui_prgm_exec.h              PRGM EXEC sub-menu interface (screen pointer, init, reset, display-update, handler)
     ui_draw.h                   DRAW menu UI interface (DrawMenuState_t, handler protos)
     ui_vars.h                   VARS menu UI interface (VarsMenuState_t, handler protos)
     ui_yvars.h                  Y-VARS menu UI interface (YVarsMenuState_t, handler protos)

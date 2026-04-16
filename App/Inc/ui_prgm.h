@@ -45,10 +45,13 @@ void prgm_reset_state(CalcMode_t target_mode);
 bool handle_prgm_menu(Token_t t);
 bool handle_prgm_new_name(Token_t t);
 bool handle_prgm_editor(Token_t t);
-bool handle_prgm_ctl_menu(Token_t t);
-bool handle_prgm_io_menu(Token_t t);
-bool handle_prgm_exec_menu(Token_t t);
 bool handle_prgm_running(Token_t t);
+
+/* Sub-menu shared helpers — called by ui_prgm_ctl.c, ui_prgm_io.c, ui_prgm_exec.c */
+void prgm_editor_insert_str(const char *s);
+void prgm_flatten_to_store(void);
+void prgm_submenu_return_to_editor(lv_obj_t *hide_screen);
+void prgm_submenu_tab_switch(lv_obj_t *hide_screen, CalcMode_t to_mode);
 
 void prgm_menu_open(CalcMode_t return_to);
 CalcMode_t prgm_menu_close(void);
