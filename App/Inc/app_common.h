@@ -75,6 +75,42 @@ typedef enum {
 #define GRAPH_NUM_EQ    4   /* Number of simultaneous Y= equations */
 #define GRAPH_NUM_PARAM 3   /* Number of simultaneous parametric X/Y pairs */
 
+/*
+ * GraphState_t — ownership and mutation rules
+ *
+ * graph_state is a global defined in calculator_core.c and exported via
+ * calc_internal.h.  All mutations must happen under lvgl_lock() because
+ * they are followed immediately by LVGL label/display updates in the same
+ * critical section.
+ *
+ * Field ownership by module:
+ *
+ *   equations[]/enabled[]    — Written by graph_ui.c (Y= editor),
+ *                              ui_param_yeq.c (parametric editor),
+ *                              ui_yvars.c (ON/OFF tab actions).
+ *                              Read by graph.c (render), persist.c (save/load).
+ *
+ *   xmin/xmax/ymin/ymax      — Written by graph_ui_range.c (RANGE editor),
+ *                              graph_ui.c (ZOOM preset actions),
+ *                              graph.c (ZBox commit).
+ *                              Read by graph.c (render), persist.c (save/load).
+ *
+ *   tmin/tmax/tstep          — Written by graph_ui_range.c (parametric RANGE
+ *                              editor).  Read by graph.c (parametric render).
+ *
+ *   param_mode               — Written by ui_mode.c (MODE screen row 4).
+ *                              Read by all graph modules to branch behaviour.
+ *
+ *   grid_on                  — Written by ui_mode.c (MODE screen row 7).
+ *                              Read by graph.c.
+ *
+ *   active                   — Written by graph_ui.c (GRAPH key handler).
+ *                              Read by calculator_core.c, graph.c.
+ *
+ * Adding a new graph feature: add its fields here with their owning module,
+ * then update docs/TECHNICAL.md "State Ownership" section.
+ */
+
 /**
  * @brief Holds all state for the graphing subsystem.
  *

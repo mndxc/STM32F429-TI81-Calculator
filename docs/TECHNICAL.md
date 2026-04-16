@@ -753,6 +753,64 @@ FLASH sector map (STM32F429ZIT6, 2 MB dual-bank):
 
 ---
 
+## State Ownership
+
+This section records which module owns each major shared global, what conditions
+must be met before mutating it, and which modules have read access.
+
+### graph_state (`GraphState_t`)
+
+**Defined in:** `calculator_core.c`  
+**Exported via:** `app_common.h` (full struct declaration) and `calc_internal.h` (same extern, for the UI super-module)  
+**Mutation rule:** All mutations must happen under `lvgl_lock()` because they are immediately followed by LVGL display updates in the same critical section.
+
+| Field group | Writers | Readers |
+|---|---|---|
+| `equations[]` / `enabled[]` | `graph_ui.c` (Y= editor), `ui_param_yeq.c` (parametric editor), `ui_yvars.c` (ON/OFF actions) | `graph.c` (render), `persist.c` (save/load) |
+| `x_min/x_max/y_min/y_max` | `graph_ui_range.c` (RANGE editor), `graph_ui.c` (ZOOM preset actions), `graph.c` (ZBox commit) | `graph.c` (render), `persist.c` (save/load) |
+| `t_min/t_max/t_step` | `graph_ui_range.c` (parametric RANGE editor) | `graph.c` (parametric render) |
+| `param_mode` | `ui_mode.c` (MODE screen row 4) | All graph modules — branches function vs. parametric behaviour |
+| `grid_on` | `ui_mode.c` (MODE screen row 7) | `graph.c` |
+| `active` | `graph_ui.c` (GRAPH key handler) | `calculator_core.c`, `graph.c` |
+
+Adding a new graph field: update this table and the ownership comment block in `app_common.h` immediately above the `GraphState_t` definition.
+
+### calc_variables[] (`float[26]`)
+
+**Defined in:** `calc_engine.c` (private array, `A`–`Z`)  
+**Exported via:** `calc_engine.h` (`Calc_SetVariable` / `Calc_GetVariable` accessors)  
+**Mutation rule:** Write only via `Calc_SetVariable()`; read via `Calc_GetVariable()` or directly during RPN evaluation. Not guarded by `lvgl_lock()` — `calc_engine.c` is a pure computational layer with no LVGL calls. All writes originate from `CalcCoreTask` (the STO→ handler and STAT regression result store), so no concurrent mutation occurs.
+
+| Operation | Writer | Readers |
+|---|---|---|
+| STO→ variable | `calculator_core.c` (STO handler) | `calc_engine.c` (`EvaluateRPN`) |
+| LinReg results (A, B) | `calc_stat.c` via `Calc_SetVariable` | `calc_engine.c`, `ui_stat.c` |
+
+### calc_matrices[] (matrix storage)
+
+**Defined in:** `calculator_core.c`  
+**Exported via:** `calc_internal.h` (for the UI super-module)  
+**Mutation rule:** Written by the matrix cell editor under `lvgl_lock()`. The calc engine reads matrices during RPN evaluation on `CalcCoreTask`. Both accesses run on `CalcCoreTask` — no concurrent mutation.
+
+| Operation | Writer | Readers |
+|---|---|---|
+| Cell edit | `ui_matrix.c` | `calc_engine.c`, `persist.c` |
+| Persist load | `persist.c` | `ui_matrix.c`, `calc_engine.c` |
+
+### stat_data (`StatData_t`)
+
+**Defined in:** `ui_stat.c`  
+**Exported via:** `app_common.h` (extern declaration)  
+**Mutation rule:** Written only from `ui_stat.c` (DATA list editor and Clear operation). Read by `calc_stat.c` (computation), `graph.c` (STAT plot renderers), and `persist.c` (save/load). All writes are on `CalcCoreTask` — no concurrent mutation.
+
+### ans (`float`)
+
+**Defined in:** `calculator_core.c`  
+**Exported via:** `calc_internal.h`  
+**Mutation rule:** Updated after every successful `Calc_Evaluate` call. When the result is a matrix, `ans` holds the matrix slot index and `ans_is_matrix = true`. Passed explicitly to `Calc_Evaluate`; `Calc_EvaluateAt` (graphing) always receives `false` for `ans_is_matrix` because Y= equations cannot reference a matrix ANS.
+
+---
+
 ## Known Limitations
 
 - Background colours with mixed RGB565 bit patterns show a faint diagonal

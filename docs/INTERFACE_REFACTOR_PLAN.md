@@ -1,6 +1,6 @@
 # Interface & Module Refactoring Plan
 
-**Status:** Items 1–4 complete (2026-04-15 / 2026-04-16 / 2026-04-16 / 2026-04-16). Items 5–6 pending.  
+**Status:** Items 1–5 complete (2026-04-15 / 2026-04-16 / 2026-04-16 / 2026-04-16 / 2026-04-16). Item 6 pending.  
 **Purpose:** This document is the single source of truth for bringing each module to a clean,
 well-bounded package. Work items are ordered so they can be executed sequentially from the top.
 Each section is self-contained — an AI starting a fresh session needs only this document and the
@@ -479,7 +479,7 @@ Contains: all functions listed above
 
 ---
 
-## Item 5 — Document graph_state ownership
+## Item 5 — Document graph_state ownership ✓ COMPLETE (2026-04-16)
 
 **Problem:** `graph_state` (a `GraphState_t` struct) is read or written by at least seven modules:
 `calculator_core.c`, `graph_ui.c`, `graph_ui_range.c`, `ui_param_yeq.c`, `graph.c`, `ui_stat.c`,
@@ -539,9 +539,9 @@ owning module and the rule for safe mutation.
 - `docs/TECHNICAL.md` — new "State Ownership" section
 
 ### Acceptance criteria
-- [ ] `GraphState_t` definition has the ownership comment
-- [ ] `docs/TECHNICAL.md` has a "State Ownership" section
-- [ ] No code changes; firmware and tests unchanged
+- [x] `GraphState_t` definition has the ownership comment
+- [x] `docs/TECHNICAL.md` has a "State Ownership" section
+- [x] No code changes; firmware and tests unchanged
 
 ---
 
