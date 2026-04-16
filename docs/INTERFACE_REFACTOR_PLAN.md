@@ -1,6 +1,6 @@
 # Interface & Module Refactoring Plan
 
-**Status:** Item 1 complete (2026-04-15). Items 2–6 pending.  
+**Status:** Items 1–2 complete (2026-04-15 / 2026-04-16). Items 3–6 pending.  
 **Purpose:** This document is the single source of truth for bringing each module to a clean,
 well-bounded package. Work items are ordered so they can be executed sequentially from the top.
 Each section is self-contained — an AI starting a fresh session needs only this document and the
@@ -202,7 +202,7 @@ bool handle_prgm_io_menu(Token_t t);
 
 ---
 
-## Item 2 — Add ExpressionBuffer_t wrapper to expr_util.h
+## Item 2 — Add ExpressionBuffer_t wrapper to expr_util.h ✓ (2026-04-16)
 
 **Problem:** The expression buffer (`expression[]`, `expr_len`, `cursor_pos`) is scattered across
 `calculator_core.c` as three separate statics, exposed raw via `calc_internal.h`. Every module
