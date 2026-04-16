@@ -1,6 +1,6 @@
 # Interface & Module Refactoring Plan
 
-**Status:** Items 1–2 complete (2026-04-15 / 2026-04-16). Items 3–6 pending.  
+**Status:** Items 1–3 complete (2026-04-15 / 2026-04-16 / 2026-04-16). Items 4–6 pending.  
 **Purpose:** This document is the single source of truth for bringing each module to a clean,
 well-bounded package. Work items are ordered so they can be executed sequentially from the top.
 Each section is self-contained — an AI starting a fresh session needs only this document and the
@@ -295,7 +295,7 @@ Migrate in this order:
 
 ---
 
-## Item 3 — Unify menu navigation state with MenuState_t
+## Item 3 — Unify menu navigation state with MenuState_t ✓ COMPLETE (2026-04-16)
 
 **Problem:** Every menu module declares the same three or four state variables independently:
 
@@ -401,11 +401,11 @@ retrofits for subsequent sessions — do not attempt to migrate all menus in one
 - `build-tests/CMakeLists.txt` — add `menu_state.c` to test build
 
 ### Acceptance criteria
-- [ ] `MenuState_t` and all five helpers are defined and implemented
-- [ ] `ui_vars.c` uses `MenuState_t`; its bespoke state variables are gone
-- [ ] `menu_state.c` has no LVGL/HAL includes
-- [ ] Host tests pass; add at least two tests for `MenuState_MoveUp/Down` boundary behaviour
-- [ ] All other menus still work (no regression; they have not been migrated yet)
+- [x] `MenuState_t` and all five helpers are defined and implemented
+- [x] `ui_vars.c` uses `MenuState_t`; its bespoke state variables are gone
+- [x] `menu_state.c` has no LVGL/HAL includes
+- [x] Host tests pass; test_menu_state.c has 5 groups, 43 assertions covering MoveUp/Down bounds, PrevTab/NextTab, DigitToIndex, AbsoluteIndex
+- [x] All other menus still work (no regression; they have not been migrated yet — TODO notes added)
 
 ---
 

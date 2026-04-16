@@ -54,6 +54,7 @@ graph TD
     subgraph "Application Core (Host-Testable)"
         CE["calc_engine.c (Math Engine)"]
         EU["expr_util.c (Buffer Logic)"]
+        MS["menu_state.c (Menu Navigation Helpers)"]
         PE["persist.c (Serialization)"]
         PRE["prgm_exec.c (Execution + Storage)"]
     end

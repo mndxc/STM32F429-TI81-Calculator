@@ -192,6 +192,25 @@ if(COVERAGE)
     target_link_options(test_yvars PRIVATE --coverage)
 endif()
 
+# --- test_menu_state ---
+# Shared MenuState_t navigation helpers; no LVGL/HAL/RTOS dependencies.
+
+add_executable(test_menu_state
+    test_menu_state.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/menu_state.c
+)
+
+target_include_directories(test_menu_state PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad
+)
+
+target_compile_options(test_menu_state PRIVATE -Wall -Wextra -DHOST_TEST=1)
+
+if(COVERAGE)
+    target_compile_options(test_menu_state PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_menu_state PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
@@ -203,3 +222,4 @@ add_test(NAME normal_mode       COMMAND test_normal_mode)
 add_test(NAME param             COMMAND test_param)
 add_test(NAME stat              COMMAND test_stat)
 add_test(NAME yvars             COMMAND test_yvars)
+add_test(NAME menu_state        COMMAND test_menu_state)

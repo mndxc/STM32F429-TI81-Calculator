@@ -15,6 +15,9 @@
  *   ₁₂₃₄ = U+2081–2084 → \xE2\x82\x81 … \xE2\x82\x84
  */
 
+/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
+ * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
+
 #include "ui_yvars.h"
 #include "calc_internal.h"
 #include "ui_palette.h"

@@ -15,6 +15,9 @@
  * from there) to complete the argument list before pressing ENTER.
  */
 
+/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
+ * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
+
 #include "ui_draw.h"
 #include "calc_internal.h"
 #include "graph.h"

@@ -1,3 +1,6 @@
+/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
+ * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
+
 #include "ui_matrix.h"
 #include "ui_palette.h"
 #include "calc_internal.h"

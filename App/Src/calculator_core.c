@@ -993,10 +993,10 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
         ui_update_draw_display();
         break;
     case TOKEN_VARS:
-        vars_menu_state.return_mode  = return_to;
-        vars_menu_state.tab          = 0;
-        vars_menu_state.item_cursor  = 0;
-        vars_menu_state.scroll_offset = 0;
+        vars_menu_state.return_mode = return_to;
+        vars_menu_state.tab         = 0;
+        vars_menu_state.cursor      = 0;
+        vars_menu_state.scroll      = 0;
         current_mode = MODE_VARS_MENU;
         lv_obj_clear_flag(ui_vars_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_vars_display();
@@ -1049,11 +1049,11 @@ CalcMode_t menu_close(Token_t menu_token)
         draw_menu_state.item_cursor  = 0;
         break;
     case TOKEN_VARS:
-        ret                             = vars_menu_state.return_mode;
-        vars_menu_state.return_mode     = MODE_NORMAL;
-        vars_menu_state.tab             = 0;
-        vars_menu_state.item_cursor     = 0;
-        vars_menu_state.scroll_offset   = 0;
+        ret                         = vars_menu_state.return_mode;
+        vars_menu_state.return_mode = MODE_NORMAL;
+        vars_menu_state.tab         = 0;
+        vars_menu_state.cursor      = 0;
+        vars_menu_state.scroll      = 0;
         break;
     case TOKEN_Y_VARS:
         ret                              = yvars_menu_state.return_mode;

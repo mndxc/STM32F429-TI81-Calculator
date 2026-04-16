@@ -21,6 +21,7 @@
  */
 
 #include "ui_vars.h"
+#include "menu_state.h"
 #include "calc_internal.h"
 #include "ui_palette.h"
 #include <math.h>
@@ -81,7 +82,7 @@ static const char * const vars_rng_names[10] = {
  * Module state
  *---------------------------------------------------------------------------*/
 
-VarsMenuState_t vars_menu_state = {0, 0, 0, MODE_NORMAL};
+MenuState_t vars_menu_state = {0, 0, 0, MODE_NORMAL};
 
 lv_obj_t *ui_vars_screen = NULL;
 
@@ -309,8 +310,8 @@ void ui_init_vars_screen(void)
 void ui_update_vars_display(void)
 {
     uint8_t tab    = vars_menu_state.tab;
-    uint8_t cursor = vars_menu_state.item_cursor;
-    uint8_t scroll = vars_menu_state.scroll_offset;
+    uint8_t cursor = vars_menu_state.cursor;
+    uint8_t scroll = vars_menu_state.scroll;
     uint8_t total  = vars_tab_item_count[tab];
 
     /* Tab labels */
@@ -370,64 +371,53 @@ void ui_update_vars_display(void)
 
 bool handle_vars_menu(Token_t t)
 {
-    VarsMenuState_t *s = &vars_menu_state;
+    MenuState_t *s = &vars_menu_state;
     uint8_t total = vars_tab_item_count[s->tab];
 
     switch (t) {
     case TOKEN_LEFT:
-        tab_move(&s->tab, &s->item_cursor, &s->scroll_offset,
+        tab_move(&s->tab, &s->cursor, &s->scroll,
                  VARS_TAB_COUNT, true, ui_update_vars_display);
         return true;
 
     case TOKEN_RIGHT:
-        tab_move(&s->tab, &s->item_cursor, &s->scroll_offset,
+        tab_move(&s->tab, &s->cursor, &s->scroll,
                  VARS_TAB_COUNT, false, ui_update_vars_display);
         return true;
 
     case TOKEN_UP:
-        if (s->item_cursor > 0) {
-            s->item_cursor--;
-        } else if (s->scroll_offset > 0) {
-            s->scroll_offset--;
-        }
+        MenuState_MoveUp(s, total, MENU_VISIBLE_ROWS);
         lvgl_lock();
         ui_update_vars_display();
         lvgl_unlock();
         return true;
 
-    case TOKEN_DOWN: {
-        int actual = (int)s->scroll_offset + (int)s->item_cursor;
-        if (actual + 1 < (int)total) {
-            if ((int)s->item_cursor + 1 < MENU_VISIBLE_ROWS)
-                s->item_cursor++;
-            else
-                s->scroll_offset++;
-        }
+    case TOKEN_DOWN:
+        MenuState_MoveDown(s, total, MENU_VISIBLE_ROWS);
         lvgl_lock();
         ui_update_vars_display();
         lvgl_unlock();
         return true;
-    }
 
     case TOKEN_ENTER: {
-        int actual = (int)s->scroll_offset + (int)s->item_cursor;
-        if (actual < (int)total)
-            vars_do_insert(s->tab, (uint8_t)actual);
+        uint8_t actual = MenuState_AbsoluteIndex(s);
+        if ((int)actual < (int)total)
+            vars_do_insert(s->tab, actual);
         return true;
     }
 
     /* Digit shortcuts 1–9: item at that 1-based index; 0: item 10 (RNG Tstep) */
     case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4: case TOKEN_5:
     case TOKEN_6: case TOKEN_7: case TOKEN_8: case TOKEN_9: case TOKEN_0: {
-        int idx = (t == TOKEN_0) ? 9 : (int)(t - TOKEN_1);
-        if (idx < (int)total) {
+        int idx = MenuState_DigitToIndex(t, total);
+        if (idx >= 0) {
             /* Scroll so the chosen item is visible, place cursor on it */
             if (idx < MENU_VISIBLE_ROWS) {
-                s->scroll_offset = 0;
-                s->item_cursor   = (uint8_t)idx;
+                s->scroll = 0;
+                s->cursor = (uint8_t)idx;
             } else {
-                s->scroll_offset = (uint8_t)(idx - MENU_VISIBLE_ROWS + 1);
-                s->item_cursor   = (uint8_t)(MENU_VISIBLE_ROWS - 1);
+                s->scroll = (uint8_t)(idx - MENU_VISIBLE_ROWS + 1);
+                s->cursor = (uint8_t)(MENU_VISIBLE_ROWS - 1);
             }
             vars_do_insert(s->tab, (uint8_t)idx);
         }

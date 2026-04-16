@@ -12,31 +12,24 @@
  *
  * Selecting an item inserts its current numeric value into the expression
  * buffer (or the Y= editor if opened from there).
+ *
+ * Navigation state uses the shared MenuState_t from menu_state.h (Item 3
+ * proof-of-concept; see INTERFACE_REFACTOR_PLAN.md).
  */
 
 #ifndef APP_UI_VARS_H
 #define APP_UI_VARS_H
 
 #include "app_common.h"
+#include "menu_state.h"
 #include "lvgl.h"
-
-/*---------------------------------------------------------------------------
- * Menu navigation state
- *---------------------------------------------------------------------------*/
-
-typedef struct {
-    uint8_t    tab;           /* 0=XY 1=Σ 2=LR 3=DIM 4=RNG */
-    uint8_t    item_cursor;   /* Visible-row highlight (relative to scroll_offset) */
-    uint8_t    scroll_offset; /* Index of first visible item (non-zero only for RNG tab) */
-    CalcMode_t return_mode;   /* Mode to restore on CLEAR */
-} VarsMenuState_t;
 
 /*---------------------------------------------------------------------------
  * Externally visible objects / state
  *---------------------------------------------------------------------------*/
 
-extern VarsMenuState_t vars_menu_state;
-extern lv_obj_t       *ui_vars_screen;
+extern MenuState_t vars_menu_state;
+extern lv_obj_t   *ui_vars_screen;
 
 /*---------------------------------------------------------------------------
  * Public API

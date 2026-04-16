@@ -8,6 +8,9 @@
  *   MODE_STAT_RESULTS — multi-line readout of last statistical computation
  */
 
+/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
+ * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
+
 #include "ui_stat.h"
 #include "calc_internal.h"
 #include "calc_stat.h"

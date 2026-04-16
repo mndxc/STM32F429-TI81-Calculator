@@ -279,16 +279,12 @@ static inline bool handle_stat_results(Token_t t) { (void)t; return false; }
 
 /*---------------------------------------------------------------------------
  * ui_vars.h replacement
+ * Navigation state uses MenuState_t (see App/Inc/menu_state.h — Item 3).
  *---------------------------------------------------------------------------*/
 
-typedef struct {
-    uint8_t    tab;
-    uint8_t    item_cursor;
-    uint8_t    scroll_offset;
-    CalcMode_t return_mode;
-} VarsMenuState_t;
+#include "menu_state.h"
 
-extern VarsMenuState_t vars_menu_state;
+extern MenuState_t vars_menu_state;
 
 static inline void ui_init_vars_screen(void)        {}
 static inline void ui_update_vars_display(void)     {}

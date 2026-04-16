@@ -6,6 +6,9 @@
  * Includes calc_internal.h as a full super-module member.
  */
 
+/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
+ * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
+
 #include "ui_math_menu.h"
 #include <stdio.h>
 #ifndef HOST_TEST
