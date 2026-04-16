@@ -614,10 +614,10 @@ static void enter_exec_tab(int abs_pos)
     char slot_id[3];
     prgm_slot_id_str((uint8_t)abs_pos, slot_id);
     const char *uname = g_prgm_store.names[abs_pos];
-    snprintf(expression, MAX_EXPR_LEN, "prgm%s",
+    snprintf(expr.buf, MAX_EXPR_LEN, "prgm%s",
              uname[0] != '\0' ? uname : slot_id);
-    expr_len   = (uint8_t)strlen(expression);
-    cursor_pos = expr_len;
+    expr.len    = (uint8_t)strlen(expr.buf);
+    expr.cursor = expr.len;
     CalcMode_t exec_ret = prgm_return_mode;
     prgm_return_mode   = MODE_NORMAL;
     prgm_tab           = 0;
@@ -1192,7 +1192,7 @@ bool handle_prgm_running(Token_t t)
         if (t == TOKEN_ENTER) {
             if (prgm_input_var != 0) {
                 /* Evaluate and store to the target variable */
-                CalcResult_t r = Calc_Evaluate(expression, ans, ans_is_matrix,
+                CalcResult_t r = Calc_Evaluate(expr.buf, ans, ans_is_matrix,
                                                angle_degrees);
                 char res_buf[MAX_RESULT_LEN];
                 format_calc_result(&r, res_buf, MAX_RESULT_LEN, &ans);
@@ -1203,15 +1203,13 @@ bool handle_prgm_running(Token_t t)
                 }
                 /* Append expression + result to history */
                 uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-                strncpy(history[hidx].expression, expression, MAX_EXPR_LEN - 1);
+                strncpy(history[hidx].expression, expr.buf, MAX_EXPR_LEN - 1);
                 history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
                 strncpy(history[hidx].result, res_buf, MAX_RESULT_LEN - 1);
                 history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
                 history_count++;
             }
-            expression[0]     = '\0';
-            expr_len          = 0;
-            cursor_pos        = 0;
+            ExprBuffer_Clear(&expr);
             prgm_waiting_input = false;
             prgm_input_var    = 0;
             lvgl_lock(); ui_update_history(); lvgl_unlock();
@@ -1224,8 +1222,8 @@ bool handle_prgm_running(Token_t t)
             return true;
         }
         if (t == TOKEN_CLEAR) {
-            if (expr_len > 0) {
-                expression[0] = '\0'; expr_len = 0; cursor_pos = 0;
+            if (expr.len > 0) {
+                ExprBuffer_Clear(&expr);
                 Update_Calculator_Display();
             } else {
                 /* Abort on CLEAR with empty expression */
@@ -1265,9 +1263,7 @@ bool handle_prgm_running(Token_t t)
         prgm_run_active    = false;
         prgm_waiting_input = false;
         prgm_call_top      = 0;
-        expression[0]      = '\0';
-        expr_len           = 0;
-        cursor_pos         = 0;
+        ExprBuffer_Clear(&expr);
         current_mode       = MODE_NORMAL;
         lvgl_lock(); ui_refresh_display(); lvgl_unlock();
         return true;

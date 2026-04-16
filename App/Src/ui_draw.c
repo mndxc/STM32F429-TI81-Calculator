@@ -182,7 +182,7 @@ bool try_execute_draw_command(void)
     const uint16_t shade_grey  = 0x8410; /* mid-grey 50 % */
 
     /* ClrDraw */
-    if (strcmp(expression, "ClrDraw") == 0) {
+    if (strcmp(expr.buf, "ClrDraw") == 0) {
         Graph_DrawLayerClear();
         if (Graph_IsVisible())
             Graph_Render(angle_degrees);
@@ -190,8 +190,8 @@ bool try_execute_draw_command(void)
     }
 
     /* Line(x1,y1,x2,y2) */
-    if (strncmp(expression, "Line(", 5) == 0) {
-        const char *p = expression + 4;
+    if (strncmp(expr.buf, "Line(", 5) == 0) {
+        const char *p = expr.buf + 4;
         float args[4] = {0};
         if (parse_draw_args(&p, args, 4) == 4) {
             int32_t px1 = Graph_MathXToPx(args[0]);
@@ -206,8 +206,8 @@ bool try_execute_draw_command(void)
     }
 
     /* PT-On(x,y) */
-    if (strncmp(expression, "PT-On(", 6) == 0) {
-        const char *p = expression + 5;
+    if (strncmp(expr.buf, "PT-On(", 6) == 0) {
+        const char *p = expr.buf + 5;
         float args[2] = {0};
         if (parse_draw_args(&p, args, 2) >= 2) {
             Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
@@ -219,8 +219,8 @@ bool try_execute_draw_command(void)
     }
 
     /* PT-Off(x,y) */
-    if (strncmp(expression, "PT-Off(", 7) == 0) {
-        const char *p = expression + 6;
+    if (strncmp(expr.buf, "PT-Off(", 7) == 0) {
+        const char *p = expr.buf + 6;
         float args[2] = {0};
         if (parse_draw_args(&p, args, 2) >= 2) {
             Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
@@ -232,8 +232,8 @@ bool try_execute_draw_command(void)
     }
 
     /* PT-Chg(x,y) */
-    if (strncmp(expression, "PT-Chg(", 7) == 0) {
-        const char *p = expression + 6;
+    if (strncmp(expr.buf, "PT-Chg(", 7) == 0) {
+        const char *p = expr.buf + 6;
         float args[2] = {0};
         if (parse_draw_args(&p, args, 2) >= 2) {
             int32_t px = Graph_MathXToPx(args[0]);
@@ -247,8 +247,8 @@ bool try_execute_draw_command(void)
     }
 
     /* DrawF <expr> */
-    if (strncmp(expression, "DrawF ", 6) == 0) {
-        const char *expr_part = expression + 6;
+    if (strncmp(expr.buf, "DrawF ", 6) == 0) {
+        const char *expr_part = expr.buf + 6;
         if (strlen(expr_part) > 0) {
             Graph_DrawF(expr_part, draw_white, angle_degrees);
             if (Graph_IsVisible())
@@ -258,8 +258,8 @@ bool try_execute_draw_command(void)
     }
 
     /* Shade(yLow,yHigh) */
-    if (strncmp(expression, "Shade(", 6) == 0) {
-        const char *p = expression + 5;
+    if (strncmp(expr.buf, "Shade(", 6) == 0) {
+        const char *p = expr.buf + 5;
         float args[2] = {0};
         if (parse_draw_args(&p, args, 2) >= 2) {
             Graph_Shade(args[0], args[1], shade_grey);

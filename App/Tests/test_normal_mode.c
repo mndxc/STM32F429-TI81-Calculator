@@ -33,6 +33,14 @@
 #include "calculator_core_test_stubs.h"
 #include "ui_input.h"
 
+/* Compatibility aliases: the shared expression buffer is now ExprBuffer_t expr
+ * (defined in calculator_core.c, declared extern via calculator_core_test_stubs.h).
+ * NOTE: 'expression' is intentionally NOT aliased — HistoryEntry_t also has an
+ * '.expression' field, so a global #define would silently corrupt those accesses.
+ * All standalone expression buffer accesses below use expr.buf directly. */
+#define expr_len     expr.len
+#define cursor_pos   expr.cursor
+
 /* -------------------------------------------------------------------------
  * Stub definitions for external symbols not provided by linked .c files
  * ---------------------------------------------------------------------- */
@@ -135,7 +143,7 @@ static void reset_state(void)
     history_count         = 0;
     history_recall_offset = 0;
     memset(history, 0, sizeof(history));
-    memset(expression, 0, sizeof(expression));
+    memset(expr.buf, 0, sizeof(expr.buf));
     expr_len   = 0;
     cursor_pos = 0;
     memset(&g_prgm_store, 0, sizeof(g_prgm_store));
@@ -148,8 +156,8 @@ static void load_expr(const char *s)
 {
     size_t len = strlen(s);
     if (len >= MAX_EXPR_LEN) len = MAX_EXPR_LEN - 1;
-    memcpy(expression, s, len);
-    expression[len] = '\0';
+    memcpy(expr.buf, s, len);
+    expr.buf[len] = '\0';
     expr_len   = (uint8_t)len;
     cursor_pos = (uint8_t)len;
 }
@@ -164,14 +172,14 @@ static void test_digit_key(void)
     /* 1. Single digit appended to empty expression */
     reset_state();
     handle_normal_mode(TOKEN_5);
-    CHECK(expr_len == 1 && expression[0] == '5', "digit: TOKEN_5 inserts '5'");
+    CHECK(expr_len == 1 && expr.buf[0] == '5', "digit: TOKEN_5 inserts '5'");
 
     /* 2. Multiple digits form a multi-char number */
     reset_state();
     handle_normal_mode(TOKEN_1);
     handle_normal_mode(TOKEN_2);
     handle_normal_mode(TOKEN_3);
-    CHECK(strcmp(expression, "123") == 0, "digit: 1,2,3 → \"123\"");
+    CHECK(strcmp(expr.buf, "123") == 0, "digit: 1,2,3 → \"123\"");
     CHECK(cursor_pos == 3, "digit: cursor at end after three digits");
 
     /* 3. Decimal point inserts '.' */
@@ -179,17 +187,17 @@ static void test_digit_key(void)
     handle_normal_mode(TOKEN_3);
     handle_normal_mode(TOKEN_DECIMAL);
     handle_normal_mode(TOKEN_1);
-    CHECK(strcmp(expression, "3.1") == 0, "digit: decimal point inserts '.'");
+    CHECK(strcmp(expr.buf, "3.1") == 0, "digit: decimal point inserts '.'");
 
     /* 4. TOKEN_0 inserts '0' */
     reset_state();
     handle_normal_mode(TOKEN_0);
-    CHECK(expression[0] == '0', "digit: TOKEN_0 inserts '0'");
+    CHECK(expr.buf[0] == '0', "digit: TOKEN_0 inserts '0'");
 
     /* 5. TOKEN_9 inserts '9' */
     reset_state();
     handle_normal_mode(TOKEN_9);
-    CHECK(expression[0] == '9', "digit: TOKEN_9 inserts '9'");
+    CHECK(expr.buf[0] == '9', "digit: TOKEN_9 inserts '9'");
 
     /* 6. All ten digit tokens produce correct characters */
     reset_state();
@@ -198,13 +206,13 @@ static void test_digit_key(void)
     handle_normal_mode(TOKEN_4); handle_normal_mode(TOKEN_5);
     handle_normal_mode(TOKEN_6); handle_normal_mode(TOKEN_7);
     handle_normal_mode(TOKEN_8); handle_normal_mode(TOKEN_9);
-    CHECK(strcmp(expression, "0123456789") == 0, "digit: all ten tokens correct");
+    CHECK(strcmp(expr.buf, "0123456789") == 0, "digit: all ten tokens correct");
 
     /* 7. Digit does not auto-prepend ANS on empty expression */
     reset_state();
     ans = 42.0f;
     handle_normal_mode(TOKEN_7);
-    CHECK(strcmp(expression, "7") == 0, "digit: no ANS prepend on digit");
+    CHECK(strcmp(expr.buf, "7") == 0, "digit: no ANS prepend on digit");
 }
 
 /* -------------------------------------------------------------------------
@@ -218,66 +226,66 @@ static void test_arithmetic_op(void)
     reset_state();
     ans = 5.0f;
     handle_normal_mode(TOKEN_ADD);
-    CHECK(strncmp(expression, "ANS", 3) == 0, "arith: ADD on empty prepends ANS");
-    CHECK(expression[3] == '+',               "arith: ADD inserts '+' after ANS");
+    CHECK(strncmp(expr.buf, "ANS", 3) == 0, "arith: ADD on empty prepends ANS");
+    CHECK(expr.buf[3] == '+',               "arith: ADD inserts '+' after ANS");
 
     /* 2. SUB on empty expression prepends ANS */
     reset_state();
     ans = 3.0f;
     handle_normal_mode(TOKEN_SUB);
-    CHECK(strncmp(expression, "ANS", 3) == 0, "arith: SUB on empty prepends ANS");
-    CHECK(expression[3] == '-',               "arith: SUB inserts '-' after ANS");
+    CHECK(strncmp(expr.buf, "ANS", 3) == 0, "arith: SUB on empty prepends ANS");
+    CHECK(expr.buf[3] == '-',               "arith: SUB inserts '-' after ANS");
 
     /* 3. ADD on non-empty expression appends without prepending ANS */
     reset_state();
     load_expr("2");
     handle_normal_mode(TOKEN_ADD);
-    CHECK(strcmp(expression, "2+") == 0, "arith: ADD appends '+' to existing expr");
+    CHECK(strcmp(expr.buf, "2+") == 0, "arith: ADD appends '+' to existing expr");
 
     /* 4. MULT on empty prepends ANS */
     reset_state();
     handle_normal_mode(TOKEN_MULT);
-    CHECK(strncmp(expression, "ANS", 3) == 0, "arith: MULT prepends ANS");
-    CHECK(expression[3] == '*',               "arith: MULT inserts '*'");
+    CHECK(strncmp(expr.buf, "ANS", 3) == 0, "arith: MULT prepends ANS");
+    CHECK(expr.buf[3] == '*',               "arith: MULT inserts '*'");
 
     /* 5. DIV on empty prepends ANS */
     reset_state();
     handle_normal_mode(TOKEN_DIV);
-    CHECK(expression[3] == '/', "arith: DIV inserts '/'");
+    CHECK(expr.buf[3] == '/', "arith: DIV inserts '/'");
 
     /* 6. POWER on empty prepends ANS */
     reset_state();
     handle_normal_mode(TOKEN_POWER);
-    CHECK(expression[3] == '^', "arith: POWER inserts '^'");
+    CHECK(expr.buf[3] == '^', "arith: POWER inserts '^'");
 
     /* 7. SQUARE inserts "^2" */
     reset_state();
     load_expr("X");
     handle_normal_mode(TOKEN_SQUARE);
-    CHECK(strcmp(expression, "X^2") == 0, "arith: SQUARE appends '^2'");
+    CHECK(strcmp(expr.buf, "X^2") == 0, "arith: SQUARE appends '^2'");
 
     /* 8. X_INV inserts "^-1" */
     reset_state();
     load_expr("X");
     handle_normal_mode(TOKEN_X_INV);
-    CHECK(strcmp(expression, "X^-1") == 0, "arith: X_INV appends '^-1'");
+    CHECK(strcmp(expr.buf, "X^-1") == 0, "arith: X_INV appends '^-1'");
 
     /* 9. L_PAR inserts '(' — no ANS prepend */
     reset_state();
     handle_normal_mode(TOKEN_L_PAR);
-    CHECK(expression[0] == '(' && strncmp(expression, "ANS", 3) != 0,
+    CHECK(expr.buf[0] == '(' && strncmp(expr.buf, "ANS", 3) != 0,
           "arith: L_PAR no ANS prepend");
 
     /* 10. R_PAR inserts ')' — no ANS prepend */
     reset_state();
     load_expr("(2");
     handle_normal_mode(TOKEN_R_PAR);
-    CHECK(strcmp(expression, "(2)") == 0, "arith: R_PAR inserts ')'");
+    CHECK(strcmp(expr.buf, "(2)") == 0, "arith: R_PAR inserts ')'");
 
     /* 11. NEG inserts '-' without ANS prepend */
     reset_state();
     handle_normal_mode(TOKEN_NEG);
-    CHECK(expression[0] == '-' && strncmp(expression, "ANS", 3) != 0,
+    CHECK(expr.buf[0] == '-' && strncmp(expr.buf, "ANS", 3) != 0,
           "arith: NEG inserts '-' without ANS");
 
     /* 12. Cursor advances correctly after operator insert */
@@ -297,81 +305,81 @@ static void test_function_insert(void)
     /* 1. SIN inserts "sin(" */
     reset_state();
     handle_normal_mode(TOKEN_SIN);
-    CHECK(strncmp(expression, "sin(", 4) == 0, "func: TOKEN_SIN → \"sin(\"");
+    CHECK(strncmp(expr.buf, "sin(", 4) == 0, "func: TOKEN_SIN → \"sin(\"");
 
     /* 2. COS inserts "cos(" */
     reset_state();
     handle_normal_mode(TOKEN_COS);
-    CHECK(strncmp(expression, "cos(", 4) == 0, "func: TOKEN_COS → \"cos(\"");
+    CHECK(strncmp(expr.buf, "cos(", 4) == 0, "func: TOKEN_COS → \"cos(\"");
 
     /* 3. TAN inserts "tan(" */
     reset_state();
     handle_normal_mode(TOKEN_TAN);
-    CHECK(strncmp(expression, "tan(", 4) == 0, "func: TOKEN_TAN → \"tan(\"");
+    CHECK(strncmp(expr.buf, "tan(", 4) == 0, "func: TOKEN_TAN → \"tan(\"");
 
     /* 4. LN inserts "ln(" */
     reset_state();
     handle_normal_mode(TOKEN_LN);
-    CHECK(strncmp(expression, "ln(", 3) == 0, "func: TOKEN_LN → \"ln(\"");
+    CHECK(strncmp(expr.buf, "ln(", 3) == 0, "func: TOKEN_LN → \"ln(\"");
 
     /* 5. LOG inserts "log(" */
     reset_state();
     handle_normal_mode(TOKEN_LOG);
-    CHECK(strncmp(expression, "log(", 4) == 0, "func: TOKEN_LOG → \"log(\"");
+    CHECK(strncmp(expr.buf, "log(", 4) == 0, "func: TOKEN_LOG → \"log(\"");
 
     /* 6. ABS inserts "abs(" */
     reset_state();
     handle_normal_mode(TOKEN_ABS);
-    CHECK(strncmp(expression, "abs(", 4) == 0, "func: TOKEN_ABS → \"abs(\"");
+    CHECK(strncmp(expr.buf, "abs(", 4) == 0, "func: TOKEN_ABS → \"abs(\"");
 
     /* 7. E_X inserts "exp(" */
     reset_state();
     handle_normal_mode(TOKEN_E_X);
-    CHECK(strncmp(expression, "exp(", 4) == 0, "func: TOKEN_E_X → \"exp(\"");
+    CHECK(strncmp(expr.buf, "exp(", 4) == 0, "func: TOKEN_E_X → \"exp(\"");
 
     /* 8. TEN_X inserts "10^(" */
     reset_state();
     handle_normal_mode(TOKEN_TEN_X);
-    CHECK(strncmp(expression, "10^(", 4) == 0, "func: TOKEN_TEN_X → \"10^(\"");
+    CHECK(strncmp(expr.buf, "10^(", 4) == 0, "func: TOKEN_TEN_X → \"10^(\"");
 
     /* 9. ANS token inserts "ANS" */
     reset_state();
     handle_normal_mode(TOKEN_ANS);
-    CHECK(strcmp(expression, "ANS") == 0, "func: TOKEN_ANS → \"ANS\"");
+    CHECK(strcmp(expr.buf, "ANS") == 0, "func: TOKEN_ANS → \"ANS\"");
 
     /* 10. SQRT inserts a 3-byte UTF-8 √ followed by '(' */
     reset_state();
     handle_normal_mode(TOKEN_SQRT);
     CHECK(expr_len >= 4, "func: TOKEN_SQRT inserts ≥4 bytes (√ is 3-byte UTF-8)");
     /* The last byte before the null should be '(' */
-    CHECK(expression[expr_len - 1] == '(', "func: TOKEN_SQRT ends with '('");
+    CHECK(expr.buf[expr_len - 1] == '(', "func: TOKEN_SQRT ends with '('");
 
     /* 11. EE inserts "*10^" */
     reset_state();
     handle_normal_mode(TOKEN_EE);
-    CHECK(strcmp(expression, "*10^") == 0, "func: TOKEN_EE → \"*10^\"");
+    CHECK(strcmp(expr.buf, "*10^") == 0, "func: TOKEN_EE → \"*10^\"");
 
     /* 12. PI inserts the UTF-8 π character (2 bytes) */
     reset_state();
     handle_normal_mode(TOKEN_PI);
     CHECK(expr_len == 2, "func: TOKEN_PI inserts 2-byte UTF-8 π");
-    CHECK((uint8_t)expression[0] == 0xCF && (uint8_t)expression[1] == 0x80,
+    CHECK((uint8_t)expr.buf[0] == 0xCF && (uint8_t)expr.buf[1] == 0x80,
           "func: TOKEN_PI UTF-8 bytes correct");
 
     /* 13. Alpha token TOKEN_A inserts 'A' */
     reset_state();
     handle_normal_mode(TOKEN_A);
-    CHECK(expression[0] == 'A' && expr_len == 1, "func: TOKEN_A → 'A'");
+    CHECK(expr.buf[0] == 'A' && expr_len == 1, "func: TOKEN_A → 'A'");
 
     /* 14. Alpha token TOKEN_Z inserts 'Z' */
     reset_state();
     handle_normal_mode(TOKEN_Z);
-    CHECK(expression[0] == 'Z' && expr_len == 1, "func: TOKEN_Z → 'Z'");
+    CHECK(expr.buf[0] == 'Z' && expr_len == 1, "func: TOKEN_Z → 'Z'");
 
     /* 15. TOKEN_MTRX_A inserts "[A]" */
     reset_state();
     handle_normal_mode(TOKEN_MTRX_A);
-    CHECK(strcmp(expression, "[A]") == 0, "func: TOKEN_MTRX_A → \"[A]\"");
+    CHECK(strcmp(expr.buf, "[A]") == 0, "func: TOKEN_MTRX_A → \"[A]\"");
 
     /* 16. Function insert advances cursor to end */
     reset_state();
@@ -409,7 +417,7 @@ static void test_history_nav(void)
     load_expr("7");
     handle_normal_mode(TOKEN_ENTER);
     handle_normal_mode(TOKEN_UP);
-    CHECK(strcmp(expression, "7") == 0,        "nav: UP loads last history expression");
+    CHECK(strcmp(expr.buf, "7") == 0,        "nav: UP loads last history expression");
     CHECK(history_recall_offset == 1,          "nav: UP sets recall offset to 1");
     CHECK(cursor_pos == expr_len,              "nav: UP cursor at end of recalled expression");
 
@@ -432,10 +440,10 @@ static void test_history_nav(void)
     reset_state();
     load_expr("10");
     handle_normal_mode(TOKEN_ENTER);
-    memset(expression, 0, sizeof(expression));
+    memset(expr.buf, 0, sizeof(expr.buf));
     expr_len = 0; cursor_pos = 0;
     handle_normal_mode(TOKEN_ENTRY);
-    CHECK(strcmp(expression, "10") == 0,  "nav: ENTRY loads last expression");
+    CHECK(strcmp(expr.buf, "10") == 0,  "nav: ENTRY loads last expression");
     CHECK(history_recall_offset == 1,     "nav: ENTRY sets recall offset to 1");
 
     /* 7. LEFT moves cursor back one position */
@@ -496,7 +504,7 @@ static void test_clear_key(void)
     handle_normal_mode(TOKEN_CLEAR);
     CHECK(expr_len == 0,    "clear: expr_len reset to 0");
     CHECK(cursor_pos == 0,  "clear: cursor_pos reset to 0");
-    CHECK(expression[0] == '\0', "clear: expression string empty");
+    CHECK(expr.buf[0] == '\0', "clear: expression string empty");
 
     /* 2. CLEAR on already-empty expression is a no-op (no crash) */
     reset_state();
@@ -530,7 +538,7 @@ static void test_sto_key(void)
     reset_state();
     ans = 7.0f;
     handle_normal_mode(TOKEN_STO);
-    CHECK(strncmp(expression, "ANS", 3) == 0, "sto: STO on empty prepends ANS");
+    CHECK(strncmp(expr.buf, "ANS", 3) == 0, "sto: STO on empty prepends ANS");
     CHECK(sto_pending == true,                "sto: sto_pending set after ANS prepend");
 
     /* 3. sto_pending starts false */
@@ -541,7 +549,7 @@ static void test_sto_key(void)
     reset_state();
     load_expr("PI");
     handle_normal_mode(TOKEN_STO);
-    CHECK(strcmp(expression, "PI") == 0, "sto: STO does not modify non-empty expression");
+    CHECK(strcmp(expr.buf, "PI") == 0, "sto: STO does not modify non-empty expression");
     CHECK(sto_pending == true,           "sto: sto_pending set with non-empty expression");
 }
 
@@ -567,7 +575,7 @@ static void test_ins_del(void)
     load_expr("AB");
     handle_normal_mode(TOKEN_DEL);
     CHECK(expr_len == 1,         "del: DEL reduces expr_len by 1");
-    CHECK(expression[0] == 'A',  "del: DEL removes last char leaving 'A'");
+    CHECK(expr.buf[0] == 'A',  "del: DEL removes last char leaving 'A'");
     CHECK(cursor_pos == 1,       "del: cursor_pos after DEL");
 
     /* 4. TOKEN_DEL on empty expression is a no-op */
@@ -581,8 +589,8 @@ static void test_ins_del(void)
     cursor_pos = 2;
     handle_normal_mode(TOKEN_DEL);
     CHECK(expr_len == 2,            "del: mid-cursor DEL reduces len by 1");
-    CHECK(expression[0] == 'A',     "del: mid-cursor DEL: first char intact");
-    CHECK(expression[1] == 'C',     "del: mid-cursor DEL: third char shifts down");
+    CHECK(expr.buf[0] == 'A',     "del: mid-cursor DEL: first char intact");
+    CHECK(expr.buf[1] == 'C',     "del: mid-cursor DEL: third char shifts down");
 }
 
 /* -------------------------------------------------------------------------
@@ -678,10 +686,10 @@ static void test_expr_building(void)
     reset_state();
     load_expr("2*6");
     handle_normal_mode(TOKEN_ENTER);
-    memset(expression, 0, sizeof(expression));
+    memset(expr.buf, 0, sizeof(expr.buf));
     expr_len = cursor_pos = 0;
     handle_normal_mode(TOKEN_ENTRY);
-    CHECK(strcmp(expression, "2*6") == 0, "build: ENTRY recalls last expression");
+    CHECK(strcmp(expr.buf, "2*6") == 0, "build: ENTRY recalls last expression");
 }
 
 /* -------------------------------------------------------------------------
@@ -694,12 +702,12 @@ static void test_edge_cases(void)
     /* 1. TOKEN_COMMA inserts ',' */
     reset_state();
     handle_normal_mode(TOKEN_COMMA);
-    CHECK(expression[0] == ',', "edge: TOKEN_COMMA inserts ','");
+    CHECK(expr.buf[0] == ',', "edge: TOKEN_COMMA inserts ','");
 
     /* 2. TOKEN_SPACE inserts ' ' */
     reset_state();
     handle_normal_mode(TOKEN_SPACE);
-    CHECK(expression[0] == ' ', "edge: TOKEN_SPACE inserts ' '");
+    CHECK(expr.buf[0] == ' ', "edge: TOKEN_SPACE inserts ' '");
 
     /* 3. Long expression does not overflow — fill to near capacity */
     reset_state();

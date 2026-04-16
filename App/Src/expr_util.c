@@ -90,7 +90,7 @@ void ExprUtil_InsertChar(char *buf, uint8_t *len, uint8_t *cursor,
         (*cursor)++;
     } else {
         /* Insert: shift tail right, then write */
-        if (*len + 1 > max_len) return;
+        if (*len + 1 >= max_len) return;  /* max_len includes null terminator */
         memmove(&buf[*cursor + 1], &buf[*cursor], *len - *cursor + 1);
         buf[*cursor] = c;
         (*len)++;

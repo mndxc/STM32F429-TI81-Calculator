@@ -52,7 +52,7 @@ static void handle_normal_graph_nav(Token_t t);
 
 static void expr_prepend_ans_if_empty(void)
 {
-    ExprUtil_PrependAns(expression, &expr_len, &cursor_pos, MAX_EXPR_LEN);
+    ExprUtil_PrependAns(expr.buf, &expr.len, &expr.cursor, MAX_EXPR_LEN);
 }
 
 /**
@@ -64,23 +64,23 @@ static void expr_prepend_ans_if_empty(void)
  */
 static void expr_insert_char(char c)
 {
-    ExprUtil_InsertChar(expression, &expr_len, &cursor_pos, MAX_EXPR_LEN, insert_mode, c);
+    ExprUtil_InsertChar(expr.buf, &expr.len, &expr.cursor, MAX_EXPR_LEN, insert_mode, c);
 }
 
 /**
- * @brief Inserts a string at cursor_pos and advances the cursor by its length.
+ * @brief Inserts a string at cursor and advances the cursor by its length.
  */
 void expr_insert_str(const char *s)
 {
-    ExprUtil_InsertStr(expression, &expr_len, &cursor_pos, MAX_EXPR_LEN, s);
+    ExprUtil_InsertStr(expr.buf, &expr.len, &expr.cursor, MAX_EXPR_LEN, s);
 }
 
 /**
- * @brief Deletes the character immediately before cursor_pos (backspace).
+ * @brief Deletes the character immediately before cursor (backspace).
  */
 void expr_delete_at_cursor(void)
 {
-    ExprUtil_DeleteAtCursor(expression, &expr_len, &cursor_pos);
+    ExprBuffer_Delete(&expr);
 }
 
 /*---------------------------------------------------------------------------
@@ -126,11 +126,11 @@ bool handle_sto_pending(Token_t t)
         static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         uint8_t var_idx = t - TOKEN_A;
 
-        CalcResult_t result = Calc_Evaluate(expression, ans, ans_is_matrix, angle_degrees);
+        CalcResult_t result = Calc_Evaluate(expr.buf, ans, ans_is_matrix, angle_degrees);
 
         char result_str[MAX_RESULT_LEN];
         char expr_hist[MAX_EXPR_LEN + 4];  /* expression + "->A\0" */
-        snprintf(expr_hist, sizeof(expr_hist), "%s->%c", expression, var_names[var_idx]);
+        snprintf(expr_hist, sizeof(expr_hist), "%s->%c", expr.buf, var_names[var_idx]);
 
         if (result.error != CALC_OK) {
             strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
@@ -154,9 +154,7 @@ bool handle_sto_pending(Token_t t)
         reset_matrix_scroll_focus();
         history_count++;
 
-        expr_len              = 0;
-        cursor_pos            = 0;
-        expression[0]         = '\0';
+        ExprBuffer_Clear(&expr);
         history_recall_offset = 0;
 
         lvgl_lock();
@@ -236,15 +234,13 @@ static void handle_clear_key(void)
         lvgl_unlock();
         return;
     }
-    expr_len      = 0;
-    cursor_pos    = 0;
-    expression[0] = '\0';
+    ExprBuffer_Clear(&expr);
     Update_Calculator_Display();
 }
 
 static void handle_sto_key(void)
 {
-    if (expr_len == 0) {
+    if (expr.len == 0) {
         expr_prepend_ans_if_empty();
         Update_Calculator_Display();
     }

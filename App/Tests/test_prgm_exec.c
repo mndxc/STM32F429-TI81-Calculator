@@ -36,9 +36,13 @@ HistoryEntry_t history[HISTORY_LINE_COUNT];
 uint8_t        history_count        = 0;
 int8_t         history_recall_offset = 0;
 
-char    expression[MAX_EXPR_LEN];
-uint8_t expr_len  = 0;
-uint8_t cursor_pos = 0;
+ExprBuffer_t expr;  /* .buf, .len, .cursor — replaces the former three variables */
+
+/* Compatibility aliases so existing test assertions and helpers compile unchanged.
+ * NOTE: 'expression' is intentionally NOT aliased — HistoryEntry_t also has an
+ * '.expression' field, so a global #define would silently corrupt those accesses. */
+#define expr_len     expr.len
+#define cursor_pos   expr.cursor
 
 char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
 uint8_t prgm_edit_num_lines = 0;
@@ -78,7 +82,7 @@ static void reset_state(void)
     history_count  = 0;
     history_recall_offset = 0;
     memset(history, 0, sizeof(history));
-    memset(expression, 0, sizeof(expression));
+    memset(expr.buf, 0, sizeof(expr.buf));
     expr_len   = 0;
     cursor_pos = 0;
     memset(&g_prgm_store, 0, sizeof(g_prgm_store));

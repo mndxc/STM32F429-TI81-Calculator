@@ -20,7 +20,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-04-15**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-16**. Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -43,6 +43,7 @@ Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware valida
 |---|---|---|---|---|
 | 2026-04-03 | Testing | B+ | A | P1 property-based invariant tests + handle_normal_mode coverage added |
 | 2026-04-15 | Code organisation | B | B | ui_prgm.c extracted CTL/IO/EXEC sub-menus → 1652→1276 lines; still over 500-line threshold |
+| 2026-04-16 | API / header design | A | A | ExprBuffer_t wrapper added (Item 2); three raw globals → single struct; complexity delta: neutral |
 
 ---
 
@@ -97,6 +98,11 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 ### Next session priorities
 
 #### Active
+
+**[bug] Firmware build broken — pre-existing from Item 1 commit (e408307)** — Two files fail to compile on ARM:
+- `ui_mode.c`: `COLOR_YELLOW`, `COLOR_WHITE`, `COLOR_GREY_INACTIVE` undeclared — likely missing `#include "ui_palette.h"`.
+- `ui_math_menu.h`: `unknown type name 'lv_obj_t'` — LVGL include missing from header; `ui_math_menu.c`: `snprintf` implicit declaration — missing `<stdio.h>`.
+These errors exist in the baseline (confirmed by git stash test). Host tests are unaffected. Fix before next firmware flash.
 
 **3. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
 

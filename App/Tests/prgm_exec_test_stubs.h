@@ -36,14 +36,28 @@ typedef enum {
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------
- * History and display constants (from calc_internal.h)
+ * History and display constants (from calc_internal.h / app_common.h)
  *---------------------------------------------------------------------------*/
 #define HISTORY_LINE_COUNT   1
-#define MAX_EXPR_LEN        96
+#define MAX_EXPR_LEN        96  /* Must match app_common.h */
 #define MAX_RESULT_LEN      96
 #define DISP_ROW_COUNT       8
 #define MENU_VISIBLE_ROWS    7
 #define MATRIX_RING_COUNT    1
+
+/*---------------------------------------------------------------------------
+ * ExprBuffer_t — local definition matching expr_util.h exactly.
+ * Avoids pulling in the full app_common.h / expr_util.h include chain, which
+ * would conflict with this stub's minimal CalcMode_t definition.
+ *---------------------------------------------------------------------------*/
+typedef struct {
+    char    buf[MAX_EXPR_LEN];
+    uint8_t len;
+    uint8_t cursor;
+} ExprBuffer_t;
+
+static inline void ExprBuffer_Clear(ExprBuffer_t *b)
+    { b->buf[0] = '\0'; b->len = 0; b->cursor = 0; }
 
 /*---------------------------------------------------------------------------
  * HistoryEntry_t — must match calc_internal.h exactly.
@@ -69,9 +83,7 @@ extern HistoryEntry_t history[HISTORY_LINE_COUNT];
 extern uint8_t        history_count;
 extern int8_t         history_recall_offset;
 
-extern char    expression[MAX_EXPR_LEN];
-extern uint8_t expr_len;
-extern uint8_t cursor_pos;
+extern ExprBuffer_t expr;   /* .buf = expression string, .len = length, .cursor = insertion point */
 
 /* Program editor working buffer — also defined in test_prgm_exec.c */
 extern char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];

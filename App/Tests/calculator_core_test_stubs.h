@@ -33,6 +33,7 @@
  * persist.h provides PersistBlock_t (already has HOST_TEST guards for HAL).
  * All are safe to include in HOST_TEST builds. */
 #include "app_common.h"
+#include "expr_util.h"    /* ExprBuffer_t and ExprBuffer_* helpers */
 #include "calc_engine.h"
 #include "persist.h"
 #include <stdint.h>
@@ -152,7 +153,7 @@ extern osMessageQId      keypadQueueHandle;
 #define DISP_ROW_H          30
 #define CURSOR_BLINK_MS     530
 #define HISTORY_LINE_COUNT  1
-#define MAX_EXPR_LEN        96
+/* MAX_EXPR_LEN is now in app_common.h (included above) */
 #define MAX_RESULT_LEN      96
 #define MATRIX_RING_COUNT   1
 #define MENU_VISIBLE_ROWS   7
@@ -180,9 +181,7 @@ extern HistoryEntry_t history[HISTORY_LINE_COUNT];
 extern uint8_t        history_count;
 extern int8_t         history_recall_offset;
 
-extern char    expression[MAX_EXPR_LEN];
-extern uint8_t expr_len;
-extern uint8_t cursor_pos;
+extern ExprBuffer_t expr;   /* .buf = expression string, .len = length, .cursor = insertion point */
 
 extern GraphState_t graph_state;
 

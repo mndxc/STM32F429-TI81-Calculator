@@ -100,9 +100,7 @@ static lv_obj_t   *cursor_inner   = NULL;  /* Character label inside cursor_box 
 static lv_style_t style_bg;
 
 /* Calculator state */
-char         expression[MAX_EXPR_LEN];
-uint8_t      expr_len       = 0;
-uint8_t      cursor_pos     = 0;  /* Insertion point, 0–expr_len */
+ExprBuffer_t expr;   /* .buf = expression string, .len = byte length, .cursor = insertion point */
 static uint8_t      expr_chars_per_row = 22; /* Chars that fit on one display row; set at init */
 bool         insert_mode            = false; /* false=overwrite (default), true=insert */
 CalcMode_t   current_mode           = MODE_NORMAL;
@@ -703,7 +701,7 @@ void ui_refresh_display(void)
     if (disp_rows[0] == NULL) return;
 
     int cpr = (int)expr_chars_per_row;
-    int expr_rows = (expr_len == 0) ? 1 : (expr_len + cpr - 1) / cpr;
+    int expr_rows = (expr.len == 0) ? 1 : (expr.len + cpr - 1) / cpr;
 
     /* Number of history entries visible (circular buffer cap) */
     int num_entries = ((int)history_count < HISTORY_LINE_COUNT)
@@ -726,8 +724,8 @@ void ui_refresh_display(void)
     int start = (total > DISP_ROW_COUNT) ? (total - DISP_ROW_COUNT) : 0;
 
     /* Which expression sub-row holds the cursor, and column within that row */
-    int cursor_expr_row = (int)cursor_pos / cpr;
-    int cursor_col      = (int)cursor_pos % cpr;
+    int cursor_expr_row = (int)expr.cursor / cpr;
+    int cursor_col      = (int)expr.cursor % cpr;
 
     for (int row = 0; row < DISP_ROW_COUNT; row++) {
         int li = start + row;
@@ -780,12 +778,12 @@ void ui_refresh_display(void)
             int expr_line  = li - total_history_lines;
             int char_start = expr_line * cpr;
             int char_end   = char_start + cpr;
-            if (char_end > (int)expr_len) char_end = (int)expr_len;
+            if (char_end > (int)expr.len) char_end = (int)expr.len;
             int seg_len = char_end - char_start;
             if (seg_len < 0) seg_len = 0;
 
             char row_buf[MAX_EXPR_LEN + 1];
-            memcpy(row_buf, &expression[char_start], (size_t)seg_len);
+            memcpy(row_buf, &expr.buf[char_start], (size_t)seg_len);
             row_buf[seg_len] = '\0';
 
             lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_GREY_LIGHT), 0);
@@ -1163,10 +1161,10 @@ void reset_matrix_scroll_focus(void)
 static void history_load_offset(uint8_t offset)
 {
     uint8_t idx = (history_count - offset) % HISTORY_LINE_COUNT;
-    strncpy(expression, history[idx].expression, MAX_EXPR_LEN - 1);
-    expression[MAX_EXPR_LEN - 1] = '\0';
-    expr_len   = (uint8_t)strlen(expression);
-    cursor_pos = expr_len;
+    strncpy(expr.buf, history[idx].expression, MAX_EXPR_LEN - 1);
+    expr.buf[MAX_EXPR_LEN - 1] = '\0';
+    expr.len    = (uint8_t)strlen(expr.buf);
+    expr.cursor = expr.len;
     Update_Calculator_Display();
 }
 
@@ -1178,16 +1176,14 @@ static void history_load_offset(uint8_t offset)
 static void history_enter_evaluate(void)
 {
     /* prgmNAME expression: insert into history and run the program */
-    if (strncmp(expression, "prgm", 4) == 0) {
-        int8_t slot = prgm_lookup_slot(expression + 4);
+    if (strncmp(expr.buf, "prgm", 4) == 0) {
+        int8_t slot = prgm_lookup_slot(expr.buf + 4);
         uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-        strncpy(history[hidx].expression, expression, MAX_EXPR_LEN - 1);
+        strncpy(history[hidx].expression, expr.buf, MAX_EXPR_LEN - 1);
         history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
         history[hidx].result[0] = '\0';
         history_count++;
-        expr_len              = 0;
-        cursor_pos            = 0;
-        expression[0]         = '\0';
+        ExprBuffer_Clear(&expr);
         history_recall_offset = 0;
         Update_Calculator_Display();
         if (slot >= 0)
@@ -1198,15 +1194,13 @@ static void history_enter_evaluate(void)
     /* DRAW commands execute as statements — display "Done", skip Calc_Evaluate */
     if (try_execute_draw_command()) {
         uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-        strncpy(history[hidx].expression, expression, MAX_EXPR_LEN - 1);
+        strncpy(history[hidx].expression, expr.buf, MAX_EXPR_LEN - 1);
         history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
         strncpy(history[hidx].result, "Done", MAX_RESULT_LEN - 1);
         history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
         history[hidx].has_matrix = false;
         history_count++;
-        expr_len              = 0;
-        cursor_pos            = 0;
-        expression[0]         = '\0';
+        ExprBuffer_Clear(&expr);
         history_recall_offset = 0;
         lvgl_lock();
         ui_update_history();
@@ -1215,13 +1209,11 @@ static void history_enter_evaluate(void)
         return;
     }
 #endif /* HOST_TEST */
-    CalcResult_t result = Calc_Evaluate(expression, ans, ans_is_matrix, angle_degrees);
+    CalcResult_t result = Calc_Evaluate(expr.buf, ans, ans_is_matrix, angle_degrees);
     char result_str[MAX_RESULT_LEN];
     format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
-    commit_history_entry(expression, result_str, &result);
-    expr_len              = 0;
-    cursor_pos            = 0;
-    expression[0]         = '\0';
+    commit_history_entry(expr.buf, result_str, &result);
+    ExprBuffer_Clear(&expr);
     history_recall_offset = 0;
 }
 
@@ -1230,20 +1222,20 @@ void handle_history_nav(Token_t t)
     switch (t) {
 
     case TOKEN_LEFT:
-        if (expr_len == 0 && matrix_scroll_focus >= 0 &&
+        if (expr.len == 0 && matrix_scroll_focus >= 0 &&
             history_get_matrix(&history[matrix_scroll_focus]) != NULL) {
             if (matrix_scroll_offset > 0) {
                 matrix_scroll_offset--;
                 Update_Calculator_Display();
             }
-        } else if (cursor_pos > 0) {
-            ExprUtil_MoveCursorLeft(expression, &cursor_pos);
+        } else if (expr.cursor > 0) {
+            ExprBuffer_Left(&expr);
             Update_Calculator_Display();
         }
         break;
 
     case TOKEN_RIGHT:
-        if (expr_len == 0 && matrix_scroll_focus >= 0) {
+        if (expr.len == 0 && matrix_scroll_focus >= 0) {
             const CalcMatrix_t *m = history_get_matrix(&history[matrix_scroll_focus]);
             if (m != NULL) {
                 int total_w = matrix_row_total_width(m);
@@ -1254,14 +1246,14 @@ void handle_history_nav(Token_t t)
                     Update_Calculator_Display();
                 }
             }
-        } else if (cursor_pos < expr_len) {
-            ExprUtil_MoveCursorRight(expression, expr_len, &cursor_pos);
+        } else if (expr.cursor < expr.len) {
+            ExprBuffer_Right(&expr);
             Update_Calculator_Display();
         }
         break;
 
     case TOKEN_UP:
-        if ((expr_len == 0 || history_recall_offset > 0) &&
+        if ((expr.len == 0 || history_recall_offset > 0) &&
             history_recall_offset < history_count &&
             history_recall_offset < HISTORY_LINE_COUNT) {
             history_recall_offset++;
@@ -1273,7 +1265,7 @@ void handle_history_nav(Token_t t)
         if (history_recall_offset > 0) {
             history_recall_offset--;
             if (history_recall_offset == 0) {
-                expr_len = 0; cursor_pos = 0; expression[0] = '\0';
+                ExprBuffer_Clear(&expr);
                 Update_Calculator_Display();
             } else {
                 history_load_offset(history_recall_offset);
@@ -1282,7 +1274,7 @@ void handle_history_nav(Token_t t)
         break;
 
     case TOKEN_ENTER:
-        if (expr_len == 0 && history_count > 0) {
+        if (expr.len == 0 && history_count > 0) {
             /* Re-evaluate the last history entry */
             uint8_t last_idx = (history_count - 1) % HISTORY_LINE_COUNT;
             CalcResult_t result = Calc_Evaluate(history[last_idx].expression,
@@ -1291,7 +1283,7 @@ void handle_history_nav(Token_t t)
             format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
             commit_history_entry(history[last_idx].expression, result_str, &result);
             history_recall_offset = 0;
-        } else if (expr_len > 0) {
+        } else if (expr.len > 0) {
             history_enter_evaluate();
         }
         break;

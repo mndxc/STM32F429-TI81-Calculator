@@ -17,6 +17,7 @@ App/                            ← Custom application code (never touched by Cu
     calculator_core.c           Calculator UI, token processing, expression building
     calc_engine.c               Expression parser and evaluator (shunting-yard + RPN)
     expr_util.c                 Pure expression-buffer helpers (UTF-8, insert, delete, cursor)
+    expr_buffer.c               ExprBuffer_t stateful wrapper (Insert/Delete/Left/Right/Clear)
     graph.c                     Graph canvas, axes, tick marks, curve renderer, STAT plot renderers
     graph_draw.c                Draw layer — persistent user-drawn overlay (DRAW menu; SDRAM 0xD0080800)
     graph_ui.c                  Graph screen UI and handlers (Y=, ZOOM, TRACE, ZBox)
@@ -83,6 +84,7 @@ App/                            ← Custom application code (never touched by Cu
     CMakeLists.txt              Host test build (see docs/TESTING.md for suite list and counts)
     test_calc_engine.c          Tokenizer, shunting-yard, RPN, matrix
     test_expr_util.c            UTF-8 cursor, insert/delete, matrix atomicity
+    test_expr_buffer.c          ExprBuffer_t wrapper (Clear, Insert, Delete, Left/Right, overflow)
     test_persist_roundtrip.c    PersistBlock_t checksum and round-trip
     test_prgm_exec.c            Active command handlers, control flow, subroutines
     test_normal_mode.c          handle_normal_mode dispatch, all 8 sub-handlers

@@ -36,6 +36,7 @@
  */
 
 #include "app_common.h"
+#include "expr_util.h"    /* ExprBuffer_t and ExprBuffer_* / ExprUtil_* helpers */
 #include "lvgl.h"
 #include "calc_engine.h"
 #include "ui_mode.h"      /* ModeScreenState_t, s_mode, ui_mode_open, handle_mode_screen */
@@ -95,7 +96,7 @@ void menu_insert_text(const char *ins, CalcMode_t *ret_mode);
 #define CURSOR_BLINK_MS     530         /* Cursor blink interval */
 
 #define HISTORY_LINE_COUNT  1           /* Expression+result pairs stored in history (TI-81 spec: 1 entry) */
-#define MAX_EXPR_LEN        96          /* Supports up to 4 wrapped display rows */
+/* MAX_EXPR_LEN is now in app_common.h (included above) */
 #define MAX_RESULT_LEN      96   /* 32 for scalars; up to ~80 for 3×3 matrix rows */
 
 #define MATRIX_RING_COUNT   1   /* ring buffer slots for matrix history results */
@@ -115,9 +116,7 @@ extern int8_t         history_recall_offset;
 extern int8_t         matrix_scroll_focus;   /* history slot with scroll focus; -1=none */
 extern uint8_t        matrix_scroll_offset;  /* horizontal character scroll offset */
 
-extern char         expression[MAX_EXPR_LEN];
-extern uint8_t      expr_len;
-extern uint8_t      cursor_pos;
+extern ExprBuffer_t expr;   /* expression buffer: .buf, .len, .cursor */
 
 void ui_update_history(void);
 void ui_refresh_display(void);

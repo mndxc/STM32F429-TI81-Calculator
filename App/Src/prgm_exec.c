@@ -440,7 +440,7 @@ static void cmd_input(const char *line, uint16_t ln)
     history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
     history[hidx].result[0] = '\0';
     history_count++;
-    expression[0] = '\0'; expr_len = 0; cursor_pos = 0;
+    ExprBuffer_Clear(&expr);
     prgm_waiting_input = true;
 #ifndef HOST_TEST
     lvgl_lock(); ui_update_history(); lvgl_unlock();
@@ -601,9 +601,7 @@ void prgm_run_start(uint8_t idx)
     prgm_run_active    = false;
     prgm_waiting_input = false;
     prgm_input_var     = 0;
-    expression[0]      = '\0';
-    expr_len           = 0;
-    cursor_pos         = 0;
+    ExprBuffer_Clear(&expr);
     prgm_parse_from_store(idx);
     prgm_run_num_lines = prgm_edit_num_lines;
     current_mode       = MODE_PRGM_RUNNING;

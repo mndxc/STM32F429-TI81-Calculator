@@ -32,17 +32,42 @@ endif()
 
 # --- test_expr_util ---
 # Pure expression-buffer utility functions; no LVGL/HAL/RTOS dependencies.
+# HOST_TEST=1 guards the cmsis_os.h include in app_common.h (pulled via expr_util.h).
 
 add_executable(test_expr_util
     test_expr_util.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
 )
 
-target_compile_options(test_expr_util PRIVATE -Wall -Wextra)
+target_include_directories(test_expr_util PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad
+)
+
+target_compile_options(test_expr_util PRIVATE -Wall -Wextra -DHOST_TEST=1)
 
 if(COVERAGE)
     target_compile_options(test_expr_util PRIVATE --coverage -fprofile-arcs -ftest-coverage)
     target_link_options(test_expr_util PRIVATE --coverage)
+endif()
+
+# --- test_expr_buffer ---
+# ExprBuffer_t stateful wrapper; no LVGL/HAL/RTOS dependencies.
+
+add_executable(test_expr_buffer
+    test_expr_buffer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_buffer.c
+)
+
+target_include_directories(test_expr_buffer PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad
+)
+
+target_compile_options(test_expr_buffer PRIVATE -Wall -Wextra -DHOST_TEST=1)
+
+if(COVERAGE)
+    target_compile_options(test_expr_buffer PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_expr_buffer PRIVATE --coverage)
 endif()
 
 # --- test_persist_roundtrip ---
@@ -73,6 +98,8 @@ add_executable(test_prgm_exec
     test_prgm_exec.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/prgm_exec.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_buffer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
 )
 
 # Tests/ directory must be on the path so prgm_exec.c finds prgm_exec_test_stubs.h
@@ -95,6 +122,7 @@ add_executable(test_normal_mode
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_input.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_buffer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/prgm_exec.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad/keypad_map.c
 )
@@ -168,6 +196,7 @@ endif()
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
 add_test(NAME expr_util         COMMAND test_expr_util)
+add_test(NAME expr_buffer       COMMAND test_expr_buffer)
 add_test(NAME persist_roundtrip COMMAND test_persist_roundtrip)
 add_test(NAME prgm_exec         COMMAND test_prgm_exec)
 add_test(NAME normal_mode       COMMAND test_normal_mode)

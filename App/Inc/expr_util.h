@@ -12,6 +12,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+/* MAX_EXPR_LEN is defined in app_common.h for builds that include it.
+ * Provide a self-contained fallback so expr_util.h can be used standalone
+ * in pure host-test builds that do not pull in the full app header chain. */
+#ifndef MAX_EXPR_LEN
+#  define MAX_EXPR_LEN 96  /* Must match app_common.h */
+#endif
+
 /**
  * @brief Returns the byte length of the UTF-8 character starting at s[0].
  *        Returns 1 for ASCII or any continuation/invalid byte (never stalls).
@@ -80,5 +87,40 @@ void ExprUtil_DeleteAtCursor(char *buf, uint8_t *len, uint8_t *cursor);
  */
 void ExprUtil_PrependAns(char *buf, uint8_t *len, uint8_t *cursor,
                          uint8_t max_len);
+
+/*---------------------------------------------------------------------------
+ * ExprBuffer_t — stateful wrapper for the expression buffer
+ *
+ * All mutations through ExprBuffer_* API to guarantee invariants:
+ *   - buf is always null-terminated
+ *   - len == strlen(buf)
+ *   - cursor <= len
+ *   - cursor is always at a UTF-8 character boundary
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief Stateful wrapper for the expression buffer.
+ */
+typedef struct {
+    char    buf[MAX_EXPR_LEN];
+    uint8_t len;
+    uint8_t cursor;   /* byte offset; always a UTF-8 boundary */
+} ExprBuffer_t;
+
+/** Insert string s at cursor. Respects insert_mode for single-char
+ *  inserts (overwrite vs. shift); multi-char strings always insert. */
+void ExprBuffer_Insert(ExprBuffer_t *b, bool insert_mode, const char *s);
+
+/** Delete the character immediately before cursor (backspace). */
+void ExprBuffer_Delete(ExprBuffer_t *b);
+
+/** Move cursor one character left (UTF-8 and matrix-token aware). */
+void ExprBuffer_Left(ExprBuffer_t *b);
+
+/** Move cursor one character right (UTF-8 and matrix-token aware). */
+void ExprBuffer_Right(ExprBuffer_t *b);
+
+/** Clear the buffer: len=0, cursor=0, buf[0]='\0'. */
+void ExprBuffer_Clear(ExprBuffer_t *b);
 
 #endif /* EXPR_UTIL_H */
