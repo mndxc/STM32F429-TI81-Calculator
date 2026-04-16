@@ -620,5 +620,10 @@ void prgm_reset_execution_state(void)
 {
     prgm_run_active    = false;
     prgm_waiting_input = false;
+    prgm_input_var     = 0;
     prgm_call_top      = 0;
 }
+
+bool prgm_is_waiting_input(void) { return prgm_waiting_input; }
+char prgm_get_input_var(void)    { return prgm_input_var; }
+void prgm_clear_input_wait(void) { prgm_waiting_input = false; prgm_input_var = 0; }

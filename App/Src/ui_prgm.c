@@ -1188,16 +1188,17 @@ CalcMode_t prgm_menu_close(void) {
  */
 bool handle_prgm_running(Token_t t)
 {
-    if (prgm_waiting_input) {
+    if (prgm_is_waiting_input()) {
         if (t == TOKEN_ENTER) {
-            if (prgm_input_var != 0) {
+            char input_var = prgm_get_input_var();
+            if (input_var != 0) {
                 /* Evaluate and store to the target variable */
                 CalcResult_t r = Calc_Evaluate(expr.buf, ans, ans_is_matrix,
                                                angle_degrees);
                 char res_buf[MAX_RESULT_LEN];
                 format_calc_result(&r, res_buf, MAX_RESULT_LEN, &ans);
                 if (r.error == CALC_OK && !r.has_matrix) {
-                    calc_variables[prgm_input_var - 'A'] = r.value;
+                    calc_variables[input_var - 'A'] = r.value;
                     ans           = r.value;
                     ans_is_matrix = false;
                 }
@@ -1210,8 +1211,7 @@ bool handle_prgm_running(Token_t t)
                 history_count++;
             }
             ExprBuffer_Clear(&expr);
-            prgm_waiting_input = false;
-            prgm_input_var    = 0;
+            prgm_clear_input_wait();
             lvgl_lock(); ui_update_history(); lvgl_unlock();
             prgm_run_loop();  /* resume execution */
             return true;
@@ -1227,10 +1227,8 @@ bool handle_prgm_running(Token_t t)
                 Update_Calculator_Display();
             } else {
                 /* Abort on CLEAR with empty expression */
-                prgm_run_active    = false;
-                prgm_waiting_input = false;
-                prgm_call_top      = 0;
-                current_mode       = MODE_NORMAL;
+                prgm_reset_execution_state();
+                current_mode = MODE_NORMAL;
                 lvgl_lock(); ui_refresh_display(); lvgl_unlock();
             }
             return true;
@@ -1260,9 +1258,7 @@ bool handle_prgm_running(Token_t t)
 
     /* Not waiting for input — abort on CLEAR, consume everything else */
     if (t == TOKEN_CLEAR) {
-        prgm_run_active    = false;
-        prgm_waiting_input = false;
-        prgm_call_top      = 0;
+        prgm_reset_execution_state();
         ExprBuffer_Clear(&expr);
         current_mode       = MODE_NORMAL;
         lvgl_lock(); ui_refresh_display(); lvgl_unlock();

@@ -68,6 +68,7 @@ set(APP_SOURCES
     App/Src/ui_math_menu.c
     App/Src/calc_engine.c
     App/Src/expr_util.c
+    App/Src/expr_buffer.c
     App/Src/graph.c
     App/Src/graph_draw.c
     App/Src/ui_param_yeq.c
@@ -77,6 +78,9 @@ set(APP_SOURCES
     App/Src/ui_stat.c
     App/Src/calc_stat.c
     App/Src/ui_prgm.c
+    App/Src/ui_prgm_ctl.c
+    App/Src/ui_prgm_io.c
+    App/Src/ui_prgm_exec.c
     App/Src/ui_draw.c
     App/Src/ui_vars.c
     App/Src/ui_yvars.c

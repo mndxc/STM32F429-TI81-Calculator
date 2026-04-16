@@ -7,6 +7,7 @@
  */
 
 #include "ui_math_menu.h"
+#include <stdio.h>
 #ifndef HOST_TEST
 #  include "calc_internal.h"
 #  include "ui_prgm.h"

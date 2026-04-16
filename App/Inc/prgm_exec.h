@@ -188,4 +188,22 @@ int8_t prgm_lookup_slot(const char *id);
  */
 void prgm_request_abort(void);
 
+/**
+ * @brief  Returns true when the executor is paused waiting for user input
+ *         (Input / Pause command).  Used by handle_prgm_running() in ui_prgm.c.
+ */
+bool prgm_is_waiting_input(void);
+
+/**
+ * @brief  Returns the target variable letter ('A'–'Z') for the pending Input
+ *         command, or '\0' for Pause (no target variable).
+ */
+char prgm_get_input_var(void);
+
+/**
+ * @brief  Clears the waiting-for-input flag and target variable after the user
+ *         has provided input (pressed ENTER in MODE_PRGM_RUNNING).
+ */
+void prgm_clear_input_wait(void);
+
 #endif /* PRGM_EXEC_H */

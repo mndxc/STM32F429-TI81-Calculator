@@ -11,12 +11,11 @@
 #define APP_UI_MATH_MENU_H
 
 #include "app_common.h"
+#include "lvgl.h"
 
 /*---------------------------------------------------------------------------
  * Externally visible screen objects
  * Referenced by hide_all_screens() and menu_close() in calculator_core.c.
- * lv_obj_t must be defined before including this header (provided by lvgl.h
- * or by the HOST_TEST stubs in calculator_core_test_stubs.h).
  *---------------------------------------------------------------------------*/
 
 extern lv_obj_t *ui_math_screen;

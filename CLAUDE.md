@@ -99,11 +99,6 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 #### Active
 
-**[bug] Firmware build broken — pre-existing from Item 1 commit (e408307)** — Two files fail to compile on ARM:
-- `ui_mode.c`: `COLOR_YELLOW`, `COLOR_WHITE`, `COLOR_GREY_INACTIVE` undeclared — likely missing `#include "ui_palette.h"`.
-- `ui_math_menu.h`: `unknown type name 'lv_obj_t'` — LVGL include missing from header; `ui_math_menu.c`: `snprintf` implicit declaration — missing `<stdio.h>`.
-These errors exist in the baseline (confirmed by git stash test). Host tests are unaffected. Fix before next firmware flash.
-
 **3. Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
 
 **4. Trace crosshair behaviour differs from original TI-81** — On the original hardware, pressing any non-arrow key while in trace exits trace and processes that key (e.g. GRAPH re-renders, CLEAR exits to calculator). Currently TRACE is a toggle (press again to exit), which is not original behaviour. Additionally, on the original TI-81 there is a free-roaming crosshair cursor visible on the plain graph screen (before pressing TRACE); pressing TRACE snaps the crosshair to the nearest curve. This free-roaming crosshair is not implemented — the graph canvas currently shows no cursor at all until TRACE is pressed. Investigate original behaviour and decide which deviations to correct.

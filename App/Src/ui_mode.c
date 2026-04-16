@@ -26,6 +26,7 @@
 #else
 #  include "calc_internal.h"
 #  include "graph.h"
+#  include "ui_palette.h"
 #endif
 
 #include <stdint.h>
