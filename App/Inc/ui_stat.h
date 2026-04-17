@@ -9,22 +9,15 @@
 
 #include "app_common.h"
 #include "lvgl.h"
+#include "menu_state.h"
 
-/*---------------------------------------------------------------------------
- * Menu navigation state
- *---------------------------------------------------------------------------*/
-
-typedef struct {
-    uint8_t    tab;          /* 0=CALC, 1=DRAW, 2=DATA */
-    uint8_t    item_cursor;  /* Visible-row highlight within current tab */
-    CalcMode_t return_mode;  /* Mode to restore on CLEAR */
-} StatMenuState_t;
+/* StatMenuState_t replaced by shared MenuState_t. */
 
 /*---------------------------------------------------------------------------
  * Externally visible state
  *---------------------------------------------------------------------------*/
 
-extern StatMenuState_t stat_menu_state;
+extern MenuState_t stat_menu_state;
 
 /*---------------------------------------------------------------------------
  * Screen show/hide API (caller holds lvgl_lock)
@@ -65,7 +58,7 @@ void       Stat_MenuOpen(CalcMode_t return_to);
 CalcMode_t Stat_MenuClose(void);
 
 /** Token handler for MODE_STAT_MENU.  Returns true to consume token. */
-bool handle_stat_menu(Token_t t, StatMenuState_t *s);
+bool handle_stat_menu(Token_t t, MenuState_t *s);
 
 /** Token handler for MODE_STAT_EDIT.  Returns true to consume token. */
 bool handle_stat_edit(Token_t t);

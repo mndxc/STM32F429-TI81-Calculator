@@ -74,7 +74,7 @@ lv_obj_t *ui_stat_edit_screen    = NULL;
 lv_obj_t *ui_stat_results_screen = NULL;
 
 /* STAT state (normally owned by ui_stat.c) */
-StatMenuState_t stat_menu_state = {0, 0, MODE_NORMAL};
+MenuState_t stat_menu_state = {0};
 
 /* MATH/TEST menu screen pointers (normally owned by ui_math_menu.c) */
 lv_obj_t *ui_math_screen = NULL;

@@ -8,9 +8,6 @@
  *   MODE_STAT_RESULTS — multi-line readout of last statistical computation
  */
 
-/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
- * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
-
 #include "ui_stat.h"
 #include "calc_internal.h"
 #include "calc_stat.h"
@@ -49,7 +46,7 @@ lv_obj_t *ui_stat_screen         = NULL;
 lv_obj_t *ui_stat_edit_screen    = NULL;
 lv_obj_t *ui_stat_results_screen = NULL;
 
-StatMenuState_t stat_menu_state  = {0, 0, MODE_NORMAL};
+MenuState_t stat_menu_state = {0};
 
 /* Global stat data and results — persist-serialized in calculator_core.c */
 StatData_t    stat_data    = {{0}, {0}, 0};
@@ -294,7 +291,7 @@ void ui_update_stat_display(void)
             else               text = stat_data_names[i];
         }
         lv_obj_set_style_text_color(stat_item_labels[i],
-            (i == (int)stat_menu_state.item_cursor)
+            (i == (int)stat_menu_state.cursor)
             ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(stat_item_labels[i], text);
     }
@@ -400,38 +397,34 @@ void ui_update_stat_results_display(void)
  * Token Handlers
  *---------------------------------------------------------------------------*/
 
-bool handle_stat_menu(Token_t t, StatMenuState_t *s)
+bool handle_stat_menu(Token_t t, MenuState_t *s)
 {
     uint8_t tab_count  = STAT_TAB_COUNT;
     uint8_t item_count = stat_tab_item_count[s->tab];
 
     switch (t) {
     case TOKEN_LEFT:
-        tab_move(&s->tab, &s->item_cursor, NULL, tab_count, true,
+        tab_move(&s->tab, &s->cursor, NULL, tab_count, true,
                  ui_update_stat_display);
         return true;
     case TOKEN_RIGHT:
-        tab_move(&s->tab, &s->item_cursor, NULL, tab_count, false,
+        tab_move(&s->tab, &s->cursor, NULL, tab_count, false,
                  ui_update_stat_display);
         return true;
     case TOKEN_UP:
-        if (s->item_cursor > 0) {
-            s->item_cursor--;
-            lvgl_lock();
-            ui_update_stat_display();
-            lvgl_unlock();
-        }
+        MenuState_MoveUp(s, item_count, MENU_VISIBLE_ROWS);
+        lvgl_lock();
+        ui_update_stat_display();
+        lvgl_unlock();
         return true;
     case TOKEN_DOWN:
-        if (s->item_cursor + 1 < item_count) {
-            s->item_cursor++;
-            lvgl_lock();
-            ui_update_stat_display();
-            lvgl_unlock();
-        }
+        MenuState_MoveDown(s, item_count, MENU_VISIBLE_ROWS);
+        lvgl_lock();
+        ui_update_stat_display();
+        lvgl_unlock();
         return true;
     case TOKEN_ENTER: {
-        uint8_t item = s->item_cursor;
+        uint8_t item = s->cursor;
         if (s->tab == 0) {
             /* CALC */
             stat_run_calc(item);
@@ -482,7 +475,7 @@ bool handle_stat_menu(Token_t t, StatMenuState_t *s)
         };
         for (int i = 0; i < 5; i++) {
             if (t == digit_tokens[i] && i < (int)item_count) {
-                s->item_cursor = (uint8_t)i;
+                s->cursor = (uint8_t)i;
                 handle_stat_menu(TOKEN_ENTER, s);
                 return true;
             }
@@ -670,7 +663,7 @@ void Stat_MenuOpen(CalcMode_t return_to)
 {
     stat_menu_state.return_mode = return_to;
     stat_menu_state.tab         = 0;
-    stat_menu_state.item_cursor = 0;
+    stat_menu_state.cursor      = 0;
     Calc_SetMode(MODE_STAT_MENU);
     Stat_ShowMenuScreen();
     ui_update_stat_display();
@@ -681,7 +674,7 @@ CalcMode_t Stat_MenuClose(void)
     CalcMode_t ret              = stat_menu_state.return_mode;
     stat_menu_state.return_mode = MODE_NORMAL;
     stat_menu_state.tab         = 0;
-    stat_menu_state.item_cursor = 0;
+    stat_menu_state.cursor      = 0;
     return ret;
 }
 

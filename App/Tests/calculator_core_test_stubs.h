@@ -280,13 +280,9 @@ static inline void handle_matrix_edit(Token_t t) { (void)t; }
  * ui_stat.h replacement
  *---------------------------------------------------------------------------*/
 
-typedef struct {
-    uint8_t    tab;
-    uint8_t    item_cursor;
-    CalcMode_t return_mode;
-} StatMenuState_t;
+/* StatMenuState_t replaced by shared MenuState_t. */
 
-extern StatMenuState_t stat_menu_state;
+extern MenuState_t stat_menu_state;
 
 /* stat_data and stat_results are extern in app_common.h; defined in test_normal_mode.c */
 
@@ -304,7 +300,7 @@ static inline void ui_update_stat_edit_display(void)   {}
 static inline void ui_update_stat_results_display(void){}
 static inline void Stat_MenuOpen(CalcMode_t r)      { (void)r; current_mode = MODE_STAT_MENU; }
 static inline CalcMode_t Stat_MenuClose(void)       { return MODE_NORMAL; }
-static inline bool handle_stat_menu(Token_t t, StatMenuState_t *s)
+static inline bool handle_stat_menu(Token_t t, MenuState_t *s)
     { (void)t; (void)s; return false; }
 static inline bool handle_stat_edit(Token_t t)    { (void)t; return false; }
 static inline bool handle_stat_results(Token_t t) { (void)t; return false; }
