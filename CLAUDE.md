@@ -14,7 +14,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-04-17** (all INTERFACE_REFACTOR_PLAN items complete; COUPLING_REFACTOR T1–T9 complete; T10 in progress — ui_yvars.c done, 4 modules remain). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-17** (all INTERFACE_REFACTOR_PLAN items complete; all COUPLING_REFACTOR tasks T1–T10 complete). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -115,7 +115,6 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[complexity] P29 — DRAW menu complexity follow-up (partially resolved)** — Draw layer extracted to `graph_draw.c` (120 lines) / `graph_draw.h` (54 lines); `graph.c` reduced from 963 → 881 lines. Remaining: (1) stat renderer functions (`Graph_DrawScatter/XYLine/Histogram`, `stat_plot_prepare`, `draw_line_px`) still in `graph.c` (~150 lines, tightly coupled to private canvas state — extraction to `graph_stat.c` requires exposing `draw_grid/axes/ticks`); (2) `try_execute_draw_command` in `calculator_core.c` still a candidate for `ui_draw_exec.c`. Assess at next code-organisation review.
 
-**[refactor] MenuState_t retrofit — remaining menus** — `ui_vars.c` is the proof-of-concept (REFACTOR Item 3); `ui_yvars.c` done (2026-04-17, COUPLING_REFACTOR T10 first module). Remaining: `ui_stat.c`, `ui_math_menu.c`, `ui_matrix.c`, `ui_draw.c`. Migrate each module's bespoke `cursor`/`scroll`/`tab`/`return_mode` statics to `MenuState_t` and replace manual UP/DOWN/tab/digit logic with `MenuState_MoveUp/Down/PrevTab/NextTab/DigitToIndex`. Do one module per session; run `ctest` after each.
 
 **[hardware] P29h — DRAW menu hardware validation** — P29 implementation complete, build clean, host tests pass. Validate on hardware: (1) `2nd+PRGM` opens DRAW menu with 7 items; digit shortcuts 1–7 work; UP/DOWN navigation works; CLEAR exits; (2) `ClrDraw` entered from expression buffer clears draw layer and shows "Done"; (3) `Line(0,0,5,5)` draws a diagonal line on the graph canvas; (4) `PT-On(2,3)` sets a pixel; `PT-Off(2,3)` clears it; `PT-Chg(2,3)` toggles it; (5) `DrawF sin(X)` draws the sine curve as a white overlay; (6) `Shade(-1,1)` shades the band between y=−1 and y=1; (7) draw layer persists across GRAPH re-renders (e.g. ZOOM then return — drawn content remains); (8) `ClrDraw` clears all drawn content. Files: `App/Src/ui_draw.c`, `App/Src/graph.c`, `App/Src/calculator_core.c`.
 
