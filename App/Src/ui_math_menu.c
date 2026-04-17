@@ -6,10 +6,8 @@
  * Includes calc_internal.h as a full super-module member.
  */
 
-/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
- * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
-
 #include "ui_math_menu.h"
+#include "menu_state.h"
 #include <stdio.h>
 #ifndef HOST_TEST
 #  include "calc_internal.h"
@@ -34,24 +32,14 @@ typedef struct {
     const char *insert;
 } MenuItem_t;
 
-typedef struct {
-    uint8_t    tab;             /* 0=MATH 1=NUM 2=HYP 3=PRB */
-    uint8_t    item_cursor;     /* Visible-row index of highlight */
-    uint8_t    scroll_offset;
-    CalcMode_t return_mode;     /* Mode to restore after selection */
-} MathMenuState_t;
-
-typedef struct {
-    uint8_t    item_cursor;
-    CalcMode_t return_mode;
-} TestMenuState_t;
+/* MathMenuState_t and TestMenuState_t replaced by shared MenuState_t. */
 
 /*---------------------------------------------------------------------------
  * Private variables — MATH menu
  *---------------------------------------------------------------------------*/
 
 static lv_obj_t *ui_math_screen = NULL;
-static MathMenuState_t s_math = {0};
+static MenuState_t s_math = {0};
 static lv_obj_t *math_tab_labels[MATH_TAB_COUNT];
 static lv_obj_t *math_item_labels[MENU_VISIBLE_ROWS];
 static lv_obj_t *math_scroll_ind[2];   /* [0]=top(↑), [1]=bottom(↓) — amber overlay */
@@ -101,7 +89,7 @@ static const MenuItem_t math_menu_items[MATH_TAB_COUNT][8] = {
 
 /* Screen pointer — private; accessed externally via Test_ShowScreen() / Test_HideScreen() */
 static lv_obj_t *ui_test_screen = NULL;
-static TestMenuState_t s_test = {0};
+static MenuState_t s_test = {0};
 static lv_obj_t  *test_title_label                  = NULL;
 static lv_obj_t  *test_item_labels[TEST_ITEM_COUNT];
 
@@ -212,14 +200,14 @@ void ui_update_math_display(void)
 
     int total = (int)math_tab_item_count[s_math.tab];
     for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        int idx = (int)s_math.scroll_offset + i;
+        int idx = (int)s_math.scroll + i;
         if (idx >= total) {
             lv_label_set_text(math_item_labels[i], "");
             continue;
         }
-        bool more_below = (s_math.scroll_offset + MENU_VISIBLE_ROWS < (uint8_t)total)
+        bool more_below = (s_math.scroll + MENU_VISIBLE_ROWS < (uint8_t)total)
                           && (i == MENU_VISIBLE_ROWS - 1);
-        bool more_above = (s_math.scroll_offset > 0) && (i == 0);
+        bool more_above = (s_math.scroll > 0) && (i == 0);
         char buf[40];
         const char *name = math_menu_items[s_math.tab][idx].display;
         if (more_below) {
@@ -236,7 +224,7 @@ void ui_update_math_display(void)
         }
 
         lv_obj_set_style_text_color(math_item_labels[i],
-            (i == (int)s_math.item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
+            (i == (int)s_math.cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(math_item_labels[i], buf);
     }
 }
@@ -248,7 +236,7 @@ void ui_update_test_display(void)
         char buf[16];
         snprintf(buf, sizeof(buf), "%d:%s", i + 1, test_menu_items[i].display);
         lv_obj_set_style_text_color(test_item_labels[i],
-            (i == (int)s_test.item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
+            (i == (int)s_test.cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(test_item_labels[i], buf);
     }
 }
@@ -330,32 +318,23 @@ bool handle_math_menu(Token_t t)
     int total = (int)math_tab_item_count[s_math.tab];
     switch (t) {
     case TOKEN_LEFT:
-        tab_move(&s_math.tab, &s_math.item_cursor, &s_math.scroll_offset,
+        tab_move(&s_math.tab, &s_math.cursor, &s_math.scroll,
                  MATH_TAB_COUNT, true, ui_update_math_display);
         return true;
     case TOKEN_RIGHT:
-        tab_move(&s_math.tab, &s_math.item_cursor, &s_math.scroll_offset,
+        tab_move(&s_math.tab, &s_math.cursor, &s_math.scroll,
                  MATH_TAB_COUNT, false, ui_update_math_display);
         return true;
     case TOKEN_UP:
-        if (s_math.item_cursor > 0) {
-            s_math.item_cursor--;
-        } else if (s_math.scroll_offset > 0) {
-            s_math.scroll_offset--;
-        }
+        MenuState_MoveUp(&s_math, (uint8_t)total, MENU_VISIBLE_ROWS);
         lvgl_lock(); ui_update_math_display(); lvgl_unlock();
         return true;
     case TOKEN_DOWN:
-        if ((int)(s_math.scroll_offset + s_math.item_cursor) + 1 < total) {
-            if (s_math.item_cursor < MENU_VISIBLE_ROWS - 1)
-                s_math.item_cursor++;
-            else if ((int)(s_math.scroll_offset + MENU_VISIBLE_ROWS) < total)
-                s_math.scroll_offset++;
-        }
+        MenuState_MoveDown(&s_math, (uint8_t)total, MENU_VISIBLE_ROWS);
         lvgl_lock(); ui_update_math_display(); lvgl_unlock();
         return true;
     case TOKEN_ENTER: {
-        int idx = (int)s_math.scroll_offset + (int)s_math.item_cursor;
+        int idx = (int)MenuState_AbsoluteIndex(&s_math);
         if (idx < total) {
             const char *ins = math_menu_items[s_math.tab][idx].insert;
             if (ins != NULL) { math_menu_insert(ins); return true; }
@@ -376,7 +355,7 @@ bool handle_math_menu(Token_t t)
         return true;
     default:
         if (menu_handle_nav_keys(t, &s_math.return_mode,
-                                 &s_math.item_cursor, &s_math.scroll_offset))
+                                 &s_math.cursor, &s_math.scroll))
             return true;
     {
         CalcMode_t ret = menu_close(TOKEN_MATH);
@@ -393,15 +372,15 @@ bool handle_test_menu(Token_t t)
 {
     switch (t) {
     case TOKEN_UP:
-        if (s_test.item_cursor > 0) s_test.item_cursor--;
+        MenuState_MoveUp(&s_test, TEST_ITEM_COUNT, MENU_VISIBLE_ROWS);
         lvgl_lock(); ui_update_test_display(); lvgl_unlock();
         return true;
     case TOKEN_DOWN:
-        if (s_test.item_cursor < TEST_ITEM_COUNT - 1) s_test.item_cursor++;
+        MenuState_MoveDown(&s_test, TEST_ITEM_COUNT, MENU_VISIBLE_ROWS);
         lvgl_lock(); ui_update_test_display(); lvgl_unlock();
         return true;
     case TOKEN_ENTER: {
-        const char *ins = test_menu_items[s_test.item_cursor].insert;
+        const char *ins = test_menu_items[s_test.cursor].insert;
         if (ins != NULL) { test_menu_insert(ins); return true; }
         break;
     }
@@ -419,7 +398,7 @@ bool handle_test_menu(Token_t t)
         return true;
     default:
         if (menu_handle_nav_keys(t, &s_test.return_mode,
-                                 &s_test.item_cursor, NULL))
+                                 &s_test.cursor, NULL))
             return true;
     {
         CalcMode_t ret = menu_close(TOKEN_TEST);
@@ -437,10 +416,10 @@ bool handle_test_menu(Token_t t)
 
 void math_menu_open(CalcMode_t return_to)
 {
-    s_math.return_mode   = return_to;
-    s_math.tab           = 0;
-    s_math.item_cursor   = 0;
-    s_math.scroll_offset = 0;
+    s_math.return_mode = return_to;
+    s_math.tab         = 0;
+    s_math.cursor      = 0;
+    s_math.scroll      = 0;
     Calc_SetMode(MODE_MATH_MENU);
     lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
     ui_update_math_display();
@@ -448,8 +427,8 @@ void math_menu_open(CalcMode_t return_to)
 
 void test_menu_open(CalcMode_t return_to)
 {
-    s_test.return_mode  = return_to;
-    s_test.item_cursor  = 0;
+    s_test.return_mode = return_to;
+    s_test.cursor      = 0;
     Calc_SetMode(MODE_TEST_MENU);
     lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
     ui_update_test_display();
@@ -458,17 +437,17 @@ void test_menu_open(CalcMode_t return_to)
 CalcMode_t math_menu_close(void)
 {
     CalcMode_t ret     = s_math.return_mode;
-    s_math.return_mode   = MODE_NORMAL;
-    s_math.item_cursor   = 0;
-    s_math.scroll_offset = 0;
+    s_math.return_mode = MODE_NORMAL;
+    s_math.cursor      = 0;
+    s_math.scroll      = 0;
     return ret;
 }
 
 CalcMode_t test_menu_close(void)
 {
-    CalcMode_t ret    = s_test.return_mode;
+    CalcMode_t ret     = s_test.return_mode;
     s_test.return_mode = MODE_NORMAL;
-    s_test.item_cursor = 0;
+    s_test.cursor      = 0;
     return ret;
 }
 
