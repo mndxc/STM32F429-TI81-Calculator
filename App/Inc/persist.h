@@ -6,8 +6,8 @@
  * parameters, and ZOOM factors to STM32F429 FLASH sector 10 (0x080C0000,
  * 128 KB). State survives power-off. Save is triggered by 2nd+ON.
  *
- * FLASH mechanics live in persist.c; state packaging lives in
- * calculator_core.c via Calc_BuildPersistBlock / Calc_ApplyPersistBlock.
+ * FLASH mechanics and state packaging both live in persist.c.
+ * The public entry points are Persist_BuildBlock / Persist_ApplyBlock.
  */
 
 #ifndef PERSIST_H
@@ -151,15 +151,16 @@ bool Persist_Save(const PersistBlock_t *in);
 #endif /* HOST_TEST */
 
 /**
- * @brief  Snapshot all saveable calculator state into @p out.
- *         Implemented in calculator_core.c.
+ * @brief  Snapshot all saveable calculator state into a new block.
+ *         Implemented in persist.c.  Not available in HOST_TEST builds.
+ * @return Filled PersistBlock_t; pass to Persist_Save().
  */
-void Calc_BuildPersistBlock(PersistBlock_t *out);
+PersistBlock_t Persist_BuildBlock(void);
 
 /**
  * @brief  Restore calculator state from a previously loaded block.
- *         Implemented in calculator_core.c.
+ *         Implemented in persist.c.  Not available in HOST_TEST builds.
  */
-void Calc_ApplyPersistBlock(const PersistBlock_t *in);
+void Persist_ApplyBlock(const PersistBlock_t *block);
 
 #endif /* PERSIST_H */

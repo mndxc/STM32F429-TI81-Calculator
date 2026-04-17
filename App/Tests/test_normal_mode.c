@@ -110,6 +110,8 @@ int8_t         history_recall_offset = 0;
 /* persist.c / prgm_exec.c / app_init.c stubs */
 bool Persist_Save(const PersistBlock_t *b)  { (void)b; return true; }
 bool Persist_Load(PersistBlock_t *b)        { (void)b; return false; }
+PersistBlock_t Persist_BuildBlock(void)     { PersistBlock_t b; memset(&b, 0, sizeof(b)); return b; }
+void Persist_ApplyBlock(const PersistBlock_t *b) { (void)b; }
 bool Prgm_Save(void)                        { return false; }
 void Prgm_Init(void)                        {}
 bool Prgm_Load(void)                        { return false; }

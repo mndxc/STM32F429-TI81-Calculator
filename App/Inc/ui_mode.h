@@ -38,7 +38,7 @@ typedef struct {
  * Shared state (defined in ui_mode.c)
  *---------------------------------------------------------------------------*/
 
-/** MODE screen state — accessed by Calc_BuildPersistBlock / Calc_ApplyPersistBlock. */
+/** MODE screen state — accessed by Persist_BuildBlock / Persist_ApplyBlock in persist.c. */
 extern ModeScreenState_t s_mode;
 
 /*---------------------------------------------------------------------------

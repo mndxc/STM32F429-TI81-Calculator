@@ -890,7 +890,7 @@ sub-struct layout in the same commit.
 Implementation order when the time comes:
 1. Define the five sub-structs in `App/Inc/persist.h`.
 2. Replace the flat `PersistBlock_t` body with the five sub-struct members plus top-level fields.
-3. Update `Calc_BuildPersistBlock` / `Calc_ApplyPersistBlock` in `calculator_core.c` to pack/unpack
+3. Update `Persist_BuildBlock` / `Persist_ApplyBlock` in `persist.c` to pack/unpack
    via sub-struct fields.
 4. Replace the monolithic migration `switch` in `Persist_Load()` with per-section switches.
 5. Increment `PERSIST_VERSION` and add a migration case for each sub-struct from the previous

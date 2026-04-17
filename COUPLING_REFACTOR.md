@@ -81,7 +81,7 @@ Run these after **every** task before moving on. They are the same every time.
 | T6  | `menu_open`/`menu_close` module delegation | 2  | [x]    |
 | T7  | `Execute_Token` dispatch table           | 3    | [x]    |
 | T8  | Extract `calc_history.c`                 | 2    | [x]    |
-| T9  | Move `BuildPersistBlock` to `persist.c`  | 3    | [ ]    |
+| T9  | Move `BuildPersistBlock` to `persist.c`  | 3    | [x]    |
 | T10 | `MenuState_t` retrofit remaining modules | 1    | [ ]    |
 
 ---

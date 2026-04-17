@@ -45,4 +45,11 @@ void        Calc_SetReturnMode(CalcMode_t mode);
 CalcMode_t  Calc_GetMode(void);
 CalcMode_t  Calc_GetReturnMode(void);
 
+/*
+ * Angle mode accessor — used by persist.c to restore angle mode without
+ * pulling in calc_internal.h (which carries LVGL dependencies).
+ */
+bool Calc_GetAngleDegrees(void);
+void Calc_SetAngleDegrees(bool degrees);
+
 #endif /* CALCULATOR_CORE_H */

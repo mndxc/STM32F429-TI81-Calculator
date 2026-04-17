@@ -165,6 +165,8 @@ void        Calc_SetMode(CalcMode_t mode)       { current_mode = mode; }
 void        Calc_SetReturnMode(CalcMode_t mode) { return_mode  = mode; }
 CalcMode_t  Calc_GetMode(void)                  { return current_mode; }
 CalcMode_t  Calc_GetReturnMode(void)            { return return_mode; }
+bool        Calc_GetAngleDegrees(void)          { return angle_degrees; }
+void        Calc_SetAngleDegrees(bool degrees)  { angle_degrees = degrees; }
 
 /*---------------------------------------------------------------------------
  * Forward declarations for helpers defined later in this file
@@ -174,131 +176,6 @@ CalcMode_t  Calc_GetReturnMode(void)            { return return_mode; }
 static void history_load_offset(uint8_t offset);
 static void history_enter_evaluate(void);
 void        handle_history_nav(Token_t t);  /* non-static: called from ui_input.c */
-
-/*---------------------------------------------------------------------------
- * Persistent storage helpers
- *---------------------------------------------------------------------------*/
-
-/**
- * @brief  Snapshot all saveable calculator state into @p out.
- *
- * Reads static-local variables directly (same translation unit).
- * graph_state.active is intentionally excluded — always boot with graph
- * hidden.
- */
-void Calc_BuildPersistBlock(PersistBlock_t *out)
-{
-    memcpy(out->calc_variables, calc_variables, sizeof(calc_variables));
-    out->ans = ans;
-    memcpy(out->mode_committed, s_mode.committed, sizeof(s_mode.committed));
-    out->zoom_x_fact = graph_ui_get_zoom_x_fact();
-    out->zoom_y_fact = graph_ui_get_zoom_y_fact();
-
-    /* Graph state — copy fields individually (skip active) */
-    const GraphState_t *gs = Graph_GetState();
-    for (int i = 0; i < GRAPH_NUM_EQ; i++) {
-        memcpy(out->equations[i], Graph_GetEquationBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
-    }
-    out->x_min   = gs->x_min;
-    out->x_max   = gs->x_max;
-    out->y_min   = gs->y_min;
-    out->y_max   = gs->y_max;
-    out->x_scl   = gs->x_scl;
-    out->y_scl   = gs->y_scl;
-    out->x_res   = gs->x_res;
-    out->grid_on = gs->grid_on ? 1u : 0u;
-    for (int i = 0; i < 4; i++) out->enabled[i] = gs->enabled[i] ? 1u : 0u;
-
-    /* Matrices [A], [B], [C] — save dimensions and flatten 6×6 data arrays */
-    for (int m = 0; m < 3; m++) {
-        out->matrix_rows[m] = calc_matrices[m].rows;
-        out->matrix_cols[m] = calc_matrices[m].cols;
-        memcpy(out->matrix_data[m], calc_matrices[m].data,
-               CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM * sizeof(float));
-    }
-
-    /* Parametric equations and T range */
-    for (int i = 0; i < GRAPH_NUM_PARAM; i++) {
-        memcpy(out->param_x[i], Graph_GetParamEquationXBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
-        memcpy(out->param_y[i], Graph_GetParamEquationYBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
-        out->param_enabled[i] = gs->param_enabled[i] ? 1u : 0u;
-    }
-    out->param_mode = gs->param_mode ? 1u : 0u;
-    out->t_min  = gs->t_min;
-    out->t_max  = gs->t_max;
-    out->t_step = gs->t_step;
-
-    /* STAT data list */
-    memcpy(out->stat_list_x, stat_data.list_x,
-           STAT_MAX_POINTS * sizeof(float));
-    memcpy(out->stat_list_y, stat_data.list_y,
-           STAT_MAX_POINTS * sizeof(float));
-    out->stat_list_len = stat_data.list_len;
-}
-
-/**
- * @brief  Restore calculator state from a previously loaded block.
- *
- * Re-derives calc_decimal_mode and angle_degrees from s_mode.committed via
- * their existing setters so behaviour is consistent with ENTER on MODE.
- */
-void Calc_ApplyPersistBlock(const PersistBlock_t *in)
-{
-    memcpy(calc_variables, in->calc_variables, sizeof(calc_variables));
-    ans = in->ans;
-    memcpy(s_mode.committed, in->mode_committed, sizeof(s_mode.committed));
-
-    /* Re-derives state that is computed from s_mode.committed */
-    angle_degrees = (in->mode_committed[2] == 1);
-    Calc_SetDecimalMode(in->mode_committed[1]);
-
-    graph_ui_set_zoom_facts(in->zoom_x_fact, in->zoom_y_fact);
-
-    /* Restore graph state — leave active = false */
-    for (int i = 0; i < GRAPH_NUM_EQ; i++) {
-        memcpy(Graph_GetEquationBuf((uint8_t)i), in->equations[i], GRAPH_EQUATION_BUF_LEN);
-    }
-    Graph_SetWindow(in->x_min, in->x_max, in->y_min, in->y_max,
-                    in->x_scl, in->y_scl, in->x_res);
-    Graph_SetGridOn(in->grid_on != 0);
-    for (int i = 0; i < 4; i++) Graph_SetEquationEnabled((uint8_t)i, (in->enabled[i] != 0));
-
-    /* Restore matrices [A], [B], [C] — dimensions and 6×6 data */
-    for (int m = 0; m < 3; m++) {
-        uint8_t rows = in->matrix_rows[m];
-        uint8_t cols = in->matrix_cols[m];
-        /* Clamp to valid range in case of corrupt data */
-        calc_matrices[m].rows = (rows >= 1 && rows <= CALC_MATRIX_MAX_DIM) ? rows : 3;
-        calc_matrices[m].cols = (cols >= 1 && cols <= CALC_MATRIX_MAX_DIM) ? cols : 3;
-        memcpy(calc_matrices[m].data, in->matrix_data[m],
-               CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM * sizeof(float));
-    }
-
-    /* Restore parametric equations and T range */
-    for (int i = 0; i < GRAPH_NUM_PARAM; i++) {
-        char *px = Graph_GetParamEquationXBuf((uint8_t)i);
-        memcpy(px, in->param_x[i], GRAPH_EQUATION_BUF_LEN);
-        px[GRAPH_EQUATION_BUF_LEN - 1] = '\0';
-        char *py = Graph_GetParamEquationYBuf((uint8_t)i);
-        memcpy(py, in->param_y[i], GRAPH_EQUATION_BUF_LEN);
-        py[GRAPH_EQUATION_BUF_LEN - 1] = '\0';
-        Graph_SetParamEnabled((uint8_t)i, (in->param_enabled[i] != 0));
-    }
-    Graph_SetParamMode(in->param_mode != 0);
-    Graph_SetParamWindow(in->t_min, in->t_max,
-                         (in->t_step > 0.0f) ? in->t_step : 0.1309f);
-    /* Re-sync MODE screen cursor for row 4 (Function|Param) */
-    s_mode.cursor[4]    = (in->param_mode != 0) ? 1 : 0;
-    s_mode.committed[4] = s_mode.cursor[4];
-
-    /* Restore STAT data list */
-    memcpy(stat_data.list_x, in->stat_list_x,
-           STAT_MAX_POINTS * sizeof(float));
-    memcpy(stat_data.list_y, in->stat_list_y,
-           STAT_MAX_POINTS * sizeof(float));
-    stat_data.list_len = (in->stat_list_len <= STAT_MAX_POINTS)
-                         ? in->stat_list_len : 0u;
-}
 
 /*---------------------------------------------------------------------------
  * LVGL thread safety helpers
@@ -1325,8 +1202,7 @@ void Execute_Token(Token_t t)
         lvgl_unlock();
         osDelay(20);
 
-        PersistBlock_t block;
-        Calc_BuildPersistBlock(&block);
+        PersistBlock_t block = Persist_BuildBlock();
         Persist_Save(&block);
         Prgm_Save();
 
@@ -1548,7 +1424,7 @@ void StartCalcCoreTask(void const *argument)
     {
         PersistBlock_t saved;
         if (Persist_Load(&saved)) {
-            Calc_ApplyPersistBlock(&saved);
+            Persist_ApplyBlock(&saved);
             ui_refresh_display();   /* show loaded ANS in expression display */
             /* Sync Y= labels with loaded equations */
             graph_ui_sync_yeq_labels();

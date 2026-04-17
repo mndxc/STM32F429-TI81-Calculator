@@ -225,8 +225,7 @@ Extend it to branch on whether 2ND is active:
 if (t == TOKEN_ON) {
     if (current_mode == MODE_2ND) {
         /* 2nd+ON — save state then enter Stop mode */
-        PersistBlock_t block;
-        Calc_BuildPersistBlock(&block);
+        PersistBlock_t block = Persist_BuildBlock();
         Persist_Save(&block);
         current_mode = MODE_NORMAL;
         return_mode  = MODE_NORMAL;
@@ -238,8 +237,7 @@ if (t == TOKEN_ON) {
         return;
     }
     /* Plain ON — save state only (discovery board; no true power-off) */
-    PersistBlock_t block;
-    Calc_BuildPersistBlock(&block);
+    PersistBlock_t block = Persist_BuildBlock();
     Persist_Save(&block);
     current_mode = MODE_NORMAL;
     return_mode  = MODE_NORMAL;

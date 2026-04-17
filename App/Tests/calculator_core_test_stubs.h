@@ -465,8 +465,8 @@ static inline void graph_ui_yeq_insert(const char *s)  { (void)s; }
 static inline void ui_update_zoom_display(void)         {}
 static inline void ui_update_zoom_factors_display(void) {}
 
-/* graph_ui_get/set zoom factors — called from Calc_BuildPersistBlock /
- * Calc_ApplyPersistBlock which are compiled in HOST_TEST mode */
+/* graph_ui_get/set zoom factors — Persist_BuildBlock/Persist_ApplyBlock are
+ * not compiled in HOST_TEST builds; stubs below satisfy any link references. */
 static inline float graph_ui_get_zoom_x_fact(void) { return 2.0f; }
 static inline float graph_ui_get_zoom_y_fact(void) { return 2.0f; }
 static inline void  graph_ui_set_zoom_facts(float x, float y) { (void)x; (void)y; }
@@ -530,10 +530,13 @@ static inline bool handle_param_yeq_mode(Token_t t) { (void)t; return false; }
  * which uses HAL; provide no-op stubs here for the HOST_TEST binary.
  *---------------------------------------------------------------------------*/
 
-/* persist.h guards these out under HOST_TEST — re-declare them here so
- * calculator_core.c can call them; define as real stubs in test_normal_mode.c. */
-bool Persist_Save(const PersistBlock_t *in);
-bool Persist_Load(PersistBlock_t *out);
+/* persist.h guards Persist_Save/Load/BuildBlock/ApplyBlock out under HOST_TEST.
+ * Re-declare them here so calculator_core.c can call them; define stubs in
+ * test_normal_mode.c. */
+bool           Persist_Save(const PersistBlock_t *in);
+bool           Persist_Load(PersistBlock_t *out);
+PersistBlock_t Persist_BuildBlock(void);
+void           Persist_ApplyBlock(const PersistBlock_t *block);
 
 /* prgm_exec.h declares Prgm_Save() unconditionally; defined in test_normal_mode.c. */
 
