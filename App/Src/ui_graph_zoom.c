@@ -163,7 +163,7 @@ void zoom_menu_reset(void)
 /* Hide zoom menu, switch to normal mode, show graph canvas, and redraw. */
 static void zoom_show_graph(void)
 {
-    current_mode = MODE_NORMAL;
+    Calc_SetMode(MODE_NORMAL);
     lvgl_lock();
     lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
     Graph_SetVisible(true);
@@ -187,7 +187,7 @@ static void zoom_scale_view(float xf, float yf)
 /* Open the Zoom Factors editor screen. */
 static void zoom_enter_factors(void)
 {
-    current_mode = MODE_GRAPH_ZOOM_FACTORS;
+    Calc_SetMode(MODE_GRAPH_ZOOM_FACTORS);
     lvgl_lock();
     lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
     zoom_factors_nav_enter();
@@ -248,7 +248,7 @@ static void zoom_execute_item(uint8_t item_num)
     case 7: apply_zoom_preset(2); zoom_show_graph();                     break;
     case 8: apply_zoom_preset(5); zoom_show_graph();                     break;
     default:
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock(); lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN); lvgl_unlock();
         break;
     }
@@ -288,7 +288,7 @@ bool handle_zoom_mode(Token_t t)
     case TOKEN_CLEAR:
     case TOKEN_ZOOM:
         zoom_menu_reset();
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock();
         hide_all_screens();
         lvgl_unlock();
@@ -317,7 +317,7 @@ bool handle_zoom_mode(Token_t t)
     }
     default:
         zoom_menu_reset();
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock();
         hide_all_screens();
         lvgl_unlock();

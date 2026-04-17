@@ -62,6 +62,7 @@ set(APP_SOURCES
     App/HW/Keypad/keypad.c
     App/HW/Keypad/keypad_map.c
     App/Src/app_init.c
+    App/Src/calc_history.c
     App/Src/calculator_core.c
     App/Src/ui_mode.c
     App/Src/ui_input.c

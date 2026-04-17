@@ -39,6 +39,12 @@ void Draw_HideScreen(void);
  * Public API
  *---------------------------------------------------------------------------*/
 
+/** Initialises DRAW menu state and shows the screen. Called under lvgl_lock(). */
+void       Draw_MenuOpen(CalcMode_t return_to);
+
+/** Resets DRAW menu state and returns the saved return mode. Called from menu_close(). */
+CalcMode_t Draw_MenuClose(void);
+
 /** Creates the DRAW menu screen (hidden at start). */
 void ui_init_draw_screen(void);
 

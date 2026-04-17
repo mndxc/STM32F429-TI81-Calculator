@@ -146,20 +146,12 @@ bool handle_sto_pending(Token_t t)
             Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
         }
 
-        uint8_t idx = history_count % HISTORY_LINE_COUNT;
-        strncpy(history[idx].expression, expr_hist, MAX_EXPR_LEN - 1);
-        history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
-        strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
-        history[idx].result[MAX_RESULT_LEN - 1] = '\0';
-        history[idx].has_matrix = false;
-        reset_matrix_scroll_focus();
-        history_count++;
-
+        CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
         ExprBuffer_Clear(&expr);
-        history_recall_offset = 0;
+        CalcHistory_ResetRecallOffset();
 
         lvgl_lock();
-        ui_update_history();
+        CalcHistory_UpdateDisplay();
         ui_update_status_bar();
         lvgl_unlock();
         return true;

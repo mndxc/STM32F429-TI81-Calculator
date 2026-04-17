@@ -266,10 +266,10 @@ static void math_menu_insert(const char *ins)
     if (s_math.return_mode == MODE_PRGM_EDITOR) {
         prgm_editor_menu_insert(ins);
     } else if (s_math.return_mode == MODE_GRAPH_YEQ) {
-        current_mode = MODE_GRAPH_YEQ;
+        Calc_SetMode(MODE_GRAPH_YEQ);
         graph_ui_yeq_insert(ins);
     } else {
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         expr_insert_str(ins);
         Update_Calculator_Display();
     }
@@ -285,10 +285,10 @@ static void test_menu_insert(const char *ins)
     if (s_test.return_mode == MODE_PRGM_EDITOR) {
         prgm_editor_menu_insert(ins);
     } else if (s_test.return_mode == MODE_GRAPH_YEQ) {
-        current_mode = MODE_GRAPH_YEQ;
+        Calc_SetMode(MODE_GRAPH_YEQ);
         graph_ui_yeq_insert(ins);
     } else {
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         expr_insert_str(ins);
         Update_Calculator_Display();
     }
@@ -441,7 +441,7 @@ void math_menu_open(CalcMode_t return_to)
     s_math.tab           = 0;
     s_math.item_cursor   = 0;
     s_math.scroll_offset = 0;
-    current_mode         = MODE_MATH_MENU;
+    Calc_SetMode(MODE_MATH_MENU);
     lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN);
     ui_update_math_display();
 }
@@ -450,7 +450,7 @@ void test_menu_open(CalcMode_t return_to)
 {
     s_test.return_mode  = return_to;
     s_test.item_cursor  = 0;
-    current_mode        = MODE_TEST_MENU;
+    Calc_SetMode(MODE_TEST_MENU);
     lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
     ui_update_test_display();
 }

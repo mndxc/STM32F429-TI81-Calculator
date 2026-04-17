@@ -63,7 +63,7 @@ void matrix_edit_cursor_update(void)
         uint32_t char_pos = (matrix_edit_dim_field == 0) ? 4u : 6u;
         cursor_render(matrix_edit_cursor_box, matrix_edit_cursor_inner,
                       matrix_edit_title_lbl, char_pos,
-                      cursor_visible, current_mode, false);
+                      cursor_visible, Calc_GetMode(), false);
     } else {
         int vis_idx = (int)matrix_edit_cursor - (int)matrix_edit_scroll;
         if (vis_idx < 0 || vis_idx >= 7) {
@@ -73,7 +73,7 @@ void matrix_edit_cursor_update(void)
         uint32_t char_pos = 4u + (uint32_t)matrix_edit_val_cursor;
         cursor_render(matrix_edit_cursor_box, matrix_edit_cursor_inner,
                       matrix_list_labels[vis_idx], char_pos,
-                      cursor_visible, current_mode, false);
+                      cursor_visible, Calc_GetMode(), false);
     }
 }
 
@@ -284,7 +284,7 @@ bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
             matrix_edit_cursor     = 0;
             matrix_edit_scroll     = 0;
             matrix_edit_dim_field  = 0;
-            current_mode = MODE_MATRIX_EDIT;
+            Calc_SetMode(MODE_MATRIX_EDIT);
             matrix_edit_load_cell();
             lvgl_lock();
             lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
@@ -313,7 +313,7 @@ bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
                 matrix_edit_dim_field = 0;
                 matrix_edit_len    = 0;
                 matrix_edit_buf[0] = '\0';
-                current_mode = MODE_MATRIX_EDIT;
+                Calc_SetMode(MODE_MATRIX_EDIT);
                 lvgl_lock();
                 lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
@@ -422,7 +422,7 @@ void handle_matrix_edit(Token_t t)
             return;
         case TOKEN_CLEAR:
         case TOKEN_MATRX:
-            current_mode = MODE_MATRIX_MENU;
+            Calc_SetMode(MODE_MATRIX_MENU);
             lvgl_lock();
             lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
@@ -532,7 +532,7 @@ void handle_matrix_edit(Token_t t)
             matrix_edit_buf[0]     = '\0';
             lvgl_lock(); ui_update_matrix_edit_display(); lvgl_unlock();
         } else {
-            current_mode = MODE_MATRIX_MENU;
+            Calc_SetMode(MODE_MATRIX_MENU);
             lvgl_lock();
             lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
@@ -542,7 +542,7 @@ void handle_matrix_edit(Token_t t)
         return;
     case TOKEN_MATRX:
         MXEDIT_COMMIT();
-        current_mode = MODE_MATRIX_MENU;
+        Calc_SetMode(MODE_MATRIX_MENU);
         lvgl_lock();
         lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
@@ -555,4 +555,27 @@ void handle_matrix_edit(Token_t t)
 
 #undef MXEDIT_COMMIT
 #undef MXEDIT_SCROLL
+}
+
+/*---------------------------------------------------------------------------
+ * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
+ *---------------------------------------------------------------------------*/
+
+void Matrix_MenuOpen(CalcMode_t return_to)
+{
+    matrix_menu_state.return_mode = return_to;
+    matrix_menu_state.tab         = 0;
+    matrix_menu_state.item_cursor = 0;
+    Calc_SetMode(MODE_MATRIX_MENU);
+    Matrix_ShowMenuScreen();
+    ui_update_matrix_display();
+}
+
+CalcMode_t Matrix_MenuClose(void)
+{
+    CalcMode_t ret                = matrix_menu_state.return_mode;
+    matrix_menu_state.return_mode = MODE_NORMAL;
+    matrix_menu_state.tab         = 0;
+    matrix_menu_state.item_cursor = 0;
+    return ret;
 }

@@ -134,6 +134,43 @@ static inline void prgm_slot_id_str(uint8_t slot, char *out)
 }
 
 /*---------------------------------------------------------------------------
+ * CalcHistory_* inline stubs — operate on the test-owned extern history state
+ * defined in test_prgm_exec.c (or the dummy globals in test_normal_mode.c).
+ * These replace the direct history[] writes in prgm_exec.c under HOST_TEST.
+ *---------------------------------------------------------------------------*/
+static inline void CalcHistory_Clear(void)
+{
+    history_count         = 0;
+    history_recall_offset = 0;
+}
+
+static inline void CalcHistory_Commit(const char *expression, const char *result,
+                                      bool has_matrix, uint8_t ring_idx,
+                                      uint8_t ring_gen, uint8_t rows_cache)
+{
+    uint8_t idx = history_count % HISTORY_LINE_COUNT;
+    strncpy(history[idx].expression, expression, MAX_EXPR_LEN - 1);
+    history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
+    strncpy(history[idx].result, result, MAX_RESULT_LEN - 1);
+    history[idx].result[MAX_RESULT_LEN - 1] = '\0';
+    history[idx].has_matrix        = has_matrix;
+    history[idx].matrix_ring_idx   = ring_idx;
+    history[idx].matrix_ring_gen   = ring_gen;
+    history[idx].matrix_rows_cache = rows_cache;
+    history_count++;
+}
+
+static inline void CalcHistory_UpdateDisplay(void) {}
+static inline void CalcHistory_ResetRecallOffset(void) { history_recall_offset = 0; }
+
+/*---------------------------------------------------------------------------
+ * Mode getter/setter stubs — operate on the test-owned extern current_mode
+ * defined in test_prgm_exec.c.  Mirror the API in calculator_core.h.
+ *---------------------------------------------------------------------------*/
+static inline void        Calc_SetMode(CalcMode_t m) { current_mode = m; }
+static inline CalcMode_t  Calc_GetMode(void)         { return current_mode; }
+
+/*---------------------------------------------------------------------------
  * ANS getter/setter stubs — operate on the test-owned extern ans/ans_is_matrix
  * defined in test_prgm_exec.c.  Mirror the API in calculator_core.h.
  *---------------------------------------------------------------------------*/

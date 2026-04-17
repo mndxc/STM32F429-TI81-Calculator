@@ -99,6 +99,14 @@ ProgramStore_t g_prgm_store;
 char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
 uint8_t prgm_edit_num_lines = 0;
 
+/* History backing store for prgm_exec_test_stubs.h CalcHistory_* inline stubs.
+ * Real history is owned by calc_history.c statics; these globals satisfy the
+ * extern declarations in prgm_exec_test_stubs.h when prgm_exec.c is linked in.
+ * They are never read by test assertions (which use CalcHistory_GetCount() etc.). */
+HistoryEntry_t history[HISTORY_LINE_COUNT];
+uint8_t        history_count        = 0;
+int8_t         history_recall_offset = 0;
+
 /* persist.c / prgm_exec.c / app_init.c stubs */
 bool Persist_Save(const PersistBlock_t *b)  { (void)b; return true; }
 bool Persist_Load(PersistBlock_t *b)        { (void)b; return false; }
@@ -140,7 +148,8 @@ static void reset_state(void)
     return_mode           = MODE_NORMAL;
     insert_mode           = false;
     sto_pending           = false;
-    history_count         = 0;
+    CalcHistory_Init();          /* resets calc_history.c private statics */
+    history_count         = 0;  /* resets prgm_exec_test_stubs.h backing store */
     history_recall_offset = 0;
     memset(history, 0, sizeof(history));
     memset(expr.buf, 0, sizeof(expr.buf));
@@ -398,18 +407,18 @@ static void test_history_nav(void)
     reset_state();
     load_expr("2+3");
     handle_normal_mode(TOKEN_ENTER);
-    CHECK(history_count == 1,                          "nav: ENTER increments history_count");
-    CHECK(strcmp(history[0].expression, "2+3") == 0,   "nav: ENTER stores expression");
-    CHECK(NEAR(ans, 5.0f),                             "nav: ENTER evaluates 2+3=5");
-    CHECK(expr_len == 0,                               "nav: ENTER clears expression");
-    CHECK(history_recall_offset == 0,                  "nav: ENTER resets recall offset");
+    CHECK(CalcHistory_GetCount() == 1,                                  "nav: ENTER increments history_count");
+    CHECK(strcmp(CalcHistory_GetEntry(0)->expression, "2+3") == 0,      "nav: ENTER stores expression");
+    CHECK(NEAR(ans, 5.0f),                                              "nav: ENTER evaluates 2+3=5");
+    CHECK(expr_len == 0,                                                "nav: ENTER clears expression");
+    CHECK(CalcHistory_GetRecallOffset() == 0,                           "nav: ENTER resets recall offset");
 
     /* 2. ENTER on empty with history re-evaluates last entry */
     reset_state();
     load_expr("4*4");
     handle_normal_mode(TOKEN_ENTER);
     handle_normal_mode(TOKEN_ENTER);   /* empty expr, re-evaluate "4*4" */
-    CHECK(history_count == 2,    "nav: ENTER empty re-eval increments history again");
+    CHECK(CalcHistory_GetCount() == 2,    "nav: ENTER empty re-eval increments history again");
     CHECK(NEAR(ans, 16.0f),      "nav: ENTER empty re-eval result correct");
 
     /* 3. UP recalls last history entry */
@@ -418,7 +427,7 @@ static void test_history_nav(void)
     handle_normal_mode(TOKEN_ENTER);
     handle_normal_mode(TOKEN_UP);
     CHECK(strcmp(expr.buf, "7") == 0,        "nav: UP loads last history expression");
-    CHECK(history_recall_offset == 1,          "nav: UP sets recall offset to 1");
+    CHECK(CalcHistory_GetRecallOffset() == 1,  "nav: UP sets recall offset to 1");
     CHECK(cursor_pos == expr_len,              "nav: UP cursor at end of recalled expression");
 
     /* 4. DOWN after UP clears expression and resets offset */
@@ -428,13 +437,13 @@ static void test_history_nav(void)
     handle_normal_mode(TOKEN_UP);
     handle_normal_mode(TOKEN_DOWN);
     CHECK(expr_len == 0,               "nav: DOWN clears expression after UP");
-    CHECK(history_recall_offset == 0,  "nav: DOWN resets recall offset to 0");
+    CHECK(CalcHistory_GetRecallOffset() == 0,  "nav: DOWN resets recall offset to 0");
 
     /* 5. UP on empty with no history is a no-op */
     reset_state();
     handle_normal_mode(TOKEN_UP);
     CHECK(expr_len == 0,             "nav: UP with no history is no-op");
-    CHECK(history_recall_offset == 0, "nav: UP with no history leaves offset 0");
+    CHECK(CalcHistory_GetRecallOffset() == 0, "nav: UP with no history leaves offset 0");
 
     /* 6. ENTRY loads the last history entry */
     reset_state();
@@ -444,7 +453,7 @@ static void test_history_nav(void)
     expr_len = 0; cursor_pos = 0;
     handle_normal_mode(TOKEN_ENTRY);
     CHECK(strcmp(expr.buf, "10") == 0,  "nav: ENTRY loads last expression");
-    CHECK(history_recall_offset == 1,     "nav: ENTRY sets recall offset to 1");
+    CHECK(CalcHistory_GetRecallOffset() == 1,     "nav: ENTRY sets recall offset to 1");
 
     /* 7. LEFT moves cursor back one position */
     reset_state();
@@ -488,7 +497,7 @@ static void test_history_nav(void)
     reset_state();
     load_expr("1+1");
     handle_normal_mode(TOKEN_ENTER);
-    CHECK(strcmp(history[0].expression, "1+1") == 0, "nav: history expression stored verbatim");
+    CHECK(strcmp(CalcHistory_GetEntry(0)->expression, "1+1") == 0, "nav: history expression stored verbatim");
 }
 
 /* -------------------------------------------------------------------------
@@ -517,8 +526,8 @@ static void test_clear_key(void)
     handle_normal_mode(TOKEN_ENTER);
     load_expr("99");
     handle_normal_mode(TOKEN_CLEAR);
-    CHECK(history_count == 1, "clear: history unchanged after CLEAR");
-    CHECK(strcmp(history[0].expression, "5") == 0, "clear: history entry intact");
+    CHECK(CalcHistory_GetCount() == 1, "clear: history unchanged after CLEAR");
+    CHECK(strcmp(CalcHistory_GetEntry(0)->expression, "5") == 0, "clear: history entry intact");
 }
 
 /* -------------------------------------------------------------------------
@@ -719,7 +728,7 @@ static void test_edge_cases(void)
     reset_state();
     load_expr("1/0");
     handle_normal_mode(TOKEN_ENTER);  /* division by zero — expect no crash */
-    CHECK(history_count == 1, "edge: 1/0 completes without crash");
+    CHECK(CalcHistory_GetCount() == 1, "edge: 1/0 completes without crash");
 
     /* 5. TOKEN_Y_EQUALS navigates to MODE_GRAPH_YEQ */
     reset_state();

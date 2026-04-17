@@ -117,6 +117,7 @@ endif()
 
 add_executable(test_normal_mode
     test_normal_mode.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_history.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calculator_core.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_mode.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_input.c

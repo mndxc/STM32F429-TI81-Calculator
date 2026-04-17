@@ -47,6 +47,12 @@ void Yvars_HideScreen(void);
  * Public API
  *---------------------------------------------------------------------------*/
 
+/** Initialises Y-VARS menu state and shows the screen. Called under lvgl_lock(). */
+void       Yvars_MenuOpen(CalcMode_t return_to);
+
+/** Resets Y-VARS menu state and returns the saved return mode. Called from menu_close(). */
+CalcMode_t Yvars_MenuClose(void);
+
 /** Creates the Y-VARS menu screen (hidden at start). */
 void ui_init_yvars_screen(void);
 

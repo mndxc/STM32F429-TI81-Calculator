@@ -77,10 +77,10 @@ Run these after **every** task before moving on. They are the same every time.
 | T2  | `g_prgm_store` accessor API              | 1    | [x]    |
 | T3  | ANS getter/setter                        | 1    | [x]    |
 | T4  | LVGL screen show/hide API                | 2    | [x]    |
-| T5  | Mode transition via `Calc_SetMode()`     | 2    | [ ]    |
-| T6  | `menu_open`/`menu_close` module delegation | 2  | [ ]    |
-| T7  | `Execute_Token` dispatch table           | 3    | [ ]    |
-| T8  | Extract `calc_history.c`                 | 2    | [ ]    |
+| T5  | Mode transition via `Calc_SetMode()`     | 2    | [x]    |
+| T6  | `menu_open`/`menu_close` module delegation | 2  | [x]    |
+| T7  | `Execute_Token` dispatch table           | 3    | [x]    |
+| T8  | Extract `calc_history.c`                 | 2    | [x]    |
 | T9  | Move `BuildPersistBlock` to `persist.c`  | 3    | [ ]    |
 | T10 | `MenuState_t` retrofit remaining modules | 1    | [ ]    |
 

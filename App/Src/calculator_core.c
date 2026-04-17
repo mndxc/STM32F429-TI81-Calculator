@@ -16,6 +16,7 @@
 #  include "app_common.h"
 #  include "app_init.h"
 #  include "calc_engine.h"
+#  include "calc_history.h"
 #  include "persist.h"
 #  include "prgm_exec.h"
 #  include "expr_util.h"
@@ -105,8 +106,15 @@ static lv_style_t style_bg;
 ExprBuffer_t expr;   /* .buf = expression string, .len = byte length, .cursor = insertion point */
 static uint8_t      expr_chars_per_row = 22; /* Chars that fit on one display row; set at init */
 bool         insert_mode            = false; /* false=overwrite (default), true=insert */
-CalcMode_t   current_mode           = MODE_NORMAL;
-CalcMode_t   return_mode            = MODE_NORMAL;
+#ifdef HOST_TEST
+/* In test builds, current_mode and return_mode remain non-static so test code
+ * can observe and set them directly via the extern declarations in the stubs header. */
+CalcMode_t   current_mode = MODE_NORMAL;
+CalcMode_t   return_mode  = MODE_NORMAL;
+#else
+static CalcMode_t   current_mode           = MODE_NORMAL;
+static CalcMode_t   return_mode            = MODE_NORMAL;
+#endif
 bool         angle_degrees          = true;
 
 #ifdef HOST_TEST
@@ -120,11 +128,8 @@ static bool  ans_is_matrix = false; /* true when ans holds a matrix slot index *
 #endif
 bool                sto_pending    = false;  /* True after STO — next alpha stores ans */
 
-HistoryEntry_t history[HISTORY_LINE_COUNT];
-uint8_t        history_count = 0;
-int8_t         history_recall_offset = 0; /* 0=not recalling; N=Nth-most-recent entry */
-int8_t         matrix_scroll_focus  = -1;   /* history slot with scroll focus; -1=none */
-uint8_t        matrix_scroll_offset = 0;    /* horizontal character scroll offset */
+/* History ring buffer state is now private to calc_history.c.
+ * Use CalcHistory_* accessors (declared in calc_history.h, included above). */
 
 /* Matrix history ring buffer — stores CalcMatrix_t for the last MATRIX_RING_COUNT results */
 static CalcMatrix_t matrix_ring[MATRIX_RING_COUNT];
@@ -153,6 +158,15 @@ float Calc_GetAns(void)               { return ans; }
 bool  Calc_GetAnsIsMatrix(void)       { return ans_is_matrix; }
 
 /*---------------------------------------------------------------------------
+ * Mode getter/setter API (declared in calculator_core.h)
+ *---------------------------------------------------------------------------*/
+
+void        Calc_SetMode(CalcMode_t mode)       { current_mode = mode; }
+void        Calc_SetReturnMode(CalcMode_t mode) { return_mode  = mode; }
+CalcMode_t  Calc_GetMode(void)                  { return current_mode; }
+CalcMode_t  Calc_GetReturnMode(void)            { return return_mode; }
+
+/*---------------------------------------------------------------------------
  * Forward declarations for helpers defined later in this file
  *---------------------------------------------------------------------------*/
 
@@ -160,7 +174,6 @@ bool  Calc_GetAnsIsMatrix(void)       { return ans_is_matrix; }
 static void history_load_offset(uint8_t offset);
 static void history_enter_evaluate(void);
 void        handle_history_nav(Token_t t);  /* non-static: called from ui_input.c */
-void        reset_matrix_scroll_focus(void); /* clears scroll focus statics; called from ui_input.c */
 
 /*---------------------------------------------------------------------------
  * Persistent storage helpers
@@ -670,15 +683,15 @@ static const CalcMatrix_t *history_get_matrix(const HistoryEntry_t *e)
  * result line (right-aligned), and sets the label text.
  */
 static void render_result_row(lv_obj_t *label, const HistoryEntry_t *entry,
-                               int result_line)
+                               int entry_idx, int result_line)
 {
     char rbuf[MAX_RESULT_LEN];
     lv_obj_set_style_text_color(label, lv_color_hex(COLOR_WHITE), 0);
     if (entry->has_matrix) {
         const CalcMatrix_t *m = history_get_matrix(entry);
         if (m != NULL) {
-            int off = (matrix_scroll_focus == (int8_t)(entry - history))
-                      ? (int)matrix_scroll_offset : 0;
+            int off = (CalcHistory_GetMatrixScrollFocus() == (int8_t)entry_idx)
+                      ? (int)CalcHistory_GetMatrixScrollOffset() : 0;
             matrix_format_row(m, result_line,
                               off, (int)expr_chars_per_row, rbuf, sizeof(rbuf));
         } else {
@@ -701,19 +714,20 @@ void ui_refresh_display(void)
     int expr_rows = (expr.len == 0) ? 1 : (expr.len + cpr - 1) / cpr;
 
     /* Number of history entries visible (circular buffer cap) */
-    int num_entries = ((int)history_count < HISTORY_LINE_COUNT)
-                      ? (int)history_count : HISTORY_LINE_COUNT;
+    int cnt = (int)CalcHistory_GetCount();
+    int num_entries = (cnt < HISTORY_LINE_COUNT) ? cnt : HISTORY_LINE_COUNT;
 
     /* Total display lines consumed by history (variable per entry).
        Matrix results occupy multiple result lines (one per matrix row). */
     int total_history_lines = 0;
     for (int d = 0; d < num_entries; d++) {
-        int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
-        int elen = (int)strlen(history[idx].expression);
+        int idx = (int)((cnt - num_entries + d) % HISTORY_LINE_COUNT);
+        const HistoryEntry_t *e = CalcHistory_GetEntry((uint8_t)idx);
+        int elen = (int)strlen(e->expression);
         int erows = (elen + cpr - 1) / cpr;
-        int rlines = history[idx].has_matrix
-                     ? (int)history[idx].matrix_rows_cache
-                     : count_result_lines(history[idx].result);
+        int rlines = e->has_matrix
+                     ? (int)e->matrix_rows_cache
+                     : count_result_lines(e->result);
         total_history_lines += erows + rlines;
     }
 
@@ -736,12 +750,13 @@ void ui_refresh_display(void)
             /* Walk history entries to find which owns line li */
             int line = 0;
             for (int d = 0; d < num_entries; d++) {
-                int idx = (int)((history_count - num_entries + d) % HISTORY_LINE_COUNT);
-                int elen  = (int)strlen(history[idx].expression);
+                int idx = (int)((cnt - num_entries + d) % HISTORY_LINE_COUNT);
+                const HistoryEntry_t *e = CalcHistory_GetEntry((uint8_t)idx);
+                int elen  = (int)strlen(e->expression);
                 int erows = (elen + cpr - 1) / cpr;
-                int rlines = history[idx].has_matrix
-                             ? (int)history[idx].matrix_rows_cache
-                             : count_result_lines(history[idx].result);
+                int rlines = e->has_matrix
+                             ? (int)e->matrix_rows_cache
+                             : count_result_lines(e->result);
 
                 if (li < line + erows) {
                     /* Expression sub-row */
@@ -752,7 +767,7 @@ void ui_refresh_display(void)
                     int seg_len = char_end - char_start;
                     if (seg_len < 0) seg_len = 0;
                     char row_buf[MAX_EXPR_LEN + 1];
-                    memcpy(row_buf, history[idx].expression + char_start, (size_t)seg_len);
+                    memcpy(row_buf, e->expression + char_start, (size_t)seg_len);
                     row_buf[seg_len] = '\0';
                     lv_obj_set_style_text_color(disp_rows[row],
                                                 lv_color_hex(COLOR_GREY_MED), 0);
@@ -765,7 +780,7 @@ void ui_refresh_display(void)
                 if (li < line + rlines) {
                     /* Result line for this history entry */
                     int result_line = li - line;
-                    render_result_row(disp_rows[row], &history[idx], result_line);
+                    render_result_row(disp_rows[row], e, idx, result_line);
                     break;
                 }
                 line += rlines;
@@ -868,9 +883,11 @@ void Update_Calculator_Display(void)
  * expr_delete_at_cursor moved to ui_input.c; declared in ui_input.h. */
 
 /**
- * @brief Refreshes the display after history changes.
+ * @brief Refresh the history display rows.
+ *        Defined here (not in calc_history.c) because it requires access to
+ *        the private disp_rows[] LVGL objects.  Declared in calc_history.h.
  */
-void ui_update_history(void)
+void CalcHistory_UpdateDisplay(void)
 {
     ui_refresh_display();
 }
@@ -956,47 +973,22 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
         test_menu_open(return_to);
         break;
     case TOKEN_MATRX:
-        matrix_menu_state.return_mode = return_to;
-        matrix_menu_state.tab         = 0;
-        matrix_menu_state.item_cursor = 0;
-        current_mode       = MODE_MATRIX_MENU;
-        Matrix_ShowMenuScreen();
-        ui_update_matrix_display();
+        Matrix_MenuOpen(return_to);
         break;
     case TOKEN_PRGM:
         prgm_menu_open(return_to);
         break;
     case TOKEN_STAT:
-        stat_menu_state.return_mode  = return_to;
-        stat_menu_state.tab          = 0;
-        stat_menu_state.item_cursor  = 0;
-        current_mode = MODE_STAT_MENU;
-        Stat_ShowMenuScreen();
-        ui_update_stat_display();
+        Stat_MenuOpen(return_to);
         break;
     case TOKEN_DRAW:
-        draw_menu_state.return_mode  = return_to;
-        draw_menu_state.item_cursor  = 0;
-        current_mode = MODE_DRAW_MENU;
-        Draw_ShowScreen();
-        ui_update_draw_display();
+        Draw_MenuOpen(return_to);
         break;
     case TOKEN_VARS:
-        vars_menu_state.return_mode = return_to;
-        vars_menu_state.tab         = 0;
-        vars_menu_state.cursor      = 0;
-        vars_menu_state.scroll      = 0;
-        current_mode = MODE_VARS_MENU;
-        Vars_ShowScreen();
-        ui_update_vars_display();
+        Vars_MenuOpen(return_to);
         break;
     case TOKEN_Y_VARS:
-        yvars_menu_state.return_mode = return_to;
-        yvars_menu_state.tab         = 0;
-        yvars_menu_state.item_cursor = 0;
-        current_mode = MODE_YVARS_MENU;
-        Yvars_ShowScreen();
-        ui_update_yvars_display();
+        Yvars_MenuOpen(return_to);
         break;
     default:
         break;
@@ -1018,37 +1010,22 @@ CalcMode_t menu_close(Token_t menu_token)
         ret = test_menu_close();
         break;
     case TOKEN_MATRX:
-        ret                           = matrix_menu_state.return_mode;
-        matrix_menu_state.return_mode = MODE_NORMAL;
-        matrix_menu_state.tab         = 0;
-        matrix_menu_state.item_cursor = 0;
+        ret = Matrix_MenuClose();
         break;
     case TOKEN_PRGM:
         ret = prgm_menu_close();
         break;
     case TOKEN_STAT:
-        ret                           = stat_menu_state.return_mode;
-        stat_menu_state.return_mode   = MODE_NORMAL;
-        stat_menu_state.tab           = 0;
-        stat_menu_state.item_cursor   = 0;
+        ret = Stat_MenuClose();
         break;
     case TOKEN_DRAW:
-        ret                          = draw_menu_state.return_mode;
-        draw_menu_state.return_mode  = MODE_NORMAL;
-        draw_menu_state.item_cursor  = 0;
+        ret = Draw_MenuClose();
         break;
     case TOKEN_VARS:
-        ret                         = vars_menu_state.return_mode;
-        vars_menu_state.return_mode = MODE_NORMAL;
-        vars_menu_state.tab         = 0;
-        vars_menu_state.cursor      = 0;
-        vars_menu_state.scroll      = 0;
+        ret = Vars_MenuClose();
         break;
     case TOKEN_Y_VARS:
-        ret                              = yvars_menu_state.return_mode;
-        yvars_menu_state.return_mode     = MODE_NORMAL;
-        yvars_menu_state.tab             = 0;
-        yvars_menu_state.item_cursor     = 0;
+        ret = Yvars_MenuClose();
         break;
     default:
         ret = MODE_NORMAL;
@@ -1105,52 +1082,30 @@ void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
  * The caller is responsible for any expression-buffer reset and history_recall_offset
  * update that should happen after the commit.
  */
-static void commit_history_entry(const char *expr, const char *result_str,
+static void commit_history_entry(const char *expr_buf, const char *result_str,
                                  const CalcResult_t *r)
 {
-    uint8_t idx = history_count % HISTORY_LINE_COUNT;
-    if (history[idx].expression != expr) {
-        strncpy(history[idx].expression, expr, MAX_EXPR_LEN - 1);
-        history[idx].expression[MAX_EXPR_LEN - 1] = '\0';
-    }
-    strncpy(history[idx].result, result_str, MAX_RESULT_LEN - 1);
-    history[idx].result[MAX_RESULT_LEN - 1] = '\0';
-    history[idx].has_matrix = false;
+    uint8_t ring_idx = 0, ring_gen = 0, rows_cache = 0;
     if (r->has_matrix) {
-        uint8_t slot = (uint8_t)(matrix_ring_write_count % MATRIX_RING_COUNT);
-        matrix_ring[slot]           = calc_matrices[r->matrix_idx];
-        matrix_ring_gen_table[slot] = matrix_ring_write_count;
-        history[idx].has_matrix       = true;
-        history[idx].matrix_ring_idx  = slot;
-        history[idx].matrix_ring_gen  = matrix_ring_write_count;
-        history[idx].matrix_rows_cache = calc_matrices[r->matrix_idx].rows;
+        ring_idx   = (uint8_t)(matrix_ring_write_count % MATRIX_RING_COUNT);
+        ring_gen   = matrix_ring_write_count;
+        rows_cache = calc_matrices[r->matrix_idx].rows;
+        matrix_ring[ring_idx]           = calc_matrices[r->matrix_idx];
+        matrix_ring_gen_table[ring_idx] = matrix_ring_write_count;
         matrix_ring_write_count++;
-        matrix_scroll_focus  = (int8_t)idx;
-        matrix_scroll_offset = 0;
-    } else {
-        matrix_scroll_focus  = -1;
-        matrix_scroll_offset = 0;
     }
-    history_count++;
+    CalcHistory_Commit(expr_buf, result_str, r->has_matrix, ring_idx, ring_gen, rows_cache);
     lvgl_lock();
-    ui_update_history();
+    CalcHistory_UpdateDisplay();
     lvgl_unlock();
-}
-
-/**
- * @brief Resets the matrix history scroll state (called from ui_input.c after STO).
- */
-void reset_matrix_scroll_focus(void)
-{
-    matrix_scroll_focus  = -1;
-    matrix_scroll_offset = 0;
 }
 
 /* Load a history entry at the given scroll offset into the expression buffer. */
 static void history_load_offset(uint8_t offset)
 {
-    uint8_t idx = (history_count - offset) % HISTORY_LINE_COUNT;
-    strncpy(expr.buf, history[idx].expression, MAX_EXPR_LEN - 1);
+    uint8_t idx = (uint8_t)((CalcHistory_GetCount() - offset) % HISTORY_LINE_COUNT);
+    const HistoryEntry_t *e = CalcHistory_GetEntry(idx);
+    strncpy(expr.buf, e->expression, MAX_EXPR_LEN - 1);
     expr.buf[MAX_EXPR_LEN - 1] = '\0';
     expr.len    = (uint8_t)strlen(expr.buf);
     expr.cursor = expr.len;
@@ -1167,13 +1122,9 @@ static void history_enter_evaluate(void)
     /* prgmNAME expression: insert into history and run the program */
     if (strncmp(expr.buf, "prgm", 4) == 0) {
         int8_t slot = prgm_lookup_slot(expr.buf + 4);
-        uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-        strncpy(history[hidx].expression, expr.buf, MAX_EXPR_LEN - 1);
-        history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
-        history[hidx].result[0] = '\0';
-        history_count++;
+        CalcHistory_Commit(expr.buf, "", false, 0, 0, 0);
         ExprBuffer_Clear(&expr);
-        history_recall_offset = 0;
+        CalcHistory_ResetRecallOffset();
         Update_Calculator_Display();
         if (slot >= 0)
             prgm_run_start((uint8_t)slot);
@@ -1182,17 +1133,11 @@ static void history_enter_evaluate(void)
 #ifndef HOST_TEST
     /* DRAW commands execute as statements — display "Done", skip Calc_Evaluate */
     if (try_execute_draw_command()) {
-        uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-        strncpy(history[hidx].expression, expr.buf, MAX_EXPR_LEN - 1);
-        history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
-        strncpy(history[hidx].result, "Done", MAX_RESULT_LEN - 1);
-        history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
-        history[hidx].has_matrix = false;
-        history_count++;
+        CalcHistory_Commit(expr.buf, "Done", false, 0, 0, 0);
         ExprBuffer_Clear(&expr);
-        history_recall_offset = 0;
+        CalcHistory_ResetRecallOffset();
         lvgl_lock();
-        ui_update_history();
+        CalcHistory_UpdateDisplay();
         lvgl_unlock();
         Update_Calculator_Display();
         return;
@@ -1203,7 +1148,7 @@ static void history_enter_evaluate(void)
     format_calc_result(&result, result_str, MAX_RESULT_LEN);
     commit_history_entry(expr.buf, result_str, &result);
     ExprBuffer_Clear(&expr);
-    history_recall_offset = 0;
+    CalcHistory_ResetRecallOffset();
 }
 
 void handle_history_nav(Token_t t)
@@ -1211,75 +1156,93 @@ void handle_history_nav(Token_t t)
     switch (t) {
 
     case TOKEN_LEFT:
-        if (expr.len == 0 && matrix_scroll_focus >= 0 &&
-            history_get_matrix(&history[matrix_scroll_focus]) != NULL) {
-            if (matrix_scroll_offset > 0) {
-                matrix_scroll_offset--;
+        {
+            int8_t focus = CalcHistory_GetMatrixScrollFocus();
+            if (expr.len == 0 && focus >= 0 &&
+                history_get_matrix(CalcHistory_GetEntry((uint8_t)focus)) != NULL) {
+                uint8_t off = CalcHistory_GetMatrixScrollOffset();
+                if (off > 0) {
+                    CalcHistory_SetMatrixScrollOffset(off - 1);
+                    Update_Calculator_Display();
+                }
+            } else if (expr.cursor > 0) {
+                ExprBuffer_Left(&expr);
                 Update_Calculator_Display();
             }
-        } else if (expr.cursor > 0) {
-            ExprBuffer_Left(&expr);
-            Update_Calculator_Display();
         }
         break;
 
     case TOKEN_RIGHT:
-        if (expr.len == 0 && matrix_scroll_focus >= 0) {
-            const CalcMatrix_t *m = history_get_matrix(&history[matrix_scroll_focus]);
-            if (m != NULL) {
-                int total_w = matrix_row_total_width(m);
-                int max_off = (total_w > (int)expr_chars_per_row)
-                              ? (total_w - (int)expr_chars_per_row) : 0;
-                if ((int)matrix_scroll_offset < max_off) {
-                    matrix_scroll_offset++;
-                    Update_Calculator_Display();
+        {
+            int8_t focus = CalcHistory_GetMatrixScrollFocus();
+            if (expr.len == 0 && focus >= 0) {
+                const CalcMatrix_t *m =
+                    history_get_matrix(CalcHistory_GetEntry((uint8_t)focus));
+                if (m != NULL) {
+                    int total_w = matrix_row_total_width(m);
+                    int max_off = (total_w > (int)expr_chars_per_row)
+                                  ? (total_w - (int)expr_chars_per_row) : 0;
+                    uint8_t off = CalcHistory_GetMatrixScrollOffset();
+                    if ((int)off < max_off) {
+                        CalcHistory_SetMatrixScrollOffset(off + 1);
+                        Update_Calculator_Display();
+                    }
                 }
+            } else if (expr.cursor < expr.len) {
+                ExprBuffer_Right(&expr);
+                Update_Calculator_Display();
             }
-        } else if (expr.cursor < expr.len) {
-            ExprBuffer_Right(&expr);
-            Update_Calculator_Display();
         }
         break;
 
     case TOKEN_UP:
-        if ((expr.len == 0 || history_recall_offset > 0) &&
-            history_recall_offset < history_count &&
-            history_recall_offset < HISTORY_LINE_COUNT) {
-            history_recall_offset++;
-            history_load_offset(history_recall_offset);
+        {
+            int8_t recall = CalcHistory_GetRecallOffset();
+            if ((expr.len == 0 || recall > 0) &&
+                recall < (int8_t)CalcHistory_GetCount() &&
+                recall < (int8_t)HISTORY_LINE_COUNT) {
+                CalcHistory_RecallUp();
+                history_load_offset((uint8_t)CalcHistory_GetRecallOffset());
+            }
         }
         break;
 
     case TOKEN_DOWN:
-        if (history_recall_offset > 0) {
-            history_recall_offset--;
-            if (history_recall_offset == 0) {
-                ExprBuffer_Clear(&expr);
-                Update_Calculator_Display();
-            } else {
-                history_load_offset(history_recall_offset);
+        {
+            int8_t recall = CalcHistory_GetRecallOffset();
+            if (recall > 0) {
+                CalcHistory_RecallDown();
+                recall = CalcHistory_GetRecallOffset();
+                if (recall == 0) {
+                    ExprBuffer_Clear(&expr);
+                    Update_Calculator_Display();
+                } else {
+                    history_load_offset((uint8_t)recall);
+                }
             }
         }
         break;
 
     case TOKEN_ENTER:
-        if (expr.len == 0 && history_count > 0) {
+        if (expr.len == 0 && CalcHistory_GetCount() > 0) {
             /* Re-evaluate the last history entry */
-            uint8_t last_idx = (history_count - 1) % HISTORY_LINE_COUNT;
-            CalcResult_t result = Calc_Evaluate(history[last_idx].expression,
+            uint8_t last_idx = (CalcHistory_GetCount() - 1u) % HISTORY_LINE_COUNT;
+            const HistoryEntry_t *last = CalcHistory_GetEntry(last_idx);
+            CalcResult_t result = Calc_Evaluate(last->expression,
                                                 ans, ans_is_matrix, angle_degrees);
             char result_str[MAX_RESULT_LEN];
             format_calc_result(&result, result_str, MAX_RESULT_LEN);
-            commit_history_entry(history[last_idx].expression, result_str, &result);
-            history_recall_offset = 0;
+            commit_history_entry(last->expression, result_str, &result);
+            CalcHistory_ResetRecallOffset();
         } else if (expr.len > 0) {
             history_enter_evaluate();
         }
         break;
 
     case TOKEN_ENTRY:
-        if (history_count > 0) {
-            history_recall_offset = 1;
+        if (CalcHistory_GetCount() > 0) {
+            CalcHistory_ResetRecallOffset();  /* ensure we start from 0 */
+            CalcHistory_RecallUp();            /* set to 1 */
             history_load_offset(1);
         }
         break;
@@ -1290,6 +1253,59 @@ void handle_history_nav(Token_t t)
 
 /* handle_function_insert, handle_clear_key, handle_sto_key,
  * handle_normal_graph_nav, handle_normal_mode moved to ui_input.c. */
+
+/*---------------------------------------------------------------------------
+ * Execute_Token dispatch infrastructure
+ *---------------------------------------------------------------------------*/
+
+/** Function pointer type for per-mode token handlers.
+ *  Returns true if the token was fully handled (Execute_Token should return). */
+typedef bool (*ModeHandler_t)(Token_t);
+
+/** (mode, handler) pair used in k_mode_handlers[]. */
+typedef struct { CalcMode_t mode; ModeHandler_t handler; } ModeEntry_t;
+
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
+/* Thin wrappers for handlers whose signatures differ from ModeHandler_t. */
+static bool dispatch_matrix_menu(Token_t t) { return handle_matrix_menu(t, &matrix_menu_state); }
+static bool dispatch_matrix_edit(Token_t t) { handle_matrix_edit(t); return true; }
+static bool dispatch_stat_menu(Token_t t)   { return handle_stat_menu(t, &stat_menu_state); }
+
+/** Dispatch table used by Execute_Token.  Every single-mode handler lives here
+ *  except:
+ *    - MODE_PRGM_RUNNING   (always-return special case before the table)
+ *    - MODE_PRGM_NEW_NAME  (ALPHA_LOCK compound condition, after the table)
+ *    - MODE_PRGM_EDITOR    (ALPHA_LOCK compound condition, after the table)
+ *  To add a new mode: append a row and increment the _Static_assert count.
+ *  Removing a mode from CalcMode_t causes a link error; removing a row without
+ *  updating the count fires the assertion. */
+static const ModeEntry_t k_mode_handlers[] = {
+    { MODE_GRAPH_YEQ,          handle_yeq_mode          },
+    { MODE_GRAPH_RANGE,        handle_range_mode        },
+    { MODE_GRAPH_ZOOM,         handle_zoom_mode         },
+    { MODE_GRAPH_ZOOM_FACTORS, handle_zoom_factors_mode },
+    { MODE_GRAPH_ZBOX,         handle_zbox_mode         },
+    { MODE_GRAPH_TRACE,        handle_trace_mode        },
+    { MODE_GRAPH_PARAM_YEQ,    handle_param_yeq_mode    },
+    { MODE_MODE_SCREEN,        handle_mode_screen       },
+    { MODE_MATH_MENU,          handle_math_menu         },
+    { MODE_TEST_MENU,          handle_test_menu         },
+    { MODE_MATRIX_MENU,        dispatch_matrix_menu     },
+    { MODE_MATRIX_EDIT,        dispatch_matrix_edit     },
+    { MODE_STAT_MENU,          dispatch_stat_menu       },
+    { MODE_STAT_EDIT,          handle_stat_edit         },
+    { MODE_STAT_RESULTS,       handle_stat_results      },
+    { MODE_DRAW_MENU,          handle_draw_menu         },
+    { MODE_VARS_MENU,          handle_vars_menu         },
+    { MODE_YVARS_MENU,         handle_yvars_menu        },
+    { MODE_PRGM_MENU,          handle_prgm_menu         },
+    { MODE_PRGM_CTL_MENU,      handle_prgm_ctl_menu     },
+    { MODE_PRGM_IO_MENU,       handle_prgm_io_menu      },
+    { MODE_PRGM_EXEC_MENU,     handle_prgm_exec_menu    },
+};
+_Static_assert(ARRAY_SIZE(k_mode_handlers) == 22,
+               "mode handler count mismatch — update k_mode_handlers");
 
 /**
  * @brief Processes a single calculator token from the keypad queue.
@@ -1351,36 +1367,22 @@ void Execute_Token(Token_t t)
 
     if (current_mode == MODE_PRGM_RUNNING)        { handle_prgm_running(t); return; }
 
-    if (current_mode == MODE_GRAPH_YEQ)          { if (handle_yeq_mode(t))          return; }
-    if (current_mode == MODE_GRAPH_RANGE)         { if (handle_range_mode(t))         return; }
-    if (current_mode == MODE_GRAPH_ZOOM)          { if (handle_zoom_mode(t))          return; }
-    if (current_mode == MODE_GRAPH_ZOOM_FACTORS)  { if (handle_zoom_factors_mode(t))  return; }
-    if (current_mode == MODE_GRAPH_ZBOX)          { if (handle_zbox_mode(t))          return; }
-    if (current_mode == MODE_GRAPH_TRACE)         { if (handle_trace_mode(t))         return; }
-    if (current_mode == MODE_GRAPH_PARAM_YEQ)    { if (handle_param_yeq_mode(t))     return; }
-    if (current_mode == MODE_MODE_SCREEN)         { if (handle_mode_screen(t))                        return; }
-    if (current_mode == MODE_MATH_MENU)           { if (handle_math_menu(t))                          return; }
-    if (current_mode == MODE_TEST_MENU)           { if (handle_test_menu(t))                          return; }
-    if (current_mode == MODE_MATRIX_MENU)         { if (handle_matrix_menu(t, &matrix_menu_state))  return; }
-    if (current_mode == MODE_MATRIX_EDIT)         { handle_matrix_edit(t); return; }
-    if (current_mode == MODE_STAT_MENU)           { if (handle_stat_menu(t, &stat_menu_state))      return; }
-    if (current_mode == MODE_STAT_EDIT)           { if (handle_stat_edit(t))           return; }
-    if (current_mode == MODE_STAT_RESULTS)        { if (handle_stat_results(t))        return; }
-    if (current_mode == MODE_DRAW_MENU)           { if (handle_draw_menu(t))           return; }
-    if (current_mode == MODE_VARS_MENU)           { if (handle_vars_menu(t))           return; }
-    if (current_mode == MODE_YVARS_MENU)          { if (handle_yvars_menu(t))          return; }
-    if (current_mode == MODE_PRGM_MENU)           { if (handle_prgm_menu(t))          return; }
-    /* F5b: ALPHA_LOCK in name-entry — same pattern as A6 editor fix below */
+    /*--- Dispatch table: O(n) scan across 22 entries. -----------------------*/
+    for (size_t i = 0; i < ARRAY_SIZE(k_mode_handlers); i++) {
+        if (current_mode == k_mode_handlers[i].mode) {
+            if (k_mode_handlers[i].handler(t)) return;
+            break;
+        }
+    }
+
+    /* F5b: ALPHA_LOCK in name-entry — compound condition, kept outside table. */
     if (current_mode == MODE_PRGM_NEW_NAME ||
         (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_NEW_NAME))
                                                   { if (handle_prgm_new_name(t))      return; }
-    /* A6: ALPHA_LOCK in editor — current_mode stays MODE_ALPHA_LOCK; route by return_mode */
+    /* A6: ALPHA_LOCK in editor — current_mode stays MODE_ALPHA_LOCK; route by return_mode. */
     if (current_mode == MODE_PRGM_EDITOR ||
         (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_EDITOR))
                                                   { if (handle_prgm_editor(t))        return; }
-    if (current_mode == MODE_PRGM_CTL_MENU)       { if (handle_prgm_ctl_menu(t))      return; }
-    if (current_mode == MODE_PRGM_IO_MENU)        { if (handle_prgm_io_menu(t))       return; }
-    if (current_mode == MODE_PRGM_EXEC_MENU)      { if (handle_prgm_exec_menu(t))     return; }
 
     if (sto_pending) { if (handle_sto_pending(t)) return; }
 

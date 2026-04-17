@@ -14,7 +14,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-04-16** (all INTERFACE_REFACTOR_PLAN items complete; COUPLING_REFACTOR T1, T2, and T3 complete). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-17** (all INTERFACE_REFACTOR_PLAN items complete; COUPLING_REFACTOR T1–T8 complete). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -29,7 +29,7 @@ Snapshot as of **2026-04-16** (all INTERFACE_REFACTOR_PLAN items complete; COUPL
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1276 lines, graph_ui.c 862 lines, calculator_core.c 1591 lines, graph.c 881 lines, graph_ui_range.c 718 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 694 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1276 lines, graph_ui.c 862 lines, calculator_core.c 1544 lines, graph.c 881 lines, graph_ui_range.c 718 lines, ui_stat.c 706 lines, ui_matrix.c 581 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 694 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
 
 ### Scorecard Change Log
 
@@ -43,6 +43,9 @@ Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware valida
 | 2026-04-16 | API / header design | A | A+ | COUPLING_REFACTOR T1: graph_state static in graph.c; extern removed from app_common.h; 13 accessors; direct field writes outside graph.c are now compile errors; complexity delta: neutral |
 | 2026-04-16 | API / header design | A+ | A+ | COUPLING_REFACTOR T2: g_prgm_store extern removed from prgm_exec.h; 7 accessors (GetName/GetBody/IsSlotOccupied/SetName/AppendLine/SetBody/ClearSlot); direct field writes in ui_prgm.c + ui_prgm_exec.c eliminated; complexity delta: neutral |
 | 2026-04-16 | API / header design | A+ | A+ | COUPLING_REFACTOR T3: ans/ans_is_matrix static in calculator_core.c; extern removed from calc_internal.h; 4 accessors (GetAns/GetAnsIsMatrix/SetAnsScalar/SetAnsMatrix); format_calc_result signature simplified; direct field writes in ui_input.c, ui_prgm.c, ui_draw.c, prgm_exec.c eliminated; complexity delta: neutral |
+| 2026-04-17 | API / header design | A+ | A+ | COUPLING_REFACTOR T4: 16 LVGL screen pointers made static; extern block removed from calc_internal.h and all module headers; 25 show/hide one-liners added across 11 modules; direct lv_obj_* calls on other modules' screens are now compile errors; complexity delta: neutral |
+| 2026-04-17 | API / header design | A+ | A+ | COUPLING_REFACTOR T5: current_mode/return_mode static in calculator_core.c; extern removed from calc_internal.h; 4 accessors (Calc_SetMode/GetMode/SetReturnMode/GetReturnMode); direct writes across 13 files eliminated; direct raw assignments outside calculator_core.c are now compile errors; complexity delta: neutral |
+| 2026-04-17 | Code organisation | B | B | COUPLING_REFACTOR T8: history ring buffer extracted from calculator_core.c into calc_history.c (~150 lines moved); calc_internal.h history externs removed; CalcHistory_* API (13 functions); calculator_core.c reduced ~150 lines; complexity delta: neutral |
 
 ---
 

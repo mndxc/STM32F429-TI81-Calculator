@@ -373,7 +373,7 @@ void prgm_new_cursor_update(void)
     if (prgm_new_cursor_box == NULL || prgm_new_title_lbl == NULL) return;
     cursor_render(prgm_new_cursor_box, prgm_new_cursor_inner,
                   prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor),
-                  cursor_visible, current_mode, false);
+                  cursor_visible, Calc_GetMode(), false);
 }
 
 /* Positions the editor cursor box on the current line. */
@@ -389,7 +389,7 @@ void prgm_editor_cursor_update(void)
     /* +1 for the ":" prefix rendered in the label */
     cursor_render(prgm_edit_cursor_box, prgm_edit_cursor_inner,
                   lbl, (uint32_t)(prgm_edit_col + 1),
-                  cursor_visible, current_mode, insert_mode);
+                  cursor_visible, Calc_GetMode(), insert_mode);
 }
 
 /* Updates all PRGM editor line labels, scroll indicators, and cursor.
@@ -445,7 +445,7 @@ static void ui_update_prgm_new_display(void)
     lv_label_set_text(prgm_new_title_lbl, buf);
     cursor_render(prgm_new_cursor_box, prgm_new_cursor_inner,
                   prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor),
-                  cursor_visible, current_mode, false);
+                  cursor_visible, Calc_GetMode(), false);
 }
 
 /* Adjusts editor scroll to keep prgm_edit_line visible. */
@@ -483,7 +483,7 @@ void prgm_editor_menu_insert(const char *s)
     lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
     ui_update_prgm_editor_display();
     lvgl_unlock();
-    current_mode = MODE_PRGM_EDITOR;
+    Calc_SetMode(MODE_PRGM_EDITOR);
 }
 
 /* Maps a token to its text representation for program editing.
@@ -547,7 +547,7 @@ static void prgm_open_editor(uint8_t idx)
     prgm_edit_col        = 0;
     prgm_parse_from_store(idx);
     insert_mode  = false;  /* D1: editor always opens in overwrite mode */
-    current_mode = MODE_PRGM_EDITOR;
+    Calc_SetMode(MODE_PRGM_EDITOR);
     lvgl_lock();
     lv_obj_add_flag(ui_prgm_screen,     LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
@@ -621,7 +621,7 @@ static void enter_exec_tab(int abs_pos)
     prgm_tab           = 0;
     prgm_item_cursor   = 0;
     prgm_scroll_offset = 0;
-    current_mode = exec_ret;
+    Calc_SetMode(exec_ret);
     lvgl_lock();
     lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
@@ -650,8 +650,8 @@ static void enter_edit_tab(int abs_pos)
         lv_obj_clear_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_prgm_new_display();
         lvgl_unlock();
-        current_mode = MODE_ALPHA;
-        return_mode  = MODE_PRGM_NEW_NAME;
+        Calc_SetMode(MODE_ALPHA);
+        Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
     }
 }
 
@@ -750,7 +750,7 @@ bool handle_prgm_menu(Token_t t)
         prgm_tab             = 0;
         prgm_item_cursor     = 0;
         prgm_scroll_offset   = 0;
-        current_mode = ret;
+        Calc_SetMode(ret);
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
         lvgl_unlock();
@@ -763,7 +763,7 @@ bool handle_prgm_menu(Token_t t)
         prgm_return_mode   = MODE_NORMAL;
         prgm_item_cursor   = 0;
         prgm_scroll_offset = 0;
-        current_mode = ret;
+        Calc_SetMode(ret);
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
         lvgl_unlock();
@@ -788,8 +788,8 @@ bool handle_prgm_new_name(Token_t t)
             lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
         }
         /* Re-engage ALPHA so the next keypress is also a letter */
-        return_mode  = MODE_PRGM_NEW_NAME;
-        current_mode = MODE_ALPHA;
+        Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
+        Calc_SetMode(MODE_ALPHA);
         return true;
     }
     case TOKEN_0 ... TOKEN_9: {
@@ -804,8 +804,8 @@ bool handle_prgm_new_name(Token_t t)
             lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
         }
         /* Re-engage ALPHA so the next keypress can still be a letter */
-        return_mode  = MODE_PRGM_NEW_NAME;
-        current_mode = MODE_ALPHA;
+        Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
+        Calc_SetMode(MODE_ALPHA);
         return true;
     }
     case TOKEN_DEL:
@@ -818,8 +818,8 @@ bool handle_prgm_new_name(Token_t t)
             lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
         }
         /* Re-engage ALPHA after DEL so the next keypress is still a letter */
-        return_mode  = MODE_PRGM_NEW_NAME;
-        current_mode = MODE_ALPHA;
+        Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
+        Calc_SetMode(MODE_ALPHA);
         return true;
     case TOKEN_LEFT:
         if (prgm_new_name_cursor > 0) {
@@ -856,7 +856,7 @@ bool handle_prgm_new_name(Token_t t)
     case TOKEN_CLEAR:
     case TOKEN_PRGM:
         /* Cancel — return to PRGM menu */
-        current_mode = MODE_PRGM_MENU;
+        Calc_SetMode(MODE_PRGM_MENU);
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(ui_prgm_screen,   LV_OBJ_FLAG_HIDDEN);
@@ -881,8 +881,8 @@ static void prgm_editor_handle_nav(Token_t t)
             /* F10: navigate back up to the name-entry title */
             prgm_flatten_to_store();
             prgm_new_name_cursor = prgm_new_name_len; /* cursor at end of name */
-            current_mode = MODE_ALPHA;
-            return_mode  = MODE_PRGM_NEW_NAME;
+            Calc_SetMode(MODE_ALPHA);
+            Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
             lvgl_lock();
             lv_obj_add_flag(ui_prgm_editor_screen,  LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(ui_prgm_new_screen,   LV_OBJ_FLAG_HIDDEN);
@@ -959,7 +959,7 @@ static void prgm_editor_handle_del_clear(Token_t t)
             lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
         } else if (prgm_edit_num_lines == 1) {
             /* Empty program — return to PRGM menu */
-            current_mode = MODE_PRGM_MENU;
+            Calc_SetMode(MODE_PRGM_MENU);
             prgm_tab = 1;  /* return to EDIT tab */
             prgm_item_cursor = 0;
             prgm_scroll_offset = 0;
@@ -1034,7 +1034,7 @@ bool handle_prgm_editor(Token_t t)
         return true;
     case TOKEN_PRGM:
         /* Open CTL sub-menu */
-        current_mode = MODE_PRGM_CTL_MENU;
+        Calc_SetMode(MODE_PRGM_CTL_MENU);
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(ui_prgm_ctl_screen,  LV_OBJ_FLAG_HIDDEN);
@@ -1049,7 +1049,7 @@ bool handle_prgm_editor(Token_t t)
 
 void prgm_submenu_return_to_editor(lv_obj_t *hide_screen)
 {
-    current_mode = MODE_PRGM_EDITOR;
+    Calc_SetMode(MODE_PRGM_EDITOR);
     lvgl_lock();
     lv_obj_add_flag(hide_screen,             LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1060,7 +1060,7 @@ void prgm_submenu_return_to_editor(lv_obj_t *hide_screen)
 void prgm_submenu_tab_switch(lv_obj_t *hide_screen, CalcMode_t to_mode)
 {
     lv_obj_t *show_screen;
-    current_mode = to_mode;
+    Calc_SetMode(to_mode);
     lvgl_lock();
     lv_obj_add_flag(hide_screen, LV_OBJ_FLAG_HIDDEN);
     if (to_mode == MODE_PRGM_CTL_MENU) {
@@ -1138,19 +1138,19 @@ void hide_prgm_screens(void) {
 
 void prgm_reset_state(CalcMode_t target_mode) {
     if (target_mode == MODE_PRGM_MENU) {
-        prgm_return_mode = current_mode;
+        prgm_return_mode = Calc_GetMode();
         prgm_tab = 0;
         prgm_item_cursor = 0;
         prgm_scroll_offset = 0;
-        current_mode = MODE_PRGM_MENU;
+        Calc_SetMode(MODE_PRGM_MENU);
         lv_obj_clear_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_prgm_display();
     } else if (target_mode == MODE_PRGM_RUNNING) {
-        prgm_return_mode = current_mode;
+        prgm_return_mode = Calc_GetMode();
         prgm_tab = 0;
         prgm_item_cursor = 0;
         prgm_scroll_offset = 0;
-        current_mode = MODE_PRGM_RUNNING;
+        Calc_SetMode(MODE_PRGM_RUNNING);
         prgm_run_start(prgm_edit_idx);
     }
 }
@@ -1160,7 +1160,7 @@ void prgm_menu_open(CalcMode_t return_to) {
     prgm_tab = 0;
     prgm_item_cursor = 0;
     prgm_scroll_offset = 0;
-    current_mode = MODE_PRGM_MENU;
+    Calc_SetMode(MODE_PRGM_MENU);
     lv_obj_clear_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
     ui_update_prgm_display();
 }
@@ -1200,16 +1200,11 @@ bool handle_prgm_running(Token_t t)
                     /* ans already updated by format_calc_result */
                 }
                 /* Append expression + result to history */
-                uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-                strncpy(history[hidx].expression, expr.buf, MAX_EXPR_LEN - 1);
-                history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
-                strncpy(history[hidx].result, res_buf, MAX_RESULT_LEN - 1);
-                history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
-                history_count++;
+                CalcHistory_Commit(expr.buf, res_buf, false, 0, 0, 0);
             }
             ExprBuffer_Clear(&expr);
             prgm_clear_input_wait();
-            lvgl_lock(); ui_update_history(); lvgl_unlock();
+            lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
             prgm_run_loop();  /* resume execution */
             return true;
         }
@@ -1225,7 +1220,7 @@ bool handle_prgm_running(Token_t t)
             } else {
                 /* Abort on CLEAR with empty expression */
                 prgm_reset_execution_state();
-                current_mode = MODE_NORMAL;
+                Calc_SetMode(MODE_NORMAL);
                 lvgl_lock(); ui_refresh_display(); lvgl_unlock();
             }
             return true;
@@ -1244,10 +1239,10 @@ bool handle_prgm_running(Token_t t)
         default: {
             /* Route expression tokens through the normal-mode handler.
              * Safe subset: expression-building keys never change current_mode. */
-            CalcMode_t saved = current_mode;
-            current_mode = MODE_NORMAL;
+            CalcMode_t saved = Calc_GetMode();
+            Calc_SetMode(MODE_NORMAL);
             handle_normal_mode(t);
-            current_mode = saved;
+            Calc_SetMode(saved);
             return true;
         }
         }
@@ -1257,7 +1252,7 @@ bool handle_prgm_running(Token_t t)
     if (t == TOKEN_CLEAR) {
         prgm_reset_execution_state();
         ExprBuffer_Clear(&expr);
-        current_mode       = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock(); ui_refresh_display(); lvgl_unlock();
         return true;
     }

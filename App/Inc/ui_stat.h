@@ -58,6 +58,12 @@ void ui_update_stat_edit_display(void);
 /** Redraws the results display from stat_results. */
 void ui_update_stat_results_display(void);
 
+/** Initialises STAT menu state and shows the screen. Called under lvgl_lock(). */
+void       Stat_MenuOpen(CalcMode_t return_to);
+
+/** Resets STAT menu state and returns the saved return mode. Called from menu_close(). */
+CalcMode_t Stat_MenuClose(void);
+
 /** Token handler for MODE_STAT_MENU.  Returns true to consume token. */
 bool handle_stat_menu(Token_t t, StatMenuState_t *s);
 

@@ -121,7 +121,7 @@ void ui_mode_open(void)
 {
     memcpy(s_mode.cursor, s_mode.committed, sizeof(s_mode.cursor));
     s_mode.row_selected = 0;
-    current_mode = MODE_MODE_SCREEN;
+    Calc_SetMode(MODE_MODE_SCREEN);
     lvgl_lock();
     hide_all_screens();
     lv_obj_clear_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
@@ -193,14 +193,14 @@ bool handle_mode_screen(Token_t t)
         return true;
     case TOKEN_CLEAR:
     case TOKEN_MODE:
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock();
         lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
         lvgl_unlock();
         return true;
     default:
         /* Any other key exits MODE screen and is processed normally */
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock();
         lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN);
         lvgl_unlock();

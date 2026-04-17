@@ -33,6 +33,7 @@
  * persist.h provides PersistBlock_t (already has HOST_TEST guards for HAL).
  * All are safe to include in HOST_TEST builds. */
 #include "app_common.h"
+#include "calc_history.h" /* HistoryEntry_t, HISTORY_LINE_COUNT, CalcHistory_* API */
 #include "expr_util.h"    /* ExprBuffer_t and ExprBuffer_* helpers */
 #include "calc_engine.h"
 #include "persist.h"
@@ -144,7 +145,8 @@ extern osMessageQId      keypadQueueHandle;
 
 /*---------------------------------------------------------------------------
  * calc_internal.h replacement
- * Constants and types must match the real calc_internal.h exactly.
+ * HISTORY_LINE_COUNT, MAX_RESULT_LEN, MATRIX_RING_COUNT, HistoryEntry_t, and
+ * the CalcHistory_* API come from calc_history.h (included above).
  *---------------------------------------------------------------------------*/
 
 #define DISPLAY_W           320
@@ -152,20 +154,7 @@ extern osMessageQId      keypadQueueHandle;
 #define DISP_ROW_COUNT      8
 #define DISP_ROW_H          30
 #define CURSOR_BLINK_MS     530
-#define HISTORY_LINE_COUNT  1
-/* MAX_EXPR_LEN is now in app_common.h (included above) */
-#define MAX_RESULT_LEN      96
-#define MATRIX_RING_COUNT   1
 #define MENU_VISIBLE_ROWS   7
-
-typedef struct {
-    char    expression[MAX_EXPR_LEN];
-    char    result[MAX_RESULT_LEN];
-    bool    has_matrix;
-    uint8_t matrix_ring_idx;
-    uint8_t matrix_ring_gen;
-    uint8_t matrix_rows_cache;
-} HistoryEntry_t;
 
 /* Shared state — all defined in calculator_core.c */
 extern CalcMode_t  current_mode;
@@ -176,10 +165,6 @@ extern float       ans;
 extern bool        ans_is_matrix;
 extern bool        angle_degrees;
 extern bool        sto_pending;          /* non-static in HOST_TEST mode */
-
-extern HistoryEntry_t history[HISTORY_LINE_COUNT];
-extern uint8_t        history_count;
-extern int8_t         history_recall_offset;
 
 extern ExprBuffer_t expr;   /* .buf = expression string, .len = length, .cursor = insertion point */
 
@@ -218,9 +203,9 @@ static inline char *Graph_GetParamEquationXBuf(uint8_t p)
 static inline char *Graph_GetParamEquationYBuf(uint8_t p)
     { return (p < GRAPH_NUM_PARAM) ? graph_state.param_y[p] : NULL; }
 
-/* LVGL screen pointers — ui_mode_screen defined in ui_mode.c (HOST_TEST block);
- * the rest are stub-defined in test_normal_mode.c */
-extern lv_obj_t *ui_mode_screen;
+/* LVGL screen pointers — all stub-defined in test_normal_mode.c.
+ * ui_mode_screen is a private static in ui_mode.c (after T4) and is NOT
+ * declared extern here; it is accessed only through Mode_HideScreen(). */
 extern lv_obj_t *ui_math_screen;
 extern lv_obj_t *ui_test_screen;
 extern lv_obj_t *ui_matrix_screen;
@@ -243,7 +228,6 @@ extern lv_obj_t *ui_yvars_screen;
  * the ui_* sub-module that owns each function) */
 void Update_Calculator_Display(void);
 void ui_update_status_bar(void);
-void ui_update_history(void);
 void ui_refresh_display(void);
 void ui_output_row(uint8_t row_1based, const char *text);
 void format_calc_result(const CalcResult_t *r, char *buf, int buf_size);
@@ -253,7 +237,6 @@ void  Calc_SetAnsMatrix(float matrix_idx);
 float Calc_GetAns(void);
 bool  Calc_GetAnsIsMatrix(void);
 void handle_history_nav(Token_t t);        /* defined in calculator_core.c */
-void reset_matrix_scroll_focus(void);      /* defined in calculator_core.c */
 void lvgl_lock(void);
 void lvgl_unlock(void);
 void hide_all_screens(void);
@@ -291,6 +274,8 @@ static inline void ui_init_matrix_screen(void)             {}
 static inline void ui_update_matrix_display(void)         {}
 static inline void ui_update_matrix_edit_display(void)    {}
 static inline void matrix_edit_cursor_update(void)        {}
+static inline void Matrix_MenuOpen(CalcMode_t r)    { (void)r; current_mode = MODE_MATRIX_MENU; }
+static inline CalcMode_t Matrix_MenuClose(void)     { return MODE_NORMAL; }
 static inline bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
     { (void)t; (void)s; return false; }
 static inline void handle_matrix_edit(Token_t t) { (void)t; }
@@ -321,6 +306,8 @@ static inline void ui_init_stat_results_screen(void)   {}
 static inline void ui_update_stat_display(void)        {}
 static inline void ui_update_stat_edit_display(void)   {}
 static inline void ui_update_stat_results_display(void){}
+static inline void Stat_MenuOpen(CalcMode_t r)      { (void)r; current_mode = MODE_STAT_MENU; }
+static inline CalcMode_t Stat_MenuClose(void)       { return MODE_NORMAL; }
 static inline bool handle_stat_menu(Token_t t, StatMenuState_t *s)
     { (void)t; (void)s; return false; }
 static inline bool handle_stat_edit(Token_t t)    { (void)t; return false; }
@@ -337,6 +324,8 @@ extern MenuState_t vars_menu_state;
 
 static inline void Vars_ShowScreen(void) {}
 static inline void Vars_HideScreen(void) {}
+static inline void Vars_MenuOpen(CalcMode_t r)      { (void)r; current_mode = MODE_VARS_MENU; }
+static inline CalcMode_t Vars_MenuClose(void)       { return MODE_NORMAL; }
 static inline void ui_init_vars_screen(void)        {}
 static inline void ui_update_vars_display(void)     {}
 static inline bool handle_vars_menu(Token_t t)
@@ -356,6 +345,8 @@ extern YVarsMenuState_t yvars_menu_state;
 
 static inline void Yvars_ShowScreen(void) {}
 static inline void Yvars_HideScreen(void) {}
+static inline void Yvars_MenuOpen(CalcMode_t r)     { (void)r; current_mode = MODE_YVARS_MENU; }
+static inline CalcMode_t Yvars_MenuClose(void)      { return MODE_NORMAL; }
 static inline void ui_init_yvars_screen(void)       {}
 static inline void ui_update_yvars_display(void)    {}
 static inline bool handle_yvars_menu(Token_t t)
@@ -393,6 +384,8 @@ extern DrawMenuState_t draw_menu_state;
 
 static inline void Draw_ShowScreen(void) {}
 static inline void Draw_HideScreen(void) {}
+static inline void Draw_MenuOpen(CalcMode_t r)       { (void)r; current_mode = MODE_DRAW_MENU; }
+static inline CalcMode_t Draw_MenuClose(void)        { return MODE_NORMAL; }
 static inline void ui_init_draw_screen(void)         {}
 static inline void ui_update_draw_display(void)      {}
 static inline bool handle_draw_menu(Token_t t)       { (void)t; return false; }

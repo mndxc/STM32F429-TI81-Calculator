@@ -336,7 +336,7 @@ void range_cursor_update(void)
                       + s_range.cursor;
     cursor_render(range_cursor_box, range_cursor_inner,
                   ui_lbl_range_rows[s_range.field], char_pos,
-                  cursor_visible, current_mode, insert_mode);
+                  cursor_visible, Calc_GetMode(), insert_mode);
 }
 
 /*---------------------------------------------------------------------------
@@ -423,7 +423,7 @@ void zoom_factors_cursor_update(void)
                       + s_zf.cursor;
     cursor_render(zoom_factors_cursor_box, zoom_factors_cursor_inner,
                   ui_lbl_zoom_factors_rows[s_zf.field], char_pos,
-                  cursor_visible, current_mode, insert_mode);
+                  cursor_visible, Calc_GetMode(), insert_mode);
 }
 
 /*---------------------------------------------------------------------------
@@ -595,7 +595,7 @@ bool handle_range_mode(Token_t t)
         return true;
 
     case TOKEN_RANGE:
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         range_field_reset();
         lvgl_lock();
         hide_all_screens();
@@ -613,7 +613,7 @@ bool handle_range_mode(Token_t t)
             range_cursor_update();
             lvgl_unlock();
         } else {
-            current_mode = MODE_NORMAL;
+            Calc_SetMode(MODE_NORMAL);
             range_field_reset();
             lvgl_lock();
             ui_update_range_display();
@@ -681,7 +681,7 @@ bool handle_zoom_factors_mode(Token_t t)
         zoom_factors_commit_field();
         zoom_factors_reset();
         zoom_menu_reset();
-        current_mode = MODE_GRAPH_ZOOM;
+        Calc_SetMode(MODE_GRAPH_ZOOM);
         lvgl_lock();
         hide_all_screens();
         Zoom_ShowScreen();
@@ -700,7 +700,7 @@ bool handle_zoom_factors_mode(Token_t t)
             lvgl_unlock();
         } else {
             zoom_factors_reset();
-            current_mode = MODE_GRAPH_ZOOM;
+            Calc_SetMode(MODE_GRAPH_ZOOM);
             zoom_menu_reset();
             lvgl_lock();
             Graph_HideZoomFactorsScreen();

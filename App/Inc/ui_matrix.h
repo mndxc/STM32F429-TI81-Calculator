@@ -32,6 +32,10 @@ void ui_update_matrix_display(void);
 void ui_update_matrix_edit_display(void);
 void matrix_edit_cursor_update(void);
 
+/* Open / close helpers (called from menu_open / menu_close in calculator_core.c) */
+void       Matrix_MenuOpen(CalcMode_t return_to);
+CalcMode_t Matrix_MenuClose(void);
+
 /* Token Handlers */
 bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s);
 void handle_matrix_edit(Token_t t);

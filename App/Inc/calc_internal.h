@@ -37,6 +37,7 @@
  */
 
 #include "app_common.h"
+#include "calc_history.h" /* HistoryEntry_t, HISTORY_LINE_COUNT, CalcHistory_* API */
 #include "calculator_core.h" /* Calc_GetAns / Calc_SetAnsScalar / Calc_SetAnsMatrix */
 #include "expr_util.h"    /* ExprBuffer_t and ExprBuffer_* / ExprUtil_* helpers */
 #include "lvgl.h"
@@ -50,8 +51,9 @@ extern const lv_font_t jetbrains_mono_24;
 extern const lv_font_t jetbrains_mono_20;
 
 /* Global Calculator States */
-extern CalcMode_t current_mode;
-extern CalcMode_t return_mode;
+/* current_mode and return_mode are now private to calculator_core.c.
+ * Use Calc_GetMode() / Calc_SetMode() / Calc_GetReturnMode() / Calc_SetReturnMode()
+ * declared in calculator_core.h (included above). */
 extern bool         insert_mode;
 extern bool         cursor_visible;
 /* ans and ans_is_matrix are now private to calculator_core.c.
@@ -90,34 +92,14 @@ void menu_insert_text(const char *ins, CalcMode_t *ret_mode);
 #define DISP_ROW_H          30          /* Pixels per row */
 #define CURSOR_BLINK_MS     530         /* Cursor blink interval */
 
-#define HISTORY_LINE_COUNT  1           /* Expression+result pairs stored in history (TI-81 spec: 1 entry) */
-/* MAX_EXPR_LEN is now in app_common.h (included above) */
-#define MAX_RESULT_LEN      96   /* 32 for scalars; up to ~80 for 3×3 matrix rows */
-
-#define MATRIX_RING_COUNT   1   /* ring buffer slots for matrix history results */
-
-typedef struct {
-    char    expression[MAX_EXPR_LEN];
-    char    result[MAX_RESULT_LEN];   /* Scalar/error result; newline-separated rows for matrix fallback */
-    bool    has_matrix;               /* True when this entry holds a matrix result */
-    uint8_t matrix_ring_idx;         /* Ring slot index (0..MATRIX_RING_COUNT-1); valid iff has_matrix */
-    uint8_t matrix_ring_gen;         /* Expected generation at that slot; mismatch means evicted */
-    uint8_t matrix_rows_cache;       /* Cached row count; valid even after eviction */
-} HistoryEntry_t;
-
-extern HistoryEntry_t history[HISTORY_LINE_COUNT];
-extern uint8_t        history_count;
-extern int8_t         history_recall_offset;
-extern int8_t         matrix_scroll_focus;   /* history slot with scroll focus; -1=none */
-extern uint8_t        matrix_scroll_offset;  /* horizontal character scroll offset */
+/* HISTORY_LINE_COUNT, MAX_RESULT_LEN, MATRIX_RING_COUNT, HistoryEntry_t, and
+ * the CalcHistory_* API are now in calc_history.h (included above). */
 
 extern ExprBuffer_t expr;   /* expression buffer: .buf, .len, .cursor */
 
-void ui_update_history(void);
 void ui_refresh_display(void);
 void ui_output_row(uint8_t row_1based, const char *text);
 void format_calc_result(const CalcResult_t *r, char *buf, int buf_size);
 void handle_history_nav(Token_t t);      /* sub-handler for history/cursor nav keys */
-void reset_matrix_scroll_focus(void);   /* clears matrix_scroll_focus/offset */
 
 #endif /* APP_CALC_INTERNAL_H */

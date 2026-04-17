@@ -149,7 +149,7 @@ static void stat_run_calc(uint8_t item)
     case 4: ok = CalcStat_ComputePwrReg(&stat_data, &stat_results); break;
     }
     (void)ok;
-    current_mode = MODE_STAT_RESULTS;
+    Calc_SetMode(MODE_STAT_RESULTS);
     lvgl_lock();
     lv_obj_add_flag(ui_stat_screen, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(ui_stat_results_screen, LV_OBJ_FLAG_HIDDEN);
@@ -172,7 +172,7 @@ static void stat_run_draw(uint8_t item)
     }
 
     /* Return to normal mode so keypad works on the graph screen */
-    current_mode = stat_menu_state.return_mode;
+    Calc_SetMode(stat_menu_state.return_mode);
     stat_menu_state.return_mode = MODE_NORMAL;
 }
 
@@ -446,7 +446,7 @@ bool handle_stat_menu(Token_t t, StatMenuState_t *s)
                 stat_edit_col    = 0;
                 stat_edit_scroll = 0;
                 stat_edit_load_cell();
-                current_mode = MODE_STAT_EDIT;
+                Calc_SetMode(MODE_STAT_EDIT);
                 lvgl_lock();
                 lv_obj_add_flag(ui_stat_screen, LV_OBJ_FLAG_HIDDEN);
                 lv_obj_clear_flag(ui_stat_edit_screen, LV_OBJ_FLAG_HIDDEN);
@@ -642,7 +642,7 @@ bool handle_stat_edit(Token_t t)
         if (stat_edit_len == 0) {
             /* Empty buffer — go back to menu */
             stat_edit_commit();
-            current_mode = MODE_STAT_MENU;
+            Calc_SetMode(MODE_STAT_MENU);
             lvgl_lock();
             lv_obj_add_flag(ui_stat_edit_screen, LV_OBJ_FLAG_HIDDEN);
             lv_obj_clear_flag(ui_stat_screen, LV_OBJ_FLAG_HIDDEN);
@@ -662,6 +662,29 @@ bool handle_stat_edit(Token_t t)
     }
 }
 
+/*---------------------------------------------------------------------------
+ * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
+ *---------------------------------------------------------------------------*/
+
+void Stat_MenuOpen(CalcMode_t return_to)
+{
+    stat_menu_state.return_mode = return_to;
+    stat_menu_state.tab         = 0;
+    stat_menu_state.item_cursor = 0;
+    Calc_SetMode(MODE_STAT_MENU);
+    Stat_ShowMenuScreen();
+    ui_update_stat_display();
+}
+
+CalcMode_t Stat_MenuClose(void)
+{
+    CalcMode_t ret              = stat_menu_state.return_mode;
+    stat_menu_state.return_mode = MODE_NORMAL;
+    stat_menu_state.tab         = 0;
+    stat_menu_state.item_cursor = 0;
+    return ret;
+}
+
 bool handle_stat_results(Token_t t)
 {
     switch (t) {
@@ -672,7 +695,7 @@ bool handle_stat_results(Token_t t)
         return true;
     default:
         /* Any other key returns to menu */
-        current_mode = MODE_STAT_MENU;
+        Calc_SetMode(MODE_STAT_MENU);
         lvgl_lock();
         lv_obj_add_flag(ui_stat_results_screen, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(ui_stat_screen, LV_OBJ_FLAG_HIDDEN);

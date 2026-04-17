@@ -406,10 +406,9 @@ static void cmd_prgm_call(const char *line, uint16_t ln)
 static void cmd_clrhome(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
-    history_count         = 0;
-    history_recall_offset = 0;
+    CalcHistory_Clear();
 #ifndef HOST_TEST
-    lvgl_lock(); ui_update_history(); lvgl_unlock();
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
 #endif
 }
 
@@ -454,29 +453,26 @@ static void cmd_disp(const char *line, uint16_t ln)
 {
     (void)ln;
     const char *arg = line + 5;
-    uint8_t hidx = history_count % HISTORY_LINE_COUNT;
     if (*arg == '"') {
         /* String literal: left-aligned in expression row */
         const char *s   = arg + 1;
         const char *end = strchr(s, '"');
         size_t len = end ? (size_t)(end - s) : strlen(s);
         if (len >= (size_t)(MAX_EXPR_LEN - 1)) len = (size_t)(MAX_EXPR_LEN - 2);
-        strncpy(history[hidx].expression, s, len);
-        history[hidx].expression[len] = '\0';
-        history[hidx].result[0] = '\0';
+        char disp_expr[MAX_EXPR_LEN];
+        memcpy(disp_expr, s, len);
+        disp_expr[len] = '\0';
+        CalcHistory_Commit(disp_expr, "", false, 0, 0, 0);
     } else {
         /* Variable or expression: right-aligned in result row */
         char disp_buf[MAX_RESULT_LEN];
         CalcResult_t r = Calc_Evaluate(arg, Calc_GetAns(), Calc_GetAnsIsMatrix(),
                                        angle_degrees);
         format_calc_result(&r, disp_buf, MAX_RESULT_LEN);
-        history[hidx].expression[0] = '\0';
-        strncpy(history[hidx].result, disp_buf, MAX_RESULT_LEN - 1);
-        history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
+        CalcHistory_Commit("", disp_buf, false, 0, 0, 0);
     }
-    history_count++;
 #ifndef HOST_TEST
-    lvgl_lock(); ui_update_history(); lvgl_unlock();
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
 #endif
 }
 
@@ -494,15 +490,11 @@ static void cmd_input(const char *line, uint16_t ln)
     /* Original TI-81: always show just "?" — variable name not displayed */
     char prompt[4];
     snprintf(prompt, sizeof(prompt), "?");
-    uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-    strncpy(history[hidx].expression, prompt, MAX_EXPR_LEN - 1);
-    history[hidx].expression[MAX_EXPR_LEN - 1] = '\0';
-    history[hidx].result[0] = '\0';
-    history_count++;
+    CalcHistory_Commit(prompt, "", false, 0, 0, 0);
     ExprBuffer_Clear(&expr);
     prgm_waiting_input = true;
 #ifndef HOST_TEST
-    lvgl_lock(); ui_update_history(); lvgl_unlock();
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
     Update_Calculator_Display();
 #endif
 }
@@ -612,16 +604,10 @@ restart:
 
     if (!prgm_run_active) {
         /* Stop/Return/Goto-abort: program ended before last line */
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
 #ifndef HOST_TEST
-        {
-            uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-            history[hidx].expression[0] = '\0';
-            strncpy(history[hidx].result, "Done", MAX_RESULT_LEN - 1);
-            history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
-            history_count++;
-        }
-        lvgl_lock(); ui_update_history(); lvgl_unlock();
+        CalcHistory_Commit("", "Done", false, 0, 0, 0);
+        lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
 #endif
         return;
     }
@@ -638,16 +624,10 @@ restart:
 
     /* Program done */
     prgm_run_active = false;
-    current_mode    = MODE_NORMAL;
+    Calc_SetMode(MODE_NORMAL);
 #ifndef HOST_TEST
-    {
-        uint8_t hidx = history_count % HISTORY_LINE_COUNT;
-        history[hidx].expression[0] = '\0';
-        strncpy(history[hidx].result, "Done", MAX_RESULT_LEN - 1);
-        history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
-        history_count++;
-    }
-    lvgl_lock(); ui_update_history(); lvgl_unlock();
+    CalcHistory_Commit("", "Done", false, 0, 0, 0);
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
 #endif
 }
 
@@ -663,7 +643,7 @@ void prgm_run_start(uint8_t idx)
     ExprBuffer_Clear(&expr);
     prgm_parse_from_store(idx);
     prgm_run_num_lines = prgm_edit_num_lines;
-    current_mode       = MODE_PRGM_RUNNING;
+    Calc_SetMode(MODE_PRGM_RUNNING);
 #ifndef HOST_TEST
     lvgl_lock();
     hide_all_screens();

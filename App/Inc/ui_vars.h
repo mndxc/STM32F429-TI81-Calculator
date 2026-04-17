@@ -40,6 +40,12 @@ void Vars_HideScreen(void);
  * Public API
  *---------------------------------------------------------------------------*/
 
+/** Initialises VARS menu state and shows the screen. Called under lvgl_lock(). */
+void       Vars_MenuOpen(CalcMode_t return_to);
+
+/** Resets VARS menu state and returns the saved return mode. Called from menu_close(). */
+CalcMode_t Vars_MenuClose(void);
+
 /** Creates the VARS menu screen (hidden at start). */
 void ui_init_vars_screen(void);
 

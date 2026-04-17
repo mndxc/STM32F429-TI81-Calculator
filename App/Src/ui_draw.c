@@ -332,3 +332,24 @@ bool handle_draw_menu(Token_t t)
         return false;
     }
 }
+
+/*---------------------------------------------------------------------------
+ * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
+ *---------------------------------------------------------------------------*/
+
+void Draw_MenuOpen(CalcMode_t return_to)
+{
+    draw_menu_state.return_mode = return_to;
+    draw_menu_state.item_cursor = 0;
+    Calc_SetMode(MODE_DRAW_MENU);
+    Draw_ShowScreen();
+    ui_update_draw_display();
+}
+
+CalcMode_t Draw_MenuClose(void)
+{
+    CalcMode_t ret              = draw_menu_state.return_mode;
+    draw_menu_state.return_mode = MODE_NORMAL;
+    draw_menu_state.item_cursor = 0;
+    return ret;
+}

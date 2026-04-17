@@ -444,3 +444,28 @@ bool handle_vars_menu(Token_t t)
         return false;
     }
 }
+
+/*---------------------------------------------------------------------------
+ * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
+ *---------------------------------------------------------------------------*/
+
+void Vars_MenuOpen(CalcMode_t return_to)
+{
+    vars_menu_state.return_mode = return_to;
+    vars_menu_state.tab         = 0;
+    vars_menu_state.cursor      = 0;
+    vars_menu_state.scroll      = 0;
+    Calc_SetMode(MODE_VARS_MENU);
+    Vars_ShowScreen();
+    ui_update_vars_display();
+}
+
+CalcMode_t Vars_MenuClose(void)
+{
+    CalcMode_t ret              = vars_menu_state.return_mode;
+    vars_menu_state.return_mode = MODE_NORMAL;
+    vars_menu_state.tab         = 0;
+    vars_menu_state.cursor      = 0;
+    vars_menu_state.scroll      = 0;
+    return ret;
+}

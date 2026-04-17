@@ -16,6 +16,7 @@ App/                            ← Custom application code (never touched by Cu
     app_init.c                  RTOS object creation, hardware bring-up, LVGL init, render loop
     calculator_core.c           Calculator UI, token processing, expression building
     calc_engine.c               Expression parser and evaluator (shunting-yard + RPN)
+    calc_history.c              History ring buffer — s_history[], CalcHistory_Commit/Clear/RecallUp/Down/Get* (no LVGL; CalcHistory_UpdateDisplay defined in calculator_core.c)
     expr_util.c                 Pure expression-buffer helpers (UTF-8, insert, delete, cursor)
     expr_buffer.c               ExprBuffer_t stateful wrapper (Insert/Delete/Left/Right/Clear)
     graph.c                     Graph canvas, axes, tick marks, curve renderer, STAT plot renderers
@@ -44,6 +45,7 @@ App/                            ← Custom application code (never touched by Cu
     app_init.h                  App_RTOS_Init() and App_DefaultTask_Run() declarations
     app_common.h                Shared types, handles and function declarations
     calc_engine.h               Math engine interface
+    calc_history.h              History ring buffer API (HistoryEntry_t, HISTORY_LINE_COUNT, CalcHistory_* declarations; CalcHistory_UpdateDisplay declared here, defined in calculator_core.c)
     calc_internal.h             Shared internal state for calculator UI modules
     calculator_core.h           Public API for calculator_core.c (ANS getter/setter: Calc_GetAns, Calc_SetAnsScalar, Calc_SetAnsMatrix, Calc_GetAnsIsMatrix)
     calc_stat.h                 Statistical math API (no LVGL/HAL dependencies)

@@ -118,7 +118,7 @@ static void yvars_do_enable(uint8_t idx, bool enable)
     lv_obj_add_flag(ui_yvars_screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
 
-    current_mode = yvars_menu_state.return_mode;
+    Calc_SetMode(yvars_menu_state.return_mode);
     yvars_menu_state.return_mode = MODE_NORMAL;
 
     Update_Calculator_Display();
@@ -273,4 +273,27 @@ bool handle_yvars_menu(Token_t t)
     default:
         return false;
     }
+}
+
+/*---------------------------------------------------------------------------
+ * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
+ *---------------------------------------------------------------------------*/
+
+void Yvars_MenuOpen(CalcMode_t return_to)
+{
+    yvars_menu_state.return_mode = return_to;
+    yvars_menu_state.tab         = 0;
+    yvars_menu_state.item_cursor = 0;
+    Calc_SetMode(MODE_YVARS_MENU);
+    Yvars_ShowScreen();
+    ui_update_yvars_display();
+}
+
+CalcMode_t Yvars_MenuClose(void)
+{
+    CalcMode_t ret               = yvars_menu_state.return_mode;
+    yvars_menu_state.return_mode = MODE_NORMAL;
+    yvars_menu_state.tab         = 0;
+    yvars_menu_state.item_cursor = 0;
+    return ret;
 }

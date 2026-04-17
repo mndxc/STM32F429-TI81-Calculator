@@ -199,14 +199,14 @@ void yeq_cursor_update(void)
     if (s_yeq.on_equal) {
         cursor_render(yeq_cursor_box, yeq_cursor_inner,
                       ui_lbl_yeq_equal[s_yeq.selected], 0,
-                      cursor_visible, current_mode, insert_mode);
+                      cursor_visible, Calc_GetMode(), insert_mode);
     } else {
         if (ui_lbl_yeq_eq[s_yeq.selected] == NULL) return;
         const char *txt = lv_label_get_text(ui_lbl_yeq_eq[s_yeq.selected]);
         uint32_t glyph_pos = ExprUtil_Utf8ByteToGlyph(txt, s_yeq.cursor_pos);
         cursor_render(yeq_cursor_box, yeq_cursor_inner,
                       ui_lbl_yeq_eq[s_yeq.selected], glyph_pos,
-                      cursor_visible, current_mode, insert_mode);
+                      cursor_visible, Calc_GetMode(), insert_mode);
     }
 }
 
@@ -254,7 +254,7 @@ static uint8_t find_first_active_eq(void)
 void zoom_enter_zbox(void)
 {
     s_zbox.px = GRAPH_W / 2; s_zbox.py = GRAPH_H / 2; s_zbox.corner1_set = false;
-    current_mode = MODE_GRAPH_ZBOX;
+    Calc_SetMode(MODE_GRAPH_ZBOX);
     lvgl_lock();
     Zoom_HideScreen();
     Graph_SetVisible(true);
@@ -293,7 +293,7 @@ void graph_ui_sync_yeq_labels(void)
  */
 void graph_ui_yeq_insert(const char *ins)
 {
-    current_mode = MODE_GRAPH_YEQ;
+    Calc_SetMode(MODE_GRAPH_YEQ);
     char *eq = Graph_GetEquationBuf(s_yeq.selected);
     size_t ins_len = strlen(ins);
     size_t eq_len  = strlen(eq);
@@ -325,7 +325,7 @@ void nav_to(CalcMode_t target)
 {
     lvgl_lock();
     hide_all_screens();
-    current_mode = target;
+    Calc_SetMode(target);
 
     switch (target) {
     case MODE_GRAPH_YEQ:
@@ -518,7 +518,7 @@ static bool handle_yeq_navigation(Token_t t)
     case TOKEN_ZOOM:     zoom_menu_reset(); nav_to(MODE_GRAPH_ZOOM); return true;
     case TOKEN_TRACE:    nav_to(MODE_GRAPH_TRACE);                 return true;
     case TOKEN_Y_EQUALS:
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock(); hide_all_screens(); lvgl_unlock();
         return true;
     case TOKEN_CLEAR:
@@ -720,7 +720,7 @@ bool handle_zbox_mode(Token_t t)
                 Graph_SetWindow(new_x_min, new_x_max, new_y_min, new_y_max,
                                 gs->x_scl, gs->y_scl, gs->x_res);
             }
-            current_mode       = MODE_NORMAL;
+            Calc_SetMode(MODE_NORMAL);
             s_zbox.corner1_set = false;
             lvgl_lock();
             Graph_ClearTrace();
@@ -730,7 +730,7 @@ bool handle_zbox_mode(Token_t t)
         return true;
     case TOKEN_CLEAR:
         s_zbox.corner1_set = false;
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock();
         hide_all_screens();
         lvgl_unlock();
@@ -841,7 +841,7 @@ bool handle_trace_mode(Token_t t)
         lvgl_unlock();
         return true;
     case TOKEN_TRACE:
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock();
         Graph_ClearTrace();
         Graph_Render(angle_degrees);
@@ -865,7 +865,7 @@ bool handle_trace_mode(Token_t t)
         nav_to(MODE_NORMAL);
         return true;
     default:
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         lvgl_lock();
         hide_all_screens();
         lvgl_unlock();
