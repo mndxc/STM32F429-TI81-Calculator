@@ -1,6 +1,3 @@
-/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
- * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
-
 #include "ui_matrix.h"
 #include "ui_palette.h"
 #include "calc_internal.h"
@@ -15,7 +12,7 @@
 lv_obj_t *ui_matrix_screen      = NULL;
 lv_obj_t *ui_matrix_edit_screen = NULL;
 
-MatrixMenuState_t matrix_menu_state = {0};
+MenuState_t matrix_menu_state = {0};
 
 uint8_t    matrix_edit_idx        = 0;   /* 0=[A], 1=[B], 2=[C] */
 int16_t    matrix_edit_cursor     = 0;   /* flat cell index; -1 = dim mode */
@@ -190,7 +187,7 @@ void ui_update_matrix_display(void)
                          calc_matrices[i].rows, calc_matrices[i].cols);
             }
             lv_obj_set_style_text_color(matrix_item_labels[i],
-                (i == (int)matrix_menu_state.item_cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
+                (i == (int)matrix_menu_state.cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
             lv_label_set_text(matrix_item_labels[i], buf);
         } else {
             lv_label_set_text(matrix_item_labels[i], "");
@@ -253,26 +250,26 @@ void ui_update_matrix_edit_display(void)
 /*---------------------------------------------------------------------------
  * Token Handlers
  *---------------------------------------------------------------------------*/
-bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
+bool handle_matrix_menu(Token_t t, MenuState_t *s)
 {
     switch (t) {
     case TOKEN_LEFT:
-        tab_move(&s->tab, &s->item_cursor, NULL, 2, true, ui_update_matrix_display);
+        tab_move(&s->tab, &s->cursor, NULL, 2, true, ui_update_matrix_display);
         return true;
     case TOKEN_RIGHT:
-        tab_move(&s->tab, &s->item_cursor, NULL, 2, false, ui_update_matrix_display);
+        tab_move(&s->tab, &s->cursor, NULL, 2, false, ui_update_matrix_display);
         return true;
     case TOKEN_UP:
-        if (s->item_cursor > 0) s->item_cursor--;
+        MenuState_MoveUp(s, matrix_tab_item_count[s->tab], MENU_VISIBLE_ROWS);
         lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
         return true;
     case TOKEN_DOWN:
-        if (s->item_cursor < matrix_tab_item_count[s->tab] - 1) s->item_cursor++;
+        MenuState_MoveDown(s, matrix_tab_item_count[s->tab], MENU_VISIBLE_ROWS);
         lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
         return true;
     case TOKEN_ENTER: {
         if (s->tab == 0) {
-            const char *ins = matrix_op_insert[s->item_cursor];
+            const char *ins = matrix_op_insert[s->cursor];
             if (ins != NULL) {
                 lvgl_lock();
                 lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
@@ -280,7 +277,7 @@ bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
                 menu_insert_text(ins, &s->return_mode);
             }
         } else {
-            matrix_edit_idx    = s->item_cursor;
+            matrix_edit_idx    = s->cursor;
             matrix_edit_cursor     = 0;
             matrix_edit_scroll     = 0;
             matrix_edit_dim_field  = 0;
@@ -297,7 +294,7 @@ bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
     case TOKEN_1 ... TOKEN_6: {
         int idx = (int)(t - TOKEN_0) - 1;
         if (idx >= 0 && idx < (int)matrix_tab_item_count[s->tab]) {
-            s->item_cursor = (uint8_t)idx;
+            s->cursor = (uint8_t)idx;
             if (s->tab == 0) {
                 const char *ins = matrix_op_insert[idx];
                 if (ins != NULL) {
@@ -330,31 +327,31 @@ bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
     case TOKEN_Y_EQUALS:
         s->return_mode = MODE_NORMAL;
         s->tab         = 0;
-        s->item_cursor = 0;
+        s->cursor      = 0;
         nav_to(MODE_GRAPH_YEQ);
         return true;
     case TOKEN_RANGE:
         s->return_mode = MODE_NORMAL;
         s->tab         = 0;
-        s->item_cursor = 0;
+        s->cursor      = 0;
         nav_to(MODE_GRAPH_RANGE);
         return true;
     case TOKEN_ZOOM:
         s->return_mode = MODE_NORMAL;
         s->tab         = 0;
-        s->item_cursor = 0;
+        s->cursor      = 0;
         nav_to(MODE_GRAPH_ZOOM);
         return true;
     case TOKEN_GRAPH:
         s->return_mode = MODE_NORMAL;
         s->tab         = 0;
-        s->item_cursor = 0;
+        s->cursor      = 0;
         nav_to(MODE_NORMAL);
         return true;
     case TOKEN_TRACE:
         s->return_mode = MODE_NORMAL;
         s->tab         = 0;
-        s->item_cursor = 0;
+        s->cursor      = 0;
         nav_to(MODE_GRAPH_TRACE);
         return true;
     default: {
@@ -565,7 +562,7 @@ void Matrix_MenuOpen(CalcMode_t return_to)
 {
     matrix_menu_state.return_mode = return_to;
     matrix_menu_state.tab         = 0;
-    matrix_menu_state.item_cursor = 0;
+    matrix_menu_state.cursor      = 0;
     Calc_SetMode(MODE_MATRIX_MENU);
     Matrix_ShowMenuScreen();
     ui_update_matrix_display();
@@ -576,6 +573,6 @@ CalcMode_t Matrix_MenuClose(void)
     CalcMode_t ret                = matrix_menu_state.return_mode;
     matrix_menu_state.return_mode = MODE_NORMAL;
     matrix_menu_state.tab         = 0;
-    matrix_menu_state.item_cursor = 0;
+    matrix_menu_state.cursor      = 0;
     return ret;
 }

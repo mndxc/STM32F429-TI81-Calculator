@@ -257,13 +257,9 @@ void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
  * ui_matrix.h replacement
  *---------------------------------------------------------------------------*/
 
-typedef struct {
-    uint8_t    tab;
-    uint8_t    item_cursor;
-    CalcMode_t return_mode;
-} MatrixMenuState_t;
+/* MatrixMenuState_t replaced by shared MenuState_t. */
 
-extern MatrixMenuState_t matrix_menu_state;
+extern MenuState_t matrix_menu_state;
 
 static inline void Matrix_ShowMenuScreen(void)   {}
 static inline void Matrix_HideMenuScreen(void)   {}
@@ -276,7 +272,7 @@ static inline void ui_update_matrix_edit_display(void)    {}
 static inline void matrix_edit_cursor_update(void)        {}
 static inline void Matrix_MenuOpen(CalcMode_t r)    { (void)r; current_mode = MODE_MATRIX_MENU; }
 static inline CalcMode_t Matrix_MenuClose(void)     { return MODE_NORMAL; }
-static inline bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s)
+static inline bool handle_matrix_menu(Token_t t, MenuState_t *s)
     { (void)t; (void)s; return false; }
 static inline void handle_matrix_edit(Token_t t) { (void)t; }
 

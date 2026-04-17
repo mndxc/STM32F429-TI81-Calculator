@@ -7,14 +7,9 @@
 #define APP_UI_MATRIX_H
 
 #include "app_common.h"
+#include "menu_state.h"
 
-typedef struct {
-    uint8_t    tab;             /* 0=MATRX, 1=EDIT */
-    uint8_t    item_cursor;
-    CalcMode_t return_mode;     /* Mode to restore after selection */
-} MatrixMenuState_t;
-
-extern MatrixMenuState_t matrix_menu_state;
+extern MenuState_t matrix_menu_state;
 
 /* Screen show/hide/visibility API (caller holds lvgl_lock) */
 void Matrix_ShowMenuScreen(void);
@@ -37,7 +32,7 @@ void       Matrix_MenuOpen(CalcMode_t return_to);
 CalcMode_t Matrix_MenuClose(void);
 
 /* Token Handlers */
-bool handle_matrix_menu(Token_t t, MatrixMenuState_t *s);
+bool handle_matrix_menu(Token_t t, MenuState_t *s);
 void handle_matrix_edit(Token_t t);
 
 #endif /* APP_UI_MATRIX_H */
