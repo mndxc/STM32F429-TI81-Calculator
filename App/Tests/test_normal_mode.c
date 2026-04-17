@@ -90,7 +90,7 @@ MenuState_t vars_menu_state = {0, 0, 0, MODE_NORMAL};
 
 /* Y-VARS screen pointer and state (normally owned by ui_yvars.c) */
 lv_obj_t *ui_yvars_screen = NULL;
-YVarsMenuState_t yvars_menu_state = {0, 0, MODE_NORMAL};
+MenuState_t yvars_menu_state = {0};
 StatData_t    stat_data    = {0};
 StatResults_t stat_results = {0};
 

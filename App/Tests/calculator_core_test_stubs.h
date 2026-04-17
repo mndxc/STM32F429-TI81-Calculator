@@ -335,13 +335,7 @@ static inline bool handle_vars_menu(Token_t t)
  * ui_yvars.h replacement
  *---------------------------------------------------------------------------*/
 
-typedef struct {
-    uint8_t    tab;
-    uint8_t    item_cursor;
-    CalcMode_t return_mode;
-} YVarsMenuState_t;
-
-extern YVarsMenuState_t yvars_menu_state;
+extern MenuState_t yvars_menu_state;
 
 static inline void Yvars_ShowScreen(void) {}
 static inline void Yvars_HideScreen(void) {}

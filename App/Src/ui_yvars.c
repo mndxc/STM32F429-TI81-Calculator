@@ -15,10 +15,8 @@
  *   ₁₂₃₄ = U+2081–2084 → \xE2\x82\x81 … \xE2\x82\x84
  */
 
-/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
- * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
-
 #include "ui_yvars.h"
+#include "menu_state.h"
 #include "calc_internal.h"
 #include "graph.h"
 #include "ui_palette.h"
@@ -82,7 +80,7 @@ static const int16_t yvars_tab_x[YVARS_TAB_COUNT] = { 4, 40, 92 };
  * Module state
  *---------------------------------------------------------------------------*/
 
-YVarsMenuState_t yvars_menu_state = { 0, 0, MODE_NORMAL };
+MenuState_t yvars_menu_state = {0};
 
 lv_obj_t *ui_yvars_screen = NULL;
 
@@ -168,7 +166,7 @@ void ui_init_yvars_screen(void)
 void ui_update_yvars_display(void)
 {
     uint8_t tab    = yvars_menu_state.tab;
-    uint8_t cursor = yvars_menu_state.item_cursor;
+    uint8_t cursor = yvars_menu_state.cursor;
     uint8_t total  = yvars_tab_item_count[tab];
 
     /* Tab labels */
@@ -208,38 +206,36 @@ void ui_update_yvars_display(void)
 
 bool handle_yvars_menu(Token_t t)
 {
-    YVarsMenuState_t *s = &yvars_menu_state;
+    MenuState_t *s = &yvars_menu_state;
     uint8_t total = yvars_tab_item_count[s->tab];
 
     switch (t) {
     case TOKEN_LEFT:
-        tab_move(&s->tab, &s->item_cursor, NULL,
+        tab_move(&s->tab, &s->cursor, NULL,
                  YVARS_TAB_COUNT, true, ui_update_yvars_display);
         return true;
 
     case TOKEN_RIGHT:
-        tab_move(&s->tab, &s->item_cursor, NULL,
+        tab_move(&s->tab, &s->cursor, NULL,
                  YVARS_TAB_COUNT, false, ui_update_yvars_display);
         return true;
 
     case TOKEN_UP:
-        if (s->item_cursor > 0)
-            s->item_cursor--;
+        MenuState_MoveUp(s, total, MENU_VISIBLE_ROWS);
         lvgl_lock();
         ui_update_yvars_display();
         lvgl_unlock();
         return true;
 
     case TOKEN_DOWN:
-        if ((int)s->item_cursor + 1 < (int)total)
-            s->item_cursor++;
+        MenuState_MoveDown(s, total, MENU_VISIBLE_ROWS);
         lvgl_lock();
         ui_update_yvars_display();
         lvgl_unlock();
         return true;
 
     case TOKEN_ENTER: {
-        uint8_t idx = s->item_cursor;
+        uint8_t idx = s->cursor;
         if (idx < total) {
             switch (s->tab) {
             case 0: yvars_do_y_insert(idx);        break;
@@ -254,7 +250,7 @@ bool handle_yvars_menu(Token_t t)
     case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4: case TOKEN_5: {
         int idx = (int)(t - TOKEN_1);   /* 0-based */
         if (idx < (int)total) {
-            s->item_cursor = (uint8_t)idx;
+            s->cursor = (uint8_t)idx;
             switch (s->tab) {
             case 0: yvars_do_y_insert((uint8_t)idx);        break;
             case 1: yvars_do_enable((uint8_t)idx, true);    break;
@@ -283,7 +279,8 @@ void Yvars_MenuOpen(CalcMode_t return_to)
 {
     yvars_menu_state.return_mode = return_to;
     yvars_menu_state.tab         = 0;
-    yvars_menu_state.item_cursor = 0;
+    yvars_menu_state.cursor      = 0;
+    yvars_menu_state.scroll      = 0;
     Calc_SetMode(MODE_YVARS_MENU);
     Yvars_ShowScreen();
     ui_update_yvars_display();
@@ -294,6 +291,7 @@ CalcMode_t Yvars_MenuClose(void)
     CalcMode_t ret               = yvars_menu_state.return_mode;
     yvars_menu_state.return_mode = MODE_NORMAL;
     yvars_menu_state.tab         = 0;
-    yvars_menu_state.item_cursor = 0;
+    yvars_menu_state.cursor      = 0;
+    yvars_menu_state.scroll      = 0;
     return ret;
 }

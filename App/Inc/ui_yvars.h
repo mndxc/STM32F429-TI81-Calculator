@@ -20,22 +20,13 @@
 
 #include "app_common.h"
 #include "lvgl.h"
-
-/*---------------------------------------------------------------------------
- * Menu navigation state
- *---------------------------------------------------------------------------*/
-
-typedef struct {
-    uint8_t    tab;         /* 0=Y  1=ON  2=OFF */
-    uint8_t    item_cursor; /* Highlighted row index (0-based) */
-    CalcMode_t return_mode; /* Mode to restore on CLEAR or action */
-} YVarsMenuState_t;
+#include "menu_state.h"
 
 /*---------------------------------------------------------------------------
  * Externally visible state
  *---------------------------------------------------------------------------*/
 
-extern YVarsMenuState_t yvars_menu_state;
+extern MenuState_t yvars_menu_state;
 
 /*---------------------------------------------------------------------------
  * Screen show/hide API (caller holds lvgl_lock)
