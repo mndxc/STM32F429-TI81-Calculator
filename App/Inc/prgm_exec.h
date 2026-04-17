@@ -113,11 +113,41 @@ _Static_assert(sizeof(ProgramStore_t) % 4 == 0,
  * Public API
  *---------------------------------------------------------------------------*/
 
+/*---------------------------------------------------------------------------
+ * Store accessors — use these instead of touching g_prgm_store directly.
+ * g_prgm_store is no longer exported; prgm_exec.c owns it exclusively.
+ *---------------------------------------------------------------------------*/
+
+/** @brief Return the null-terminated name for @p slot (may be empty string). */
+const char *Prgm_GetName(uint8_t slot);
+
+/** @brief Return the null-terminated newline-delimited body for @p slot. */
+const char *Prgm_GetBody(uint8_t slot);
+
+/** @brief Return true when @p slot has a non-empty name (i.e. is occupied). */
+bool Prgm_IsSlotOccupied(uint8_t slot);
+
 /**
- * @brief  Global in-RAM program store.  Defined in prgm.c.
- *         Call Prgm_Init() before use.
+ * @brief  Copy @p name into @p slot's name field, clamped to PRGM_NAME_LEN
+ *         characters and null-terminated.
  */
-extern ProgramStore_t g_prgm_store;
+void Prgm_SetName(uint8_t slot, const char *name);
+
+/**
+ * @brief  Append @p line (without a newline) to @p slot's body.
+ *         A newline separator is inserted before @p line if the body is
+ *         non-empty.  No-op if there is insufficient space in PRGM_BODY_LEN.
+ */
+void Prgm_AppendLine(uint8_t slot, const char *line);
+
+/**
+ * @brief  Replace @p slot's body with @p body, truncated to PRGM_BODY_LEN-1
+ *         and always null-terminated.
+ */
+void Prgm_SetBody(uint8_t slot, const char *body);
+
+/** @brief Zero both the name and body of @p slot. */
+void Prgm_ClearSlot(uint8_t slot);
 
 /**
  * @brief  Zero g_prgm_store then attempt to load from FLASH sector 11.

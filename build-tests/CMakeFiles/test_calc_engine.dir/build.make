@@ -76,29 +76,29 @@ CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o: CMakeFiles/test_calc_engin
 CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_calc_engine.c
 CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o: CMakeFiles/test_calc_engine.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o -MF CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o.d -o CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_calc_engine.c
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o -MF CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o.d -o CMakeFiles/test_calc_engine.dir/test_calc_engine.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_calc_engine.c
 
 CMakeFiles/test_calc_engine.dir/test_calc_engine.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_calc_engine.dir/test_calc_engine.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_calc_engine.c > CMakeFiles/test_calc_engine.dir/test_calc_engine.c.i
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_calc_engine.c > CMakeFiles/test_calc_engine.dir/test_calc_engine.c.i
 
 CMakeFiles/test_calc_engine.dir/test_calc_engine.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_calc_engine.dir/test_calc_engine.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_calc_engine.c -o CMakeFiles/test_calc_engine.dir/test_calc_engine.c.s
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_calc_engine.c -o CMakeFiles/test_calc_engine.dir/test_calc_engine.c.s
 
 CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: CMakeFiles/test_calc_engine.dir/flags.make
 CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: CMakeFiles/test_calc_engine.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -MF CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o.d -o CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -MF CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o.d -o CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 
 CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c > CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c > CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
 
 CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c -o CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c -o CMakeFiles/test_calc_engine.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
 
 # Object files for target test_calc_engine
 test_calc_engine_OBJECTS = \

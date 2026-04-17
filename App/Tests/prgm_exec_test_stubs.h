@@ -90,12 +90,12 @@ extern char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
 extern uint8_t prgm_edit_num_lines;
 
 /*---------------------------------------------------------------------------
- * prgm_parse_from_store — inline stub: split g_prgm_store.bodies[idx]
+ * prgm_parse_from_store — inline stub: split the stored body for @p idx
  * on '\n' into prgm_edit_lines[] and set prgm_edit_num_lines.
  *---------------------------------------------------------------------------*/
 static inline void prgm_parse_from_store(uint8_t idx)
 {
-    const char *body = g_prgm_store.bodies[idx];
+    const char *body = Prgm_GetBody(idx);
     uint8_t n = 0;
     const char *p = body;
     while (*p && n < PRGM_MAX_LINES) {
@@ -112,11 +112,11 @@ static inline void prgm_parse_from_store(uint8_t idx)
 }
 
 /*---------------------------------------------------------------------------
- * prgm_slot_is_used — slot is occupied when names[slot][0] != '\0'.
+ * prgm_slot_is_used — slot is occupied when it has a non-empty name.
  *---------------------------------------------------------------------------*/
 static inline bool prgm_slot_is_used(uint8_t slot)
 {
-    return g_prgm_store.names[slot][0] != '\0';
+    return Prgm_IsSlotOccupied(slot);
 }
 
 /*---------------------------------------------------------------------------
@@ -134,12 +134,21 @@ static inline void prgm_slot_id_str(uint8_t slot, char *out)
 }
 
 /*---------------------------------------------------------------------------
+ * ANS getter/setter stubs — operate on the test-owned extern ans/ans_is_matrix
+ * defined in test_prgm_exec.c.  Mirror the API in calculator_core.h.
+ *---------------------------------------------------------------------------*/
+static inline void  Calc_SetAnsScalar(float value)  { ans = value; ans_is_matrix = false; }
+static inline void  Calc_SetAnsMatrix(float idx)    { ans = idx;   ans_is_matrix = true;  }
+static inline float Calc_GetAns(void)               { return ans; }
+static inline bool  Calc_GetAnsIsMatrix(void)       { return ans_is_matrix; }
+
+/*---------------------------------------------------------------------------
  * format_calc_result — simplified version for host tests.
- * Formats a scalar result into buf using Calc_FormatResult; sets *ans_ptr.
+ * Formats a scalar result into buf using Calc_FormatResult; updates ans via
+ * Calc_SetAns* so prgm_exec.c sees the correct state.
  * Matrix results fall through to a placeholder string.
  *---------------------------------------------------------------------------*/
-static inline void format_calc_result(const CalcResult_t *r, char *buf,
-                                      int buf_size, float *ans_ptr)
+static inline void format_calc_result(const CalcResult_t *r, char *buf, int buf_size)
 {
     if (r->error != CALC_OK) {
         snprintf(buf, (size_t)buf_size, "ERR");
@@ -147,10 +156,11 @@ static inline void format_calc_result(const CalcResult_t *r, char *buf,
     }
     if (r->has_matrix) {
         snprintf(buf, (size_t)buf_size, "[matrix]");
+        Calc_SetAnsMatrix((float)r->matrix_idx);
         return;
     }
     Calc_FormatResult(r->value, buf, (uint8_t)buf_size);
-    if (ans_ptr) *ans_ptr = r->value;
+    Calc_SetAnsScalar(r->value);
 }
 
 #endif /* PRGM_EXEC_TEST_STUBS_H */

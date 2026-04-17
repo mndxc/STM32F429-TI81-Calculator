@@ -45,6 +45,7 @@ App/                            ← Custom application code (never touched by Cu
     app_common.h                Shared types, handles and function declarations
     calc_engine.h               Math engine interface
     calc_internal.h             Shared internal state for calculator UI modules
+    calculator_core.h           Public API for calculator_core.c (ANS getter/setter: Calc_GetAns, Calc_SetAnsScalar, Calc_SetAnsMatrix, Calc_GetAnsIsMatrix)
     calc_stat.h                 Statistical math API (no LVGL/HAL dependencies)
     expr_util.h                 Expression buffer utility API
     graph.h                     Graphing subsystem interface (Y= renderer, trace, ZBox, stat plots)
@@ -803,11 +804,96 @@ Adding a new graph field: update this table and the ownership comment block in `
 **Exported via:** `app_common.h` (extern declaration)  
 **Mutation rule:** Written only from `ui_stat.c` (DATA list editor and Clear operation). Read by `calc_stat.c` (computation), `graph.c` (STAT plot renderers), and `persist.c` (save/load). All writes are on `CalcCoreTask` — no concurrent mutation.
 
-### ans (`float`)
+### ans (`float`) / ans_is_matrix (`bool`)
 
-**Defined in:** `calculator_core.c`  
-**Exported via:** `calc_internal.h`  
-**Mutation rule:** Updated after every successful `Calc_Evaluate` call. When the result is a matrix, `ans` holds the matrix slot index and `ans_is_matrix = true`. Passed explicitly to `Calc_Evaluate`; `Calc_EvaluateAt` (graphing) always receives `false` for `ans_is_matrix` because Y= equations cannot reference a matrix ANS.
+**Defined in:** `calculator_core.c` (static in production builds)  
+**Exported via:** `calculator_core.h` — `Calc_GetAns()`, `Calc_GetAnsIsMatrix()`, `Calc_SetAnsScalar()`, `Calc_SetAnsMatrix()`  
+**Mutation rule:** Updated after every successful `Calc_Evaluate` call via the setter API. When the result is a matrix, `ans` holds the matrix slot index and `ans_is_matrix = true`. Passed explicitly to `Calc_Evaluate`; `Calc_EvaluateAt` (graphing) always receives `false` for `ans_is_matrix` because Y= equations cannot reference a matrix ANS. Direct field writes outside `calculator_core.c` are now compile errors.
+
+---
+
+## Persist Migration Design
+
+> **Status: Design only — adopt at the next planned version bump. Do not implement until a new
+> feature requires adding persist fields.**
+
+### Current layout (PERSIST_VERSION 6)
+
+`PersistBlock_t` is a single flat 2,060-byte struct. Every new feature appends fields and increments
+the global `PERSIST_VERSION`. A change to STAT fields therefore forces re-migration of graph fields
+even though those fields are unchanged. The migration `switch` in `Persist_Load()` is one monolithic
+block that must handle all fields simultaneously.
+
+### Proposed sub-struct layout
+
+```c
+/* Proposed PersistBlock_t — adopt at next version bump */
+typedef struct {
+    uint32_t magic;      /* PERSIST_MAGIC unchanged                          */
+    uint16_t version;    /* Global layout version — increment on any change  */
+
+    /* Per-section sub-versions allow independent migration paths:            */
+    uint16_t graph_ver;
+    uint16_t stat_ver;
+    uint16_t matrix_ver;
+    uint16_t prgm_ver;
+    uint16_t mode_ver;
+
+    GraphPersist_t    graph;    /* Y= equations, RANGE, ZOOM, parametric, enabled[] */
+    StatPersist_t     stat;     /* x/y data lists and list length                    */
+    MatrixPersist_t   matrix;   /* dims and cell data for [A][B][C]                  */
+    PrgmPersist_t     prgm;     /* reserved — PRGM state lives in sector 11          */
+    ModePersist_t     mode;     /* mode_committed[], grid_on                         */
+
+    /* Top-level fields that span subsystems: */
+    float    calc_variables[26]; /* A–Z */
+    float    ans;
+
+    uint32_t checksum;   /* CRC32 of all bytes above                         */
+} PersistBlock_t;
+```
+
+### Proposed sub-struct field assignments
+
+| Sub-struct | Fields from current PersistBlock_t |
+|---|---|
+| `GraphPersist_t` | `zoom_x_fact`, `zoom_y_fact`, `equations[4][64]`, `enabled[4]`, `x_min/x_max/y_min/y_max/x_scl/y_scl/x_res`, `param_x/y[][64]`, `param_enabled[]`, `param_mode`, `t_min/t_max/t_step` |
+| `StatPersist_t` | `stat_list_x[]`, `stat_list_y[]`, `stat_list_len` |
+| `MatrixPersist_t` | `matrix_rows[3]`, `matrix_cols[3]`, `matrix_data[3][36]` |
+| `PrgmPersist_t` | Reserved / empty — programs are in FLASH sector 11 via `prgm_exec.c` |
+| `ModePersist_t` | `mode_committed[8]`, `grid_on` |
+
+### Migration behaviour
+
+The `Persist_Load()` switch becomes a series of per-section switches keyed on `<section>_ver`:
+
+```c
+// Pseudocode for the new migration path
+if (block.graph_ver < GRAPH_PERSIST_VERSION) { migrate_graph(&block); }
+if (block.stat_ver  < STAT_PERSIST_VERSION)  { migrate_stat(&block);  }
+// ...
+```
+
+A firmware that only adds a STAT field increments `stat_ver` (and the global `version`) but does
+not alter the graph migration path. Old firmware loading a newer block can still read the graph
+fields unchanged.
+
+### Adoption constraint
+
+This layout must be adopted **atomically at a planned version bump** — not incrementally. Partial
+migration (moving some fields but not others) produces a layout that is incompatible with both the
+old and the new format. When the next feature requires a `PERSIST_VERSION` bump, adopt the full
+sub-struct layout in the same commit.
+
+Implementation order when the time comes:
+1. Define the five sub-structs in `App/Inc/persist.h`.
+2. Replace the flat `PersistBlock_t` body with the five sub-struct members plus top-level fields.
+3. Update `Calc_BuildPersistBlock` / `Calc_ApplyPersistBlock` in `calculator_core.c` to pack/unpack
+   via sub-struct fields.
+4. Replace the monolithic migration `switch` in `Persist_Load()` with per-section switches.
+5. Increment `PERSIST_VERSION` and add a migration case for each sub-struct from the previous
+   flat version to the new sub-struct layout.
+6. Update `test_persist_roundtrip.c` size assertion and `check_sync.sh`-tracked version.
 
 ---
 

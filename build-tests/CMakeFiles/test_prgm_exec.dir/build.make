@@ -76,49 +76,79 @@ CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o: CMakeFiles/test_prgm_exec.dir/
 CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_prgm_exec.c
 CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o: CMakeFiles/test_prgm_exec.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o -MF CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o.d -o CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_prgm_exec.c
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o -MF CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o.d -o CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_prgm_exec.c
 
 CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_prgm_exec.c > CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.i
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_prgm_exec.c > CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.i
 
 CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_prgm_exec.c -o CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.s
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_prgm_exec.c -o CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.s
 
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o: CMakeFiles/test_prgm_exec.dir/flags.make
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o: CMakeFiles/test_prgm_exec.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o -MF CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o.d -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o -MF CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o.d -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c
 
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c > CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.i
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c > CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.i
 
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.s
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.s
 
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: CMakeFiles/test_prgm_exec.dir/flags.make
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: CMakeFiles/test_prgm_exec.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building C object CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -MF CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o.d -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -MF CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o.d -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c > CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c > CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
 
 CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
+
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o: CMakeFiles/test_prgm_exec.dir/flags.make
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o: CMakeFiles/test_prgm_exec.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building C object CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o -MF CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o.d -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c
+
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c > CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i
+
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.s"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.s
+
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o: CMakeFiles/test_prgm_exec.dir/flags.make
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o: CMakeFiles/test_prgm_exec.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building C object CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o -MF CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o.d -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c
+
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c > CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i
+
+CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.s"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c -o CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.s
 
 # Object files for target test_prgm_exec
 test_prgm_exec_OBJECTS = \
 "CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o" \
 "CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o" \
-"CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o"
+"CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o" \
+"CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o" \
+"CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o"
 
 # External object files for target test_prgm_exec
 test_prgm_exec_EXTERNAL_OBJECTS =
@@ -126,9 +156,11 @@ test_prgm_exec_EXTERNAL_OBJECTS =
 test_prgm_exec: CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o
 test_prgm_exec: CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o
 test_prgm_exec: CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o
+test_prgm_exec: CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o
+test_prgm_exec: CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o
 test_prgm_exec: CMakeFiles/test_prgm_exec.dir/build.make
 test_prgm_exec: CMakeFiles/test_prgm_exec.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Linking C executable test_prgm_exec"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Linking C executable test_prgm_exec"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_prgm_exec.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

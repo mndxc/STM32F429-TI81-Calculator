@@ -148,7 +148,7 @@ static float eval_draw_arg(const char *start, const char *end)
     if (len == 0 || len >= sizeof(buf)) return 0.0f;
     memcpy(buf, start, len);
     buf[len] = '\0';
-    CalcResult_t r = Calc_Evaluate(buf, ans, ans_is_matrix, angle_degrees);
+    CalcResult_t r = Calc_Evaluate(buf, Calc_GetAns(), Calc_GetAnsIsMatrix(), angle_degrees);
     return (r.error == CALC_OK && !r.has_matrix) ? r.value : 0.0f;
 }
 

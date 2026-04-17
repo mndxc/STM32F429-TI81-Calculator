@@ -1,5 +1,4 @@
 CMakeFiles/test_stat.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.c.o: \
-  /Library/Developer/CommandLineTools/usr/lib/clang/16/share/asan_ignorelist.txt \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.c \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/calc_stat.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/app_common.h \
@@ -47,4 +46,7 @@ CMakeFiles/test_stat.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calcula
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_u_int64_t.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_errno_t.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_ssize_t.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_strings.h
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_strings.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/secure/_strings.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/secure/_common.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/secure/_string.h

@@ -23,6 +23,7 @@
 #include "ui_vars.h"
 #include "menu_state.h"
 #include "calc_internal.h"
+#include "graph.h"
 #include "ui_palette.h"
 #include <math.h>
 #include <stdio.h>
@@ -218,21 +219,23 @@ static void vars_format_value(uint8_t tab, uint8_t item, char *buf, size_t len)
         }
         break;
 
-    case 4: /* RNG */
+    case 4: { /* RNG */
+        const GraphState_t *gs = Graph_GetState();
         switch (item) {
-        case 0: v = graph_state.x_min;  break;
-        case 1: v = graph_state.x_max;  break;
-        case 2: v = graph_state.x_scl;  break;
-        case 3: v = graph_state.y_min;  break;
-        case 4: v = graph_state.y_max;  break;
-        case 5: v = graph_state.y_scl;  break;
-        case 6: v = graph_state.x_res;  break;
-        case 7: v = graph_state.t_min;  break;
-        case 8: v = graph_state.t_max;  break;
-        case 9: v = graph_state.t_step; break;
+        case 0: v = gs->x_min;  break;
+        case 1: v = gs->x_max;  break;
+        case 2: v = gs->x_scl;  break;
+        case 3: v = gs->y_min;  break;
+        case 4: v = gs->y_max;  break;
+        case 5: v = gs->y_scl;  break;
+        case 6: v = gs->x_res;  break;
+        case 7: v = gs->t_min;  break;
+        case 8: v = gs->t_max;  break;
+        case 9: v = gs->t_step; break;
         default: snprintf(buf, len, "0"); return;
         }
         break;
+    }
 
     default:
         snprintf(buf, len, "0");

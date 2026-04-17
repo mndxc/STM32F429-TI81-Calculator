@@ -210,8 +210,8 @@ static void yeq_update_highlight(void)
         lv_obj_set_style_text_color(ui_lbl_yeq_name[i], name_col, 0);
 
         /* Equal sign is amber if enabled, inactive grey if disabled */
-        lv_color_t eq_col = graph_state.enabled[i] ? lv_color_hex(COLOR_AMBER)
-                                                 : lv_color_hex(COLOR_GREY_INACTIVE);
+        lv_color_t eq_col = Graph_GetState()->enabled[i] ? lv_color_hex(COLOR_AMBER)
+                                                         : lv_color_hex(COLOR_GREY_INACTIVE);
         lv_obj_set_style_text_color(ui_lbl_yeq_equal[i], eq_col, 0);
     }
 }
@@ -225,7 +225,7 @@ static void yeq_update_highlight(void)
 static uint8_t find_first_active_eq(void)
 {
     for (uint8_t i = 0; i < GRAPH_NUM_EQ; i++) {
-        if (strlen(graph_state.equations[i]) > 0 && graph_state.enabled[i])
+        if (strlen(Graph_GetState()->equations[i]) > 0 && Graph_GetState()->enabled[i])
             return i;
     }
     return 0;
@@ -267,7 +267,7 @@ void zoom_enter_zbox(void)
 void graph_ui_sync_yeq_labels(void)
 {
     for (int i = 0; i < GRAPH_NUM_EQ; i++)
-        lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+        lv_label_set_text(ui_lbl_yeq_eq[i], Graph_GetState()->equations[i]);
     yeq_update_highlight();
 }
 
@@ -282,7 +282,7 @@ void graph_ui_sync_yeq_labels(void)
 void graph_ui_yeq_insert(const char *ins)
 {
     current_mode = MODE_GRAPH_YEQ;
-    char *eq = graph_state.equations[s_yeq.selected];
+    char *eq = Graph_GetEquationBuf(s_yeq.selected);
     size_t ins_len = strlen(ins);
     size_t eq_len  = strlen(eq);
     if (eq_len + ins_len < 63) {
@@ -317,60 +317,60 @@ void nav_to(CalcMode_t target)
 
     switch (target) {
     case MODE_GRAPH_YEQ:
-        graph_state.active = false;
+        Graph_SetActive(false);
         s_yeq.on_equal   = false;
-        s_yeq.cursor_pos = (uint8_t)strlen(graph_state.equations[s_yeq.selected]);
+        s_yeq.cursor_pos = (uint8_t)strlen(Graph_GetEquationBuf(s_yeq.selected));
         lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
         for (int i = 0; i < GRAPH_NUM_EQ; i++)
-            lv_label_set_text(ui_lbl_yeq_eq[i], graph_state.equations[i]);
+            lv_label_set_text(ui_lbl_yeq_eq[i], Graph_GetState()->equations[i]);
         yeq_update_highlight();
         yeq_reflow_rows();
         yeq_cursor_update();
         break;
 
     case MODE_GRAPH_RANGE:
-        graph_state.active = false;
+        Graph_SetActive(false);
         range_nav_enter();
         break;
 
     case MODE_GRAPH_ZOOM:
-        graph_state.active = false;
+        Graph_SetActive(false);
         zoom_menu_reset();
         lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_zoom_display();
         break;
 
     case MODE_NORMAL:  /* TOKEN_GRAPH — show graph canvas and render */
-        graph_state.active = true;
+        Graph_SetActive(true);
         Graph_SetVisible(true);
         Graph_Render(angle_degrees);
         break;
 
     case MODE_GRAPH_TRACE:
-        graph_state.active = true;
-        if (graph_state.param_mode) {
+        Graph_SetActive(true);
+        if (Graph_GetState()->param_mode) {
             /* Find first enabled parametric pair */
             s_trace.eq_idx = 0;
             for (uint8_t i = 0; i < GRAPH_NUM_PARAM; i++) {
-                if (graph_state.param_enabled[i] &&
-                    strlen(graph_state.param_x[i]) > 0 &&
-                    strlen(graph_state.param_y[i]) > 0) {
+                if (Graph_GetState()->param_enabled[i] &&
+                    strlen(Graph_GetState()->param_x[i]) > 0 &&
+                    strlen(Graph_GetState()->param_y[i]) > 0) {
                     s_trace.eq_idx = i;
                     break;
                 }
             }
             /* Start trace at midpoint of T range */
-            s_trace.x = (graph_state.t_min + graph_state.t_max) * 0.5f;
+            s_trace.x = (Graph_GetState()->t_min + Graph_GetState()->t_max) * 0.5f;
         } else {
             s_trace.eq_idx = find_first_active_eq();
-            s_trace.x      = (graph_state.x_min + graph_state.x_max) * 0.5f;
+            s_trace.x      = (Graph_GetState()->x_min + Graph_GetState()->x_max) * 0.5f;
         }
         Graph_SetVisible(true);
         Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
         break;
 
     case MODE_GRAPH_PARAM_YEQ:
-        graph_state.active = false;
+        Graph_SetActive(false);
         param_yeq_nav_enter();
         break;
 
@@ -395,7 +395,7 @@ void nav_to(CalcMode_t target)
 /* Cursor movement within the current equation: LEFT, RIGHT, INS. */
 static bool yeq_cursor_move(Token_t t)
 {
-    char *eq       = graph_state.equations[s_yeq.selected];
+    char *eq       = Graph_GetEquationBuf(s_yeq.selected);
     uint8_t eq_len = (uint8_t)strlen(eq);
     switch (t) {
     case TOKEN_LEFT:
@@ -446,11 +446,11 @@ static bool yeq_row_switch(Token_t t)
     case TOKEN_UP:
         if (s_yeq.selected > 0) s_yeq.selected--;
         if (!s_yeq.on_equal)
-            s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
+            s_yeq.cursor_pos = strlen(Graph_GetState()->equations[s_yeq.selected]);
         break;
     case TOKEN_ENTER:
         if (s_yeq.on_equal) {
-            graph_state.enabled[s_yeq.selected] = !graph_state.enabled[s_yeq.selected];
+            Graph_SetEquationEnabled(s_yeq.selected, !Graph_GetState()->enabled[s_yeq.selected]);
             lvgl_lock();
             yeq_update_highlight();
             lvgl_unlock();
@@ -460,7 +460,7 @@ static bool yeq_row_switch(Token_t t)
     case TOKEN_DOWN:
         if (s_yeq.selected < GRAPH_NUM_EQ - 1) s_yeq.selected++;
         if (!s_yeq.on_equal)
-            s_yeq.cursor_pos = strlen(graph_state.equations[s_yeq.selected]);
+            s_yeq.cursor_pos = strlen(Graph_GetState()->equations[s_yeq.selected]);
         break;
     default:
         return false;
@@ -476,7 +476,7 @@ static bool yeq_row_switch(Token_t t)
 /* Delete the character immediately before the cursor in the current equation. */
 static void yeq_del_at_cursor(void)
 {
-    char *eq       = graph_state.equations[s_yeq.selected];
+    char *eq       = Graph_GetEquationBuf(s_yeq.selected);
     uint8_t eq_len = (uint8_t)strlen(eq);
     if (s_yeq.cursor_pos == 0) return;
     uint8_t prev;
@@ -499,7 +499,7 @@ static void yeq_del_at_cursor(void)
 
 static bool handle_yeq_navigation(Token_t t)
 {
-    char *eq = graph_state.equations[s_yeq.selected];
+    char *eq = Graph_GetEquationBuf(s_yeq.selected);
     switch (t) {
     case TOKEN_GRAPH:    nav_to(MODE_NORMAL);                      return true;
     case TOKEN_RANGE:    nav_to(MODE_GRAPH_RANGE);                 return true;
@@ -532,7 +532,7 @@ static bool handle_yeq_navigation(Token_t t)
  */
 static bool handle_yeq_insertion(Token_t t)
 {
-    char *eq     = graph_state.equations[s_yeq.selected];
+    char *eq     = Graph_GetEquationBuf(s_yeq.selected);
     uint8_t eq_len = (uint8_t)strlen(eq);
     const char *append = NULL;
     char num_buf[2] = {0, 0};
@@ -609,8 +609,8 @@ static bool handle_yeq_insertion(Token_t t)
 
 bool handle_yeq_mode(Token_t t)
 {
-    if (s_yeq.cursor_pos > (uint8_t)strlen(graph_state.equations[s_yeq.selected]))
-        s_yeq.cursor_pos = (uint8_t)strlen(graph_state.equations[s_yeq.selected]);
+    if (s_yeq.cursor_pos > (uint8_t)strlen(Graph_GetState()->equations[s_yeq.selected]))
+        s_yeq.cursor_pos = (uint8_t)strlen(Graph_GetState()->equations[s_yeq.selected]);
 
     if (handle_yeq_navigation(t)) {
         lvgl_lock();
@@ -698,16 +698,15 @@ bool handle_zbox_mode(Token_t t)
             int32_t y_lo = s_zbox.py1 < s_zbox.py ? s_zbox.py1 : s_zbox.py;
             int32_t y_hi = s_zbox.py1 < s_zbox.py ? s_zbox.py  : s_zbox.py1;
             if (x_hi > x_lo && y_hi > y_lo) {
-                float x_range   = graph_state.x_max - graph_state.x_min;
-                float y_range   = graph_state.y_max - graph_state.y_min;
-                float new_x_min = graph_state.x_min + (float)x_lo / (float)(GRAPH_W - 1) * x_range;
-                float new_x_max = graph_state.x_min + (float)x_hi / (float)(GRAPH_W - 1) * x_range;
-                float new_y_max = graph_state.y_max - (float)y_lo / (float)(GRAPH_H - 1) * y_range;
-                float new_y_min = graph_state.y_max - (float)y_hi / (float)(GRAPH_H - 1) * y_range;
-                graph_state.x_min = new_x_min;
-                graph_state.x_max = new_x_max;
-                graph_state.y_min = new_y_min;
-                graph_state.y_max = new_y_max;
+                const GraphState_t *gs = Graph_GetState();
+                float x_range   = gs->x_max - gs->x_min;
+                float y_range   = gs->y_max - gs->y_min;
+                float new_x_min = gs->x_min + (float)x_lo / (float)(GRAPH_W - 1) * x_range;
+                float new_x_max = gs->x_min + (float)x_hi / (float)(GRAPH_W - 1) * x_range;
+                float new_y_max = gs->y_max - (float)y_lo / (float)(GRAPH_H - 1) * y_range;
+                float new_y_min = gs->y_max - (float)y_hi / (float)(GRAPH_H - 1) * y_range;
+                Graph_SetWindow(new_x_min, new_x_max, new_y_min, new_y_max,
+                                gs->x_scl, gs->y_scl, gs->x_res);
             }
             current_mode       = MODE_NORMAL;
             s_zbox.corner1_set = false;
@@ -753,40 +752,41 @@ bool handle_zbox_mode(Token_t t)
 
 bool handle_trace_mode(Token_t t)
 {
-    float step = graph_state.param_mode
-        ? graph_state.t_step
-        : (graph_state.x_max - graph_state.x_min) / (float)(GRAPH_W - 1);
+    const GraphState_t *gs = Graph_GetState();
+    float step = gs->param_mode
+        ? gs->t_step
+        : (gs->x_max - gs->x_min) / (float)(GRAPH_W - 1);
     if (step <= 0.0f) step = 0.1309f;
 
     switch (t) {
     case TOKEN_LEFT:
-        if (graph_state.param_mode) {
-            if (s_trace.x > graph_state.t_min) s_trace.x -= step;
+        if (gs->param_mode) {
+            if (s_trace.x > gs->t_min) s_trace.x -= step;
         } else {
-            if (s_trace.x > graph_state.x_min) s_trace.x -= step;
+            if (s_trace.x > gs->x_min) s_trace.x -= step;
         }
         lvgl_lock();
         Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
         lvgl_unlock();
         return true;
     case TOKEN_RIGHT:
-        if (graph_state.param_mode) {
-            if (s_trace.x < graph_state.t_max) s_trace.x += step;
+        if (gs->param_mode) {
+            if (s_trace.x < gs->t_max) s_trace.x += step;
         } else {
-            if (s_trace.x < graph_state.x_max) s_trace.x += step;
+            if (s_trace.x < gs->x_max) s_trace.x += step;
         }
         lvgl_lock();
         Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
         lvgl_unlock();
         return true;
     case TOKEN_UP:
-        if (graph_state.param_mode) {
+        if (gs->param_mode) {
             /* Cycle backward through enabled parametric pairs */
             for (uint8_t i = 1; i <= GRAPH_NUM_PARAM; i++) {
                 uint8_t idx = (s_trace.eq_idx + GRAPH_NUM_PARAM - i) % GRAPH_NUM_PARAM;
-                if (graph_state.param_enabled[idx] &&
-                    strlen(graph_state.param_x[idx]) > 0 &&
-                    strlen(graph_state.param_y[idx]) > 0) {
+                if (gs->param_enabled[idx] &&
+                    strlen(gs->param_x[idx]) > 0 &&
+                    strlen(gs->param_y[idx]) > 0) {
                     s_trace.eq_idx = idx;
                     break;
                 }
@@ -794,7 +794,7 @@ bool handle_trace_mode(Token_t t)
         } else {
             for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
                 uint8_t idx = (s_trace.eq_idx + GRAPH_NUM_EQ - i) % GRAPH_NUM_EQ;
-                if (strlen(graph_state.equations[idx]) > 0 && graph_state.enabled[idx]) {
+                if (strlen(gs->equations[idx]) > 0 && gs->enabled[idx]) {
                     s_trace.eq_idx = idx;
                     break;
                 }
@@ -805,12 +805,12 @@ bool handle_trace_mode(Token_t t)
         lvgl_unlock();
         return true;
     case TOKEN_DOWN:
-        if (graph_state.param_mode) {
+        if (gs->param_mode) {
             for (uint8_t i = 1; i <= GRAPH_NUM_PARAM; i++) {
                 uint8_t idx = (s_trace.eq_idx + i) % GRAPH_NUM_PARAM;
-                if (graph_state.param_enabled[idx] &&
-                    strlen(graph_state.param_x[idx]) > 0 &&
-                    strlen(graph_state.param_y[idx]) > 0) {
+                if (gs->param_enabled[idx] &&
+                    strlen(gs->param_x[idx]) > 0 &&
+                    strlen(gs->param_y[idx]) > 0) {
                     s_trace.eq_idx = idx;
                     break;
                 }
@@ -818,7 +818,7 @@ bool handle_trace_mode(Token_t t)
         } else {
             for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
                 uint8_t idx = (s_trace.eq_idx + i) % GRAPH_NUM_EQ;
-                if (strlen(graph_state.equations[idx]) > 0 && graph_state.enabled[idx]) {
+                if (strlen(gs->equations[idx]) > 0 && gs->enabled[idx]) {
                     s_trace.eq_idx = idx;
                     break;
                 }

@@ -78,33 +78,33 @@ typedef enum {
 /*
  * GraphState_t — ownership and mutation rules
  *
- * graph_state is a global defined in calculator_core.c and exported via
- * calc_internal.h.  All mutations must happen under lvgl_lock() because
- * they are followed immediately by LVGL label/display updates in the same
- * critical section.
+ * graph_state is defined (static) in graph.c.  External callers must use
+ * Graph_GetState() (read-only pointer) or the write accessors declared in
+ * graph.h (Graph_SetWindow, Graph_SetEquationEnabled, etc.).  All mutations
+ * must happen under lvgl_lock() because they are followed immediately by
+ * LVGL label/display updates in the same critical section.
  *
  * Field ownership by module:
  *
- *   equations[]/enabled[]    — Written by graph_ui.c (Y= editor),
- *                              ui_param_yeq.c (parametric editor),
+ *   equations[]/enabled[]    — Written via Graph_GetEquationBuf() / Graph_SetEquationEnabled()
+ *                              by graph_ui.c (Y= editor), ui_param_yeq.c (parametric editor),
  *                              ui_yvars.c (ON/OFF tab actions).
- *                              Read by graph.c (render), persist.c (save/load).
+ *                              Read by graph.c (render), calculator_core.c (save/load).
  *
- *   xmin/xmax/ymin/ymax      — Written by graph_ui_range.c (RANGE editor),
- *                              graph_ui.c (ZOOM preset actions),
- *                              graph.c (ZBox commit).
- *                              Read by graph.c (render), persist.c (save/load).
+ *   xmin/xmax/ymin/ymax      — Written via Graph_SetWindow() by graph_ui_range.c (RANGE editor),
+ *                              ui_graph_zoom.c (ZOOM preset actions), graph_ui.c (ZBox commit).
+ *                              Read by graph.c (render), calculator_core.c (save/load).
  *
- *   tmin/tmax/tstep          — Written by graph_ui_range.c (parametric RANGE
- *                              editor).  Read by graph.c (parametric render).
+ *   tmin/tmax/tstep          — Written via Graph_SetParamWindow() by graph_ui_range.c
+ *                              (parametric RANGE editor).  Read by graph.c (parametric render).
  *
- *   param_mode               — Written by ui_mode.c (MODE screen row 4).
+ *   param_mode               — Written via Graph_SetParamMode() by ui_mode.c (MODE screen row 4).
  *                              Read by all graph modules to branch behaviour.
  *
- *   grid_on                  — Written by ui_mode.c (MODE screen row 7).
+ *   grid_on                  — Written via Graph_SetGridOn() by ui_mode.c (MODE screen row 7).
  *                              Read by graph.c.
  *
- *   active                   — Written by graph_ui.c (GRAPH key handler).
+ *   active                   — Written via Graph_SetActive() by graph_ui.c (GRAPH key handler).
  *                              Read by calculator_core.c, graph.c.
  *
  * Adding a new graph feature: add its fields here with their owning module,
@@ -143,8 +143,6 @@ typedef struct {
     bool    param_mode;     /* false=function (Y=), true=parametric (X/Y pairs) */
 } GraphState_t;
 
-/** Global graph state — owned by calculator_core.c */
-extern GraphState_t graph_state;
 
 /*---------------------------------------------------------------------------
  * Statistics state

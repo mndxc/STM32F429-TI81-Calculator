@@ -5,15 +5,50 @@
 #ifndef GRAPH_MODULE_H
 #define GRAPH_MODULE_H
 
-#include "app_common.h"   /* StatData_t */
+#include "app_common.h"   /* GraphState_t, StatData_t */
 #include "lvgl.h"
 #include <stdbool.h>
+#include <stddef.h>
 
 /*---------------------------------------------------------------------------
  * Constants
  *--------------------------------------------------------------------------*/
 #define GRAPH_W         320
 #define GRAPH_H         240     /* Full display height */
+
+/** Byte length of each equation string buffer (including NUL terminator). */
+#define GRAPH_EQUATION_BUF_LEN  64
+
+/*---------------------------------------------------------------------------
+ * Graph state accessor API
+ *
+ * graph_state is owned by graph.c. All external reads go through
+ * Graph_GetState(); all writes go through the named setters below.
+ * Callers must already hold lvgl_lock() when calling setters that are
+ * immediately followed by LVGL display updates in the same critical section.
+ *--------------------------------------------------------------------------*/
+
+/** Read-only view of the graph state. */
+const GraphState_t *Graph_GetState(void);
+
+/** Write accessors — thin wrappers; no validation, no lock acquisition. */
+void Graph_SetEquationEnabled(uint8_t idx, bool enabled);
+void Graph_SetWindow(float xmin, float xmax, float ymin, float ymax,
+                     float xscl, float yscl, float xres);
+void Graph_SetParamEnabled(uint8_t idx, bool enabled);
+void Graph_SetParamWindow(float tmin, float tmax, float tstep);
+void Graph_SetParamMode(bool param);
+void Graph_SetGridOn(bool on);
+void Graph_SetActive(bool active);
+
+/**
+ * Mutable buffer accessors — for in-place string editing in the YEQ and
+ * parametric editors.  Callers must not write past GRAPH_EQUATION_BUF_LEN-1
+ * bytes and must NUL-terminate.
+ */
+char *Graph_GetEquationBuf(uint8_t idx);
+char *Graph_GetParamEquationXBuf(uint8_t pair);
+char *Graph_GetParamEquationYBuf(uint8_t pair);
 
 /*---------------------------------------------------------------------------
  * Function declarations

@@ -86,7 +86,7 @@ void ui_update_prgm_exec_display(void)
         int slot = (int)prgm_exec_scroll + i;
         if (slot < PRGM_MAX_PROGRAMS) {
             prgm_slot_id_str((uint8_t)slot, id);
-            const char *name = g_prgm_store.names[slot];
+            const char *name = Prgm_GetName((uint8_t)slot);
             if (name[0] != '\0')
                 snprintf(buf, sizeof(buf), "%s:Prgm%s  %s", id, id, name);
             else
@@ -136,7 +136,7 @@ bool handle_prgm_exec_menu(Token_t t)
         if (slot < PRGM_MAX_PROGRAMS) {
             char slot_id[3];
             prgm_slot_id_str((uint8_t)slot, slot_id);
-            const char *uname = g_prgm_store.names[slot];
+            const char *uname = Prgm_GetName((uint8_t)slot);
             char ins[PRGM_NAME_LEN + 6]; /* "prgm" + name/id + NUL */
             snprintf(ins, sizeof(ins), "prgm%s", uname[0] != '\0' ? uname : slot_id);
             prgm_editor_insert_str(ins);

@@ -37,6 +37,7 @@
  */
 
 #include "app_common.h"
+#include "calculator_core.h" /* Calc_GetAns / Calc_SetAnsScalar / Calc_SetAnsMatrix */
 #include "expr_util.h"    /* ExprBuffer_t and ExprBuffer_* / ExprUtil_* helpers */
 #include "lvgl.h"
 #include "calc_engine.h"
@@ -53,8 +54,9 @@ extern CalcMode_t current_mode;
 extern CalcMode_t return_mode;
 extern bool         insert_mode;
 extern bool         cursor_visible;
-extern float ans;
-extern bool ans_is_matrix;
+/* ans and ans_is_matrix are now private to calculator_core.c.
+ * Use Calc_GetAns() / Calc_SetAnsScalar() / Calc_SetAnsMatrix()
+ * declared in calculator_core.h (included above). */
 extern bool angle_degrees;
 extern bool sto_pending;
 
@@ -125,7 +127,7 @@ extern ExprBuffer_t expr;   /* expression buffer: .buf, .len, .cursor */
 void ui_update_history(void);
 void ui_refresh_display(void);
 void ui_output_row(uint8_t row_1based, const char *text);
-void format_calc_result(const CalcResult_t *r, char *buf, int buf_size, float *ans_ptr);
+void format_calc_result(const CalcResult_t *r, char *buf, int buf_size);
 void handle_history_nav(Token_t t);      /* sub-handler for history/cursor nav keys */
 void reset_matrix_scroll_focus(void);   /* clears matrix_scroll_focus/offset */
 

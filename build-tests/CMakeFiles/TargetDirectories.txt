@@ -1,10 +1,13 @@
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_calc_engine.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_expr_util.dir
+/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_expr_buffer.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_persist_roundtrip.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_prgm_exec.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_normal_mode.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_param.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_stat.dir
+/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_yvars.dir
+/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_menu_state.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/edit_cache.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/rebuild_cache.dir

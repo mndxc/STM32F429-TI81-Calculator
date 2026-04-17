@@ -129,6 +129,66 @@ bool Prgm_Load(void)
 #endif /* HOST_TEST */
 
 /*---------------------------------------------------------------------------
+ * Store accessor API
+ *
+ * g_prgm_store is defined in the #ifndef HOST_TEST block above (embedded
+ * builds) or in the test translation unit (HOST_TEST builds).  The forward
+ * declaration below makes it visible to these accessor functions in both
+ * compilation modes without re-exporting it via the public header.
+ *---------------------------------------------------------------------------*/
+
+#ifdef HOST_TEST
+/* In host-test builds g_prgm_store is defined in test_prgm_exec.c. */
+extern ProgramStore_t g_prgm_store;
+#endif
+
+const char *Prgm_GetName(uint8_t slot)
+{
+    return g_prgm_store.names[slot];
+}
+
+const char *Prgm_GetBody(uint8_t slot)
+{
+    return g_prgm_store.bodies[slot];
+}
+
+bool Prgm_IsSlotOccupied(uint8_t slot)
+{
+    return g_prgm_store.names[slot][0] != '\0';
+}
+
+void Prgm_SetName(uint8_t slot, const char *name)
+{
+    strncpy(g_prgm_store.names[slot], name, PRGM_NAME_LEN);
+    g_prgm_store.names[slot][PRGM_NAME_LEN] = '\0';
+}
+
+void Prgm_AppendLine(uint8_t slot, const char *line)
+{
+    char   *body     = g_prgm_store.bodies[slot];
+    size_t  used     = strlen(body);
+    size_t  line_len = strlen(line);
+    /* need room for optional newline + line + NUL */
+    size_t  need = (used > 0 ? 1u : 0u) + line_len + 1u;
+    if (used + need > (size_t)PRGM_BODY_LEN) return;
+    if (used > 0) body[used++] = '\n';
+    memcpy(body + used, line, line_len);
+    body[used + line_len] = '\0';
+}
+
+void Prgm_SetBody(uint8_t slot, const char *body)
+{
+    strncpy(g_prgm_store.bodies[slot], body, PRGM_BODY_LEN - 1);
+    g_prgm_store.bodies[slot][PRGM_BODY_LEN - 1] = '\0';
+}
+
+void Prgm_ClearSlot(uint8_t slot)
+{
+    memset(g_prgm_store.names[slot],  0, PRGM_NAME_LEN + 1);
+    memset(g_prgm_store.bodies[slot], 0, PRGM_BODY_LEN);
+}
+
+/*---------------------------------------------------------------------------
  * PRGM executor — moved from ui_prgm.c
  *---------------------------------------------------------------------------*/
 
@@ -228,7 +288,8 @@ static void cmd_goto(const char *line, uint16_t ln)
 static void cmd_if(const char *line, uint16_t ln)
 {
     (void)ln;
-    CalcResult_t r = Calc_Evaluate(line + 3, ans, ans_is_matrix, angle_degrees);
+    CalcResult_t r = Calc_Evaluate(line + 3, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                   angle_degrees);
     bool cond = (r.error == CALC_OK && !r.has_matrix && r.value != 0.0f);
     if (!cond)
         prgm_run_pc++; /* single-line If: skip one statement */
@@ -263,7 +324,8 @@ static void cmd_is_gt(const char *line, uint16_t ln)
 {
     char var, val_buf[MAX_EXPR_LEN];
     if (!parse_incdec_args(line, 4, &var, val_buf)) return;
-    CalcResult_t r = Calc_Evaluate(val_buf, ans, ans_is_matrix, angle_degrees);
+    CalcResult_t r = Calc_Evaluate(val_buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                   angle_degrees);
     if (r.error != CALC_OK || r.has_matrix) return;
     calc_variables[var - 'A'] += 1.0f;
     if (calc_variables[var - 'A'] > r.value)
@@ -277,7 +339,8 @@ static void cmd_ds_lt(const char *line, uint16_t ln)
 {
     char var, val_buf[MAX_EXPR_LEN];
     if (!parse_incdec_args(line, 4, &var, val_buf)) return;
-    CalcResult_t r = Calc_Evaluate(val_buf, ans, ans_is_matrix, angle_degrees);
+    CalcResult_t r = Calc_Evaluate(val_buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                   angle_degrees);
     if (r.error != CALC_OK || r.has_matrix) return;
     calc_variables[var - 'A'] -= 1.0f;
     if (calc_variables[var - 'A'] < r.value)
@@ -404,13 +467,9 @@ static void cmd_disp(const char *line, uint16_t ln)
     } else {
         /* Variable or expression: right-aligned in result row */
         char disp_buf[MAX_RESULT_LEN];
-        CalcResult_t r = Calc_Evaluate(arg, ans, ans_is_matrix, angle_degrees);
-        format_calc_result(&r, disp_buf, MAX_RESULT_LEN, &ans);
-        if (r.error == CALC_OK && !r.has_matrix) {
-            ans = r.value; ans_is_matrix = false;
-        } else if (r.error == CALC_OK && r.has_matrix) {
-            ans = (float)r.matrix_idx; ans_is_matrix = true;
-        }
+        CalcResult_t r = Calc_Evaluate(arg, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                       angle_degrees);
+        format_calc_result(&r, disp_buf, MAX_RESULT_LEN);
         history[hidx].expression[0] = '\0';
         strncpy(history[hidx].result, disp_buf, MAX_RESULT_LEN - 1);
         history[hidx].result[MAX_RESULT_LEN - 1] = '\0';
@@ -497,11 +556,11 @@ static void prgm_execute_line(uint16_t ln)
             left[llen] = '\0';
             const char *varname = sto_arrow + 2;
             if (*varname >= 'A' && *varname <= 'Z') {
-                CalcResult_t r = Calc_Evaluate(left, ans, ans_is_matrix, angle_degrees);
+                CalcResult_t r = Calc_Evaluate(left, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                               angle_degrees);
                 if (r.error == CALC_OK && !r.has_matrix) {
                     calc_variables[*varname - 'A'] = r.value;
-                    ans           = r.value;
-                    ans_is_matrix = false;
+                    Calc_SetAnsScalar(r.value);
                 }
             }
         }
@@ -510,13 +569,13 @@ static void prgm_execute_line(uint16_t ln)
 
     /* General expression line — evaluate and update ANS */
     {
-        CalcResult_t r = Calc_Evaluate(line, ans, ans_is_matrix, angle_degrees);
-        if (r.error == CALC_OK && !r.has_matrix) {
-            ans = r.value;
-            ans_is_matrix = false;
-        } else if (r.error == CALC_OK && r.has_matrix) {
-            ans = (float)r.matrix_idx;
-            ans_is_matrix = true;
+        CalcResult_t r = Calc_Evaluate(line, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                       angle_degrees);
+        if (r.error == CALC_OK) {
+            if (!r.has_matrix)
+                Calc_SetAnsScalar(r.value);
+            else
+                Calc_SetAnsMatrix((float)r.matrix_idx);
         }
     }
 }

@@ -23,6 +23,7 @@
 #  include "ui_mode.h"
 #  include "ui_input.h"
 #  include "calculator_core_test_stubs.h"
+#  include "calculator_core.h"
 #else
 #  include "app_common.h"
 #  include "app_init.h"
@@ -108,8 +109,15 @@ CalcMode_t   current_mode           = MODE_NORMAL;
 CalcMode_t   return_mode            = MODE_NORMAL;
 bool         angle_degrees          = true;
 
-float ans = 0.0f;
-bool         ans_is_matrix  = false; /* true when ans holds a matrix slot index */
+#ifdef HOST_TEST
+/* In test builds, ans and ans_is_matrix remain non-static so test code can
+ * observe and set them directly via the extern declarations in the stubs header. */
+float ans          = 0.0f;
+bool  ans_is_matrix = false;
+#else
+static float ans          = 0.0f;
+static bool  ans_is_matrix = false; /* true when ans holds a matrix slot index */
+#endif
 bool                sto_pending    = false;  /* True after STO — next alpha stores ans */
 
 HistoryEntry_t history[HISTORY_LINE_COUNT];
@@ -123,22 +131,7 @@ static CalcMatrix_t matrix_ring[MATRIX_RING_COUNT];
 static uint8_t      matrix_ring_gen_table[MATRIX_RING_COUNT]; /* generation written to each slot */
 static uint8_t      matrix_ring_write_count = 0;              /* total writes, wraps at 256 */
 
-/* Graph state */
-GraphState_t graph_state = {
-    .equations = {{0}},
-    .x_min    = -10.0f,
-    .x_max    =  10.0f,
-    .y_min    = -10.0f,
-    .y_max    =  10.0f,
-    .x_scl    =   1.0f,
-    .y_scl    =   1.0f,
-    .x_res    =   1.0f,
-    .active   = false,
-    .t_min    =   0.0f,
-    .t_max    =   6.2832f,   /* 2π */
-    .t_step   =   0.1309f,   /* π/24 */
-    .param_mode = false,
-};
+/* graph_state is defined and owned by graph.c; access via Graph_GetState() / setters. */
 
 /* Matrix data lives in calc_matrices[] (calc_engine.c) — accessed via extern.
  * MATH/TEST menu state, data tables, and LVGL objects live in ui_math_menu.c. */
@@ -149,6 +142,15 @@ GraphState_t graph_state = {
 
 
 
+
+/*---------------------------------------------------------------------------
+ * ANS getter/setter API (declared in calculator_core.h)
+ *---------------------------------------------------------------------------*/
+
+void  Calc_SetAnsScalar(float value)  { ans = value; ans_is_matrix = false; }
+void  Calc_SetAnsMatrix(float idx)    { ans = idx;   ans_is_matrix = true;  }
+float Calc_GetAns(void)               { return ans; }
+bool  Calc_GetAnsIsMatrix(void)       { return ans_is_matrix; }
 
 /*---------------------------------------------------------------------------
  * Forward declarations for helpers defined later in this file
@@ -180,19 +182,19 @@ void Calc_BuildPersistBlock(PersistBlock_t *out)
     out->zoom_y_fact = graph_ui_get_zoom_y_fact();
 
     /* Graph state — copy fields individually (skip active) */
+    const GraphState_t *gs = Graph_GetState();
     for (int i = 0; i < GRAPH_NUM_EQ; i++) {
-        memcpy(out->equations[i], graph_state.equations[i],
-               sizeof(graph_state.equations[i]));
+        memcpy(out->equations[i], Graph_GetEquationBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
     }
-    out->x_min   = graph_state.x_min;
-    out->x_max   = graph_state.x_max;
-    out->y_min   = graph_state.y_min;
-    out->y_max   = graph_state.y_max;
-    out->x_scl   = graph_state.x_scl;
-    out->y_scl   = graph_state.y_scl;
-    out->x_res   = graph_state.x_res;
-    out->grid_on = graph_state.grid_on ? 1u : 0u;
-    for (int i = 0; i < 4; i++) out->enabled[i] = graph_state.enabled[i] ? 1u : 0u;
+    out->x_min   = gs->x_min;
+    out->x_max   = gs->x_max;
+    out->y_min   = gs->y_min;
+    out->y_max   = gs->y_max;
+    out->x_scl   = gs->x_scl;
+    out->y_scl   = gs->y_scl;
+    out->x_res   = gs->x_res;
+    out->grid_on = gs->grid_on ? 1u : 0u;
+    for (int i = 0; i < 4; i++) out->enabled[i] = gs->enabled[i] ? 1u : 0u;
 
     /* Matrices [A], [B], [C] — save dimensions and flatten 6×6 data arrays */
     for (int m = 0; m < 3; m++) {
@@ -204,14 +206,14 @@ void Calc_BuildPersistBlock(PersistBlock_t *out)
 
     /* Parametric equations and T range */
     for (int i = 0; i < GRAPH_NUM_PARAM; i++) {
-        memcpy(out->param_x[i], graph_state.param_x[i], sizeof(graph_state.param_x[i]));
-        memcpy(out->param_y[i], graph_state.param_y[i], sizeof(graph_state.param_y[i]));
-        out->param_enabled[i] = graph_state.param_enabled[i] ? 1u : 0u;
+        memcpy(out->param_x[i], Graph_GetParamEquationXBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
+        memcpy(out->param_y[i], Graph_GetParamEquationYBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
+        out->param_enabled[i] = gs->param_enabled[i] ? 1u : 0u;
     }
-    out->param_mode = graph_state.param_mode ? 1u : 0u;
-    out->t_min  = graph_state.t_min;
-    out->t_max  = graph_state.t_max;
-    out->t_step = graph_state.t_step;
+    out->param_mode = gs->param_mode ? 1u : 0u;
+    out->t_min  = gs->t_min;
+    out->t_max  = gs->t_max;
+    out->t_step = gs->t_step;
 
     /* STAT data list */
     memcpy(out->stat_list_x, stat_data.list_x,
@@ -241,18 +243,12 @@ void Calc_ApplyPersistBlock(const PersistBlock_t *in)
 
     /* Restore graph state — leave active = false */
     for (int i = 0; i < GRAPH_NUM_EQ; i++) {
-        memcpy(graph_state.equations[i], in->equations[i],
-               sizeof(graph_state.equations[i]));
+        memcpy(Graph_GetEquationBuf((uint8_t)i), in->equations[i], GRAPH_EQUATION_BUF_LEN);
     }
-    graph_state.x_min   = in->x_min;
-    graph_state.x_max   = in->x_max;
-    graph_state.y_min   = in->y_min;
-    graph_state.y_max   = in->y_max;
-    graph_state.x_scl   = in->x_scl;
-    graph_state.y_scl   = in->y_scl;
-    graph_state.x_res   = in->x_res;
-    graph_state.grid_on = (in->grid_on != 0);
-    for (int i = 0; i < 4; i++) graph_state.enabled[i] = (in->enabled[i] != 0);
+    Graph_SetWindow(in->x_min, in->x_max, in->y_min, in->y_max,
+                    in->x_scl, in->y_scl, in->x_res);
+    Graph_SetGridOn(in->grid_on != 0);
+    for (int i = 0; i < 4; i++) Graph_SetEquationEnabled((uint8_t)i, (in->enabled[i] != 0));
 
     /* Restore matrices [A], [B], [C] — dimensions and 6×6 data */
     for (int m = 0; m < 3; m++) {
@@ -267,18 +263,19 @@ void Calc_ApplyPersistBlock(const PersistBlock_t *in)
 
     /* Restore parametric equations and T range */
     for (int i = 0; i < GRAPH_NUM_PARAM; i++) {
-        memcpy(graph_state.param_x[i], in->param_x[i], sizeof(graph_state.param_x[i]));
-        graph_state.param_x[i][sizeof(graph_state.param_x[i]) - 1] = '\0';
-        memcpy(graph_state.param_y[i], in->param_y[i], sizeof(graph_state.param_y[i]));
-        graph_state.param_y[i][sizeof(graph_state.param_y[i]) - 1] = '\0';
-        graph_state.param_enabled[i] = (in->param_enabled[i] != 0);
+        char *px = Graph_GetParamEquationXBuf((uint8_t)i);
+        memcpy(px, in->param_x[i], GRAPH_EQUATION_BUF_LEN);
+        px[GRAPH_EQUATION_BUF_LEN - 1] = '\0';
+        char *py = Graph_GetParamEquationYBuf((uint8_t)i);
+        memcpy(py, in->param_y[i], GRAPH_EQUATION_BUF_LEN);
+        py[GRAPH_EQUATION_BUF_LEN - 1] = '\0';
+        Graph_SetParamEnabled((uint8_t)i, (in->param_enabled[i] != 0));
     }
-    graph_state.param_mode = (in->param_mode != 0);
-    graph_state.t_min  = in->t_min;
-    graph_state.t_max  = in->t_max;
-    graph_state.t_step = (in->t_step > 0.0f) ? in->t_step : 0.1309f;
+    Graph_SetParamMode(in->param_mode != 0);
+    Graph_SetParamWindow(in->t_min, in->t_max,
+                         (in->t_step > 0.0f) ? in->t_step : 0.1309f);
     /* Re-sync MODE screen cursor for row 4 (Function|Param) */
-    s_mode.cursor[4]    = graph_state.param_mode ? 1 : 0;
+    s_mode.cursor[4]    = (in->param_mode != 0) ? 1 : 0;
     s_mode.committed[4] = s_mode.cursor[4];
 
     /* Restore STAT data list */
@@ -510,8 +507,7 @@ static void cursor_update(lv_obj_t *row_label, uint32_t char_pos)
  * For matrix results: produces a newline-separated grid "[a b c]\n[d e f]\n[g h i]".
  * Updates *ans_out only on successful scalar results.
  */
-void format_calc_result(const CalcResult_t *r, char *buf, int buf_size,
-                                float *ans_out)
+void format_calc_result(const CalcResult_t *r, char *buf, int buf_size)
 {
     memset(buf, 0, (size_t)buf_size);
     if (r->error != CALC_OK) {
@@ -541,11 +537,11 @@ void format_calc_result(const CalcResult_t *r, char *buf, int buf_size,
         }
         buf[pos] = '\0';
         ans_is_matrix = true;
-        if (ans_out) *ans_out = (float)r->matrix_idx;
+        ans = (float)r->matrix_idx;
     } else {
         Calc_FormatResult(r->value, buf, (uint8_t)buf_size);
         ans_is_matrix = false;
-        if (ans_out) *ans_out = r->value;
+        ans = r->value;
     }
 }
 
@@ -1212,7 +1208,7 @@ static void history_enter_evaluate(void)
 #endif /* HOST_TEST */
     CalcResult_t result = Calc_Evaluate(expr.buf, ans, ans_is_matrix, angle_degrees);
     char result_str[MAX_RESULT_LEN];
-    format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
+    format_calc_result(&result, result_str, MAX_RESULT_LEN);
     commit_history_entry(expr.buf, result_str, &result);
     ExprBuffer_Clear(&expr);
     history_recall_offset = 0;
@@ -1281,7 +1277,7 @@ void handle_history_nav(Token_t t)
             CalcResult_t result = Calc_Evaluate(history[last_idx].expression,
                                                 ans, ans_is_matrix, angle_degrees);
             char result_str[MAX_RESULT_LEN];
-            format_calc_result(&result, result_str, MAX_RESULT_LEN, &ans);
+            format_calc_result(&result, result_str, MAX_RESULT_LEN);
             commit_history_entry(history[last_idx].expression, result_str, &result);
             history_recall_offset = 0;
         } else if (expr.len > 0) {
@@ -1547,7 +1543,7 @@ void StartCalcCoreTask(void const *argument)
     ui_update_vars_display();
     ui_update_yvars_display();
     Calc_RegisterYEquations(
-        (const char (*)[64])graph_state.equations,
+        Graph_GetState()->equations,
         GRAPH_NUM_EQ);
     /* Load programs from FLASH sector 11 before populating the PRGM menu */
     Prgm_Init();

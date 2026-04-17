@@ -7,10 +7,10 @@
  * end of every render pass so drawn content persists across equation re-renders.
  *
  * Coordinate helpers here mirror the private statics in graph.c; both read only
- * from the global graph_state defined in app_common.h.
+ * from the graph state via Graph_GetState().
  */
 #include "graph_draw.h"
-#include "graph.h"          /* GRAPH_W, GRAPH_H, graph_state via app_common.h */
+#include "graph.h"          /* GRAPH_W, GRAPH_H, Graph_GetState() */
 #include "calc_engine.h"    /* Calc_EvaluateAt, CalcResult_t, CALC_OK */
 #include <math.h>
 #include <string.h>
@@ -34,16 +34,18 @@ static uint16_t * const draw_buf = (uint16_t *)0xD0080800;
 
 static float draw_px_to_math_x(int32_t px)
 {
-    return graph_state.x_min +
+    const GraphState_t *gs = Graph_GetState();
+    return gs->x_min +
            (float)px / (float)(GRAPH_W - 1) *
-           (graph_state.x_max - graph_state.x_min);
+           (gs->x_max - gs->x_min);
 }
 
 static int32_t draw_math_y_to_px(float y)
 {
-    float range = graph_state.y_max - graph_state.y_min;
+    const GraphState_t *gs = Graph_GetState();
+    float range = gs->y_max - gs->y_min;
     if (fabsf(range) < 1e-9f) return 0;
-    return (int32_t)((graph_state.y_max - y) / range * (GRAPH_H - 1));
+    return (int32_t)((gs->y_max - y) / range * (GRAPH_H - 1));
 }
 
 /*---------------------------------------------------------------------------

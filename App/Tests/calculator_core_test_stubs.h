@@ -183,7 +183,40 @@ extern int8_t         history_recall_offset;
 
 extern ExprBuffer_t expr;   /* .buf = expression string, .len = length, .cursor = insertion point */
 
-extern GraphState_t graph_state;
+/* graph.c is not compiled in HOST_TEST builds.  Provide GRAPH_EQUATION_BUF_LEN
+ * (normally in graph.h), a weak definition of graph_state, and the graph
+ * accessor API so calculator_core.c's persist functions compile and run.
+ * The weak attribute lets multiple translation units include this header
+ * safely — the linker keeps one copy. */
+#ifndef GRAPH_EQUATION_BUF_LEN
+#  define GRAPH_EQUATION_BUF_LEN  64
+#endif
+GraphState_t graph_state __attribute__((weak)) = {
+    .x_min = -10.0f, .x_max = 10.0f, .y_min = -10.0f, .y_max = 10.0f,
+    .x_scl = 1.0f, .y_scl = 1.0f, .x_res = 1.0f,
+};
+static inline const GraphState_t *Graph_GetState(void) { return &graph_state; }
+static inline void Graph_SetEquationEnabled(uint8_t i, bool v)
+    { if (i < GRAPH_NUM_EQ) graph_state.enabled[i] = v; }
+static inline void Graph_SetWindow(float a, float b, float c, float d,
+                                   float e, float f, float g)
+    { graph_state.x_min=a; graph_state.x_max=b;
+      graph_state.y_min=c; graph_state.y_max=d;
+      graph_state.x_scl=e; graph_state.y_scl=f;
+      graph_state.x_res=g; }
+static inline void Graph_SetParamEnabled(uint8_t i, bool v)
+    { if (i < GRAPH_NUM_PARAM) graph_state.param_enabled[i] = v; }
+static inline void Graph_SetParamWindow(float a, float b, float c)
+    { graph_state.t_min=a; graph_state.t_max=b; graph_state.t_step=c; }
+static inline void Graph_SetParamMode(bool v) { graph_state.param_mode = v; }
+static inline void Graph_SetGridOn(bool v)    { graph_state.grid_on    = v; }
+static inline void Graph_SetActive(bool v)    { graph_state.active     = v; }
+static inline char *Graph_GetEquationBuf(uint8_t i)
+    { return (i < GRAPH_NUM_EQ) ? graph_state.equations[i] : NULL; }
+static inline char *Graph_GetParamEquationXBuf(uint8_t p)
+    { return (p < GRAPH_NUM_PARAM) ? graph_state.param_x[p] : NULL; }
+static inline char *Graph_GetParamEquationYBuf(uint8_t p)
+    { return (p < GRAPH_NUM_PARAM) ? graph_state.param_y[p] : NULL; }
 
 /* LVGL screen pointers — ui_mode_screen defined in ui_mode.c (HOST_TEST block);
  * the rest are stub-defined in test_normal_mode.c */
@@ -213,7 +246,12 @@ void ui_update_status_bar(void);
 void ui_update_history(void);
 void ui_refresh_display(void);
 void ui_output_row(uint8_t row_1based, const char *text);
-void format_calc_result(const CalcResult_t *r, char *buf, int buf_size, float *ans_ptr);
+void format_calc_result(const CalcResult_t *r, char *buf, int buf_size);
+/* ANS API — defined in calculator_core.c, usable from ui_input.c etc. in HOST_TEST */
+void  Calc_SetAnsScalar(float value);
+void  Calc_SetAnsMatrix(float matrix_idx);
+float Calc_GetAns(void);
+bool  Calc_GetAnsIsMatrix(void);
 void handle_history_nav(Token_t t);        /* defined in calculator_core.c */
 void reset_matrix_scroll_focus(void);      /* defined in calculator_core.c */
 void lvgl_lock(void);
@@ -354,7 +392,7 @@ extern uint8_t prgm_edit_num_lines;
  * identical to the versions in prgm_exec_test_stubs.h (static inline, no conflict) */
 static inline void prgm_parse_from_store(uint8_t idx)
 {
-    const char *body = g_prgm_store.bodies[idx];
+    const char *body = Prgm_GetBody(idx);
     uint8_t n = 0;
     const char *p = body;
     while (*p && n < PRGM_MAX_LINES) {
@@ -379,7 +417,7 @@ static inline void prgm_slot_id_str(uint8_t slot, char *out)
 }
 
 static inline bool prgm_slot_is_used(uint8_t slot)
-    { return g_prgm_store.names[slot][0] != '\0'; }
+    { return Prgm_IsSlotOccupied(slot); }
 
 static inline void ui_init_prgm_screens(void)        {}
 static inline void hide_prgm_screens(void)          {}

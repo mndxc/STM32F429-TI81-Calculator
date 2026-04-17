@@ -76,43 +76,43 @@ CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o: CMakeFiles/tes
 CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_persist_roundtrip.c
 CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o: CMakeFiles/test_persist_roundtrip.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building C object CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o -MF CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o.d -o CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_persist_roundtrip.c
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o -MF CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o.d -o CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_persist_roundtrip.c
 
 CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_persist_roundtrip.c > CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.i
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_persist_roundtrip.c > CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.i
 
 CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_persist_roundtrip.c -o CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.s
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/test_persist_roundtrip.c -o CMakeFiles/test_persist_roundtrip.dir/test_persist_roundtrip.c.s
 
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o: CMakeFiles/test_persist_roundtrip.dir/flags.make
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o: CMakeFiles/test_persist_roundtrip.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building C object CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o -MF CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o.d -o CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o -MF CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o.d -o CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c
 
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c > CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.i
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c > CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.i
 
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c -o CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.s
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c -o CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.s
 
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: CMakeFiles/test_persist_roundtrip.dir/flags.make
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: CMakeFiles/test_persist_roundtrip.dir/compiler_depend.ts
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building C object CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -MF CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o.d -o CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -MF CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o.d -o CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c > CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c > CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
 
 CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s"
-	/usr/bin/cc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c -o CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c -o CMakeFiles/test_persist_roundtrip.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
 
 # Object files for target test_persist_roundtrip
 test_persist_roundtrip_OBJECTS = \

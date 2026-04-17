@@ -1,10 +1,10 @@
-Start testing: Apr 15 12:25 PDT
+Start testing: Apr 16 20:11 PDT
 ----------------------------------------------------------
-1/8 Testing: calc_engine
-1/8 Test: calc_engine
+1/10 Testing: calc_engine
+1/10 Test: calc_engine
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_calc_engine"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"calc_engine" start time: Apr 15 12:25 PDT
+"calc_engine" start time: Apr 16 20:11 PDT
 Output:
 ----------------------------------------------------------
 === calc_engine test suite ===
@@ -34,18 +34,18 @@ Output:
 
 === Results: 169/169 passed ===
 <end of output>
-Test time =   0.25 sec
+Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"calc_engine" end time: Apr 15 12:25 PDT
+"calc_engine" end time: Apr 16 20:11 PDT
 "calc_engine" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-2/8 Testing: expr_util
-2/8 Test: expr_util
+2/10 Testing: expr_util
+2/10 Test: expr_util
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_expr_util"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"expr_util" start time: Apr 15 12:25 PDT
+"expr_util" start time: Apr 16 20:11 PDT
 Output:
 ----------------------------------------------------------
 Group 1: ExprUtil_Utf8CharSize
@@ -66,15 +66,40 @@ Results: 96 passed, 0 failed
 Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"expr_util" end time: Apr 15 12:25 PDT
+"expr_util" end time: Apr 16 20:11 PDT
 "expr_util" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-3/8 Testing: persist_roundtrip
-3/8 Test: persist_roundtrip
+3/10 Testing: expr_buffer
+3/10 Test: expr_buffer
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_expr_buffer"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"expr_buffer" start time: Apr 16 20:11 PDT
+Output:
+----------------------------------------------------------
+Group 1: ExprBuffer_Clear
+Group 2: ExprBuffer_Insert single char (insert mode)
+Group 3: ExprBuffer_Insert single char (overwrite mode)
+Group 4: ExprBuffer_Insert multi-char string
+Group 5: ExprBuffer_Delete
+Group 6: ExprBuffer_Left / ExprBuffer_Right
+Group 7: Invariant: cursor <= len after operations
+Group 8: Overflow guard
+
+Results: 48 passed, 0 failed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"expr_buffer" end time: Apr 16 20:11 PDT
+"expr_buffer" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/10 Testing: persist_roundtrip
+4/10 Test: persist_roundtrip
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_persist_roundtrip"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"persist_roundtrip" start time: Apr 15 12:25 PDT
+"persist_roundtrip" start time: Apr 16 20:11 PDT
 Output:
 ----------------------------------------------------------
 Group 1: Checksum stability
@@ -85,18 +110,18 @@ Group 5: Block size and alignment
 
 Results: 52 passed, 0 failed
 <end of output>
-Test time =   0.22 sec
+Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"persist_roundtrip" end time: Apr 15 12:25 PDT
+"persist_roundtrip" end time: Apr 16 20:11 PDT
 "persist_roundtrip" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-4/8 Testing: prgm_exec
-4/8 Test: prgm_exec
+5/10 Testing: prgm_exec
+5/10 Test: prgm_exec
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_prgm_exec"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"prgm_exec" start time: Apr 15 12:25 PDT
+"prgm_exec" start time: Apr 16 20:11 PDT
 Output:
 ----------------------------------------------------------
 === test_prgm_exec ===
@@ -117,18 +142,18 @@ Group 17: Nested subroutine 2 levels
 
 95 passed, 0 failed
 <end of output>
-Test time =   0.22 sec
+Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"prgm_exec" end time: Apr 15 12:25 PDT
+"prgm_exec" end time: Apr 16 20:11 PDT
 "prgm_exec" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-5/8 Testing: normal_mode
-5/8 Test: normal_mode
+6/10 Testing: normal_mode
+6/10 Test: normal_mode
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_normal_mode"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"normal_mode" start time: Apr 15 12:25 PDT
+"normal_mode" start time: Apr 16 20:11 PDT
 Output:
 ----------------------------------------------------------
 Group 1: handle_digit_key
@@ -144,18 +169,18 @@ Group 10: edge cases
 
 104 passed, 0 failed
 <end of output>
-Test time =   0.32 sec
+Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"normal_mode" end time: Apr 15 12:25 PDT
+"normal_mode" end time: Apr 16 20:11 PDT
 "normal_mode" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-6/8 Testing: param
-6/8 Test: param
+7/10 Testing: param
+7/10 Test: param
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_param"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"param" start time: Apr 15 12:25 PDT
+"param" start time: Apr 16 20:11 PDT
 Output:
 ----------------------------------------------------------
 [1]  Prepare parametric equation
@@ -167,22 +192,21 @@ Output:
 [7]  Degrees mode in parametric trig
 [8]  Constant expression in parametric prepare/eval
 [9]  Error propagation in parametric eval
-  FAIL [line 252]: sqrt(-1) → error at eval time
 
-Results: 27 passed, 1 failed
+Results: 28 passed, 0 failed
 <end of output>
-Test time =   0.21 sec
+Test time =   0.00 sec
 ----------------------------------------------------------
-Test Failed.
-"param" end time: Apr 15 12:25 PDT
+Test Passed.
+"param" end time: Apr 16 20:11 PDT
 "param" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-7/8 Testing: stat
-7/8 Test: stat
+8/10 Testing: stat
+8/10 Test: stat
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_stat"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"stat" start time: Apr 15 12:25 PDT
+"stat" start time: Apr 16 20:11 PDT
 Output:
 ----------------------------------------------------------
 === test_stat ===
@@ -201,18 +225,18 @@ test_clear
 
 39 passed, 0 failed
 <end of output>
-Test time =   0.30 sec
+Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"stat" end time: Apr 15 12:25 PDT
+"stat" end time: Apr 16 20:11 PDT
 "stat" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-8/8 Testing: yvars
-8/8 Test: yvars
+9/10 Testing: yvars
+9/10 Test: yvars
 Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_yvars"
 Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
-"yvars" start time: Apr 15 12:25 PDT
+"yvars" start time: Apr 16 20:11 PDT
 Output:
 ----------------------------------------------------------
 === test_yvars ===
@@ -229,8 +253,30 @@ Output:
 Test time =   0.00 sec
 ----------------------------------------------------------
 Test Passed.
-"yvars" end time: Apr 15 12:25 PDT
+"yvars" end time: Apr 16 20:11 PDT
 "yvars" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-End testing: Apr 15 12:25 PDT
+10/10 Testing: menu_state
+10/10 Test: menu_state
+Command: "/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/test_menu_state"
+Directory: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests
+"menu_state" start time: Apr 16 20:11 PDT
+Output:
+----------------------------------------------------------
+Group 1: MenuState_MoveUp
+Group 2: MenuState_MoveDown
+Group 3: MenuState_PrevTab / MenuState_NextTab
+Group 4: MenuState_DigitToIndex
+Group 5: MenuState_AbsoluteIndex
+
+43 passed, 0 failed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"menu_state" end time: Apr 16 20:11 PDT
+"menu_state" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Apr 16 20:11 PDT

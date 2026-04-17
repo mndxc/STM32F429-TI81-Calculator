@@ -255,7 +255,7 @@ void prgm_slot_id_str(uint8_t slot, char *out)
 /* Returns true if the slot has a program (name is non-empty). */
 bool prgm_slot_is_used(uint8_t slot)
 {
-    return g_prgm_store.names[slot][0] != '\0';
+    return Prgm_IsSlotOccupied(slot);
 }
 
 /* Updates PRGM menu labels and tab highlights.  Must be called under lvgl_lock. */
@@ -275,7 +275,7 @@ static void ui_update_prgm_display(void)
     if (prgm_erase_confirm) {
         prgm_slot_id_str(prgm_erase_confirm_slot, id);
         char title[20];
-        const char *cname = g_prgm_store.names[prgm_erase_confirm_slot];
+        const char *cname = Prgm_GetName(prgm_erase_confirm_slot);
         if (cname[0] != '\0')
             snprintf(title, sizeof(title), "Prgm%s  %s", id, cname);
         else
@@ -301,7 +301,7 @@ static void ui_update_prgm_display(void)
         int slot = (int)prgm_scroll_offset + i;
         if (slot < total) {
             prgm_slot_id_str((uint8_t)slot, id);
-            const char *name = g_prgm_store.names[slot];
+            const char *name = Prgm_GetName((uint8_t)slot);
             if (name[0] != '\0')
                 snprintf(buf, sizeof(buf), "%s:Prgm%s  %s", id, id, name);
             else
@@ -330,7 +330,7 @@ void prgm_parse_from_store(uint8_t idx)
 {
     prgm_edit_num_lines = 0;
     memset(prgm_edit_lines, 0, sizeof(prgm_edit_lines));
-    const char *body = g_prgm_store.bodies[idx];
+    const char *body = Prgm_GetBody(idx);
     if (body[0] == '\0') {
         prgm_edit_num_lines = 1;
         return;
@@ -350,10 +350,10 @@ void prgm_parse_from_store(uint8_t idx)
         prgm_edit_num_lines = 1;
 }
 
-/* Reassembles g_prgm_store body from prgm_edit_lines. */
+/* Reassembles the program body from prgm_edit_lines and writes it to the store. */
 void prgm_flatten_to_store(void)
 {
-    char *body = g_prgm_store.bodies[prgm_edit_idx];
+    char body[PRGM_BODY_LEN];
     size_t off = 0;
     for (int i = 0; i < (int)prgm_edit_num_lines; i++) {
         size_t len = strlen(prgm_edit_lines[i]);
@@ -364,6 +364,7 @@ void prgm_flatten_to_store(void)
             body[off++] = '\n';
     }
     body[off] = '\0';
+    Prgm_SetBody(prgm_edit_idx, body);
 }
 
 /* Positions the new-name cursor box without updating the label text. */
@@ -398,7 +399,7 @@ static void ui_update_prgm_editor_display(void)
     char id[3];
     prgm_slot_id_str(prgm_edit_idx, id);
     char title[20]; /* "Prgm" + id(2) + "  " + name(8) + NUL = 17 max */
-    const char *ename = g_prgm_store.names[prgm_edit_idx];
+    const char *ename = Prgm_GetName(prgm_edit_idx);
     if (ename[0] != '\0')
         snprintf(title, sizeof(title), "Prgm%s  %s", id, ename);
     else
@@ -585,16 +586,13 @@ static bool handle_erase_confirm(Token_t t)
         return true;
     case TOKEN_2:
         /* Immediately erase (A4) */
-        memset(g_prgm_store.names[prgm_erase_confirm_slot],  0, PRGM_NAME_LEN + 1);
-        memset(g_prgm_store.bodies[prgm_erase_confirm_slot], 0, PRGM_BODY_LEN);
+        Prgm_ClearSlot(prgm_erase_confirm_slot);
         prgm_erase_confirm = false;
         lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
         return true;
     case TOKEN_ENTER:
-        if (prgm_erase_confirm_choice == 1) {
-            memset(g_prgm_store.names[prgm_erase_confirm_slot],  0, PRGM_NAME_LEN + 1);
-            memset(g_prgm_store.bodies[prgm_erase_confirm_slot], 0, PRGM_BODY_LEN);
-        }
+        if (prgm_erase_confirm_choice == 1)
+            Prgm_ClearSlot(prgm_erase_confirm_slot);
         prgm_erase_confirm = false;
         lvgl_lock(); ui_update_prgm_display(); lvgl_unlock();
         return true;
@@ -613,7 +611,7 @@ static void enter_exec_tab(int abs_pos)
     if (abs_pos >= PRGM_MAX_PROGRAMS) return;
     char slot_id[3];
     prgm_slot_id_str((uint8_t)abs_pos, slot_id);
-    const char *uname = g_prgm_store.names[abs_pos];
+    const char *uname = Prgm_GetName((uint8_t)abs_pos);
     snprintf(expr.buf, MAX_EXPR_LEN, "prgm%s",
              uname[0] != '\0' ? uname : slot_id);
     expr.len    = (uint8_t)strlen(expr.buf);
@@ -635,7 +633,7 @@ static void enter_edit_tab(int abs_pos)
 {
     if (abs_pos >= PRGM_MAX_PROGRAMS) return;
     bool has_name = prgm_slot_is_used((uint8_t)abs_pos);
-    bool has_body = (g_prgm_store.bodies[abs_pos][0] != '\0');
+    bool has_body = (Prgm_GetBody((uint8_t)abs_pos)[0] != '\0');
     if (has_name || has_body) {
         /* D3: body-only slot opens editor directly (no name-entry) */
         prgm_editor_from_new = false;
@@ -838,7 +836,7 @@ bool handle_prgm_new_name(Token_t t)
     case TOKEN_DOWN:
         /* Navigate into editor body — save name first */
         if (prgm_new_name_len > 0)
-            memcpy(g_prgm_store.names[prgm_new_slot], prgm_new_name, prgm_new_name_len + 1);
+            Prgm_SetName(prgm_new_slot, prgm_new_name);
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
         lvgl_unlock();
@@ -848,7 +846,7 @@ bool handle_prgm_new_name(Token_t t)
     case TOKEN_ENTER:
         /* Save user name if typed; open editor regardless (name is optional) */
         if (prgm_new_name_len > 0)
-            memcpy(g_prgm_store.names[prgm_new_slot], prgm_new_name, prgm_new_name_len + 1);
+            Prgm_SetName(prgm_new_slot, prgm_new_name);
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
         lvgl_unlock();
@@ -1193,14 +1191,13 @@ bool handle_prgm_running(Token_t t)
             char input_var = prgm_get_input_var();
             if (input_var != 0) {
                 /* Evaluate and store to the target variable */
-                CalcResult_t r = Calc_Evaluate(expr.buf, ans, ans_is_matrix,
-                                               angle_degrees);
+                CalcResult_t r = Calc_Evaluate(expr.buf, Calc_GetAns(),
+                                               Calc_GetAnsIsMatrix(), angle_degrees);
                 char res_buf[MAX_RESULT_LEN];
-                format_calc_result(&r, res_buf, MAX_RESULT_LEN, &ans);
+                format_calc_result(&r, res_buf, MAX_RESULT_LEN);
                 if (r.error == CALC_OK && !r.has_matrix) {
                     calc_variables[input_var - 'A'] = r.value;
-                    ans           = r.value;
-                    ans_is_matrix = false;
+                    /* ans already updated by format_calc_result */
                 }
                 /* Append expression + result to history */
                 uint8_t hidx = history_count % HISTORY_LINE_COUNT;

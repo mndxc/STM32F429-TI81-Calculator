@@ -21,8 +21,9 @@
 #  include "prgm_exec.h"
 #  include "ui_input.h"
 #  include "calculator_core_test_stubs.h"
+#  include "calculator_core.h"
 #else
-#  include "calc_internal.h"
+#  include "calc_internal.h"   /* includes calculator_core.h */
 #  include "ui_mode.h"
 #  include "graph.h"
 #endif
@@ -126,7 +127,8 @@ bool handle_sto_pending(Token_t t)
         static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         uint8_t var_idx = t - TOKEN_A;
 
-        CalcResult_t result = Calc_Evaluate(expr.buf, ans, ans_is_matrix, angle_degrees);
+        CalcResult_t result = Calc_Evaluate(expr.buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                            angle_degrees);
 
         char result_str[MAX_RESULT_LEN];
         char expr_hist[MAX_EXPR_LEN + 4];  /* expression + "->A\0" */
@@ -140,8 +142,7 @@ bool handle_sto_pending(Token_t t)
             result_str[MAX_RESULT_LEN - 1] = '\0';
         } else {
             calc_variables[var_idx] = result.value;
-            ans = result.value;
-            ans_is_matrix = false;
+            Calc_SetAnsScalar(result.value);
             Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
         }
 
@@ -228,7 +229,7 @@ static void handle_function_insert(Token_t t)
 
 static void handle_clear_key(void)
 {
-    if (graph_state.active) {
+    if (Graph_GetState()->active) {
         lvgl_lock();
         Graph_SetVisible(false);
         lvgl_unlock();
@@ -254,7 +255,7 @@ static void handle_normal_graph_nav(Token_t t)
 {
     switch (t) {
     case TOKEN_Y_EQUALS:
-        nav_to(graph_state.param_mode ? MODE_GRAPH_PARAM_YEQ : MODE_GRAPH_YEQ);
+        nav_to(Graph_GetState()->param_mode ? MODE_GRAPH_PARAM_YEQ : MODE_GRAPH_YEQ);
         break;
     case TOKEN_RANGE: nav_to(MODE_GRAPH_RANGE); break;
     case TOKEN_ZOOM:  nav_to(MODE_GRAPH_ZOOM);  break;
@@ -313,7 +314,7 @@ void handle_normal_mode(Token_t t)
     case TOKEN_STO:                 handle_sto_key();            break;
     case TOKEN_X_T:
         /* In param mode insert T; in function mode insert X */
-        handle_function_insert(graph_state.param_mode ? TOKEN_T : TOKEN_X);
+        handle_function_insert(Graph_GetState()->param_mode ? TOKEN_T : TOKEN_X);
         break;
     case TOKEN_Y_EQUALS: case TOKEN_RANGE: case TOKEN_ZOOM:
     case TOKEN_GRAPH:    case TOKEN_TRACE:

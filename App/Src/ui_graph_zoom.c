@@ -168,12 +168,13 @@ static void zoom_show_graph(void)
  * xf < 1 zooms in on X; xf > 1 zooms out. Same convention for yf. */
 static void zoom_scale_view(float xf, float yf)
 {
-    float xc = (graph_state.x_min + graph_state.x_max) * 0.5f;
-    float yc = (graph_state.y_min + graph_state.y_max) * 0.5f;
-    float xh = (graph_state.x_max - graph_state.x_min) * xf / 2.0f;
-    float yh = (graph_state.y_max - graph_state.y_min) * yf / 2.0f;
-    graph_state.x_min = xc - xh; graph_state.x_max = xc + xh;
-    graph_state.y_min = yc - yh; graph_state.y_max = yc + yh;
+    const GraphState_t *gs = Graph_GetState();
+    float xc = (gs->x_min + gs->x_max) * 0.5f;
+    float yc = (gs->y_min + gs->y_max) * 0.5f;
+    float xh = (gs->x_max - gs->x_min) * xf / 2.0f;
+    float yh = (gs->y_max - gs->y_min) * yf / 2.0f;
+    Graph_SetWindow(xc - xh, xc + xh, yc - yh, yc + yh,
+                    gs->x_scl, gs->y_scl, gs->x_res);
 }
 
 /* Open the Zoom Factors editor screen. */
@@ -188,43 +189,39 @@ static void zoom_enter_factors(void)
 
 static void apply_zoom_preset(uint8_t preset)
 {
+    const GraphState_t *gs = Graph_GetState();
     switch (preset) {
     case 1: /* ZStandard */
-        graph_state.x_min = -10.0f; graph_state.x_max =  10.0f; graph_state.x_scl = 1.0f;
-        graph_state.y_min = -10.0f; graph_state.y_max =  10.0f; graph_state.y_scl = 1.0f;
+        Graph_SetWindow(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 1.0f, gs->x_res);
         break;
     case 2: /* ZTrig */
-        graph_state.x_min = -6.2832f; graph_state.x_max = 6.2832f; graph_state.x_scl = 1.5708f;
-        graph_state.y_min =  -4.0f;   graph_state.y_max = 4.0f;    graph_state.y_scl = 1.0f;
+        Graph_SetWindow(-6.2832f, 6.2832f, -4.0f, 4.0f, 1.5708f, 1.0f, gs->x_res);
         break;
     case 3: /* ZDecimal */
-        graph_state.x_min = -4.7f; graph_state.x_max = 4.7f; graph_state.x_scl = 0.5f;
-        graph_state.y_min = -3.1f; graph_state.y_max = 3.1f; graph_state.y_scl = 0.5f;
+        Graph_SetWindow(-4.7f, 4.7f, -3.1f, 3.1f, 0.5f, 0.5f, gs->x_res);
         break;
     case 4: /* ZSquare */
         {
-            float xs = (graph_state.x_max - graph_state.x_min) / GRAPH_W;
-            float ys = (graph_state.y_max - graph_state.y_min) / GRAPH_H;
+            float xs = (gs->x_max - gs->x_min) / GRAPH_W;
+            float ys = (gs->y_max - gs->y_min) / GRAPH_H;
             if (xs > ys) {
-                float yc = (graph_state.y_max + graph_state.y_min) * 0.5f;
+                float yc = (gs->y_max + gs->y_min) * 0.5f;
                 float yh = xs * GRAPH_H * 0.5f;
-                graph_state.y_min = yc - yh;
-                graph_state.y_max = yc + yh;
+                Graph_SetWindow(gs->x_min, gs->x_max, yc - yh, yc + yh,
+                                gs->x_scl, gs->y_scl, gs->x_res);
             } else {
-                float xc = (graph_state.x_max + graph_state.x_min) * 0.5f;
+                float xc = (gs->x_max + gs->x_min) * 0.5f;
                 float xh = ys * GRAPH_W * 0.5f;
-                graph_state.x_min = xc - xh;
-                graph_state.x_max = xc + xh;
+                Graph_SetWindow(xc - xh, xc + xh, gs->y_min, gs->y_max,
+                                gs->x_scl, gs->y_scl, gs->x_res);
             }
         }
         break;
     case 5: /* ZInteger */
-        graph_state.x_min = -160.0f; graph_state.x_max = 159.0f; graph_state.x_scl = 10.0f;
-        graph_state.y_min = -110.0f; graph_state.y_max = 109.0f; graph_state.y_scl = 10.0f;
+        Graph_SetWindow(-160.0f, 159.0f, -110.0f, 109.0f, 10.0f, 10.0f, gs->x_res);
         break;
     default:
-        graph_state.x_min = -10.0f; graph_state.x_max =  10.0f; graph_state.x_scl = 1.0f;
-        graph_state.y_min = -10.0f; graph_state.y_max =  10.0f; graph_state.y_scl = 1.0f;
+        Graph_SetWindow(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 1.0f, gs->x_res);
         break;
     }
 }

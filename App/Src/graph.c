@@ -13,6 +13,85 @@
 #include <string.h>
 
 /*---------------------------------------------------------------------------
+ * Graph state — owned here; external access via Graph_GetState() / setters
+ *--------------------------------------------------------------------------*/
+
+/* Sole definition; all external access goes through Graph_GetState() and the
+ * write accessors declared in graph.h. */
+static GraphState_t graph_state = {
+    .equations  = {{0}},
+    .x_min      = -10.0f,
+    .x_max      =  10.0f,
+    .y_min      = -10.0f,
+    .y_max      =  10.0f,
+    .x_scl      =   1.0f,
+    .y_scl      =   1.0f,
+    .x_res      =   1.0f,
+    .active     = false,
+    .t_min      =   0.0f,
+    .t_max      =   6.2832f,   /* 2π */
+    .t_step     =   0.1309f,   /* π/24 */
+    .param_mode = false,
+};
+
+/*---------------------------------------------------------------------------
+ * Graph state accessor implementations
+ *--------------------------------------------------------------------------*/
+
+const GraphState_t *Graph_GetState(void) { return &graph_state; }
+
+void Graph_SetEquationEnabled(uint8_t idx, bool enabled)
+{
+    if (idx < GRAPH_NUM_EQ) graph_state.enabled[idx] = enabled;
+}
+
+void Graph_SetWindow(float xmin, float xmax, float ymin, float ymax,
+                     float xscl, float yscl, float xres)
+{
+    graph_state.x_min = xmin;
+    graph_state.x_max = xmax;
+    graph_state.y_min = ymin;
+    graph_state.y_max = ymax;
+    graph_state.x_scl = xscl;
+    graph_state.y_scl = yscl;
+    graph_state.x_res = xres;
+}
+
+void Graph_SetParamEnabled(uint8_t idx, bool enabled)
+{
+    if (idx < GRAPH_NUM_PARAM) graph_state.param_enabled[idx] = enabled;
+}
+
+void Graph_SetParamWindow(float tmin, float tmax, float tstep)
+{
+    graph_state.t_min  = tmin;
+    graph_state.t_max  = tmax;
+    graph_state.t_step = tstep;
+}
+
+void Graph_SetParamMode(bool param) { graph_state.param_mode = param; }
+void Graph_SetGridOn(bool on)       { graph_state.grid_on    = on;    }
+void Graph_SetActive(bool active)   { graph_state.active     = active; }
+
+char *Graph_GetEquationBuf(uint8_t idx)
+{
+    if (idx < GRAPH_NUM_EQ) return graph_state.equations[idx];
+    return NULL;
+}
+
+char *Graph_GetParamEquationXBuf(uint8_t pair)
+{
+    if (pair < GRAPH_NUM_PARAM) return graph_state.param_x[pair];
+    return NULL;
+}
+
+char *Graph_GetParamEquationYBuf(uint8_t pair)
+{
+    if (pair < GRAPH_NUM_PARAM) return graph_state.param_y[pair];
+    return NULL;
+}
+
+/*---------------------------------------------------------------------------
  * Private variables
  *--------------------------------------------------------------------------*/
 

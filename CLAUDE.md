@@ -4,15 +4,9 @@
 
 ## Standards & Maintenance
 
-Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before starting any significant work.
+Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before starting any significant work. It defines the grading criteria for every scorecard dimension (Rises when / Falls when), standing rules that must never regress, and the Numbers to Keep in Sync across files.
 
-For structural/interface refactoring work, read **[docs/INTERFACE_REFACTOR_PLAN.md](docs/INTERFACE_REFACTOR_PLAN.md)** — 6 ordered items covering ui_prgm.c extraction, ExpressionBuffer_t, MenuState_t, graph_state ownership, and persist sub-struct design. Execute top-to-bottom; each item is self-contained. It defines:
-- What to update after each commit (Update Rules and Full Update Checklist)
-- Which numbers must stay in sync across files (Numbers to Keep in Sync)
-- File structure rules and module naming conventions
-- **The grading criteria for every scorecard dimension below** (Rises when / Falls when)
-- Standing rules that must never regress regardless of current rating (Do Not Regress)
-- **Complexity delta rating** — rate neutral / increase / decrease before every commit; if `increase`, add a `[complexity]` item to "Next session priorities"
+**Complexity delta rating** — rate neutral / increase / decrease before every commit; if `increase`, add a `[complexity]` item to "Next session priorities".
 
 Use `/update-project` to trigger a full sync. All open work items live in "Next session priorities" below; resolved items and milestone history are in [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md).
 
@@ -20,12 +14,12 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-04-16** (updated Item 4). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-16** (all INTERFACE_REFACTOR_PLAN items complete; COUPLING_REFACTOR T1, T2, and T3 complete). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
 | Documentation | A- |
-| API / header design | A |
+| API / header design | A+ |
 | Memory safety & FLASH handling | A |
 | RTOS integration | A |
 | Error handling | A- |
@@ -35,7 +29,7 @@ Snapshot as of **2026-04-16** (updated Item 4). Grading criteria (what causes ea
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1276 lines, graph_ui.c 862 lines, calculator_core.c 1591 lines, graph.c 881 lines, graph_ui_range.c 718 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 694 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1276 lines, graph_ui.c 862 lines, calculator_core.c 1591 lines, graph.c 881 lines, graph_ui_range.c 718 lines, ui_stat.c 669 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 694 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
 
 ### Scorecard Change Log
 
@@ -46,6 +40,9 @@ Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware valida
 | 2026-04-16 | API / header design | A | A | ExprBuffer_t wrapper added (Item 2); three raw globals → single struct; complexity delta: neutral |
 | 2026-04-16 | Testing | A | A | MenuState_t helpers added (Item 3); test_menu_state.c 43 assertions; suite grows to 10 suites / 694 assertions; complexity delta: neutral |
 | 2026-04-16 | Code organisation | B | B | ZOOM menu extracted graph_ui.c → ui_graph_zoom.c (1131→862 lines); <800 target missed by 62 lines (zoom_enter_zbox kept in graph_ui.c for s_zbox ownership); complexity delta: neutral |
+| 2026-04-16 | API / header design | A | A+ | COUPLING_REFACTOR T1: graph_state static in graph.c; extern removed from app_common.h; 13 accessors; direct field writes outside graph.c are now compile errors; complexity delta: neutral |
+| 2026-04-16 | API / header design | A+ | A+ | COUPLING_REFACTOR T2: g_prgm_store extern removed from prgm_exec.h; 7 accessors (GetName/GetBody/IsSlotOccupied/SetName/AppendLine/SetBody/ClearSlot); direct field writes in ui_prgm.c + ui_prgm_exec.c eliminated; complexity delta: neutral |
+| 2026-04-16 | API / header design | A+ | A+ | COUPLING_REFACTOR T3: ans/ans_is_matrix static in calculator_core.c; extern removed from calc_internal.h; 4 accessors (GetAns/GetAnsIsMatrix/SetAnsScalar/SetAnsMatrix); format_calc_result signature simplified; direct field writes in ui_input.c, ui_prgm.c, ui_draw.c, prgm_exec.c eliminated; complexity delta: neutral |
 
 ---
 
@@ -106,27 +103,20 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 **4. Trace crosshair behaviour differs from original TI-81** — On the original hardware, pressing any non-arrow key while in trace exits trace and processes that key (e.g. GRAPH re-renders, CLEAR exits to calculator). Currently TRACE is a toggle (press again to exit), which is not original behaviour. Additionally, on the original TI-81 there is a free-roaming crosshair cursor visible on the plain graph screen (before pressing TRACE); pressing TRACE snaps the crosshair to the nearest curve. This free-roaming crosshair is not implemented — the graph canvas currently shows no cursor at all until TRACE is pressed. Investigate original behaviour and decide which deviations to correct.
 - Files: `App/Src/calculator_core.c` (trace mode handler `TOKEN_TRACE` case, `default` fallthrough behaviour)
 
-**18. (resolved)** — Font files already contained all required codepoints. Completed: Y= row labels now use Y₁–Y₄ (`graph_ui.c`); TOKEN_X_INV display-only mappings now use ⁻¹ U+E001 (`graph_ui.c`, `ui_prgm.c`). Expression buffer insertion of `^-1` kept as-is (Option B — intentional deviation, see Deliberate Deviations table). VARS/Y-VARS Unicode strings deferred to when those menus are implemented — font already has all needed codepoints. Needs hardware flash-verify (visual check at 20px and 24px). **Note for VARS/Y-VARS implementation:** use x̄ = U+E000 (`\xEE\x80\x80`), ȳ = U+0233, Σ = U+03A3, σ = U+03C3, ₁₂₃₄ = U+2081–2084, ⁻¹ = U+E001 (`\xEE\x80\x81`) directly in string literals — all codepoints are in both font files.
-
-
-**[complexity] P35 — Parametric graphing complexity follow-up (resolved)** — `ui_param_yeq.c` (325 lines) / `ui_param_yeq.h` (40 lines) extracted from `graph_ui.c`; graph_ui.c reduced 2026 → 1743 → 1131 lines (second pass: `graph_ui_range.c` 718 lines extracted). Remaining graph_ui.c organisation debt tracked under ongoing code-organisation review.
-
 **[hardware] P35h — Parametric graphing hardware validation** — P34 implementation complete but never run on hardware. Pre-flight: firmware builds 0 errors, all host assertions pass. Validate: (1) MODE row 4 Param toggle changes Y= screen to X₁t/Y₁t layout; (2) equation entry with T key works in param Y=; (3) GRAPH renders a circle from `cos(T)`/`sin(T)` with Tmin=0, Tmax=6.28, Tstep=0.13; (4) RANGE shows 9 fields in param mode; (5) TRACE shows T=/X=/Y= readout; (6) persist survives power-off/on with param equations intact. Files: `App/Src/graph_ui.c`, `App/Src/graph.c`, `App/Src/calculator_core.c`.
 
 **[hardware] P28 — cursor_render() hardware validation** — Code refactor committed 2026-04-01; hardware verification never performed. Execute all 29 tests in `docs/p28_cursor_manual_tests.md`. Pre-flight: firmware builds 0 errors, flash and power-cycle. When all 29 tests pass, delete `docs/p28_cursor_manual_tests.md` and add a row to `docs/PROJECT_HISTORY.md`. Files: `docs/p28_cursor_manual_tests.md`.
 
 **[hardware] P10 — PRGM hardware validation** — Implementation complete; execute all 50 tests in `docs/prgm_manual_tests.md`. Pre-flight: firmware builds 0 errors, all host assertions pass, flash and power-cycle. When all 50 tests pass, add a row to `docs/PROJECT_HISTORY.md` Resolved Items and update the MAINTENANCE_STANDARDS.md scorecard if the Testing rating changed. Files: `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`, `docs/prgm_manual_tests.md`.
 
-**[refactor] P24 — (resolved)** — `try_tokenize_identifier` dispatch table was already in place from a prior session; named-function chain replaced. `try_tokenize_number` sub-parsers also already extracted.
-
 **[complexity] P29 — DRAW menu complexity follow-up (partially resolved)** — Draw layer extracted to `graph_draw.c` (120 lines) / `graph_draw.h` (54 lines); `graph.c` reduced from 963 → 881 lines. Remaining: (1) stat renderer functions (`Graph_DrawScatter/XYLine/Histogram`, `stat_plot_prepare`, `draw_line_px`) still in `graph.c` (~150 lines, tightly coupled to private canvas state — extraction to `graph_stat.c` requires exposing `draw_grid/axes/ticks`); (2) `try_execute_draw_command` in `calculator_core.c` still a candidate for `ui_draw_exec.c`. Assess at next code-organisation review.
+
+**[refactor] MenuState_t retrofit — remaining menus** — `ui_vars.c` is the proof-of-concept (REFACTOR Item 3). TODO migration notes already added to: `ui_stat.c`, `ui_math_menu.c`, `ui_matrix.c`, `ui_yvars.c`, `ui_draw.c`. Migrate each module's bespoke `cursor`/`scroll`/`tab`/`return_mode` statics to `MenuState_t` and replace manual UP/DOWN/tab/digit logic with `MenuState_MoveUp/Down/PrevTab/NextTab/DigitToIndex`. Do one module per session; run `ctest` after each.
 
 **[hardware] P29h — DRAW menu hardware validation** — P29 implementation complete, build clean, host tests pass. Validate on hardware: (1) `2nd+PRGM` opens DRAW menu with 7 items; digit shortcuts 1–7 work; UP/DOWN navigation works; CLEAR exits; (2) `ClrDraw` entered from expression buffer clears draw layer and shows "Done"; (3) `Line(0,0,5,5)` draws a diagonal line on the graph canvas; (4) `PT-On(2,3)` sets a pixel; `PT-Off(2,3)` clears it; `PT-Chg(2,3)` toggles it; (5) `DrawF sin(X)` draws the sine curve as a white overlay; (6) `Shade(-1,1)` shades the band between y=−1 and y=1; (7) draw layer persists across GRAPH re-renders (e.g. ZOOM then return — drawn content remains); (8) `ClrDraw` clears all drawn content. Files: `App/Src/ui_draw.c`, `App/Src/graph.c`, `App/Src/calculator_core.c`.
 
 
 #### Backlog
-
-**P29 — (resolved)** — DRAW menu implemented. `2nd+PRGM` opens 7-item single-list menu (MODE_DRAW_MENU). ClrDraw executes immediately; Line(, PT-On(, PT-Off(, PT-Chg(, DrawF, Shade( insert text into expression buffer. Persistent draw layer in SDRAM at 0xD0080800 (320×240 RGB565, 0x0000=transparent). `apply_draw_layer()` blends over graph_buf at end of every render pass. `try_execute_draw_command()` in `calculator_core.c` evaluates DRAW commands from expression buffer. New files: `ui_draw.h`, `ui_draw.c`. Hardware validation pending (P29h).
 
 **[complexity] P30 — STAT menu complexity follow-up** — P30 added calc_stat.c, ui_stat.c, three new modes (MODE_STAT_MENU/EDIT/RESULTS), 796 B to PersistBlock_t, and three graph renderers. ui_stat.c is a new ~470-line file. No single file crossed a new 500-line boundary. Assess at next code-organisation review whether handle_stat_menu warrants extraction.
 
@@ -134,9 +124,9 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[hardware] P31h — VARS menu hardware validation** — P31 implementation complete, build clean, all 7/7 host tests pass. Validate on hardware: (1) VARS key opens 5-tab menu (XY/Σ/LR/DIM/RNG); LEFT/RIGHT navigate tabs; UP/DOWN navigate items; digit shortcuts 1–9/0 work; CLEAR exits; (2) RNG tab shows 10 items; scroll indicators (↑↓) appear when scrolling; item 0:Tstep shortcut via TOKEN_0 inserts Tstep value; (3) XY tab: after running 1-Var, items insert correct numeric values; (4) DIM tab: Arow/Acol/Brow/Bcol/Crow/Ccol insert correct matrix dimension values; (5) VARS from Y= editor context inserts value into Y= equation; (6) LR tab: after LinReg, a/b/r insert regression values; RegEQ inserts "aX+b" string. Files: `App/Src/ui_vars.c`, `App/Inc/ui_vars.h`.
 
-**P32 — (resolved)** — Y-VARS menu implemented. `2nd+VARS` opens 3-tab menu (Y/ON/OFF). Y tab inserts Y₁–Y₄ equation reference strings; `Calc_RegisterYEquations` + MATH_VAR_Y1–Y4 tokens added to `calc_engine.c` for expression evaluation. ON/OFF tabs directly toggle `graph_state.enabled[]`. Reentrancy guard prevents infinite recursion in self-referencing Y equations. New files: `App/Src/ui_yvars.c`, `App/Inc/ui_yvars.h`. Parametric entries (X₁t etc.) deferred. Host test suite: 20/20 pass. Hardware validation pending (P32h).
-
 **[hardware] P32h — Y-VARS menu hardware validation** — P32 implementation complete, 20 host tests pass, build clean. Validate on hardware: (1) `2nd+VARS` opens 3-tab menu (Y/ON/OFF); LEFT/RIGHT navigate tabs; UP/DOWN navigate items; digit shortcuts 1–5 work; CLEAR exits; (2) Y tab: selecting Y₁ inserts "Y₁" string into expression buffer; evaluating "Y₁" when Y₁=X and X=3 gives 3; (3) Y tab: insert works from Y= editor context (return_mode=MODE_GRAPH_YEQ); (4) ON tab: `1:All-On` sets all `enabled[]` true; individual Y₁-On through Y₄-On set individual flags; verify via Y= display (enabled equations show =); (5) OFF tab: `1:All-Off` clears all `enabled[]`; individual Y₁-Off through Y₄-Off; (6) Y tab: digit shortcut 1 selects and inserts Y₁ immediately. Files: `App/Src/ui_yvars.c`, `App/Inc/ui_yvars.h`.
+
+**[refactor] PersistBlock_t sub-struct adoption** — Follow-on to REFACTOR Item 6. Design is documented in `docs/TECHNICAL.md` "Persist Migration Design" section. Must be adopted atomically at the next feature that bumps `PERSIST_VERSION`. When implementing: introduce `GraphPersist_t`, `StatPersist_t`, `MatrixPersist_t`, `PrgmPersist_t`, `ModePersist_t` sub-structs; add per-section `graph_ver`/`stat_ver`/... fields; replace the monolithic migration switch with per-section switches. Do not adopt piecemeal — one atomic change at version bump.
 
 **P33 — MODE screen unimplemented rows** — MODE screen rows 1, 5, 6, and 8 display correctly but have no effect on calculator behaviour. Row 4 (`Function | Param`) is now fully wired (P34 complete). Row 1 (`Normal | Sci | Eng`): output format only — medium effort, no new subsystems needed. Rows 5/6/8 (`Connected | Dot`, `Sequential | Simul`, `Real | Polar | Param`) gate further graphing subsystems. Implementation order: (1) Row 1 Sci/Eng notation — wire to number formatter in `calc_engine.c`; (2) Row 5 Connected/Dot — wire to graph renderer in `graph.c`. Spec: `docs/MENU_SPECS.md` lines 25–43. Files: `App/Src/calculator_core.c`, `App/Src/calc_engine.c`, `App/Src/graph.c`, `App/Inc/app_common.h`.
 

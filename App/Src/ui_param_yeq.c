@@ -10,6 +10,7 @@
  */
 #include "ui_param_yeq.h"
 #include "calc_internal.h"
+#include "graph.h"
 #include "graph_ui.h"       /* nav_to, ui_update_status_bar */
 #include "expr_util.h"
 #include "ui_palette.h"
@@ -49,7 +50,7 @@ static ParamYeqState_t s_param_yeq = {0};
 static char *param_eq_ptr(uint8_t row)
 {
     uint8_t pair = row / 2;
-    return (row % 2 == 0) ? graph_state.param_x[pair] : graph_state.param_y[pair];
+    return (row % 2 == 0) ? Graph_GetParamEquationXBuf(pair) : Graph_GetParamEquationYBuf(pair);
 }
 
 static void param_yeq_update_highlight(void)
@@ -148,17 +149,10 @@ void param_yeq_nav_enter(void)
 {
     /* Called from nav_to() while lvgl_lock() is already held. */
     s_param_yeq.on_equal   = false;
-    s_param_yeq.cursor_pos = (uint8_t)strlen(
-        (s_param_yeq.selected % 2 == 0)
-            ? graph_state.param_x[s_param_yeq.selected / 2]
-            : graph_state.param_y[s_param_yeq.selected / 2]);
+    s_param_yeq.cursor_pos = (uint8_t)strlen(param_eq_ptr(s_param_yeq.selected));
     lv_obj_clear_flag(ui_param_yeq_screen, LV_OBJ_FLAG_HIDDEN);
     for (int i = 0; i < PARAM_YEQ_ROW_COUNT; i++) {
-        uint8_t pair = (uint8_t)(i / 2);
-        const char *eq = (i % 2 == 0)
-            ? graph_state.param_x[pair]
-            : graph_state.param_y[pair];
-        lv_label_set_text(ui_lbl_param_eq[i], eq);
+        lv_label_set_text(ui_lbl_param_eq[i], param_eq_ptr((uint8_t)i));
     }
     param_yeq_update_highlight();
     param_yeq_reflow_rows();
@@ -255,7 +249,7 @@ bool handle_param_yeq_mode(Token_t t)
     case TOKEN_ENTER:
         if (s_param_yeq.on_equal) {
             /* Toggle enable for this pair */
-            graph_state.param_enabled[pair] = !graph_state.param_enabled[pair];
+            Graph_SetParamEnabled(pair, !Graph_GetState()->param_enabled[pair]);
             lvgl_lock(); param_yeq_update_highlight(); lvgl_unlock();
             return true;
         }
@@ -313,7 +307,7 @@ bool handle_param_yeq_mode(Token_t t)
 
     if (append && !s_param_yeq.on_equal) {
         ExprUtil_InsertStr(eq, &eq_len, &s_param_yeq.cursor_pos,
-                           (uint8_t)(sizeof(graph_state.param_x[0]) - 1), append);
+                           (uint8_t)(GRAPH_EQUATION_BUF_LEN - 1), append);
         lvgl_lock();
         lv_label_set_text(ui_lbl_param_eq[s_param_yeq.selected], eq);
         param_yeq_reflow_rows(); param_yeq_cursor_update();

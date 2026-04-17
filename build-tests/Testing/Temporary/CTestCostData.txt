@@ -1,10 +1,11 @@
-calc_engine 15 0.0167862
-expr_util 15 0.000127789
-persist_roundtrip 13 0.0170073
-prgm_exec 15 0.0144266
-normal_mode 15 0.0213324
-param 11 0
-stat 10 0.0297394
-yvars 1 0.00144846
+calc_engine 37 0.000144339
+expr_util 37 5.52534e-05
+persist_roundtrip 35 5.17012e-05
+prgm_exec 37 5.3366e-05
+normal_mode 36 5.67384e-05
+param 32 5.73281e-05
+stat 32 4.73893e-05
+yvars 23 0.000100397
+expr_buffer 16 0.000144154
+menu_state 14 0.000168074
 ---
-param

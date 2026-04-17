@@ -182,11 +182,11 @@ bool handle_mode_screen(Token_t t)
         if (s_mode.row_selected == 2)
             angle_degrees = (s_mode.committed[2] == 1);
         if (s_mode.row_selected == 4) {
-            graph_state.param_mode = (s_mode.committed[4] == 1);
+            Graph_SetParamMode(s_mode.committed[4] == 1);
             Graph_InvalidateCache();
         }
         if (s_mode.row_selected == 6)
-            graph_state.grid_on = (s_mode.committed[6] == 1);
+            Graph_SetGridOn(s_mode.committed[6] == 1);
         lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
         return true;
     case TOKEN_CLEAR:

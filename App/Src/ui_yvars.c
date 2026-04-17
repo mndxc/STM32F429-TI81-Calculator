@@ -20,6 +20,7 @@
 
 #include "ui_yvars.h"
 #include "calc_internal.h"
+#include "graph.h"
 #include "ui_palette.h"
 #include <string.h>
 
@@ -107,9 +108,9 @@ static void yvars_do_enable(uint8_t idx, bool enable)
     if (idx == 0) {
         /* All-On / All-Off */
         for (int i = 0; i < GRAPH_NUM_EQ; i++)
-            graph_state.enabled[i] = enable;
+            Graph_SetEquationEnabled((uint8_t)i, enable);
     } else {
-        graph_state.enabled[idx - 1] = enable;
+        Graph_SetEquationEnabled((uint8_t)(idx - 1), enable);
     }
 
     /* Close menu and return to normal mode */

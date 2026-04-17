@@ -14,7 +14,9 @@
 
 #include "graph_ui_range.h"
 #include "calc_internal.h"
-#include "graph_ui.h"       /* zoom_menu_reset(), ui_graph_zoom_screen, ui_update_zoom_display() */
+#include "graph.h"
+#include "graph_ui.h"       /* zoom_menu_reset(), ui_graph_zoom_screen */
+#include "ui_graph_zoom.h"  /* ui_update_zoom_display() */
 #include "ui_palette.h"
 #include "lvgl.h"
 #include <stdio.h>
@@ -180,13 +182,13 @@ void graph_ui_range_init_screens(lv_obj_t *parent)
 
 static uint8_t range_field_max(void)
 {
-    return graph_state.param_mode ? (RANGE_ROW_COUNT_PARAM - 1) : (RANGE_ROW_COUNT_FUNC - 1);
+    return Graph_GetState()->param_mode ? (RANGE_ROW_COUNT_PARAM - 1) : (RANGE_ROW_COUNT_FUNC - 1);
 }
 
 static void range_sync_names(void)
 {
     /* Update the alias and show/hide extra rows to match current mode */
-    bool param = graph_state.param_mode;
+    bool param = Graph_GetState()->param_mode;
     range_field_names = param ? range_field_names_param : range_field_names_func;
     uint8_t show_count = param ? RANGE_ROW_COUNT_PARAM : RANGE_ROW_COUNT_FUNC;
     for (int i = 0; i < RANGE_ROW_COUNT_PARAM; i++) {
@@ -208,23 +210,24 @@ static void range_field_reset(void)
 
 static float range_field_value(uint8_t field)
 {
-    if (graph_state.param_mode) {
+    const GraphState_t *gs = Graph_GetState();
+    if (gs->param_mode) {
         switch (field) {
-        case 0: return graph_state.t_min;
-        case 1: return graph_state.t_max;
-        case 2: return graph_state.t_step;
-        case 3: return graph_state.x_min;
-        case 4: return graph_state.x_max;
-        case 5: return graph_state.x_scl;
-        case 6: return graph_state.y_min;
-        case 7: return graph_state.y_max;
-        case 8: return graph_state.y_scl;
+        case 0: return gs->t_min;
+        case 1: return gs->t_max;
+        case 2: return gs->t_step;
+        case 3: return gs->x_min;
+        case 4: return gs->x_max;
+        case 5: return gs->x_scl;
+        case 6: return gs->y_min;
+        case 7: return gs->y_max;
+        case 8: return gs->y_scl;
         }
     } else {
         float vals[RANGE_ROW_COUNT_FUNC] = {
-            graph_state.x_min, graph_state.x_max, graph_state.x_scl,
-            graph_state.y_min, graph_state.y_max, graph_state.y_scl,
-            graph_state.x_res
+            gs->x_min, gs->x_max, gs->x_scl,
+            gs->y_min, gs->y_max, gs->y_scl,
+            gs->x_res
         };
         if (field < RANGE_ROW_COUNT_FUNC) return vals[field];
     }
@@ -243,34 +246,35 @@ static void range_commit_field(void)
     if (s_range.len == 0)
         return;
     float val = strtof(s_range.buf, NULL);
-    if (graph_state.param_mode) {
+    const GraphState_t *gs = Graph_GetState();
+    if (gs->param_mode) {
         switch (s_range.field) {
-        case 0: graph_state.t_min = val; break;
-        case 1: graph_state.t_max = val; break;
-        case 2: if (val > 0.0f) graph_state.t_step = val; break;
-        case 3: graph_state.x_min = val; break;
-        case 4: graph_state.x_max = val; break;
-        case 5: if (val > 0.0f) graph_state.x_scl = val; break;
-        case 6: graph_state.y_min = val; break;
-        case 7: graph_state.y_max = val; break;
-        case 8: if (val > 0.0f) graph_state.y_scl = val; break;
+        case 0: Graph_SetParamWindow(val, gs->t_max, gs->t_step); break;
+        case 1: Graph_SetParamWindow(gs->t_min, val, gs->t_step); break;
+        case 2: if (val > 0.0f) Graph_SetParamWindow(gs->t_min, gs->t_max, val); break;
+        case 3: Graph_SetWindow(val, gs->x_max, gs->y_min, gs->y_max, gs->x_scl, gs->y_scl, gs->x_res); break;
+        case 4: Graph_SetWindow(gs->x_min, val, gs->y_min, gs->y_max, gs->x_scl, gs->y_scl, gs->x_res); break;
+        case 5: if (val > 0.0f) Graph_SetWindow(gs->x_min, gs->x_max, gs->y_min, gs->y_max, val, gs->y_scl, gs->x_res); break;
+        case 6: Graph_SetWindow(gs->x_min, gs->x_max, val, gs->y_max, gs->x_scl, gs->y_scl, gs->x_res); break;
+        case 7: Graph_SetWindow(gs->x_min, gs->x_max, gs->y_min, val, gs->x_scl, gs->y_scl, gs->x_res); break;
+        case 8: if (val > 0.0f) Graph_SetWindow(gs->x_min, gs->x_max, gs->y_min, gs->y_max, gs->x_scl, val, gs->x_res); break;
         }
     } else {
         switch (s_range.field) {
-        case 0: graph_state.x_min = val; break;
-        case 1: graph_state.x_max = val; break;
-        case 2: if (val > 0.0f) graph_state.x_scl = val; break;
-        case 3: graph_state.y_min = val; break;
-        case 4: graph_state.y_max = val; break;
-        case 5: if (val > 0.0f) graph_state.y_scl = val; break;
-        case 6: { int32_t iv = (int32_t)val; if (iv >= 1 && iv <= 8) graph_state.x_res = (float)iv; } break;
+        case 0: Graph_SetWindow(val, gs->x_max, gs->y_min, gs->y_max, gs->x_scl, gs->y_scl, gs->x_res); break;
+        case 1: Graph_SetWindow(gs->x_min, val, gs->y_min, gs->y_max, gs->x_scl, gs->y_scl, gs->x_res); break;
+        case 2: if (val > 0.0f) Graph_SetWindow(gs->x_min, gs->x_max, gs->y_min, gs->y_max, val, gs->y_scl, gs->x_res); break;
+        case 3: Graph_SetWindow(gs->x_min, gs->x_max, val, gs->y_max, gs->x_scl, gs->y_scl, gs->x_res); break;
+        case 4: Graph_SetWindow(gs->x_min, gs->x_max, gs->y_min, val, gs->x_scl, gs->y_scl, gs->x_res); break;
+        case 5: if (val > 0.0f) Graph_SetWindow(gs->x_min, gs->x_max, gs->y_min, gs->y_max, gs->x_scl, val, gs->x_res); break;
+        case 6: { int32_t iv = (int32_t)val; if (iv >= 1 && iv <= 8) Graph_SetWindow(gs->x_min, gs->x_max, gs->y_min, gs->y_max, gs->x_scl, gs->y_scl, (float)iv); } break;
         }
     }
 }
 
 static void range_update_highlight(void)
 {
-    uint8_t count = graph_state.param_mode ? RANGE_ROW_COUNT_PARAM : RANGE_ROW_COUNT_FUNC;
+    uint8_t count = Graph_GetState()->param_mode ? RANGE_ROW_COUNT_PARAM : RANGE_ROW_COUNT_FUNC;
     for (uint8_t i = 0; i < count; i++) {
         lv_obj_t *lbl = ui_lbl_range_rows[i];
         if (lbl == NULL) continue;
@@ -287,7 +291,7 @@ static void range_update_highlight(void)
 
 void ui_update_range_display(void)
 {
-    uint8_t count = graph_state.param_mode ? RANGE_ROW_COUNT_PARAM : RANGE_ROW_COUNT_FUNC;
+    uint8_t count = Graph_GetState()->param_mode ? RANGE_ROW_COUNT_PARAM : RANGE_ROW_COUNT_FUNC;
     char row_buf[32];
     char val_buf[16];
     for (int i = 0; i < count; i++) {
@@ -599,7 +603,7 @@ bool handle_range_mode(Token_t t)
 
     case TOKEN_Y_EQUALS:
         range_commit_field();
-        nav_to(graph_state.param_mode ? MODE_GRAPH_PARAM_YEQ : MODE_GRAPH_YEQ);
+        nav_to(Graph_GetState()->param_mode ? MODE_GRAPH_PARAM_YEQ : MODE_GRAPH_YEQ);
         return true;
 
     case TOKEN_TRACE:

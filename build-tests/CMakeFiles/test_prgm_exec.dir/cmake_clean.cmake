@@ -1,6 +1,10 @@
 file(REMOVE_RECURSE
   "CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o"
   "CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o.d"
+  "CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o"
+  "CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o.d"
+  "CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o"
+  "CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o.d"
   "CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o"
   "CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o.d"
   "CMakeFiles/test_prgm_exec.dir/test_prgm_exec.c.o"

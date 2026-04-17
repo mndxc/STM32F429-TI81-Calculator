@@ -153,6 +153,19 @@ test_expr_util/fast:
 .PHONY : test_expr_util/fast
 
 #=============================================================================
+# Target rules for targets named test_expr_buffer
+
+# Build rule for target.
+test_expr_buffer: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_expr_buffer
+.PHONY : test_expr_buffer
+
+# fast build rule for target.
+test_expr_buffer/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/build
+.PHONY : test_expr_buffer/fast
+
+#=============================================================================
 # Target rules for targets named test_persist_roundtrip
 
 # Build rule for target.
@@ -217,6 +230,32 @@ test_stat/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_stat.dir/build.make CMakeFiles/test_stat.dir/build
 .PHONY : test_stat/fast
 
+#=============================================================================
+# Target rules for targets named test_yvars
+
+# Build rule for target.
+test_yvars: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_yvars
+.PHONY : test_yvars
+
+# fast build rule for target.
+test_yvars/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_yvars.dir/build.make CMakeFiles/test_yvars.dir/build
+.PHONY : test_yvars/fast
+
+#=============================================================================
+# Target rules for targets named test_menu_state
+
+# Build rule for target.
+test_menu_state: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_menu_state
+.PHONY : test_menu_state
+
+# fast build rule for target.
+test_menu_state/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_menu_state.dir/build.make CMakeFiles/test_menu_state.dir/build
+.PHONY : test_menu_state/fast
+
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.o
 
@@ -252,6 +291,7 @@ Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_param.dir/build.make CMakeFiles/test_param.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_stat.dir/build.make CMakeFiles/test_stat.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_yvars.dir/build.make CMakeFiles/test_yvars.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o
 
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.i: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
@@ -265,6 +305,7 @@ Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_param.dir/build.make CMakeFiles/test_param.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_stat.dir/build.make CMakeFiles/test_stat.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_yvars.dir/build.make CMakeFiles/test_yvars.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i
 
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.s: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
@@ -278,6 +319,7 @@ Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_param.dir/build.make CMakeFiles/test_param.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_stat.dir/build.make CMakeFiles/test_stat.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_yvars.dir/build.make CMakeFiles/test_yvars.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
 
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.c.o
@@ -328,12 +370,44 @@ Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_co
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_core.c.s
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_core.c.s
 
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.o
+
+# target to build an object file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_prgm_exec.dir/build.make CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.i: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.i
+
+# target to preprocess a source file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_prgm_exec.dir/build.make CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.s: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.s
+
+# target to generate assembly for a file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_prgm_exec.dir/build.make CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.s
+
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.o
 
 # target to build an object file
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_util.dir/build.make CMakeFiles/test_expr_util.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_prgm_exec.dir/build.make CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o
 
@@ -343,6 +417,8 @@ Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.i: 
 # target to preprocess a source file
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_util.dir/build.make CMakeFiles/test_expr_util.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_prgm_exec.dir/build.make CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i
 
@@ -352,8 +428,34 @@ Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.s: 
 # target to generate assembly for a file
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_util.dir/build.make CMakeFiles/test_expr_util.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_prgm_exec.dir/build.make CMakeFiles/test_prgm_exec.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.s
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.s
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.o
+
+# target to build an object file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_menu_state.dir/build.make CMakeFiles/test_menu_state.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.o
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.i: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.i
+
+# target to preprocess a source file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_menu_state.dir/build.make CMakeFiles/test_menu_state.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.i
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.s: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.s
+
+# target to generate assembly for a file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_menu_state.dir/build.make CMakeFiles/test_menu_state.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.c.s
 
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.c.o
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.o
@@ -406,6 +508,54 @@ Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.s
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.s
 
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.o
+
+# target to build an object file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.o
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.i: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.i
+
+# target to preprocess a source file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.i
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.s: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.s
+
+# target to generate assembly for a file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.s
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.o
+
+# target to build an object file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.o
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.i: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.i
+
+# target to preprocess a source file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.i
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.s: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.s
+
+# target to generate assembly for a file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.s
+
 test_calc_engine.o: test_calc_engine.c.o
 .PHONY : test_calc_engine.o
 
@@ -430,6 +580,30 @@ test_calc_engine.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_calc_engine.dir/build.make CMakeFiles/test_calc_engine.dir/test_calc_engine.c.s
 .PHONY : test_calc_engine.c.s
 
+test_expr_buffer.o: test_expr_buffer.c.o
+.PHONY : test_expr_buffer.o
+
+# target to build an object file
+test_expr_buffer.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/test_expr_buffer.c.o
+.PHONY : test_expr_buffer.c.o
+
+test_expr_buffer.i: test_expr_buffer.c.i
+.PHONY : test_expr_buffer.i
+
+# target to preprocess a source file
+test_expr_buffer.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/test_expr_buffer.c.i
+.PHONY : test_expr_buffer.c.i
+
+test_expr_buffer.s: test_expr_buffer.c.s
+.PHONY : test_expr_buffer.s
+
+# target to generate assembly for a file
+test_expr_buffer.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_buffer.dir/build.make CMakeFiles/test_expr_buffer.dir/test_expr_buffer.c.s
+.PHONY : test_expr_buffer.c.s
+
 test_expr_util.o: test_expr_util.c.o
 .PHONY : test_expr_util.o
 
@@ -453,6 +627,30 @@ test_expr_util.s: test_expr_util.c.s
 test_expr_util.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_expr_util.dir/build.make CMakeFiles/test_expr_util.dir/test_expr_util.c.s
 .PHONY : test_expr_util.c.s
+
+test_menu_state.o: test_menu_state.c.o
+.PHONY : test_menu_state.o
+
+# target to build an object file
+test_menu_state.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_menu_state.dir/build.make CMakeFiles/test_menu_state.dir/test_menu_state.c.o
+.PHONY : test_menu_state.c.o
+
+test_menu_state.i: test_menu_state.c.i
+.PHONY : test_menu_state.i
+
+# target to preprocess a source file
+test_menu_state.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_menu_state.dir/build.make CMakeFiles/test_menu_state.dir/test_menu_state.c.i
+.PHONY : test_menu_state.c.i
+
+test_menu_state.s: test_menu_state.c.s
+.PHONY : test_menu_state.s
+
+# target to generate assembly for a file
+test_menu_state.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_menu_state.dir/build.make CMakeFiles/test_menu_state.dir/test_menu_state.c.s
+.PHONY : test_menu_state.c.s
 
 test_normal_mode.o: test_normal_mode.c.o
 .PHONY : test_normal_mode.o
@@ -574,6 +772,30 @@ test_stat.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_stat.dir/build.make CMakeFiles/test_stat.dir/test_stat.c.s
 .PHONY : test_stat.c.s
 
+test_yvars.o: test_yvars.c.o
+.PHONY : test_yvars.o
+
+# target to build an object file
+test_yvars.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_yvars.dir/build.make CMakeFiles/test_yvars.dir/test_yvars.c.o
+.PHONY : test_yvars.c.o
+
+test_yvars.i: test_yvars.c.i
+.PHONY : test_yvars.i
+
+# target to preprocess a source file
+test_yvars.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_yvars.dir/build.make CMakeFiles/test_yvars.dir/test_yvars.c.i
+.PHONY : test_yvars.c.i
+
+test_yvars.s: test_yvars.c.s
+.PHONY : test_yvars.s
+
+# target to generate assembly for a file
+test_yvars.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_yvars.dir/build.make CMakeFiles/test_yvars.dir/test_yvars.c.s
+.PHONY : test_yvars.c.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -584,12 +806,15 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... test"
 	@echo "... test_calc_engine"
+	@echo "... test_expr_buffer"
 	@echo "... test_expr_util"
+	@echo "... test_menu_state"
 	@echo "... test_normal_mode"
 	@echo "... test_param"
 	@echo "... test_persist_roundtrip"
 	@echo "... test_prgm_exec"
 	@echo "... test_stat"
+	@echo "... test_yvars"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.o"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.i"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.s"
@@ -602,21 +827,39 @@ help:
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_core.o"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_core.i"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_core.s"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.o"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.i"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.s"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.o"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.i"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.s"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.o"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.i"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/menu_state.s"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.o"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.i"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/persist.s"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.o"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.i"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.s"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.o"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.i"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.s"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.o"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.i"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.s"
 	@echo "... test_calc_engine.o"
 	@echo "... test_calc_engine.i"
 	@echo "... test_calc_engine.s"
+	@echo "... test_expr_buffer.o"
+	@echo "... test_expr_buffer.i"
+	@echo "... test_expr_buffer.s"
 	@echo "... test_expr_util.o"
 	@echo "... test_expr_util.i"
 	@echo "... test_expr_util.s"
+	@echo "... test_menu_state.o"
+	@echo "... test_menu_state.i"
+	@echo "... test_menu_state.s"
 	@echo "... test_normal_mode.o"
 	@echo "... test_normal_mode.i"
 	@echo "... test_normal_mode.s"
@@ -632,6 +875,9 @@ help:
 	@echo "... test_stat.o"
 	@echo "... test_stat.i"
 	@echo "... test_stat.s"
+	@echo "... test_yvars.o"
+	@echo "... test_yvars.i"
+	@echo "... test_yvars.s"
 .PHONY : help
 
 

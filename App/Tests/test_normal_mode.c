@@ -146,7 +146,7 @@ static void reset_state(void)
     memset(expr.buf, 0, sizeof(expr.buf));
     expr_len   = 0;
     cursor_pos = 0;
-    memset(&g_prgm_store, 0, sizeof(g_prgm_store));
+    for (uint8_t s = 0; s < PRGM_MAX_PROGRAMS; s++) Prgm_ClearSlot(s);
     memset(prgm_edit_lines, 0, sizeof(prgm_edit_lines));
     prgm_edit_num_lines = 0;
 }

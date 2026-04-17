@@ -9,7 +9,7 @@
  * Returns 0 on all pass, 1 on any failure.
  *
  * Testing strategy:
- *   - Programs are loaded into g_prgm_store.bodies[0] (slot 0, ID "1").
+ *   - Programs are loaded into slot 0 (ID "1") via Prgm_SetName/Prgm_SetBody.
  *   - prgm_run_start(0) runs the program synchronously.
  *   - Observables: current_mode, calc_variables[], ans, history_count,
  *     history[].result, history[].expression.
@@ -85,7 +85,7 @@ static void reset_state(void)
     memset(expr.buf, 0, sizeof(expr.buf));
     expr_len   = 0;
     cursor_pos = 0;
-    memset(&g_prgm_store, 0, sizeof(g_prgm_store));
+    for (uint8_t s = 0; s < PRGM_MAX_PROGRAMS; s++) Prgm_ClearSlot(s);
     memset(prgm_edit_lines, 0, sizeof(prgm_edit_lines));
     prgm_edit_num_lines = 0;
 }
@@ -96,9 +96,8 @@ static void reset_state(void)
  */
 static void run_program(const char *body)
 {
-    strncpy(g_prgm_store.names[0], "P", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.bodies[0], body, PRGM_BODY_LEN - 1);
-    g_prgm_store.bodies[0][PRGM_BODY_LEN - 1] = '\0';
+    Prgm_SetName(0, "P");
+    Prgm_SetBody(0, body);
     prgm_run_start(0);
 }
 
@@ -437,16 +436,16 @@ static void test_subroutine(void)
 
     /* 1. Subroutine body executes: sets a variable */
     reset_state();
-    strncpy(g_prgm_store.names[1], "S", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.bodies[1], "7->B", PRGM_BODY_LEN - 1);
+    Prgm_SetName(1, "S");
+    Prgm_SetBody(1, "7->B");
     run_program("prgm2\n9->C");
     CHECK(NEAR(calc_variables['B'-'A'], 7.0f), "call: sub sets B=7");
     CHECK(NEAR(calc_variables['C'-'A'], 9.0f), "call: continues after return");
 
     /* 2. Caller resumes after subroutine finishes */
     reset_state();
-    strncpy(g_prgm_store.names[1], "S", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.bodies[1], "1->B", PRGM_BODY_LEN - 1);
+    Prgm_SetName(1, "S");
+    Prgm_SetBody(1, "1->B");
     run_program("5->A\nprgm2\nA+B->C");
     CHECK(NEAR(calc_variables['C'-'A'], 6.0f), "call: A+B=6 after sub");
 
@@ -458,8 +457,8 @@ static void test_subroutine(void)
 
     /* 4. Subroutine with computation */
     reset_state();
-    strncpy(g_prgm_store.names[1], "S", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.bodies[1], "A*2->A", PRGM_BODY_LEN - 1);
+    Prgm_SetName(1, "S");
+    Prgm_SetBody(1, "A*2->A");
     calc_variables['A'-'A'] = 3.0f;
     run_program("prgm2");
     CHECK(NEAR(calc_variables['A'-'A'], 6.0f), "call: sub doubles A");
@@ -509,7 +508,7 @@ static void test_empty_body(void)
     /* 3. Slot with body but no user name still executes via prgm_run_start */
     reset_state();
     /* names[0] stays empty (not set by run_program helper) */
-    strncpy(g_prgm_store.bodies[0], "5->A", PRGM_BODY_LEN - 1);
+    Prgm_SetBody(0, "5->A");
     prgm_run_start(0);
     CHECK(NEAR(calc_variables['A'-'A'], 5.0f), "no-name: body runs via index");
 }
@@ -522,9 +521,9 @@ static void test_lookup_slot(void)
     printf("Group 16: prgm_lookup_slot\n");
 
     reset_state();
-    strncpy(g_prgm_store.names[0],  "HELLO", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.names[9],  "ZERO",  PRGM_NAME_LEN);
-    strncpy(g_prgm_store.names[10], "ALPHA", PRGM_NAME_LEN);
+    Prgm_SetName(0,  "HELLO");
+    Prgm_SetName(9,  "ZERO");
+    Prgm_SetName(10, "ALPHA");
 
     /* 1. Lookup by user name */
     CHECK(prgm_lookup_slot("HELLO") == 0,  "lookup: name HELLO -> 0");
@@ -561,10 +560,10 @@ static void test_nested_subroutine(void)
 
     /* 1. Two-level chain: main(0) -> mid(1) -> deep(2), all auto-return */
     reset_state();
-    strncpy(g_prgm_store.names[1], "MID",  PRGM_NAME_LEN);
-    strncpy(g_prgm_store.names[2], "DEEP", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.bodies[1], "prgm3\n2->B", PRGM_BODY_LEN - 1);
-    strncpy(g_prgm_store.bodies[2], "1->A",         PRGM_BODY_LEN - 1);
+    Prgm_SetName(1, "MID");
+    Prgm_SetName(2, "DEEP");
+    Prgm_SetBody(1, "prgm3\n2->B");
+    Prgm_SetBody(2, "1->A");
     run_program("prgm2\n3->C");
     CHECK(NEAR(calc_variables['A'-'A'], 1.0f), "2-deep: A=1 from innermost");
     CHECK(NEAR(calc_variables['B'-'A'], 2.0f), "2-deep: B=2 from mid");
@@ -574,16 +573,16 @@ static void test_nested_subroutine(void)
      * Chain: 0->1->2->3->4 (slot 4 tries to call slot 5 at depth=4, no-op).
      * Slot 5 body ("99->E") must NOT run. */
     reset_state();
-    strncpy(g_prgm_store.names[1], "S2", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.names[2], "S3", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.names[3], "S4", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.names[4], "S5", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.names[5], "S6", PRGM_NAME_LEN);
-    strncpy(g_prgm_store.bodies[1], "prgm3",  PRGM_BODY_LEN - 1);
-    strncpy(g_prgm_store.bodies[2], "prgm4",  PRGM_BODY_LEN - 1);
-    strncpy(g_prgm_store.bodies[3], "prgm5",  PRGM_BODY_LEN - 1);
-    strncpy(g_prgm_store.bodies[4], "prgm6",  PRGM_BODY_LEN - 1);
-    strncpy(g_prgm_store.bodies[5], "99->E",  PRGM_BODY_LEN - 1);
+    Prgm_SetName(1, "S2");
+    Prgm_SetName(2, "S3");
+    Prgm_SetName(3, "S4");
+    Prgm_SetName(4, "S5");
+    Prgm_SetName(5, "S6");
+    Prgm_SetBody(1, "prgm3");
+    Prgm_SetBody(2, "prgm4");
+    Prgm_SetBody(3, "prgm5");
+    Prgm_SetBody(4, "prgm6");
+    Prgm_SetBody(5, "99->E");
     run_program("prgm2");
     CHECK(current_mode == MODE_NORMAL, "overflow: no crash on 5-deep call");
     CHECK(NEAR(calc_variables['E'-'A'], 0.0f), "overflow: slot-6 body not executed");
