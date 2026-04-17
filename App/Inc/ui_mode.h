@@ -50,8 +50,11 @@ extern ModeScreenState_t s_mode;
 #ifndef HOST_TEST
 #  include "lvgl.h"
 
-/** LVGL screen object for the MODE overlay (used by hide_all_screens). */
-extern lv_obj_t *ui_mode_screen;
+/**
+ * @brief  Hide the MODE overlay screen. Caller holds lvgl_lock().
+ *         Used by hide_all_screens() in calculator_core.c.
+ */
+void Mode_HideScreen(void);
 
 /**
  * @brief  Create all LVGL objects for the MODE settings screen.

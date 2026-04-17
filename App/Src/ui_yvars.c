@@ -125,6 +125,13 @@ static void yvars_do_enable(uint8_t idx, bool enable)
 }
 
 /*---------------------------------------------------------------------------
+ * Screen show/hide
+ *---------------------------------------------------------------------------*/
+
+void Yvars_ShowScreen(void) { lv_obj_clear_flag(ui_yvars_screen, LV_OBJ_FLAG_HIDDEN); }
+void Yvars_HideScreen(void) { lv_obj_add_flag(ui_yvars_screen,   LV_OBJ_FLAG_HIDDEN); }
+
+/*---------------------------------------------------------------------------
  * UI Initialization
  *---------------------------------------------------------------------------*/
 

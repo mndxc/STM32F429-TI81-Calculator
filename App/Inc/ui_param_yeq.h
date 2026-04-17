@@ -15,8 +15,11 @@
 /** Number of parametric Y= rows (X₁t,Y₁t,X₂t,Y₂t,X₃t,Y₃t). */
 #define PARAM_YEQ_ROW_COUNT 6
 
-/** Screen object — extern so hide_all_screens() and calc_internal.h can reach it. */
-extern lv_obj_t *ui_param_yeq_screen;
+/*---------------------------------------------------------------------------
+ * Screen show/hide API (caller holds lvgl_lock)
+ *---------------------------------------------------------------------------*/
+void ParamYeq_ShowScreen(void);
+void ParamYeq_HideScreen(void);
 
 /** Create all LVGL objects for the parametric Y= screen. Called once from
  *  ui_init_graph_screens() during startup. */

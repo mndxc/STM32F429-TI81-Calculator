@@ -65,6 +65,13 @@ lv_obj_t *ui_draw_screen = NULL;
 static lv_obj_t *draw_item_labels[DRAW_ITEM_COUNT];
 
 /*---------------------------------------------------------------------------
+ * Screen show/hide
+ *---------------------------------------------------------------------------*/
+
+void Draw_ShowScreen(void) { lv_obj_clear_flag(ui_draw_screen, LV_OBJ_FLAG_HIDDEN); }
+void Draw_HideScreen(void) { lv_obj_add_flag(ui_draw_screen,   LV_OBJ_FLAG_HIDDEN); }
+
+/*---------------------------------------------------------------------------
  * UI Initialization
  *---------------------------------------------------------------------------*/
 

@@ -14,12 +14,17 @@
 #include <stdbool.h>
 
 /*---------------------------------------------------------------------------
- * Screen pointers — extern so hide_all_screens() and calc_internal.h
- * can reach them.
+ * Screen show/hide/visibility API (caller holds lvgl_lock)
  *---------------------------------------------------------------------------*/
+void Graph_ShowRangeScreen(void);
+void Graph_HideRangeScreen(void);
+/** Returns true if the RANGE screen is not hidden (NULL-safe). */
+bool Graph_IsRangeScreenVisible(void);
 
-extern lv_obj_t *ui_graph_range_screen;
-extern lv_obj_t *ui_graph_zoom_factors_screen;
+void Graph_ShowZoomFactorsScreen(void);
+void Graph_HideZoomFactorsScreen(void);
+/** Returns true if the ZOOM FACTORS screen is not hidden (NULL-safe). */
+bool Graph_IsZoomFactorsScreenVisible(void);
 
 /*---------------------------------------------------------------------------
  * Initialisation

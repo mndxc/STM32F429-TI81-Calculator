@@ -21,14 +21,20 @@ typedef struct {
 } StatMenuState_t;
 
 /*---------------------------------------------------------------------------
- * Externally visible objects / state
+ * Externally visible state
  *---------------------------------------------------------------------------*/
 
 extern StatMenuState_t stat_menu_state;
 
-extern lv_obj_t *ui_stat_screen;
-extern lv_obj_t *ui_stat_edit_screen;
-extern lv_obj_t *ui_stat_results_screen;
+/*---------------------------------------------------------------------------
+ * Screen show/hide API (caller holds lvgl_lock)
+ *---------------------------------------------------------------------------*/
+void Stat_ShowMenuScreen(void);
+void Stat_HideMenuScreen(void);
+void Stat_ShowEditScreen(void);
+void Stat_HideEditScreen(void);
+void Stat_ShowResultsScreen(void);
+void Stat_HideResultsScreen(void);
 
 /*---------------------------------------------------------------------------
  * Public API

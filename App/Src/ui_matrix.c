@@ -89,6 +89,20 @@ static void matrix_edit_load_cell(void)
 }
 
 /*---------------------------------------------------------------------------
+ * Screen show/hide/visibility
+ *---------------------------------------------------------------------------*/
+
+void Matrix_ShowMenuScreen(void) { lv_obj_clear_flag(ui_matrix_screen,      LV_OBJ_FLAG_HIDDEN); }
+void Matrix_HideMenuScreen(void) { lv_obj_add_flag(ui_matrix_screen,        LV_OBJ_FLAG_HIDDEN); }
+void Matrix_ShowEditScreen(void) { lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN); }
+void Matrix_HideEditScreen(void) { lv_obj_add_flag(ui_matrix_edit_screen,   LV_OBJ_FLAG_HIDDEN); }
+bool Matrix_IsEditScreenVisible(void)
+{
+    return ui_matrix_edit_screen != NULL &&
+           !lv_obj_has_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+}
+
+/*---------------------------------------------------------------------------
  * UI Initialization
  *---------------------------------------------------------------------------*/
 void ui_init_matrix_screen(void)

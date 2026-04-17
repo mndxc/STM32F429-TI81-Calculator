@@ -76,7 +76,7 @@ Run these after **every** task before moving on. They are the same every time.
 | T1  | Graph state accessor layer               | 1    | [x]    |
 | T2  | `g_prgm_store` accessor API              | 1    | [x]    |
 | T3  | ANS getter/setter                        | 1    | [x]    |
-| T4  | LVGL screen show/hide API                | 2    | [ ]    |
+| T4  | LVGL screen show/hide API                | 2    | [x]    |
 | T5  | Mode transition via `Calc_SetMode()`     | 2    | [ ]    |
 | T6  | `menu_open`/`menu_close` module delegation | 2  | [ ]    |
 | T7  | `Execute_Token` dispatch table           | 3    | [ ]    |

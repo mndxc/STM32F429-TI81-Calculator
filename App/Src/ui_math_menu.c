@@ -50,7 +50,7 @@ typedef struct {
  * Private variables — MATH menu
  *---------------------------------------------------------------------------*/
 
-lv_obj_t *ui_math_screen = NULL;
+static lv_obj_t *ui_math_screen = NULL;
 static MathMenuState_t s_math = {0};
 static lv_obj_t *math_tab_labels[MATH_TAB_COUNT];
 static lv_obj_t *math_item_labels[MENU_VISIBLE_ROWS];
@@ -99,7 +99,8 @@ static const MenuItem_t math_menu_items[MATH_TAB_COUNT][8] = {
  * Private variables — TEST menu
  *---------------------------------------------------------------------------*/
 
-lv_obj_t  *ui_test_screen = NULL;
+/* Screen pointer — private; accessed externally via Test_ShowScreen() / Test_HideScreen() */
+static lv_obj_t *ui_test_screen = NULL;
 static TestMenuState_t s_test = {0};
 static lv_obj_t  *test_title_label                  = NULL;
 static lv_obj_t  *test_item_labels[TEST_ITEM_COUNT];
@@ -114,6 +115,15 @@ static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
 };
 
 #ifndef HOST_TEST
+
+/*---------------------------------------------------------------------------
+ * Screen show/hide
+ *---------------------------------------------------------------------------*/
+
+void Math_ShowScreen(void) { lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN); }
+void Math_HideScreen(void) { lv_obj_add_flag(ui_math_screen,   LV_OBJ_FLAG_HIDDEN); }
+void Test_ShowScreen(void) { lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN); }
+void Test_HideScreen(void) { lv_obj_add_flag(ui_test_screen,   LV_OBJ_FLAG_HIDDEN); }
 
 /*---------------------------------------------------------------------------
  * Screen initialisation

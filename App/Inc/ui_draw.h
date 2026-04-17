@@ -24,11 +24,16 @@ typedef struct {
 } DrawMenuState_t;
 
 /*---------------------------------------------------------------------------
- * Externally visible objects / state
+ * Externally visible state
  *---------------------------------------------------------------------------*/
 
 extern DrawMenuState_t draw_menu_state;
-extern lv_obj_t *ui_draw_screen;
+
+/*---------------------------------------------------------------------------
+ * Screen show/hide API (caller holds lvgl_lock)
+ *---------------------------------------------------------------------------*/
+void Draw_ShowScreen(void);
+void Draw_HideScreen(void);
 
 /*---------------------------------------------------------------------------
  * Public API

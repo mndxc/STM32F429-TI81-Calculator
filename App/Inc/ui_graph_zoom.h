@@ -15,11 +15,10 @@
 #include <stdbool.h>
 
 /*---------------------------------------------------------------------------
- * Screen pointer — extern so hide_all_screens() and calc_internal.h
- * can reach it.
+ * Screen show/hide API (caller holds lvgl_lock)
  *---------------------------------------------------------------------------*/
-
-extern lv_obj_t *ui_graph_zoom_screen;
+void Zoom_ShowScreen(void);
+void Zoom_HideScreen(void);
 
 /*---------------------------------------------------------------------------
  * Initialisation

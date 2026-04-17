@@ -814,17 +814,13 @@ static void cursor_timer_cb(lv_timer_t *timer)
     ui_refresh_display();
     /* Blink the overlay-screen cursor based on visibility, not current_mode,
      * so it keeps blinking during transient modifier modes (MODE_2ND/ALPHA). */
-    if (ui_graph_yeq_screen != NULL &&
-        !lv_obj_has_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN))
+    if (Graph_IsYeqScreenVisible())
         yeq_cursor_update();
-    else if (ui_graph_range_screen != NULL &&
-             !lv_obj_has_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN))
+    else if (Graph_IsRangeScreenVisible())
         range_cursor_update();
-    else if (ui_graph_zoom_factors_screen != NULL &&
-             !lv_obj_has_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN))
+    else if (Graph_IsZoomFactorsScreenVisible())
         zoom_factors_cursor_update();
-    else if (ui_matrix_edit_screen != NULL &&
-             !lv_obj_has_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN))
+    else if (Matrix_IsEditScreenVisible())
         matrix_edit_cursor_update();
     else if (ui_prgm_editor_screen != NULL && !lv_obj_has_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN))
         prgm_editor_cursor_update();
@@ -842,17 +838,13 @@ void ui_update_status_bar(void)
 {
     cursor_visible = true;
     ui_refresh_display();
-    if (ui_graph_yeq_screen != NULL &&
-        !lv_obj_has_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN))
+    if (Graph_IsYeqScreenVisible())
         yeq_cursor_update();
-    else if (ui_graph_range_screen != NULL &&
-             !lv_obj_has_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN))
+    else if (Graph_IsRangeScreenVisible())
         range_cursor_update();
-    else if (ui_graph_zoom_factors_screen != NULL &&
-             !lv_obj_has_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN))
+    else if (Graph_IsZoomFactorsScreenVisible())
         zoom_factors_cursor_update();
-    else if (ui_matrix_edit_screen != NULL &&
-             !lv_obj_has_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN))
+    else if (Matrix_IsEditScreenVisible())
         matrix_edit_cursor_update();
     else if (ui_prgm_editor_screen != NULL && !lv_obj_has_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN))
         prgm_editor_cursor_update();
@@ -929,22 +921,22 @@ void menu_insert_text(const char *ins, CalcMode_t *ret_mode)
  * Must be called inside lvgl_lock(). */
 void hide_all_screens(void)
 {
-    lv_obj_add_flag(ui_graph_yeq_screen,         LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_param_yeq_screen,         LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_graph_range_screen,        LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_graph_zoom_screen,         LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_mode_screen,               LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_math_screen,               LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_test_screen,               LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_matrix_screen,             LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_matrix_edit_screen,        LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_stat_screen,               LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_stat_edit_screen,          LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_stat_results_screen,       LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_draw_screen,               LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_vars_screen,               LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_yvars_screen,              LV_OBJ_FLAG_HIDDEN);
+    Graph_HideYeqScreen();
+    ParamYeq_HideScreen();
+    Graph_HideRangeScreen();
+    Zoom_HideScreen();
+    Graph_HideZoomFactorsScreen();
+    Mode_HideScreen();
+    Math_HideScreen();
+    Test_HideScreen();
+    Matrix_HideMenuScreen();
+    Matrix_HideEditScreen();
+    Stat_HideMenuScreen();
+    Stat_HideEditScreen();
+    Stat_HideResultsScreen();
+    Draw_HideScreen();
+    Vars_HideScreen();
+    Yvars_HideScreen();
     hide_prgm_screens();
     Graph_SetVisible(false);
 }
@@ -968,7 +960,7 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
         matrix_menu_state.tab         = 0;
         matrix_menu_state.item_cursor = 0;
         current_mode       = MODE_MATRIX_MENU;
-        lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+        Matrix_ShowMenuScreen();
         ui_update_matrix_display();
         break;
     case TOKEN_PRGM:
@@ -979,14 +971,14 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
         stat_menu_state.tab          = 0;
         stat_menu_state.item_cursor  = 0;
         current_mode = MODE_STAT_MENU;
-        lv_obj_clear_flag(ui_stat_screen, LV_OBJ_FLAG_HIDDEN);
+        Stat_ShowMenuScreen();
         ui_update_stat_display();
         break;
     case TOKEN_DRAW:
         draw_menu_state.return_mode  = return_to;
         draw_menu_state.item_cursor  = 0;
         current_mode = MODE_DRAW_MENU;
-        lv_obj_clear_flag(ui_draw_screen, LV_OBJ_FLAG_HIDDEN);
+        Draw_ShowScreen();
         ui_update_draw_display();
         break;
     case TOKEN_VARS:
@@ -995,7 +987,7 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
         vars_menu_state.cursor      = 0;
         vars_menu_state.scroll      = 0;
         current_mode = MODE_VARS_MENU;
-        lv_obj_clear_flag(ui_vars_screen, LV_OBJ_FLAG_HIDDEN);
+        Vars_ShowScreen();
         ui_update_vars_display();
         break;
     case TOKEN_Y_VARS:
@@ -1003,7 +995,7 @@ void menu_open(Token_t menu_token, CalcMode_t return_to)
         yvars_menu_state.tab         = 0;
         yvars_menu_state.item_cursor = 0;
         current_mode = MODE_YVARS_MENU;
-        lv_obj_clear_flag(ui_yvars_screen, LV_OBJ_FLAG_HIDDEN);
+        Yvars_ShowScreen();
         ui_update_yvars_display();
         break;
     default:
@@ -1064,18 +1056,18 @@ CalcMode_t menu_close(Token_t menu_token)
     }
     current_mode = ret;
     lvgl_lock();
-    lv_obj_add_flag(ui_math_screen,          LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_test_screen,          LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_matrix_screen,        LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_stat_screen,          LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_stat_edit_screen,     LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_stat_results_screen,  LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_draw_screen,          LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_vars_screen,          LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_yvars_screen,         LV_OBJ_FLAG_HIDDEN);
+    Math_HideScreen();
+    Test_HideScreen();
+    Matrix_HideMenuScreen();
+    Stat_HideMenuScreen();
+    Stat_HideEditScreen();
+    Stat_HideResultsScreen();
+    Draw_HideScreen();
+    Vars_HideScreen();
+    Yvars_HideScreen();
     hide_prgm_screens();
     if (ret == MODE_GRAPH_YEQ)
-        lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+        Graph_ShowYeqScreen();
     lvgl_unlock();
     return ret;
 }

@@ -32,11 +32,16 @@ typedef struct {
 } YVarsMenuState_t;
 
 /*---------------------------------------------------------------------------
- * Externally visible objects / state
+ * Externally visible state
  *---------------------------------------------------------------------------*/
 
 extern YVarsMenuState_t yvars_menu_state;
-extern lv_obj_t        *ui_yvars_screen;
+
+/*---------------------------------------------------------------------------
+ * Screen show/hide API (caller holds lvgl_lock)
+ *---------------------------------------------------------------------------*/
+void Yvars_ShowScreen(void);
+void Yvars_HideScreen(void);
 
 /*---------------------------------------------------------------------------
  * Public API

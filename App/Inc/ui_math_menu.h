@@ -14,12 +14,12 @@
 #include "lvgl.h"
 
 /*---------------------------------------------------------------------------
- * Externally visible screen objects
- * Referenced by hide_all_screens() and menu_close() in calculator_core.c.
+ * Screen show/hide API (caller holds lvgl_lock)
  *---------------------------------------------------------------------------*/
-
-extern lv_obj_t *ui_math_screen;
-extern lv_obj_t *ui_test_screen;
+void Math_ShowScreen(void);
+void Math_HideScreen(void);
+void Test_ShowScreen(void);
+void Test_HideScreen(void);
 
 /*---------------------------------------------------------------------------
  * Public API

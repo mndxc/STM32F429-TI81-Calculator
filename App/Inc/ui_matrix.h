@@ -16,6 +16,14 @@ typedef struct {
 
 extern MatrixMenuState_t matrix_menu_state;
 
+/* Screen show/hide/visibility API (caller holds lvgl_lock) */
+void Matrix_ShowMenuScreen(void);
+void Matrix_HideMenuScreen(void);
+void Matrix_ShowEditScreen(void);
+void Matrix_HideEditScreen(void);
+/** Returns true if the matrix edit screen is not hidden (NULL-safe). */
+bool Matrix_IsEditScreenVisible(void);
+
 /* UI Initialization */
 void ui_init_matrix_screen(void);
 

@@ -261,6 +261,13 @@ static void vars_do_insert(uint8_t tab, uint8_t item)
 }
 
 /*---------------------------------------------------------------------------
+ * Screen show/hide
+ *---------------------------------------------------------------------------*/
+
+void Vars_ShowScreen(void) { lv_obj_clear_flag(ui_vars_screen, LV_OBJ_FLAG_HIDDEN); }
+void Vars_HideScreen(void) { lv_obj_add_flag(ui_vars_screen,   LV_OBJ_FLAG_HIDDEN); }
+
+/*---------------------------------------------------------------------------
  * UI Initialization
  *---------------------------------------------------------------------------*/
 

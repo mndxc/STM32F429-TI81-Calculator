@@ -49,8 +49,8 @@ typedef struct {
  * LVGL object pointers — screen pointers are non-static (extern in headers)
  *---------------------------------------------------------------------------*/
 
-/* Screen pointer — non-static so hide_all_screens() and menu_close() can reach it */
-lv_obj_t *ui_graph_yeq_screen          = NULL;
+/* Screen pointer — private to graph_ui.c; accessed externally via Graph_*YeqScreen() */
+static lv_obj_t *ui_graph_yeq_screen   = NULL;
 /* ui_graph_zoom_screen defined in ui_graph_zoom.c */
 /* ui_graph_range_screen and ui_graph_zoom_factors_screen defined in graph_ui_range.c */
 
@@ -80,6 +80,18 @@ static ZBoxState_t        s_zbox  = { .px = GRAPH_W / 2, .py = GRAPH_H / 2 };
 static bool yeq_cursor_move(Token_t t);
 static bool yeq_row_switch(Token_t t);
 static void yeq_del_at_cursor(void);
+
+/*---------------------------------------------------------------------------
+ * Screen show/hide/visibility
+ *---------------------------------------------------------------------------*/
+
+void Graph_ShowYeqScreen(void) { lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN); }
+void Graph_HideYeqScreen(void) { lv_obj_add_flag(ui_graph_yeq_screen,   LV_OBJ_FLAG_HIDDEN); }
+bool Graph_IsYeqScreenVisible(void)
+{
+    return ui_graph_yeq_screen != NULL &&
+           !lv_obj_has_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN);
+}
 
 /*---------------------------------------------------------------------------
  * Initialisation helpers (one per screen)
@@ -244,7 +256,7 @@ void zoom_enter_zbox(void)
     s_zbox.px = GRAPH_W / 2; s_zbox.py = GRAPH_H / 2; s_zbox.corner1_set = false;
     current_mode = MODE_GRAPH_ZBOX;
     lvgl_lock();
-    lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+    Zoom_HideScreen();
     Graph_SetVisible(true);
     Graph_DrawZBox(s_zbox.px, s_zbox.py, 0, 0, false, angle_degrees);
     lvgl_unlock();
@@ -336,7 +348,7 @@ void nav_to(CalcMode_t target)
     case MODE_GRAPH_ZOOM:
         Graph_SetActive(false);
         zoom_menu_reset();
-        lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        Zoom_ShowScreen();
         ui_update_zoom_display();
         break;
 

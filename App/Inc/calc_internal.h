@@ -63,17 +63,6 @@ extern bool sto_pending;
 /* Menu visible rows constant */
 #define MENU_VISIBLE_ROWS 7
 
-/* Main Display / Screens */
-extern lv_obj_t *ui_matrix_screen;
-extern lv_obj_t *ui_matrix_edit_screen;
-
-/* Graph screen pointers */
-extern lv_obj_t *ui_graph_yeq_screen;          /* defined in graph_ui.c */
-extern lv_obj_t *ui_graph_range_screen;        /* defined in graph_ui_range.c */
-extern lv_obj_t *ui_graph_zoom_screen;         /* defined in ui_graph_zoom.c */
-extern lv_obj_t *ui_graph_zoom_factors_screen; /* defined in graph_ui_range.c */
-extern lv_obj_t *ui_param_yeq_screen;          /* defined in ui_param_yeq.c */
-
 /* Shared UI functions */
 void cursor_render(lv_obj_t *box, lv_obj_t *inner, lv_obj_t *parent_label,
                    uint32_t glyph_pos, bool visible, CalcMode_t mode, bool insert);

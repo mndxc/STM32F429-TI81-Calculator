@@ -282,6 +282,11 @@ typedef struct {
 
 extern MatrixMenuState_t matrix_menu_state;
 
+static inline void Matrix_ShowMenuScreen(void)   {}
+static inline void Matrix_HideMenuScreen(void)   {}
+static inline void Matrix_ShowEditScreen(void)   {}
+static inline void Matrix_HideEditScreen(void)   {}
+static inline bool Matrix_IsEditScreenVisible(void) { return false; }
 static inline void ui_init_matrix_screen(void)             {}
 static inline void ui_update_matrix_display(void)         {}
 static inline void ui_update_matrix_edit_display(void)    {}
@@ -304,6 +309,12 @@ extern StatMenuState_t stat_menu_state;
 
 /* stat_data and stat_results are extern in app_common.h; defined in test_normal_mode.c */
 
+static inline void Stat_ShowMenuScreen(void)    {}
+static inline void Stat_HideMenuScreen(void)    {}
+static inline void Stat_ShowEditScreen(void)    {}
+static inline void Stat_HideEditScreen(void)    {}
+static inline void Stat_ShowResultsScreen(void) {}
+static inline void Stat_HideResultsScreen(void) {}
 static inline void ui_init_stat_screen(void)           {}
 static inline void ui_init_stat_edit_screen(void)      {}
 static inline void ui_init_stat_results_screen(void)   {}
@@ -324,6 +335,8 @@ static inline bool handle_stat_results(Token_t t) { (void)t; return false; }
 
 extern MenuState_t vars_menu_state;
 
+static inline void Vars_ShowScreen(void) {}
+static inline void Vars_HideScreen(void) {}
 static inline void ui_init_vars_screen(void)        {}
 static inline void ui_update_vars_display(void)     {}
 static inline bool handle_vars_menu(Token_t t)
@@ -341,6 +354,8 @@ typedef struct {
 
 extern YVarsMenuState_t yvars_menu_state;
 
+static inline void Yvars_ShowScreen(void) {}
+static inline void Yvars_HideScreen(void) {}
 static inline void ui_init_yvars_screen(void)       {}
 static inline void ui_update_yvars_display(void)    {}
 static inline bool handle_yvars_menu(Token_t t)
@@ -350,9 +365,10 @@ static inline bool handle_yvars_menu(Token_t t)
  * ui_math_menu.h replacement
  *---------------------------------------------------------------------------*/
 
-extern lv_obj_t *ui_math_screen;
-extern lv_obj_t *ui_test_screen;
-
+static inline void Math_ShowScreen(void) {}
+static inline void Math_HideScreen(void) {}
+static inline void Test_ShowScreen(void) {}
+static inline void Test_HideScreen(void) {}
 static inline void ui_init_math_screen(void)         {}
 static inline void ui_init_test_screen(void)         {}
 static inline void ui_update_math_display(void)      {}
@@ -375,6 +391,8 @@ typedef struct {
 
 extern DrawMenuState_t draw_menu_state;
 
+static inline void Draw_ShowScreen(void) {}
+static inline void Draw_HideScreen(void) {}
 static inline void ui_init_draw_screen(void)         {}
 static inline void ui_update_draw_display(void)      {}
 static inline bool handle_draw_menu(Token_t t)       { (void)t; return false; }
@@ -483,6 +501,7 @@ static inline void ui_mode_init(void)            {}
 static inline void ui_mode_open(void)            { current_mode = MODE_MODE_SCREEN; }
 static inline void ui_update_mode_display(void)  {}
 static inline bool handle_mode_screen(Token_t t) { (void)t; return false; }
+/* Mode_HideScreen stub is in the graph.h replacement section above */
 
 /*---------------------------------------------------------------------------
  * graph.h replacement
@@ -493,6 +512,22 @@ static inline void Graph_InvalidateCache(void)               {}
 static inline void Graph_DrawScatter(const StatData_t *d)    { (void)d; }
 static inline void Graph_DrawXYLine(const StatData_t *d)     { (void)d; }
 static inline void Graph_DrawHistogram(const StatData_t *d)  { (void)d; }
+
+/* graph_ui.h / graph_ui_range.h / ui_graph_zoom.h / ui_param_yeq.h / ui_mode.h show/hide stubs */
+static inline void Graph_ShowYeqScreen(void)          {}
+static inline void Graph_HideYeqScreen(void)          {}
+static inline bool Graph_IsYeqScreenVisible(void)     { return false; }
+static inline void Graph_ShowRangeScreen(void)        {}
+static inline void Graph_HideRangeScreen(void)        {}
+static inline bool Graph_IsRangeScreenVisible(void)   { return false; }
+static inline void Graph_ShowZoomFactorsScreen(void)  {}
+static inline void Graph_HideZoomFactorsScreen(void)  {}
+static inline bool Graph_IsZoomFactorsScreenVisible(void) { return false; }
+static inline void Zoom_ShowScreen(void)              {}
+static inline void Zoom_HideScreen(void)              {}
+static inline void ParamYeq_ShowScreen(void)          {}
+static inline void ParamYeq_HideScreen(void)          {}
+static inline void Mode_HideScreen(void)              {}
 
 /* graph_ui.h — parametric handler stub */
 static inline bool handle_param_yeq_mode(Token_t t) { (void)t; return false; }

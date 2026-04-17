@@ -15,7 +15,8 @@
 #include "graph_ui_range.h"
 #include "calc_internal.h"
 #include "graph.h"
-#include "graph_ui.h"       /* zoom_menu_reset(), ui_graph_zoom_screen */
+#include "graph_ui.h"       /* zoom_menu_reset() */
+#include "ui_graph_zoom.h"  /* Zoom_ShowScreen() */
 #include "ui_graph_zoom.h"  /* ui_update_zoom_display() */
 #include "ui_palette.h"
 #include "lvgl.h"
@@ -73,8 +74,9 @@ static const char * const *range_field_names = range_field_names_func;
  * LVGL object pointers
  *---------------------------------------------------------------------------*/
 
-lv_obj_t *ui_graph_range_screen        = NULL;
-lv_obj_t *ui_graph_zoom_factors_screen = NULL;
+/* Screen pointers — private; accessed externally via Graph_*RangeScreen() / Graph_*ZoomFactorsScreen() */
+static lv_obj_t *ui_graph_range_screen        = NULL;
+static lv_obj_t *ui_graph_zoom_factors_screen = NULL;
 
 /* RANGE editor labels and cursor — 9 rows max (7 func, 9 param) */
 static lv_obj_t *ui_lbl_range_rows[RANGE_ROW_COUNT_PARAM];
@@ -101,6 +103,25 @@ static float range_field_value(uint8_t field);
 static void zoom_factors_reset(void);
 static void zoom_factors_load_field(void);
 static void zoom_factors_update_highlight(void);
+
+/*---------------------------------------------------------------------------
+ * Screen show/hide/visibility
+ *---------------------------------------------------------------------------*/
+
+void Graph_ShowRangeScreen(void) { lv_obj_clear_flag(ui_graph_range_screen,        LV_OBJ_FLAG_HIDDEN); }
+void Graph_HideRangeScreen(void) { lv_obj_add_flag(ui_graph_range_screen,          LV_OBJ_FLAG_HIDDEN); }
+bool Graph_IsRangeScreenVisible(void)
+{
+    return ui_graph_range_screen != NULL &&
+           !lv_obj_has_flag(ui_graph_range_screen, LV_OBJ_FLAG_HIDDEN);
+}
+void Graph_ShowZoomFactorsScreen(void) { lv_obj_clear_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN); }
+void Graph_HideZoomFactorsScreen(void) { lv_obj_add_flag(ui_graph_zoom_factors_screen,   LV_OBJ_FLAG_HIDDEN); }
+bool Graph_IsZoomFactorsScreenVisible(void)
+{
+    return ui_graph_zoom_factors_screen != NULL &&
+           !lv_obj_has_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
+}
 
 /*---------------------------------------------------------------------------
  * Initialisation helpers
@@ -663,7 +684,7 @@ bool handle_zoom_factors_mode(Token_t t)
         current_mode = MODE_GRAPH_ZOOM;
         lvgl_lock();
         hide_all_screens();
-        lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+        Zoom_ShowScreen();
         ui_update_zoom_display();
         lvgl_unlock();
         return true;
@@ -682,8 +703,8 @@ bool handle_zoom_factors_mode(Token_t t)
             current_mode = MODE_GRAPH_ZOOM;
             zoom_menu_reset();
             lvgl_lock();
-            lv_obj_add_flag(ui_graph_zoom_factors_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+            Graph_HideZoomFactorsScreen();
+            Zoom_ShowScreen();
             ui_update_zoom_display();
             lvgl_unlock();
         }

@@ -177,6 +177,17 @@ static void stat_run_draw(uint8_t item)
 }
 
 /*---------------------------------------------------------------------------
+ * Screen show/hide
+ *---------------------------------------------------------------------------*/
+
+void Stat_ShowMenuScreen(void)    { lv_obj_clear_flag(ui_stat_screen,         LV_OBJ_FLAG_HIDDEN); }
+void Stat_HideMenuScreen(void)    { lv_obj_add_flag(ui_stat_screen,           LV_OBJ_FLAG_HIDDEN); }
+void Stat_ShowEditScreen(void)    { lv_obj_clear_flag(ui_stat_edit_screen,    LV_OBJ_FLAG_HIDDEN); }
+void Stat_HideEditScreen(void)    { lv_obj_add_flag(ui_stat_edit_screen,      LV_OBJ_FLAG_HIDDEN); }
+void Stat_ShowResultsScreen(void) { lv_obj_clear_flag(ui_stat_results_screen, LV_OBJ_FLAG_HIDDEN); }
+void Stat_HideResultsScreen(void) { lv_obj_add_flag(ui_stat_results_screen,   LV_OBJ_FLAG_HIDDEN); }
+
+/*---------------------------------------------------------------------------
  * UI Initialization
  *---------------------------------------------------------------------------*/
 

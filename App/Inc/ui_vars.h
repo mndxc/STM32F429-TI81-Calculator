@@ -25,11 +25,16 @@
 #include "lvgl.h"
 
 /*---------------------------------------------------------------------------
- * Externally visible objects / state
+ * Externally visible state
  *---------------------------------------------------------------------------*/
 
 extern MenuState_t vars_menu_state;
-extern lv_obj_t   *ui_vars_screen;
+
+/*---------------------------------------------------------------------------
+ * Screen show/hide API (caller holds lvgl_lock)
+ *---------------------------------------------------------------------------*/
+void Vars_ShowScreen(void);
+void Vars_HideScreen(void);
 
 /*---------------------------------------------------------------------------
  * Public API

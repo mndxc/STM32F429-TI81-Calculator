@@ -31,7 +31,8 @@ typedef struct {
  * Private state and LVGL objects
  *--------------------------------------------------------------------------*/
 
-lv_obj_t *ui_param_yeq_screen          = NULL;
+/* Screen pointer — private; accessed externally via ParamYeq_ShowScreen() / ParamYeq_HideScreen() */
+static lv_obj_t *ui_param_yeq_screen   = NULL;
 
 static lv_obj_t *ui_lbl_param_name[PARAM_YEQ_ROW_COUNT];
 static lv_obj_t *ui_lbl_param_equal[PARAM_YEQ_ROW_COUNT];
@@ -95,6 +96,13 @@ static void param_yeq_del_at_cursor(void)
     param_yeq_cursor_update();
     lvgl_unlock();
 }
+
+/*---------------------------------------------------------------------------
+ * Screen show/hide
+ *---------------------------------------------------------------------------*/
+
+void ParamYeq_ShowScreen(void) { lv_obj_clear_flag(ui_param_yeq_screen, LV_OBJ_FLAG_HIDDEN); }
+void ParamYeq_HideScreen(void) { lv_obj_add_flag(ui_param_yeq_screen,   LV_OBJ_FLAG_HIDDEN); }
 
 /*---------------------------------------------------------------------------
  * Public API

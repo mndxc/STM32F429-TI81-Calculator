@@ -45,8 +45,8 @@ typedef struct {
  * LVGL object pointers
  *---------------------------------------------------------------------------*/
 
-/* Screen pointer — non-static so hide_all_screens() and menu_close() can reach it */
-lv_obj_t *ui_graph_zoom_screen = NULL;
+/* Screen pointer — private; accessed externally via Zoom_ShowScreen() / Zoom_HideScreen() */
+static lv_obj_t *ui_graph_zoom_screen = NULL;
 
 /* ZOOM menu labels */
 static lv_obj_t *zoom_item_labels[MENU_VISIBLE_ROWS];
@@ -57,6 +57,13 @@ static lv_obj_t *zoom_scroll_ind[2];   /* [0]=top(↑), [1]=bottom(↓) */
  *---------------------------------------------------------------------------*/
 
 static ZoomMenuState_t s_zoom = {0};
+
+/*---------------------------------------------------------------------------
+ * Screen show/hide
+ *---------------------------------------------------------------------------*/
+
+void Zoom_ShowScreen(void) { lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN); }
+void Zoom_HideScreen(void) { lv_obj_add_flag(ui_graph_zoom_screen,   LV_OBJ_FLAG_HIDDEN); }
 
 /*---------------------------------------------------------------------------
  * Initialisation

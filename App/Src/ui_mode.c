@@ -44,9 +44,9 @@ ModeScreenState_t s_mode = {
     .committed = {0, 0, 1, 0, 0, 0, 0, 0},
 };
 
-/* ui_mode_screen: lv_obj_t* is defined in both builds — lv_obj_t is provided
- * by lvgl.h (firmware) or calculator_core_test_stubs.h (host test). */
-lv_obj_t *ui_mode_screen = NULL;
+/* Screen pointer — private; accessed externally via Mode_HideScreen().
+ * lv_obj_t is provided by lvgl.h (firmware) or calculator_core_test_stubs.h (host test). */
+static lv_obj_t *ui_mode_screen = NULL;
 
 #ifndef HOST_TEST
 
@@ -85,6 +85,8 @@ static lv_obj_t *mode_option_labels[MODE_ROW_COUNT][MODE_MAX_COLS];
 /*---------------------------------------------------------------------------
  * Public API
  *---------------------------------------------------------------------------*/
+
+void Mode_HideScreen(void) { lv_obj_add_flag(ui_mode_screen, LV_OBJ_FLAG_HIDDEN); }
 
 /**
  * @brief Create all LVGL objects for the MODE settings screen.

@@ -21,12 +21,12 @@
 #include <stdbool.h>
 
 /*---------------------------------------------------------------------------
- * Screen pointers (also declared as extern in calc_internal.h so that
- * hide_all_screens() and menu_close() in calculator_core.c can reach them)
+ * Screen show/hide/visibility API (caller holds lvgl_lock)
  *---------------------------------------------------------------------------*/
-extern lv_obj_t *ui_graph_yeq_screen;
-/* ui_graph_zoom_screen declared in ui_graph_zoom.h */
-extern lv_obj_t *ui_param_yeq_screen;
+void Graph_ShowYeqScreen(void);
+void Graph_HideYeqScreen(void);
+/** Returns true if the Y= screen is not hidden (NULL-safe). */
+bool Graph_IsYeqScreenVisible(void);
 
 /*---------------------------------------------------------------------------
  * Initialisation
