@@ -82,7 +82,7 @@ lv_obj_t *ui_test_screen = NULL;
 
 /* DRAW screen pointer and state (normally owned by ui_draw.c) */
 lv_obj_t *ui_draw_screen = NULL;
-DrawMenuState_t draw_menu_state = {0, MODE_NORMAL};
+MenuState_t draw_menu_state = {0};
 
 /* VARS screen pointer and state (normally owned by ui_vars.c) */
 lv_obj_t *ui_vars_screen = NULL;

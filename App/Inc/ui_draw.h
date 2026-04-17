@@ -13,21 +13,15 @@
 
 #include "app_common.h"
 #include "lvgl.h"
+#include "menu_state.h"
 
-/*---------------------------------------------------------------------------
- * Menu navigation state
- *---------------------------------------------------------------------------*/
-
-typedef struct {
-    uint8_t    item_cursor;  /* Highlighted row (0-based) */
-    CalcMode_t return_mode;  /* Mode to restore when the menu is closed */
-} DrawMenuState_t;
+/* DrawMenuState_t replaced by shared MenuState_t. */
 
 /*---------------------------------------------------------------------------
  * Externally visible state
  *---------------------------------------------------------------------------*/
 
-extern DrawMenuState_t draw_menu_state;
+extern MenuState_t draw_menu_state;
 
 /*---------------------------------------------------------------------------
  * Screen show/hide API (caller holds lvgl_lock)

@@ -361,12 +361,9 @@ static inline CalcMode_t test_menu_close(void)       { return MODE_NORMAL; }
  * ui_draw.h replacement
  *---------------------------------------------------------------------------*/
 
-typedef struct {
-    uint8_t    item_cursor;
-    CalcMode_t return_mode;
-} DrawMenuState_t;
+/* DrawMenuState_t replaced by shared MenuState_t. */
 
-extern DrawMenuState_t draw_menu_state;
+extern MenuState_t draw_menu_state;
 
 static inline void Draw_ShowScreen(void) {}
 static inline void Draw_HideScreen(void) {}

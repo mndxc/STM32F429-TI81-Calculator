@@ -15,9 +15,6 @@
  * from there) to complete the argument list before pressing ENTER.
  */
 
-/* TODO: Navigation state uses bespoke variables. Migrate to MenuState_t from
- * menu_state.h — see INTERFACE_REFACTOR_PLAN.md Item 3 (ui_vars.c proof-of-concept). */
-
 #include "ui_draw.h"
 #include "calc_internal.h"
 #include "graph.h"
@@ -57,7 +54,7 @@ static const char * const draw_item_insert[DRAW_ITEM_COUNT] = {
  * Module state
  *---------------------------------------------------------------------------*/
 
-DrawMenuState_t draw_menu_state = {0, MODE_NORMAL};
+MenuState_t draw_menu_state = {0};
 
 lv_obj_t *ui_draw_screen = NULL;
 
@@ -106,7 +103,7 @@ void ui_update_draw_display(void)
 {
     for (int i = 0; i < DRAW_ITEM_COUNT; i++) {
         lv_obj_set_style_text_color(draw_item_labels[i],
-            (i == (int)draw_menu_state.item_cursor)
+            (i == (int)draw_menu_state.cursor)
             ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
     }
 }
@@ -115,10 +112,10 @@ void ui_update_draw_display(void)
  * Token Handler
  *---------------------------------------------------------------------------*/
 
-/** Execute or insert the item at draw_menu_state.item_cursor. */
+/** Execute or insert the item at draw_menu_state.cursor. */
 static void draw_menu_select(void)
 {
-    uint8_t item = draw_menu_state.item_cursor;
+    uint8_t item = draw_menu_state.cursor;
 
     if (item == 0) {
         /* ClrDraw — immediate: clear layer, re-render if graph was visible */
@@ -286,21 +283,17 @@ bool handle_draw_menu(Token_t t)
 {
     switch (t) {
     case TOKEN_UP:
-        if (draw_menu_state.item_cursor > 0) {
-            draw_menu_state.item_cursor--;
-            lvgl_lock();
-            ui_update_draw_display();
-            lvgl_unlock();
-        }
+        MenuState_MoveUp(&draw_menu_state, DRAW_ITEM_COUNT, MENU_VISIBLE_ROWS);
+        lvgl_lock();
+        ui_update_draw_display();
+        lvgl_unlock();
         return true;
 
     case TOKEN_DOWN:
-        if (draw_menu_state.item_cursor + 1 < DRAW_ITEM_COUNT) {
-            draw_menu_state.item_cursor++;
-            lvgl_lock();
-            ui_update_draw_display();
-            lvgl_unlock();
-        }
+        MenuState_MoveDown(&draw_menu_state, DRAW_ITEM_COUNT, MENU_VISIBLE_ROWS);
+        lvgl_lock();
+        ui_update_draw_display();
+        lvgl_unlock();
         return true;
 
     case TOKEN_ENTER:
@@ -315,7 +308,7 @@ bool handle_draw_menu(Token_t t)
         };
         for (int i = 0; i < DRAW_ITEM_COUNT; i++) {
             if (t == digit_tok[i]) {
-                draw_menu_state.item_cursor = (uint8_t)i;
+                draw_menu_state.cursor = (uint8_t)i;
                 draw_menu_select();
                 break;
             }
@@ -340,7 +333,7 @@ bool handle_draw_menu(Token_t t)
 void Draw_MenuOpen(CalcMode_t return_to)
 {
     draw_menu_state.return_mode = return_to;
-    draw_menu_state.item_cursor = 0;
+    draw_menu_state.cursor = 0;
     Calc_SetMode(MODE_DRAW_MENU);
     Draw_ShowScreen();
     ui_update_draw_display();
@@ -350,6 +343,6 @@ CalcMode_t Draw_MenuClose(void)
 {
     CalcMode_t ret              = draw_menu_state.return_mode;
     draw_menu_state.return_mode = MODE_NORMAL;
-    draw_menu_state.item_cursor = 0;
+    draw_menu_state.cursor = 0;
     return ret;
 }
