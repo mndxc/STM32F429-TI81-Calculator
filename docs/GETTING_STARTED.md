@@ -23,36 +23,54 @@ The core of the Neo-81 is the interface between the original keypad and your new
 The TI-81 keypad works on a **Matrix**—a grid of rows and columns. Instead of one wire per button, we use a grid to scan for keypresses. 
 * [Deep Dive: How Keypad Matrices Work](https://pcbiot.com/how-keypad-matrix-works/)
 
-**Wiring Table (TI-81 Ribbon to STM32):**
+**Wiring Table (TI-81 → STM32):**
 
-> ### ⚠️ IMPORTANT — Physical Ribbon Mapping Not Yet Verified
->
-> The table below shows the **STM32 GPIO assignments** used by the firmware (authoritative source: `App/HW/Keypad/keypad.h`). These are correct for the software.
->
-> **What is missing:** The physical correspondence between the numbered pads/wires on your specific TI-81 PCB and the logical A-line/B-line names used here has **not yet been manually documented.** The original TI-81 ribbon connector pinout varies subtly between hardware revisions, and the exact wire-to-function mapping requires tracing with a multimeter on a real board.
->
-> **This section will be updated with annotated photos** showing which physical ribbon wire connects to which STM32 GPIO header pin. Until then, use a multimeter in continuity mode to trace each ribbon wire to its key matrix row/column, then match it to the table below.
->
-> If you have completed this mapping on your own hardware, please open an issue or PR with your findings — this is one of the most valuable contributions you can make to the project.
+> **PCB revision note:** The TI-81 was produced in multiple PCB revisions with different internal trace layouts. The wiring documented below applies to **PCB Revision b** (believed to be the most common revision). If your donor board has a different layout, use a multimeter in continuity mode to trace each keypad pad and match it to the firmware names in the table. If you complete a mapping for another revision, please open an issue or PR — it is one of the most valuable contributions you can make.
 
-| Firmware Name | STM32 Pin | Function | Physical Ribbon Pin |
+**Method (Rev b):** The original keypad controller IC is removed from the TI-81 PCB. Individual wires are soldered to the IC pad footprint and run to a Dupont connector harness that plugs into the STM32F429I-DISC1 GPIO headers.
+
+---
+
+**Step 1 — Identify your keypad traces**
+
+The image below shows the back of the Rev b PCB with each keypad switch colour-coded to its column and row line.
+
+![TI-81 Rev b PCB matrix trace map](TI-81bPCB_Mapped2.png)
+
+---
+
+**Step 2 — Locate the IC pad footprint**
+
+After removing the controller IC, the pad footprint becomes the solder points for your wire harness. The diagram below shows which pad numbers carry each matrix signal. Columns land on pins 59–65; rows on pins 70–77; ON button on pin 5.
+
+![IC pad footprint pin assignments](IC_Matrix_pins.png)
+
+---
+
+**Step 3 — Wire IC pads to STM32 GPIO**
+
+> *(Photo of completed Rev b wiring harness — pending. Will be added once wiring is complete.)*
+
+Use the table below to connect each IC pad to the correct STM32 GPIO pin:
+
+| Firmware Name | STM32 Pin | Function | Rev b IC Pad |
 | :--- | :--- | :--- | :--- |
-| **A1** | PE5 | Column 1 | *(to be verified — see note above)* |
-| **A2** | PE4 | Column 2 | *(to be verified)* |
-| **A3** | PE3 | Column 3 | *(to be verified)* |
-| **A4** | PE2 | Column 4 | *(to be verified)* |
-| **A5** | PB7 | Column 5 | *(to be verified)* |
-| **A6** | PB4 | Column 6 | *(to be verified)* |
-| **A7** | PB3 | Column 7 | *(to be verified)* |
-| **B1** | PG9 | Row 1 | *(to be verified)* |
-| **B2** | PD7 | Row 2 | *(to be verified)* |
-| **B3** | PC11 | Row 3 | *(to be verified)* |
-| **B4** | PC8 | Row 4 | *(to be verified)* |
-| **B5** | PC3 | Row 5 | *(to be verified)* |
-| **B6** | PA5 | Row 6 | *(to be verified)* |
-| **B7** | PG2 | Row 7 | *(to be verified)* |
-| **B8** | PG3 | Row 8 | *(to be verified)* |
-| **ON** | PE6 | ON/Interrupt | *(to be verified)* |
+| **A1** | PE5 | Column 1 | IC pin 60 |
+| **A2** | PE4 | Column 2 | IC pin 61 |
+| **A3** | PE3 | Column 3 | IC pin 62 |
+| **A4** | PE2 | Column 4 | IC pin 63 |
+| **A5** | PB7 | Column 5 | IC pin 64 |
+| **A6** | PB4 | Column 6 | IC pin 65 |
+| **A7** | PB3 | Column 7 | IC pin 59 |
+| **B1** | PG9 | Row 1 | IC pin 77 |
+| **B2** | PD7 | Row 2 | IC pin 76 |
+| **B3** | PC11 | Row 3 | IC pin 75 |
+| **B4** | PC8 | Row 4 | IC pin 74 |
+| **B5** | PC3 | Row 5 | IC pin 73 |
+| **B6** | PA5 | Row 6 | IC pin 72 |
+| **B7** | PG2 | Row 7 | IC pin 71 |
+| **B8** | PG3 | Row 8 | IC pin 70 |
+| **ON** | PE6 | ON/Interrupt | IC pin 5 |
 
 ![Updated documentation of a newer revision PCB from TI-81](TI-81bPCB_Mapped2.png)
 
