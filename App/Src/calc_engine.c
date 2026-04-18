@@ -832,104 +832,116 @@ static inline bool rpn_push(float *stack, bool *is_matrix, int *top,
 }
 
 /* Matrix-specific operations: transpose, det, row ops, round, matrix arithmetic. */
-static bool eval_matrix_func(MathTokenType_t type,
-                              float *stack, bool *is_matrix, int *top,
-                              CalcResult_t *res)
+
+#define MAT_ERR(res, code, msg) do { rpn_set_error((res), (code), (msg)); return false; } while(0)
+
+static bool eval_mat_transpose(float *stack, bool *is_matrix, int *top, CalcResult_t *res)
 {
-#define MERR(code, msg) do { rpn_set_error(res, (code), (msg)); return false; } while(0)
+    if (*top < 0 || !is_matrix[*top]) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    int idx = (int)roundf(stack[*top]);
+    if (idx < 0 || idx >= CALC_MATRIX_COUNT) MAT_ERR(res, CALC_ERR_DOMAIN, "Bad matrix index");
+    mat_transpose(&calc_matrices[idx], &calc_matrices[3]);
+    stack[*top] = 3.0f; is_matrix[*top] = true;
+    return true;
+}
 
-    if (type == MATH_OP_TRANSPOSE) {
-        if (*top < 0 || !is_matrix[*top]) MERR(CALC_ERR_SYNTAX, "Syntax error");
-        int idx = (int)roundf(stack[*top]);
-        if (idx < 0 || idx >= CALC_MATRIX_COUNT) MERR(CALC_ERR_DOMAIN, "Bad matrix index");
-        mat_transpose(&calc_matrices[idx], &calc_matrices[3]);
-        stack[*top] = 3.0f; is_matrix[*top] = true;
-        return true;
-    }
-    if (type == MATH_FUNC_DET) {
-        if (*top < 0 || !is_matrix[*top]) MERR(CALC_ERR_SYNTAX, "Syntax error");
-        int idx = (int)roundf(stack[*top]);
-        if (idx < 0 || idx >= CALC_MATRIX_COUNT) MERR(CALC_ERR_DOMAIN, "Bad matrix index");
-        const CalcMatrix_t *dm = &calc_matrices[idx];
-        if (dm->rows != dm->cols) MERR(CALC_ERR_DOMAIN, "det: need square");
-        stack[*top] = mat_det(dm); is_matrix[*top] = false;
-        return true;
-    }
-    if (type == MATH_FUNC_ROWSWAP) {
-        if (*top < 2) MERR(CALC_ERR_SYNTAX, "Syntax error");
-        int r2 = (int)roundf(stack[(*top)--]) - 1; /* 1-based → 0-based */
-        int r1 = (int)roundf(stack[(*top)--]) - 1;
-        int idx = (int)roundf(stack[*top]);
-        if (!is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-            r1 < 0 || r1 >= calc_matrices[idx].rows ||
-            r2 < 0 || r2 >= calc_matrices[idx].rows)
-            MERR(CALC_ERR_DOMAIN, "Bad row index");
-        mat_rowswap(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
-        stack[*top] = 3.0f; is_matrix[*top] = true;
-        return true;
-    }
-    if (type == MATH_FUNC_ROWPLUS) {
-        if (*top < 2) MERR(CALC_ERR_SYNTAX, "Syntax error");
-        int r2 = (int)roundf(stack[(*top)--]) - 1;
-        int r1 = (int)roundf(stack[(*top)--]) - 1;
-        int idx = (int)roundf(stack[*top]);
-        if (!is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-            r1 < 0 || r1 >= calc_matrices[idx].rows ||
-            r2 < 0 || r2 >= calc_matrices[idx].rows)
-            MERR(CALC_ERR_DOMAIN, "Bad row index");
-        mat_rowplus(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
-        stack[*top] = 3.0f; is_matrix[*top] = true;
-        return true;
-    }
-    if (type == MATH_FUNC_MROW) {
-        if (*top < 2) MERR(CALC_ERR_SYNTAX, "Syntax error");
-        int   r   = (int)roundf(stack[(*top)--]) - 1;
-        int   idx = (int)roundf(stack[(*top)--]);
-        float k   = stack[*top];
-        if (is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-            r < 0 || r >= calc_matrices[idx].rows)
-            MERR(CALC_ERR_DOMAIN, "Bad row index");
-        mat_mrow(k, &calc_matrices[idx], r, &calc_matrices[3]);
-        stack[*top] = 3.0f; is_matrix[*top] = true;
-        return true;
-    }
-    if (type == MATH_FUNC_MROWPLUS) {
-        if (*top < 3) MERR(CALC_ERR_SYNTAX, "Syntax error");
-        int   r2  = (int)roundf(stack[(*top)--]) - 1;
-        int   r1  = (int)roundf(stack[(*top)--]) - 1;
-        int   idx = (int)roundf(stack[(*top)--]);
-        float k   = stack[*top];
-        if (is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
-            r1 < 0 || r1 >= calc_matrices[idx].rows ||
-            r2 < 0 || r2 >= calc_matrices[idx].rows)
-            MERR(CALC_ERR_DOMAIN, "Bad row index");
-        mat_mrowplus(k, &calc_matrices[idx], r1, r2, &calc_matrices[3]);
-        stack[*top] = 3.0f; is_matrix[*top] = true;
-        return true;
-    }
-    if (type == MATH_FUNC_ROUND) {
-        if (*top < 1) MERR(CALC_ERR_SYNTAX, "Syntax error");
-        float decimals = stack[(*top)--];
-        float factor   = powf(10.0f, decimals);
-        if (is_matrix[*top]) {
-            int idx = (int)roundf(stack[*top]);
-            if (idx < 0 || idx >= CALC_MATRIX_COUNT) MERR(CALC_ERR_DOMAIN, "Bad matrix index");
-            const CalcMatrix_t *src = &calc_matrices[idx];
-            CalcMatrix_t       *dst = &calc_matrices[3];
-            dst->rows = src->rows; dst->cols = src->cols;
-            for (int r = 0; r < src->rows; r++)
-                for (int c = 0; c < src->cols; c++)
-                    dst->data[r][c] = roundf(src->data[r][c] * factor) / factor;
-            stack[*top] = 3.0f; /* is_matrix[*top] stays true */
-        } else {
-            stack[*top] = roundf(stack[*top] * factor) / factor;
-            is_matrix[*top] = false;
-        }
-        return true;
-    }
+static bool eval_mat_det(float *stack, bool *is_matrix, int *top, CalcResult_t *res)
+{
+    if (*top < 0 || !is_matrix[*top]) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    int idx = (int)roundf(stack[*top]);
+    if (idx < 0 || idx >= CALC_MATRIX_COUNT) MAT_ERR(res, CALC_ERR_DOMAIN, "Bad matrix index");
+    const CalcMatrix_t *dm = &calc_matrices[idx];
+    if (dm->rows != dm->cols) MAT_ERR(res, CALC_ERR_DOMAIN, "det: need square");
+    stack[*top] = mat_det(dm); is_matrix[*top] = false;
+    return true;
+}
 
-    /* Matrix arithmetic: ADD, SUB, MUL when at least one operand is a matrix */
-    if (*top < 1) MERR(CALC_ERR_SYNTAX, "Syntax error");
+static bool eval_mat_rowswap(float *stack, bool *is_matrix, int *top, CalcResult_t *res)
+{
+    if (*top < 2) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    int r2 = (int)roundf(stack[(*top)--]) - 1; /* 1-based → 0-based */
+    int r1 = (int)roundf(stack[(*top)--]) - 1;
+    int idx = (int)roundf(stack[*top]);
+    if (!is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
+        r1 < 0 || r1 >= calc_matrices[idx].rows ||
+        r2 < 0 || r2 >= calc_matrices[idx].rows)
+        MAT_ERR(res, CALC_ERR_DOMAIN, "Bad row index");
+    mat_rowswap(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
+    stack[*top] = 3.0f; is_matrix[*top] = true;
+    return true;
+}
+
+static bool eval_mat_rowplus(float *stack, bool *is_matrix, int *top, CalcResult_t *res)
+{
+    if (*top < 2) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    int r2 = (int)roundf(stack[(*top)--]) - 1;
+    int r1 = (int)roundf(stack[(*top)--]) - 1;
+    int idx = (int)roundf(stack[*top]);
+    if (!is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
+        r1 < 0 || r1 >= calc_matrices[idx].rows ||
+        r2 < 0 || r2 >= calc_matrices[idx].rows)
+        MAT_ERR(res, CALC_ERR_DOMAIN, "Bad row index");
+    mat_rowplus(&calc_matrices[idx], r1, r2, &calc_matrices[3]);
+    stack[*top] = 3.0f; is_matrix[*top] = true;
+    return true;
+}
+
+static bool eval_mat_mrow(float *stack, bool *is_matrix, int *top, CalcResult_t *res)
+{
+    if (*top < 2) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    int   r   = (int)roundf(stack[(*top)--]) - 1;
+    int   idx = (int)roundf(stack[(*top)--]);
+    float k   = stack[*top];
+    if (is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
+        r < 0 || r >= calc_matrices[idx].rows)
+        MAT_ERR(res, CALC_ERR_DOMAIN, "Bad row index");
+    mat_mrow(k, &calc_matrices[idx], r, &calc_matrices[3]);
+    stack[*top] = 3.0f; is_matrix[*top] = true;
+    return true;
+}
+
+static bool eval_mat_mrowplus(float *stack, bool *is_matrix, int *top, CalcResult_t *res)
+{
+    if (*top < 3) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    int   r2  = (int)roundf(stack[(*top)--]) - 1;
+    int   r1  = (int)roundf(stack[(*top)--]) - 1;
+    int   idx = (int)roundf(stack[(*top)--]);
+    float k   = stack[*top];
+    if (is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT ||
+        r1 < 0 || r1 >= calc_matrices[idx].rows ||
+        r2 < 0 || r2 >= calc_matrices[idx].rows)
+        MAT_ERR(res, CALC_ERR_DOMAIN, "Bad row index");
+    mat_mrowplus(k, &calc_matrices[idx], r1, r2, &calc_matrices[3]);
+    stack[*top] = 3.0f; is_matrix[*top] = true;
+    return true;
+}
+
+static bool eval_mat_round(float *stack, bool *is_matrix, int *top, CalcResult_t *res)
+{
+    if (*top < 1) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    float decimals = stack[(*top)--];
+    float factor   = powf(10.0f, decimals);
+    if (is_matrix[*top]) {
+        int idx = (int)roundf(stack[*top]);
+        if (idx < 0 || idx >= CALC_MATRIX_COUNT) MAT_ERR(res, CALC_ERR_DOMAIN, "Bad matrix index");
+        const CalcMatrix_t *src = &calc_matrices[idx];
+        CalcMatrix_t       *dst = &calc_matrices[3];
+        dst->rows = src->rows; dst->cols = src->cols;
+        for (int r = 0; r < src->rows; r++)
+            for (int c = 0; c < src->cols; c++)
+                dst->data[r][c] = roundf(src->data[r][c] * factor) / factor;
+        stack[*top] = 3.0f; /* is_matrix[*top] stays true */
+    } else {
+        stack[*top] = roundf(stack[*top] * factor) / factor;
+        is_matrix[*top] = false;
+    }
+    return true;
+}
+
+static bool eval_mat_arith(MathTokenType_t type, float *stack, bool *is_matrix, int *top,
+                            CalcResult_t *res)
+{
+    if (*top < 1) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
     bool  b_mat = is_matrix[*top];
     bool  a_mat = is_matrix[*top - 1];
     float bv = stack[(*top)--];
@@ -938,23 +950,38 @@ static bool eval_matrix_func(MathTokenType_t type,
     if (a_mat && b_mat) {
         int ia = (int)roundf(av), ib = (int)roundf(bv);
         if (ia < 0 || ia >= CALC_MATRIX_COUNT || ib < 0 || ib >= CALC_MATRIX_COUNT)
-            MERR(CALC_ERR_DOMAIN, "Bad matrix index");
+            MAT_ERR(res, CALC_ERR_DOMAIN, "Bad matrix index");
         bool ok = (type == MATH_OP_ADD) ? mat_add(&calc_matrices[ia], &calc_matrices[ib], dst)
                 : (type == MATH_OP_SUB) ? mat_sub(&calc_matrices[ia], &calc_matrices[ib], dst)
                 :                         mat_mul(&calc_matrices[ia], &calc_matrices[ib], dst);
-        if (!ok) MERR(CALC_ERR_DOMAIN, "Dimension mismatch");
+        if (!ok) MAT_ERR(res, CALC_ERR_DOMAIN, "Dimension mismatch");
     } else if (type == MATH_OP_MUL) {
         float k   = a_mat ? bv : av;
         int   idx = (int)roundf(a_mat ? av : bv);
-        if (idx < 0 || idx >= CALC_MATRIX_COUNT) MERR(CALC_ERR_DOMAIN, "Bad matrix index");
+        if (idx < 0 || idx >= CALC_MATRIX_COUNT) MAT_ERR(res, CALC_ERR_DOMAIN, "Bad matrix index");
         mat_scale(k, &calc_matrices[idx], dst);
     } else {
-        MERR(CALC_ERR_DOMAIN, "Matrix op error");
+        MAT_ERR(res, CALC_ERR_DOMAIN, "Matrix op error");
     }
     stack[*top] = 3.0f;
-#undef MERR
     is_matrix[*top] = true;
     return true;
+}
+
+#undef MAT_ERR
+
+static bool eval_matrix_func(MathTokenType_t type,
+                              float *stack, bool *is_matrix, int *top,
+                              CalcResult_t *res)
+{
+    if (type == MATH_OP_TRANSPOSE)  return eval_mat_transpose(stack, is_matrix, top, res);
+    if (type == MATH_FUNC_DET)      return eval_mat_det      (stack, is_matrix, top, res);
+    if (type == MATH_FUNC_ROWSWAP)  return eval_mat_rowswap  (stack, is_matrix, top, res);
+    if (type == MATH_FUNC_ROWPLUS)  return eval_mat_rowplus  (stack, is_matrix, top, res);
+    if (type == MATH_FUNC_MROW)     return eval_mat_mrow     (stack, is_matrix, top, res);
+    if (type == MATH_FUNC_MROWPLUS) return eval_mat_mrowplus (stack, is_matrix, top, res);
+    if (type == MATH_FUNC_ROUND)    return eval_mat_round    (stack, is_matrix, top, res);
+    return eval_mat_arith(type, stack, is_matrix, top, res);
 }
 
 /* Scalar unary operators and single-argument math functions. */
