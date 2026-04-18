@@ -72,10 +72,6 @@ Use the table below to connect each IC pad to the correct STM32 GPIO pin:
 | **B8** | PG3 | Row 8 | IC pin 70 |
 | **ON** | PE6 | ON/Interrupt | IC pin 5 |
 
-![Updated documentation of a newer revision PCB from TI-81](TI-81bPCB_Mapped2.png)
-
-![Updated documentation of a newer revision PCB from TI-81](IC_Matrix_pins.png)
-
 ---
 
 ## 3. Bill of Materials (BOM)
