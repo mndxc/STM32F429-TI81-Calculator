@@ -54,6 +54,10 @@ The TI-81 keypad works on a **Matrix**—a grid of rows and columns. Instead of 
 | **B8** | PG3 | Row 8 | *(to be verified)* |
 | **ON** | PE6 | ON/Interrupt | *(to be verified)* |
 
+![Updated documentation of a newer revision PCB from TI-81](docs/TI-81bPCB_mapped2.png)
+
+![Updated documentation of a newer revision PCB from TI-81](docs/IC_Matrix_pins.png)
+
 ---
 
 ## 3. Bill of Materials (BOM)
