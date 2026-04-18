@@ -217,3 +217,56 @@ void CalcStat_Clear(StatData_t *d)
 {
     memset(d, 0, sizeof(*d));
 }
+
+/*---------------------------------------------------------------------------
+ * Y-variable statistics — mirrors the x-stat fields in StatResults_t but
+ * computed on-the-fly from the raw list_y array.
+ *---------------------------------------------------------------------------*/
+
+float CalcStat_SumY(const StatData_t *d)
+{
+    float s = 0.0f;
+    for (uint8_t i = 0; i < d->list_len; i++)
+        s += d->list_y[i];
+    return s;
+}
+
+float CalcStat_SumY2(const StatData_t *d)
+{
+    float s = 0.0f;
+    for (uint8_t i = 0; i < d->list_len; i++)
+        s += d->list_y[i] * d->list_y[i];
+    return s;
+}
+
+float CalcStat_SumXY(const StatData_t *d)
+{
+    float s = 0.0f;
+    for (uint8_t i = 0; i < d->list_len; i++)
+        s += d->list_x[i] * d->list_y[i];
+    return s;
+}
+
+float CalcStat_MeanY(const StatData_t *d)
+{
+    if (d->list_len == 0) return 0.0f;
+    return CalcStat_SumY(d) / (float)d->list_len;
+}
+
+float CalcStat_SxY(const StatData_t *d)
+{
+    int n = (int)d->list_len;
+    if (n < 2) return 0.0f;
+    float my = CalcStat_MeanY(d);
+    float v  = (CalcStat_SumY2(d) - (float)n * my * my) / (float)(n - 1);
+    return sqrtf(v < 0.0f ? 0.0f : v);
+}
+
+float CalcStat_SigmaY(const StatData_t *d)
+{
+    int n = (int)d->list_len;
+    if (n < 1) return 0.0f;
+    float my = CalcStat_MeanY(d);
+    float v  = (CalcStat_SumY2(d) - (float)n * my * my) / (float)n;
+    return sqrtf(v < 0.0f ? 0.0f : v);
+}

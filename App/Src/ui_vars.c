@@ -24,6 +24,8 @@
 #include "menu_state.h"
 #include "calc_internal.h"
 #include "graph.h"
+#include "ui_stat.h"
+#include "calc_stat.h"
 #include "ui_palette.h"
 #include <math.h>
 #include <stdio.h>
@@ -100,109 +102,55 @@ static lv_obj_t *vars_scroll_ind[2];  /* [0]=top(↑) [1]=bottom(↓) */
 static const int16_t vars_tab_x[VARS_TAB_COUNT] = {4, 48, 84, 120, 188};
 
 /*---------------------------------------------------------------------------
- * Internal helpers — y-statistic computations from raw data
- *
- * The StatResults_t struct holds only x-statistics.  These helpers derive
- * the equivalent y-statistics on-the-fly from stat_data.
- *---------------------------------------------------------------------------*/
-
-static float vars_sum_y(void)
-{
-    float s = 0.0f;
-    for (int i = 0; i < (int)stat_data.list_len; i++)
-        s += stat_data.list_y[i];
-    return s;
-}
-
-static float vars_sum_y2(void)
-{
-    float s = 0.0f;
-    for (int i = 0; i < (int)stat_data.list_len; i++)
-        s += stat_data.list_y[i] * stat_data.list_y[i];
-    return s;
-}
-
-static float vars_sum_xy(void)
-{
-    float s = 0.0f;
-    for (int i = 0; i < (int)stat_data.list_len; i++)
-        s += stat_data.list_x[i] * stat_data.list_y[i];
-    return s;
-}
-
-static float vars_mean_y(void)
-{
-    if (stat_data.list_len == 0) return 0.0f;
-    return vars_sum_y() / (float)stat_data.list_len;
-}
-
-static float vars_sy(void)
-{
-    int n = (int)stat_data.list_len;
-    if (n < 2) return 0.0f;
-    float my = vars_mean_y();
-    float v = (vars_sum_y2() - (float)n * my * my) / (float)(n - 1);
-    return sqrtf(v < 0.0f ? 0.0f : v);
-}
-
-static float vars_sigma_y(void)
-{
-    int n = (int)stat_data.list_len;
-    if (n < 1) return 0.0f;
-    float my = vars_mean_y();
-    float v = (vars_sum_y2() - (float)n * my * my) / (float)n;
-    return sqrtf(v < 0.0f ? 0.0f : v);
-}
-
-/*---------------------------------------------------------------------------
  * Value formatting — returns the current value string for a given item
  *---------------------------------------------------------------------------*/
 
 static void vars_format_value(uint8_t tab, uint8_t item, char *buf, size_t len)
 {
     float v = 0.0f;
+    const StatResults_t *sr = Stat_GetResults();
 
     switch (tab) {
     case 0: /* XY */
-        if (!stat_results.valid) { snprintf(buf, len, "0"); return; }
+        if (!sr->valid) { snprintf(buf, len, "0"); return; }
         switch (item) {
-        case 0: v = stat_results.n;       break;
-        case 1: v = stat_results.mean_x;  break;
-        case 2: v = stat_results.sx;      break;
-        case 3: v = stat_results.sigma_x; break;
-        case 4: v = vars_mean_y();         break;
-        case 5: v = vars_sy();             break;
-        case 6: v = vars_sigma_y();        break;
+        case 0: v = sr->n;       break;
+        case 1: v = sr->mean_x;  break;
+        case 2: v = sr->sx;      break;
+        case 3: v = sr->sigma_x; break;
+        case 4: v = CalcStat_MeanY(Stat_GetData());  break;
+        case 5: v = CalcStat_SxY(Stat_GetData());    break;
+        case 6: v = CalcStat_SigmaY(Stat_GetData()); break;
         default: snprintf(buf, len, "0"); return;
         }
         break;
 
     case 1: /* Σ */
-        if (!stat_results.valid) { snprintf(buf, len, "0"); return; }
+        if (!sr->valid) { snprintf(buf, len, "0"); return; }
         switch (item) {
-        case 0: v = stat_results.sum_x;  break;
-        case 1: v = stat_results.sum_x2; break;
-        case 2: v = vars_sum_y();         break;
-        case 3: v = vars_sum_y2();        break;
-        case 4: v = vars_sum_xy();        break;
+        case 0: v = sr->sum_x;  break;
+        case 1: v = sr->sum_x2; break;
+        case 2: v = CalcStat_SumY(Stat_GetData());  break;
+        case 3: v = CalcStat_SumY2(Stat_GetData()); break;
+        case 4: v = CalcStat_SumXY(Stat_GetData()); break;
         default: snprintf(buf, len, "0"); return;
         }
         break;
 
     case 2: /* LR */
-        if (!stat_results.valid) { snprintf(buf, len, "0"); return; }
+        if (!sr->valid) { snprintf(buf, len, "0"); return; }
         if (item == 3) {
             /* RegEQ: build "aX+b" from regression coefficients */
             char abuf[16], bbuf[16];
-            Calc_FormatResult(stat_results.reg_a, abuf, (uint8_t)sizeof(abuf));
-            Calc_FormatResult(stat_results.reg_b, bbuf, (uint8_t)sizeof(bbuf));
+            Calc_FormatResult(sr->reg_a, abuf, (uint8_t)sizeof(abuf));
+            Calc_FormatResult(sr->reg_b, bbuf, (uint8_t)sizeof(bbuf));
             snprintf(buf, len, "%sX+%s", abuf, bbuf);
             return;
         }
         switch (item) {
-        case 0: v = stat_results.reg_a; break;
-        case 1: v = stat_results.reg_b; break;
-        case 2: v = stat_results.reg_r; break;
+        case 0: v = sr->reg_a; break;
+        case 1: v = sr->reg_b; break;
+        case 2: v = sr->reg_r; break;
         default: snprintf(buf, len, "0"); return;
         }
         break;

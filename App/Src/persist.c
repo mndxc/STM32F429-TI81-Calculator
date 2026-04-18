@@ -17,6 +17,7 @@
 #  include "ui_mode.h"          /* s_mode, ModeScreenState_t */
 #  include "graph.h"            /* Graph_GetState, Graph_Set*, Graph_GetEquationBuf, … */
 #  include "graph_ui_range.h"   /* graph_ui_get_zoom_x_fact, graph_ui_set_zoom_facts */
+#  include "ui_stat.h"          /* Stat_GetData, Stat_GetResults, Stat_SetData */
 #endif
 
 /*---------------------------------------------------------------------------
@@ -204,11 +205,10 @@ PersistBlock_t Persist_BuildBlock(void)
     out.t_step = gs->t_step;
 
     /* STAT data list */
-    memcpy(out.stat_list_x, stat_data.list_x,
-           STAT_MAX_POINTS * sizeof(float));
-    memcpy(out.stat_list_y, stat_data.list_y,
-           STAT_MAX_POINTS * sizeof(float));
-    out.stat_list_len = stat_data.list_len;
+    const StatData_t *sd = Stat_GetData();
+    memcpy(out.stat_list_x, sd->list_x, STAT_MAX_POINTS * sizeof(float));
+    memcpy(out.stat_list_y, sd->list_y, STAT_MAX_POINTS * sizeof(float));
+    out.stat_list_len = sd->list_len;
 
     return out;
 }
@@ -270,12 +270,12 @@ void Persist_ApplyBlock(const PersistBlock_t *block)
     s_mode.committed[4] = s_mode.cursor[4];
 
     /* Restore STAT data list */
-    memcpy(stat_data.list_x, block->stat_list_x,
-           STAT_MAX_POINTS * sizeof(float));
-    memcpy(stat_data.list_y, block->stat_list_y,
-           STAT_MAX_POINTS * sizeof(float));
-    stat_data.list_len = (block->stat_list_len <= STAT_MAX_POINTS)
-                         ? block->stat_list_len : 0u;
+    StatData_t sd;
+    memcpy(sd.list_x, block->stat_list_x, STAT_MAX_POINTS * sizeof(float));
+    memcpy(sd.list_y, block->stat_list_y, STAT_MAX_POINTS * sizeof(float));
+    sd.list_len = (block->stat_list_len <= STAT_MAX_POINTS)
+                  ? block->stat_list_len : 0u;
+    Stat_SetData(&sd);
 }
 
 #endif /* HOST_TEST */

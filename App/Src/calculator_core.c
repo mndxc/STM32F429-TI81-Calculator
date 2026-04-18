@@ -615,72 +615,92 @@ void ui_refresh_display(void)
     int cursor_expr_row = (int)expr.cursor / cpr;
     int cursor_col      = (int)expr.cursor % cpr;
 
-    for (int row = 0; row < DISP_ROW_COUNT; row++) {
-        int li = start + row;
+    /* Build a flat map of the DISP_ROW_COUNT visible logical lines in one
+       forward pass — eliminates the per-row inner walk in the original.
+       entry_idx == -1 flags current-expression rows; is_result distinguishes
+       history expression sub-rows from result lines. */
+    struct { int entry_idx; int sub_row; bool is_result; } line_map[DISP_ROW_COUNT];
+    int map_len = 0;
+    int line    = 0;
 
-        if (li >= total) {
+    for (int d = 0; d < num_entries; d++) {
+        int idx = (int)((cnt - num_entries + d) % HISTORY_LINE_COUNT);
+        const HistoryEntry_t *e = CalcHistory_GetEntry((uint8_t)idx);
+        int elen  = (int)strlen(e->expression);
+        int erows = (elen + cpr - 1) / cpr;
+        int rlines = e->has_matrix
+                     ? (int)e->matrix_rows_cache
+                     : count_result_lines(e->result);
+
+        for (int er = 0; er < erows; er++, line++) {
+            if (line >= start && map_len < DISP_ROW_COUNT) {
+                line_map[map_len].entry_idx = idx;
+                line_map[map_len].sub_row   = er;
+                line_map[map_len].is_result = false;
+                map_len++;
+            }
+        }
+        for (int rl = 0; rl < rlines; rl++, line++) {
+            if (line >= start && map_len < DISP_ROW_COUNT) {
+                line_map[map_len].entry_idx = idx;
+                line_map[map_len].sub_row   = rl;
+                line_map[map_len].is_result = true;
+                map_len++;
+            }
+        }
+    }
+    for (int el = 0; el < expr_rows; el++, line++) {
+        if (line >= start && map_len < DISP_ROW_COUNT) {
+            line_map[map_len].entry_idx = -1;
+            line_map[map_len].sub_row   = el;
+            line_map[map_len].is_result = false;
+            map_len++;
+        }
+    }
+
+    /* Render each visible row using the pre-built map — O(1) lookup per row */
+    for (int row = 0; row < DISP_ROW_COUNT; row++) {
+        if (row >= map_len) {
             lv_label_set_text(disp_rows[row], "");
             continue;
         }
 
-        if (li < total_history_lines) {
-            /* Walk history entries to find which owns line li */
-            int line = 0;
-            for (int d = 0; d < num_entries; d++) {
-                int idx = (int)((cnt - num_entries + d) % HISTORY_LINE_COUNT);
-                const HistoryEntry_t *e = CalcHistory_GetEntry((uint8_t)idx);
-                int elen  = (int)strlen(e->expression);
-                int erows = (elen + cpr - 1) / cpr;
-                int rlines = e->has_matrix
-                             ? (int)e->matrix_rows_cache
-                             : count_result_lines(e->result);
+        int  eidx      = line_map[row].entry_idx;
+        int  sub_row   = line_map[row].sub_row;
+        bool is_result = line_map[row].is_result;
 
-                if (li < line + erows) {
-                    /* Expression sub-row */
-                    int er = li - line;
-                    int char_start = er * cpr;
-                    int char_end = char_start + cpr;
-                    if (char_end > elen) char_end = elen;
-                    int seg_len = char_end - char_start;
-                    if (seg_len < 0) seg_len = 0;
-                    char row_buf[MAX_EXPR_LEN + 1];
-                    memcpy(row_buf, e->expression + char_start, (size_t)seg_len);
-                    row_buf[seg_len] = '\0';
-                    lv_obj_set_style_text_color(disp_rows[row],
-                                                lv_color_hex(COLOR_GREY_MED), 0);
-                    lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
-                    lv_label_set_text(disp_rows[row], row_buf);
-                    break;
-                }
-                line += erows;
-
-                if (li < line + rlines) {
-                    /* Result line for this history entry */
-                    int result_line = li - line;
-                    render_result_row(disp_rows[row], e, idx, result_line);
-                    break;
-                }
-                line += rlines;
-            }
+        if (eidx >= 0 && !is_result) {
+            /* History expression sub-row */
+            const HistoryEntry_t *e = CalcHistory_GetEntry((uint8_t)eidx);
+            int elen = (int)strlen(e->expression);
+            int char_start = sub_row * cpr;
+            int char_end   = char_start + cpr;
+            if (char_end > elen) char_end = elen;
+            int seg_len = char_end - char_start;
+            if (seg_len < 0) seg_len = 0;
+            char row_buf[MAX_EXPR_LEN + 1];
+            memcpy(row_buf, e->expression + char_start, (size_t)seg_len);
+            row_buf[seg_len] = '\0';
+            lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_GREY_MED), 0);
+            lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
+            lv_label_set_text(disp_rows[row], row_buf);
+        } else if (eidx >= 0) {
+            /* History result line */
+            render_result_row(disp_rows[row], CalcHistory_GetEntry((uint8_t)eidx), eidx, sub_row);
         } else {
             /* Current expression sub-row */
-            int expr_line  = li - total_history_lines;
-            int char_start = expr_line * cpr;
+            int char_start = sub_row * cpr;
             int char_end   = char_start + cpr;
             if (char_end > (int)expr.len) char_end = (int)expr.len;
             int seg_len = char_end - char_start;
             if (seg_len < 0) seg_len = 0;
-
             char row_buf[MAX_EXPR_LEN + 1];
             memcpy(row_buf, &expr.buf[char_start], (size_t)seg_len);
             row_buf[seg_len] = '\0';
-
             lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_GREY_LIGHT), 0);
             lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
             lv_label_set_text(disp_rows[row], row_buf);
-
-            /* Place cursor on the sub-row that contains cursor_pos */
-            if (expr_line == cursor_expr_row)
+            if (sub_row == cursor_expr_row)
                 cursor_update(disp_rows[row], (uint32_t)cursor_col);
         }
     }
@@ -1284,20 +1304,20 @@ void Process_Hardware_Key(uint8_t key_id)
     KeyDefinition_t key        = TI81_LookupTable[key_id];
     Token_t         token_to_send = TOKEN_NONE;
 
-    if (current_mode == MODE_2ND) {
+    if (Calc_GetMode() == MODE_2ND) {
         token_to_send  = key.second;
-        current_mode   = return_mode;   /* restore the mode that was active before 2nd */
-        return_mode    = MODE_NORMAL;
+        Calc_SetMode(Calc_GetReturnMode());   /* restore the mode that was active before 2nd */
+        Calc_SetReturnMode(MODE_NORMAL);
         if (token_to_send == TOKEN_NONE) {
             lvgl_lock();
             ui_update_status_bar();
             lvgl_unlock();
             return;
         }
-    } else if (current_mode == MODE_ALPHA) {
+    } else if (Calc_GetMode() == MODE_ALPHA) {
         token_to_send  = key.alpha;
-        current_mode   = return_mode;   /* restore the mode that was active before ALPHA */
-        return_mode    = MODE_NORMAL;
+        Calc_SetMode(Calc_GetReturnMode());   /* restore the mode that was active before ALPHA */
+        Calc_SetReturnMode(MODE_NORMAL);
         if (token_to_send == TOKEN_NONE) {
             /* A2: fall back to normal function (e.g. ENTER/DEL/CLEAR in name-entry) */
             token_to_send = key.normal;
@@ -1308,11 +1328,11 @@ void Process_Hardware_Key(uint8_t key_id)
                 return;
             }
         }
-    } else if (current_mode == MODE_ALPHA_LOCK) {
+    } else if (Calc_GetMode() == MODE_ALPHA_LOCK) {
         if (key.normal == TOKEN_ALPHA) {
             /* ALPHA pressed while locked — exit alpha lock */
-            current_mode = return_mode;
-            return_mode  = MODE_NORMAL;
+            Calc_SetMode(Calc_GetReturnMode());
+            Calc_SetReturnMode(MODE_NORMAL);
             lvgl_lock();
             ui_update_status_bar();
             lvgl_unlock();
@@ -1328,12 +1348,12 @@ void Process_Hardware_Key(uint8_t key_id)
 
     /* Handle sticky modifier keys — pressing again cancels the mode */
     if (token_to_send == TOKEN_2ND) {
-        if (current_mode == MODE_2ND) {
-            current_mode = return_mode;
-            return_mode  = MODE_NORMAL;
+        if (Calc_GetMode() == MODE_2ND) {
+            Calc_SetMode(Calc_GetReturnMode());
+            Calc_SetReturnMode(MODE_NORMAL);
         } else {
-            return_mode  = current_mode;
-            current_mode = MODE_2ND;
+            Calc_SetReturnMode(Calc_GetMode());
+            Calc_SetMode(MODE_2ND);
         }
         lvgl_lock();
         ui_update_status_bar();
@@ -1341,12 +1361,12 @@ void Process_Hardware_Key(uint8_t key_id)
         return;
     }
     if (token_to_send == TOKEN_ALPHA) {
-        if (current_mode == MODE_ALPHA) {
-            current_mode = return_mode;
-            return_mode  = MODE_NORMAL;
+        if (Calc_GetMode() == MODE_ALPHA) {
+            Calc_SetMode(Calc_GetReturnMode());
+            Calc_SetReturnMode(MODE_NORMAL);
         } else {
-            return_mode  = current_mode;
-            current_mode = MODE_ALPHA;
+            Calc_SetReturnMode(Calc_GetMode());
+            Calc_SetMode(MODE_ALPHA);
         }
         lvgl_lock();
         ui_update_status_bar();
@@ -1354,8 +1374,8 @@ void Process_Hardware_Key(uint8_t key_id)
         return;
     }
     if (token_to_send == TOKEN_A_LOCK) {
-        return_mode  = current_mode;
-        current_mode = MODE_ALPHA_LOCK;
+        Calc_SetReturnMode(Calc_GetMode());
+        Calc_SetMode(MODE_ALPHA_LOCK);
         lvgl_lock();
         ui_update_status_bar();
         lvgl_unlock();

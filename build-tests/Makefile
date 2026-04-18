@@ -322,6 +322,30 @@ Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_yvars.dir/build.make CMakeFiles/test_yvars.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.s
 
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.o
+
+# target to build an object file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.o
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.o
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.i: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.i
+
+# target to preprocess a source file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.i
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.i
+
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.s: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.s
+
+# target to generate assembly for a file
+Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_normal_mode.dir/build.make CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.s
+.PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.s
+
 Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.o: Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.c.o
 .PHONY : Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.o
 
@@ -821,6 +845,9 @@ help:
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.o"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.i"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.s"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.o"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.i"
+	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.s"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.o"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.i"
 	@echo "... Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_stat.s"

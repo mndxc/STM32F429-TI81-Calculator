@@ -20,6 +20,19 @@
 extern MenuState_t stat_menu_state;
 
 /*---------------------------------------------------------------------------
+ * Stat data / results accessors
+ *---------------------------------------------------------------------------*/
+
+/** Returns a read-only pointer to the current stat data list. */
+const StatData_t    *Stat_GetData(void);
+
+/** Returns a read-only pointer to the last computed stat results. */
+const StatResults_t *Stat_GetResults(void);
+
+/** Overwrites the stat data list from *src (used by persist restore). */
+void Stat_SetData(const StatData_t *src);
+
+/*---------------------------------------------------------------------------
  * Screen show/hide API (caller holds lvgl_lock)
  *---------------------------------------------------------------------------*/
 void Stat_ShowMenuScreen(void);

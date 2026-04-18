@@ -33,6 +33,7 @@
  * persist.h provides PersistBlock_t (already has HOST_TEST guards for HAL).
  * All are safe to include in HOST_TEST builds. */
 #include "app_common.h"
+#include "menu_state.h"   /* MenuState_t — needed before first use at line ~260 */
 #include "calc_history.h" /* HistoryEntry_t, HISTORY_LINE_COUNT, CalcHistory_* API */
 #include "expr_util.h"    /* ExprBuffer_t and ExprBuffer_* helpers */
 #include "calc_engine.h"
@@ -205,7 +206,9 @@ static inline char *Graph_GetParamEquationYBuf(uint8_t p)
 
 /* LVGL screen pointers — all stub-defined in test_normal_mode.c.
  * ui_mode_screen is a private static in ui_mode.c (after T4) and is NOT
- * declared extern here; it is accessed only through Mode_HideScreen(). */
+ * declared extern here; it is accessed only through Mode_HideScreen().
+ * ui_prgm_editor_screen / ui_prgm_new_screen are still raw externs pending
+ * Review Item 1 (Prgm_IsEditorScreenVisible / Prgm_IsNewScreenVisible). */
 extern lv_obj_t *ui_math_screen;
 extern lv_obj_t *ui_test_screen;
 extern lv_obj_t *ui_matrix_screen;
@@ -215,14 +218,14 @@ extern lv_obj_t *ui_param_yeq_screen;
 extern lv_obj_t *ui_graph_range_screen;
 extern lv_obj_t *ui_graph_zoom_screen;
 extern lv_obj_t *ui_graph_zoom_factors_screen;
-extern lv_obj_t *ui_prgm_editor_screen;
-extern lv_obj_t *ui_prgm_new_screen;
 extern lv_obj_t *ui_stat_screen;
 extern lv_obj_t *ui_stat_edit_screen;
 extern lv_obj_t *ui_stat_results_screen;
 extern lv_obj_t *ui_draw_screen;
 extern lv_obj_t *ui_vars_screen;
 extern lv_obj_t *ui_yvars_screen;
+extern lv_obj_t *ui_prgm_editor_screen;
+extern lv_obj_t *ui_prgm_new_screen;
 
 /* calc_internal.h function declarations (defined in calculator_core.c or
  * the ui_* sub-module that owns each function) */
@@ -265,7 +268,9 @@ static inline void Matrix_ShowMenuScreen(void)   {}
 static inline void Matrix_HideMenuScreen(void)   {}
 static inline void Matrix_ShowEditScreen(void)   {}
 static inline void Matrix_HideEditScreen(void)   {}
-static inline bool Matrix_IsEditScreenVisible(void) { return false; }
+static inline bool Matrix_IsEditScreenVisible(void)    { return false; }
+static inline bool Prgm_IsEditorScreenVisible(void)    { return false; }
+static inline bool Prgm_IsNewScreenVisible(void)       { return false; }
 static inline void ui_init_matrix_screen(void)             {}
 static inline void ui_update_matrix_display(void)         {}
 static inline void ui_update_matrix_edit_display(void)    {}
@@ -284,7 +289,7 @@ static inline void handle_matrix_edit(Token_t t) { (void)t; }
 
 extern MenuState_t stat_menu_state;
 
-/* stat_data and stat_results are extern in app_common.h; defined in test_normal_mode.c */
+/* Stat_GetData / Stat_GetResults / Stat_SetData are not called from HOST_TEST paths. */
 
 static inline void Stat_ShowMenuScreen(void)    {}
 static inline void Stat_HideMenuScreen(void)    {}
@@ -309,8 +314,6 @@ static inline bool handle_stat_results(Token_t t) { (void)t; return false; }
  * ui_vars.h replacement
  * Navigation state uses MenuState_t (see App/Inc/menu_state.h — Item 3).
  *---------------------------------------------------------------------------*/
-
-#include "menu_state.h"
 
 extern MenuState_t vars_menu_state;
 

@@ -233,6 +233,40 @@ static void test_sort_y(void)
     CHECK(d.list_y[3] == 4.0f && d.list_x[3] == 40.0f, "sorty: row3 y=4 x=40");
 }
 
+static void test_ystat(void)
+{
+    printf("test_ystat\n");
+    /* Dataset: x={1,2,3,4,5}, y={2,4,6,8,10}
+     * Expected:
+     *   SumY  = 30
+     *   SumY2 = 220  (4+16+36+64+100)
+     *   SumXY = 110  (2+8+18+32+50)
+     *   MeanY = 6
+     *   SxY   = sqrt(10) ≈ 3.1623   (sample stdev, n-1 denominator)
+     *   SigmaY= sqrt(8)  ≈ 2.8284   (population stdev, n denominator)
+     */
+    StatData_t d = {0};
+    float xs[5] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
+    float ys[5] = {2.0f, 4.0f, 6.0f, 8.0f, 10.0f};
+    fill_xy(&d, xs, ys, 5);
+
+    CHECK(NEAR(CalcStat_SumY(&d),  30.0f),          "ystat: SumY=30");
+    CHECK(NEAR(CalcStat_SumY2(&d), 220.0f),          "ystat: SumY2=220");
+    CHECK(NEAR(CalcStat_SumXY(&d), 110.0f),          "ystat: SumXY=110");
+    CHECK(NEAR(CalcStat_MeanY(&d), 6.0f),            "ystat: MeanY=6");
+    CHECK(NEARF(CalcStat_SxY(&d),    3.1623f, 0.001f), "ystat: SxY≈3.1623");
+    CHECK(NEARF(CalcStat_SigmaY(&d), 2.8284f, 0.001f), "ystat: SigmaY≈2.8284");
+
+    /* Edge: empty list */
+    StatData_t e = {0};
+    CHECK(CalcStat_SumY(&e)   == 0.0f, "ystat_empty: SumY=0");
+    CHECK(CalcStat_SumY2(&e)  == 0.0f, "ystat_empty: SumY2=0");
+    CHECK(CalcStat_SumXY(&e)  == 0.0f, "ystat_empty: SumXY=0");
+    CHECK(CalcStat_MeanY(&e)  == 0.0f, "ystat_empty: MeanY=0");
+    CHECK(CalcStat_SxY(&e)    == 0.0f, "ystat_empty: SxY=0");
+    CHECK(CalcStat_SigmaY(&e) == 0.0f, "ystat_empty: SigmaY=0");
+}
+
 static void test_clear(void)
 {
     printf("test_clear\n");
@@ -265,6 +299,7 @@ int main(void)
     test_expreg();
     test_sort_x();
     test_sort_y();
+    test_ystat();
     test_clear();
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);

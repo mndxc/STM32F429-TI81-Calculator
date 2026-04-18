@@ -486,48 +486,54 @@ void prgm_editor_menu_insert(const char *s)
     Calc_SetMode(MODE_PRGM_EDITOR);
 }
 
+/* Lookup table for prgm_token_to_str — token + string pairs, linear scan.
+ * Tokens are not contiguous across the enum so an offset array is not viable. */
+static const struct { Token_t tok; const char *str; } k_prgm_tok_strs[] = {
+    { TOKEN_ADD,     "+"                  },
+    { TOKEN_SUB,     "-"                  },
+    { TOKEN_MULT,    "*"                  },
+    { TOKEN_DIV,     "/"                  },
+    { TOKEN_POWER,   "^"                  },
+    { TOKEN_L_PAR,   "("                  },
+    { TOKEN_R_PAR,   ")"                  },
+    { TOKEN_DECIMAL, "."                  },
+    { TOKEN_NEG,     "(-"                 },
+    { TOKEN_STO,     "->"                 },
+    { TOKEN_SPACE,   " "                  },
+    { TOKEN_QUOTES,  "\""                 },
+    { TOKEN_COMMA,   ","                  },
+    { TOKEN_QSTN_M,  "?"                  },
+    { TOKEN_ANS,     "ANS"                },
+    { TOKEN_SIN,     "sin("               },
+    { TOKEN_COS,     "cos("               },
+    { TOKEN_TAN,     "tan("               },
+    { TOKEN_ASIN,    "sin\xEE\x80\x81("  }, /* sin⁻¹( */
+    { TOKEN_ACOS,    "cos\xEE\x80\x81("  }, /* cos⁻¹( */
+    { TOKEN_ATAN,    "tan\xEE\x80\x81("  }, /* tan⁻¹( */
+    { TOKEN_ABS,     "abs("               },
+    { TOKEN_LN,      "ln("                },
+    { TOKEN_LOG,     "log("               },
+    { TOKEN_SQRT,    "sqrt("              },
+    { TOKEN_EE,      "*10^"               },
+    { TOKEN_E_X,     "exp("               },
+    { TOKEN_TEN_X,   "10^("               },
+    { TOKEN_SQUARE,  "^2"                 },
+    { TOKEN_X_INV,   "\xEE\x80\x81"      }, /* ⁻¹ U+E001 */
+    { TOKEN_MTRX_A,  "[A]"                },
+    { TOKEN_MTRX_B,  "[B]"                },
+    { TOKEN_MTRX_C,  "[C]"                },
+    { TOKEN_X_T,     "X"                  },
+    { TOKEN_PI,      "pi"                 },
+};
+
 /* Maps a token to its text representation for program editing.
  * Returns NULL for tokens that are not valid in the program editor. */
 static const char *prgm_token_to_str(Token_t t)
 {
-    switch (t) {
-    case TOKEN_ADD:     return "+";
-    case TOKEN_SUB:     return "-";
-    case TOKEN_MULT:    return "*";
-    case TOKEN_DIV:     return "/";
-    case TOKEN_POWER:   return "^";
-    case TOKEN_L_PAR:   return "(";
-    case TOKEN_R_PAR:   return ")";
-    case TOKEN_DECIMAL: return ".";
-    case TOKEN_NEG:     return "(-";
-    case TOKEN_STO:     return "->";
-    case TOKEN_SPACE:   return " ";
-    case TOKEN_QUOTES:  return "\"";
-    case TOKEN_COMMA:   return ",";
-    case TOKEN_QSTN_M:  return "?";
-    case TOKEN_ANS:     return "ANS";
-    case TOKEN_SIN:     return "sin(";
-    case TOKEN_COS:     return "cos(";
-    case TOKEN_TAN:     return "tan(";
-    case TOKEN_ASIN:    return "sin\xEE\x80\x81(";   /* sin⁻¹( */
-    case TOKEN_ACOS:    return "cos\xEE\x80\x81(";   /* cos⁻¹( */
-    case TOKEN_ATAN:    return "tan\xEE\x80\x81(";   /* tan⁻¹( */
-    case TOKEN_ABS:     return "abs(";
-    case TOKEN_LN:      return "ln(";
-    case TOKEN_LOG:     return "log(";
-    case TOKEN_SQRT:    return "sqrt(";
-    case TOKEN_EE:      return "*10^";
-    case TOKEN_E_X:     return "exp(";
-    case TOKEN_TEN_X:   return "10^(";
-    case TOKEN_SQUARE:  return "^2";
-    case TOKEN_X_INV:   return "\xEE\x80\x81";  /* ⁻¹ U+E001 */
-    case TOKEN_MTRX_A:  return "[A]";
-    case TOKEN_MTRX_B:  return "[B]";
-    case TOKEN_MTRX_C:  return "[C]";
-    case TOKEN_X_T:     return "X";
-    case TOKEN_PI:      return "pi";
-    default:            return NULL;
+    for (size_t i = 0; i < sizeof(k_prgm_tok_strs) / sizeof(k_prgm_tok_strs[0]); i++) {
+        if (k_prgm_tok_strs[i].tok == t) return k_prgm_tok_strs[i].str;
     }
+    return NULL;
 }
 
 /* Returns true if the current editor line already has a Lbl/Goto label char (B4). */

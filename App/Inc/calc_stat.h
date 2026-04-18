@@ -68,4 +68,18 @@ void CalcStat_SortY(StatData_t *d);
  */
 void CalcStat_Clear(StatData_t *d);
 
+/**
+ * @brief Y-variable statistics — Σy, Σy², Σxy, ȳ, Sy (sample), σy (population).
+ *
+ * These mirror the x-stat fields stored in StatResults_t but are computed
+ * on-the-fly from the raw list_y array so that any precision fix applied to
+ * CalcStat_Compute1Var automatically propagates to the y path.
+ */
+float CalcStat_SumY(const StatData_t *d);
+float CalcStat_SumY2(const StatData_t *d);
+float CalcStat_SumXY(const StatData_t *d);
+float CalcStat_MeanY(const StatData_t *d);
+float CalcStat_SxY(const StatData_t *d);
+float CalcStat_SigmaY(const StatData_t *d);
+
 #endif /* CALC_STAT_H */

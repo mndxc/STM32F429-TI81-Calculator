@@ -95,11 +95,16 @@ char *Graph_GetParamEquationYBuf(uint8_t pair)
  * Private variables
  *--------------------------------------------------------------------------*/
 
+/* SDRAM base address for graph pixel buffers — two consecutive GRAPH_W × GRAPH_H
+ * RGB565 frames (graph_buf and graph_buf_clean) are reserved starting here.
+ * See linker/BSP memory map; FLASH_SECTOR_10 is at 0x080C0000 (unrelated). */
+#define GRAPH_BUF_ADDR 0xD0025800UL
+
 /* Pixel buffer for the canvas — RGB565, one uint16_t per pixel */
-static uint16_t * const graph_buf       = (uint16_t *)0xD0025800;
+static uint16_t * const graph_buf       = (uint16_t *)GRAPH_BUF_ADDR;
 
 /* Clean-frame cache for trace: SDRAM immediately after graph_buf */
-static uint16_t * const graph_buf_clean = (uint16_t *)(0xD0025800 + GRAPH_W * GRAPH_H * 2);
+static uint16_t * const graph_buf_clean = (uint16_t *)(GRAPH_BUF_ADDR + (size_t)GRAPH_W * GRAPH_H * 2);
 static bool graph_clean_valid = false;
 
 
@@ -297,6 +302,19 @@ static void format_graph_coord(float val, char *buf, size_t len)
 }
 
 
+/**
+ * @brief Clears the canvas to black and draws grid, axes, and ticks.
+ *        Shared setup called at the start of both Graph_Render() and
+ *        Graph_RenderParametric().
+ */
+static void graph_render_setup(void)
+{
+    lv_canvas_fill_bg(graph_canvas, lv_color_hex(COLOR_BLACK), LV_OPA_COVER);
+    if (graph_state.grid_on) draw_grid();
+    draw_axes();
+    draw_ticks();
+}
+
 /*---------------------------------------------------------------------------
  * Public functions
  *--------------------------------------------------------------------------*/
@@ -363,13 +381,7 @@ void Graph_Render(bool angle_degrees)
         return;
     }
 
-    /* Clear canvas to black */
-    lv_canvas_fill_bg(graph_canvas, lv_color_hex(COLOR_BLACK), LV_OPA_COVER);
-
-    /* Draw grid dots (if enabled), then axes and ticks on top */
-    if (graph_state.grid_on) draw_grid();
-    draw_axes();
-    draw_ticks();
+    graph_render_setup();
 
     /* One color per Y= slot */
     static const uint32_t eq_palette[GRAPH_NUM_EQ] = {
@@ -483,11 +495,7 @@ void Graph_RenderParametric(bool angle_degrees)
 {
     if (graph_canvas == NULL) return;
 
-    lv_canvas_fill_bg(graph_canvas, lv_color_hex(COLOR_BLACK), LV_OPA_COVER);
-
-    if (graph_state.grid_on) draw_grid();
-    draw_axes();
-    draw_ticks();
+    graph_render_setup();
 
     static const uint32_t pair_palette[GRAPH_NUM_PARAM] = {
         COLOR_CURVE_Y1,   /* Pair 1 — white  */
@@ -594,83 +602,71 @@ void Graph_RenderParametric(bool angle_degrees)
     graph_clean_valid = true;
 }
 
-void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)
+/* Parametric trace helper — draws T=/X=/Y= readouts and crosshair for one
+ * T value on the given pair index.  Called only from Graph_DrawTrace(). */
+static void graph_draw_trace_param(float t, uint8_t pair, bool angle_degrees)
 {
-    if (graph_canvas == NULL) return;
+    char t_buf[16], xv_buf[16], yv_buf[16], label_buf[20];
+    format_graph_coord(t, t_buf, sizeof(t_buf));
+    snprintf(label_buf, sizeof(label_buf), "T=%s", t_buf);
+    lv_label_set_text(graph_lbl_t, label_buf);
 
-    /* Restore the clean frame — avoids a full re-render on every step */
-    if (graph_clean_valid) {
-        memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
-    } else {
-        Graph_Render(angle_degrees);
-    }
+    const char *xstr = graph_state.param_x[pair];
+    const char *ystr = graph_state.param_y[pair];
 
-    /* Parametric trace: x = t value, eq_idx = pair index (0-2) */
-    if (graph_state.param_mode) {
-        float t = x;
-        uint8_t pair = eq_idx < GRAPH_NUM_PARAM ? eq_idx : 0;
-
-        char t_buf[16], xv_buf[16], yv_buf[16], label_buf[20];
-        format_graph_coord(t, t_buf, sizeof(t_buf));
-        snprintf(label_buf, sizeof(label_buf), "T=%s", t_buf);
-        lv_label_set_text(graph_lbl_t, label_buf);
-
-        const char *xstr = graph_state.param_x[pair];
-        const char *ystr = graph_state.param_y[pair];
-
-        if (strlen(xstr) == 0 || strlen(ystr) == 0 ||
-            !param_postfix_valid[pair]) {
-            lv_label_set_text(graph_lbl_x, "");
-            lv_label_set_text(graph_lbl_y, "");
-            return;
-        }
-
-        CalcResult_t rx = Calc_EvalParamEquation(&param_postfix_x[pair], t, angle_degrees);
-        CalcResult_t ry = Calc_EvalParamEquation(&param_postfix_y[pair], t, angle_degrees);
-
-        if (rx.error != CALC_OK || isnan(rx.value) || isinf(rx.value)) {
-            lv_label_set_text(graph_lbl_x, "X=undef");
-            lv_label_set_text(graph_lbl_y, "");
-            return;
-        }
-        if (ry.error != CALC_OK || isnan(ry.value) || isinf(ry.value)) {
-            format_graph_coord(rx.value, xv_buf, sizeof(xv_buf));
-            snprintf(label_buf, sizeof(label_buf), "X=%s", xv_buf);
-            lv_label_set_text(graph_lbl_x, label_buf);
-            lv_label_set_text(graph_lbl_y, "Y=undef");
-            return;
-        }
-
-        format_graph_coord(rx.value, xv_buf, sizeof(xv_buf));
-        snprintf(label_buf, sizeof(label_buf), "X=%s", xv_buf);
-        lv_label_set_text(graph_lbl_x, label_buf);
-        format_graph_coord(ry.value, yv_buf, sizeof(yv_buf));
-        snprintf(label_buf, sizeof(label_buf), "Y=%s", yv_buf);
-        lv_label_set_text(graph_lbl_y, label_buf);
-
-        int32_t px = math_x_to_px(rx.value);
-        int32_t py = math_y_to_px(ry.value);
-
-        if (px >= 0 && px < GRAPH_W && py >= 0 && py < GRAPH_H) {
-            lv_color_t cur = lv_color_hex(0x00FF00);
-            const int32_t ARM = 5;
-            for (int32_t dx = -ARM; dx <= ARM; dx++) {
-                int32_t cx = px + dx;
-                if (cx >= 0 && cx < GRAPH_W)
-                    lv_canvas_set_px(graph_canvas, cx, py, cur, LV_OPA_COVER);
-            }
-            for (int32_t dy = -ARM; dy <= ARM; dy++) {
-                int32_t cy = py + dy;
-                if (cy >= 0 && cy < GRAPH_H)
-                    lv_canvas_set_px(graph_canvas, px, cy, cur, LV_OPA_COVER);
-            }
-        }
+    if (strlen(xstr) == 0 || strlen(ystr) == 0 || !param_postfix_valid[pair]) {
+        lv_label_set_text(graph_lbl_x, "");
+        lv_label_set_text(graph_lbl_y, "");
         return;
     }
 
-    /* Function-mode trace */
-    const char *eqstr = graph_state.equations[eq_idx];
+    CalcResult_t rx = Calc_EvalParamEquation(&param_postfix_x[pair], t, angle_degrees);
+    CalcResult_t ry = Calc_EvalParamEquation(&param_postfix_y[pair], t, angle_degrees);
 
+    if (rx.error != CALC_OK || isnan(rx.value) || isinf(rx.value)) {
+        lv_label_set_text(graph_lbl_x, "X=undef");
+        lv_label_set_text(graph_lbl_y, "");
+        return;
+    }
+    if (ry.error != CALC_OK || isnan(ry.value) || isinf(ry.value)) {
+        format_graph_coord(rx.value, xv_buf, sizeof(xv_buf));
+        snprintf(label_buf, sizeof(label_buf), "X=%s", xv_buf);
+        lv_label_set_text(graph_lbl_x, label_buf);
+        lv_label_set_text(graph_lbl_y, "Y=undef");
+        return;
+    }
+
+    format_graph_coord(rx.value, xv_buf, sizeof(xv_buf));
+    snprintf(label_buf, sizeof(label_buf), "X=%s", xv_buf);
+    lv_label_set_text(graph_lbl_x, label_buf);
+    format_graph_coord(ry.value, yv_buf, sizeof(yv_buf));
+    snprintf(label_buf, sizeof(label_buf), "Y=%s", yv_buf);
+    lv_label_set_text(graph_lbl_y, label_buf);
+
+    int32_t px = math_x_to_px(rx.value);
+    int32_t py = math_y_to_px(ry.value);
+
+    if (px >= 0 && px < GRAPH_W && py >= 0 && py < GRAPH_H) {
+        lv_color_t cur = lv_color_hex(0x00FF00);
+        const int32_t ARM = 5;
+        for (int32_t dx = -ARM; dx <= ARM; dx++) {
+            int32_t cx = px + dx;
+            if (cx >= 0 && cx < GRAPH_W)
+                lv_canvas_set_px(graph_canvas, cx, py, cur, LV_OPA_COVER);
+        }
+        for (int32_t dy = -ARM; dy <= ARM; dy++) {
+            int32_t cy = py + dy;
+            if (cy >= 0 && cy < GRAPH_H)
+                lv_canvas_set_px(graph_canvas, px, cy, cur, LV_OPA_COVER);
+        }
+    }
+}
+
+/* Function-mode trace helper — draws X=/Y= readouts and crosshair at x on
+ * the given equation index.  Called only from Graph_DrawTrace(). */
+static void graph_draw_trace_func(float x, uint8_t eq_idx, bool angle_degrees)
+{
+    const char *eqstr = graph_state.equations[eq_idx];
     char x_buf[16], y_buf[16], label_buf[20];
 
     format_graph_coord(x, x_buf, sizeof(x_buf));
@@ -711,6 +707,24 @@ void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)
         if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
             lv_canvas_set_px(graph_canvas, px, cy, cur, LV_OPA_COVER);
     }
+}
+
+void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)
+{
+    if (graph_canvas == NULL) return;
+
+    /* Restore the clean frame — avoids a full re-render on every step */
+    if (graph_clean_valid) {
+        memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
+    } else {
+        Graph_Render(angle_degrees);
+    }
+
+    /* Parametric trace: x = t value, eq_idx = pair index (0-2) */
+    if (graph_state.param_mode)
+        graph_draw_trace_param(x, eq_idx < GRAPH_NUM_PARAM ? eq_idx : 0, angle_degrees);
+    else
+        graph_draw_trace_func(x, eq_idx, angle_degrees);
 }
 
 void Graph_ClearTrace(void)

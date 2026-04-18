@@ -48,9 +48,13 @@ lv_obj_t *ui_stat_results_screen = NULL;
 
 MenuState_t stat_menu_state = {0};
 
-/* Global stat data and results — persist-serialized in calculator_core.c */
-StatData_t    stat_data    = {{0}, {0}, 0};
-StatResults_t stat_results = {0};
+/* Module-private stat data and results — accessed via Stat_GetData/GetResults/SetData */
+static StatData_t    stat_data    = {{0}, {0}, 0};
+static StatResults_t stat_results = {0};
+
+const StatData_t    *Stat_GetData(void)    { return &stat_data; }
+const StatResults_t *Stat_GetResults(void) { return &stat_results; }
+void                 Stat_SetData(const StatData_t *src) { memcpy(&stat_data, src, sizeof(stat_data)); }
 
 /* DATA editor state */
 static uint8_t  stat_edit_row    = 0;

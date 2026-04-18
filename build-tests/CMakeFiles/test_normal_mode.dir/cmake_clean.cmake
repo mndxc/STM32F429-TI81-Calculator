@@ -3,6 +3,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o.d"
   "CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o"
   "CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o.d"
+  "CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.o"
+  "CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_history.c.o.d"
   "CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_core.c.o"
   "CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_core.c.o.d"
   "CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o"

@@ -160,9 +160,6 @@ typedef struct {
     uint8_t list_len;   /* Number of valid (x,y) pairs; 0 = empty */
 } StatData_t;
 
-/** Global stat data — owned by ui_stat.c */
-extern StatData_t stat_data;
-
 /**
  * @brief Holds results from the most recent statistical calculation.
  *        Populated by CalcStat_Compute1Var / CalcStat_ComputeLinReg etc.
@@ -172,9 +169,6 @@ typedef struct {
     float reg_a, reg_b, reg_r;
     bool  valid;
 } StatResults_t;
-
-/** Global stat results — owned by ui_stat.c */
-extern StatResults_t stat_results;
 
 /*---------------------------------------------------------------------------
  * Shared handles
