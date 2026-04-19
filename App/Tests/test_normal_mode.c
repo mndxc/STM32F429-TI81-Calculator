@@ -53,8 +53,6 @@ lv_obj_t *ui_param_yeq_screen          = NULL;
 lv_obj_t *ui_graph_range_screen        = NULL;
 lv_obj_t *ui_graph_zoom_screen         = NULL;
 lv_obj_t *ui_graph_zoom_factors_screen = NULL;
-lv_obj_t *ui_prgm_editor_screen        = NULL;
-lv_obj_t *ui_prgm_new_screen           = NULL;
 
 /* Stub font objects (never dereferenced — LVGL calls are no-ops) */
 const lv_font_t jetbrains_mono_24 = {0};

@@ -710,6 +710,22 @@ void ui_refresh_display(void)
         lv_obj_add_flag(cursor_box, LV_OBJ_FLAG_HIDDEN);
 }
 
+static void update_overlay_cursor(void)
+{
+    if (Graph_IsYeqScreenVisible())
+        yeq_cursor_update();
+    else if (Graph_IsRangeScreenVisible())
+        range_cursor_update();
+    else if (Graph_IsZoomFactorsScreenVisible())
+        zoom_factors_cursor_update();
+    else if (Matrix_IsEditScreenVisible())
+        matrix_edit_cursor_update();
+    else if (Prgm_IsEditorScreenVisible())
+        prgm_editor_cursor_update();
+    else if (Prgm_IsNewScreenVisible())
+        prgm_new_cursor_update();
+}
+
 /**
  * @brief LVGL timer callback — blinks the cursor every CURSOR_BLINK_MS.
  *
@@ -726,18 +742,7 @@ static void cursor_timer_cb(lv_timer_t *timer)
     ui_refresh_display();
     /* Blink the overlay-screen cursor based on visibility, not current_mode,
      * so it keeps blinking during transient modifier modes (MODE_2ND/ALPHA). */
-    if (Graph_IsYeqScreenVisible())
-        yeq_cursor_update();
-    else if (Graph_IsRangeScreenVisible())
-        range_cursor_update();
-    else if (Graph_IsZoomFactorsScreenVisible())
-        zoom_factors_cursor_update();
-    else if (Matrix_IsEditScreenVisible())
-        matrix_edit_cursor_update();
-    else if (ui_prgm_editor_screen != NULL && !lv_obj_has_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN))
-        prgm_editor_cursor_update();
-    else if (ui_prgm_new_screen != NULL && !lv_obj_has_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN))
-        prgm_new_cursor_update();
+    update_overlay_cursor();
 }
 
 /**
@@ -750,18 +755,7 @@ void ui_update_status_bar(void)
 {
     cursor_visible = true;
     ui_refresh_display();
-    if (Graph_IsYeqScreenVisible())
-        yeq_cursor_update();
-    else if (Graph_IsRangeScreenVisible())
-        range_cursor_update();
-    else if (Graph_IsZoomFactorsScreenVisible())
-        zoom_factors_cursor_update();
-    else if (Matrix_IsEditScreenVisible())
-        matrix_edit_cursor_update();
-    else if (ui_prgm_editor_screen != NULL && !lv_obj_has_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN))
-        prgm_editor_cursor_update();
-    else if (ui_prgm_new_screen != NULL && !lv_obj_has_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN))
-        prgm_new_cursor_update();
+    update_overlay_cursor();
 }
 
 /**

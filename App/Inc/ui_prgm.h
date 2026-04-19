@@ -22,8 +22,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-extern lv_obj_t *ui_prgm_editor_screen;
-extern lv_obj_t *ui_prgm_new_screen;
+bool Prgm_IsEditorScreenVisible(void);
+bool Prgm_IsNewScreenVisible(void);
 
 /* Shared editor working buffer — also used by the execution engine */
 extern char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];

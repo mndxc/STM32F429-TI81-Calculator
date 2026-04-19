@@ -1132,6 +1132,17 @@ void ui_init_prgm_screens(void)
 
 /* prgm_reset_execution_state is defined in prgm_exec.c */
 
+bool Prgm_IsEditorScreenVisible(void)
+{
+    return ui_prgm_editor_screen != NULL &&
+           !lv_obj_has_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
+}
+bool Prgm_IsNewScreenVisible(void)
+{
+    return ui_prgm_new_screen != NULL &&
+           !lv_obj_has_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
+}
+
 void hide_prgm_screens(void) {
     if (ui_prgm_screen) lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
     if (ui_prgm_new_screen) lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);

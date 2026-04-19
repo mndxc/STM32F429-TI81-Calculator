@@ -206,9 +206,7 @@ static inline char *Graph_GetParamEquationYBuf(uint8_t p)
 
 /* LVGL screen pointers — all stub-defined in test_normal_mode.c.
  * ui_mode_screen is a private static in ui_mode.c (after T4) and is NOT
- * declared extern here; it is accessed only through Mode_HideScreen().
- * ui_prgm_editor_screen / ui_prgm_new_screen are still raw externs pending
- * Review Item 1 (Prgm_IsEditorScreenVisible / Prgm_IsNewScreenVisible). */
+ * declared extern here; it is accessed only through Mode_HideScreen(). */
 extern lv_obj_t *ui_math_screen;
 extern lv_obj_t *ui_test_screen;
 extern lv_obj_t *ui_matrix_screen;
@@ -224,8 +222,6 @@ extern lv_obj_t *ui_stat_results_screen;
 extern lv_obj_t *ui_draw_screen;
 extern lv_obj_t *ui_vars_screen;
 extern lv_obj_t *ui_yvars_screen;
-extern lv_obj_t *ui_prgm_editor_screen;
-extern lv_obj_t *ui_prgm_new_screen;
 
 /* calc_internal.h function declarations (defined in calculator_core.c or
  * the ui_* sub-module that owns each function) */
