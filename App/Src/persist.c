@@ -12,7 +12,7 @@
 #include "persist.h"
 #include <string.h>
 #ifndef HOST_TEST
-#  include "calc_engine.h"      /* calc_variables, calc_matrices, Calc_SetDecimalMode */
+#  include "calc_engine.h"      /* calc_variables, calc_matrices, Calc_SetNotationMode, Calc_SetDecimalMode */
 #  include "calculator_core.h"  /* Calc_GetAns, Calc_SetAnsScalar, Calc_Get/SetAngleDegrees */
 #  include "ui_mode.h"          /* s_mode, ModeScreenState_t */
 #  include "graph.h"            /* Graph_GetState, Graph_Set*, Graph_GetEquationBuf, … */
@@ -227,8 +227,9 @@ void Persist_ApplyBlock(const PersistBlock_t *block)
     for (int i = 0; i < MODE_ROW_COUNT; i++) s_mode.cursor[i] = s_mode.committed[i];
 
     /* Re-derive state computed from s_mode.committed */
-    Calc_SetAngleDegrees(block->mode_committed[2] == 1);
+    Calc_SetNotationMode(block->mode_committed[0]);
     Calc_SetDecimalMode(block->mode_committed[1]);
+    Calc_SetAngleDegrees(block->mode_committed[2] == 1);
 
     graph_ui_set_zoom_facts(block->zoom_x_fact, block->zoom_y_fact);
 

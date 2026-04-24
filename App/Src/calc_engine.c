@@ -17,7 +17,7 @@
 
 /* Scientific-notation display thresholds for Calc_FormatResult */
 #define CALC_SCI_HI        1e7f   /* values >= this use scientific notation */
-#define CALC_SCI_LO        1e-4f  /* non-zero values < this use scientific notation */
+#define CALC_SCI_LO        1e-3f  /* non-zero values < this use scientific notation (TI-81: .001) */
 #define CALC_INT_EPS       1e-4f  /* max fractional part to display as integer */
 #define CALC_SINGULARITY_EPS 1e-10f /* pivot threshold below which matrix is singular */
 
@@ -32,8 +32,10 @@ CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT] = {
     { .rows = 3, .cols = 3 },
 };
 
-/* Decimal display mode: 0=Float, 1=Fix0 … 10=Fix9 (mirrors MODE screen row 2) */
+/* Decimal display mode: 0=Float, 1=Fix0 … 10=Fix9 (mirrors MODE screen row 1) */
 static uint8_t calc_decimal_mode = 0;
+/* Notation mode: 0=Normal, 1=Sci, 2=Eng (mirrors MODE screen row 0) */
+static uint8_t calc_notation_mode = 0;
 
 /* Registered Y= equation strings — set via Calc_RegisterYEquations().
  * NULL until registered; Y₁–Y₄ tokens evaluate to 0.0 when NULL. */
@@ -47,6 +49,11 @@ static int s_y_eval_depth = 0;
 void Calc_SetDecimalMode(uint8_t mode)
 {
     calc_decimal_mode = mode;
+}
+
+void Calc_SetNotationMode(uint8_t mode)
+{
+    calc_notation_mode = mode;
 }
 
 void Calc_RegisterYEquations(const char (*eqs)[64], uint8_t count)
@@ -1289,13 +1296,64 @@ CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
     return EvaluateRPN(&postfix, x_val, 0.0f, angle_degrees);
 }
 
+/* Post-processes a C scientific-notation string (e.g. "1.234568e+04") into
+ * TI-81 style: uppercase E, no leading zeros in exponent, no '+' sign.
+ * Operates in-place; buf_len guards the re-written exponent digits. */
+static void fix_sci_exponent(char *buf, size_t buf_len)
+{
+    char *e = strchr(buf, 'e');
+    if (e == NULL) return;
+    *e = 'E';
+    char *p = e + 1;
+    int sign = 1;
+    if (*p == '+') { p++; }
+    else if (*p == '-') { sign = -1; p++; }
+    int exp_val = atoi(p) * sign;
+    snprintf(e + 1, buf_len - (size_t)(e + 1 - buf), "%d", exp_val);
+}
+
+/* Trims trailing zeros (and bare decimal point) from a decimal string in-place. */
+static void trim_trailing_zeros(char *buf)
+{
+    char *dot = strchr(buf, '.');
+    if (dot == NULL) return;
+    char *end = buf + strlen(buf) - 1;
+    while (end > dot && *end == '0') *end-- = '\0';
+    if (*end == '.') *end = '\0';
+}
+
+/* Formats value in engineering notation (exponent always a multiple of 3).
+ * fix_decimals < 0 → float mode (6 decimal places, trailing zeros trimmed);
+ * fix_decimals >= 0 → exactly fix_decimals decimal places. */
+static void format_eng(float value, int fix_decimals, char *buf, uint8_t buf_len)
+{
+    if (value == 0.0f) { snprintf(buf, buf_len, "0"); return; }
+
+    float absv = fabsf(value);
+    int exp10 = (int)floorf(log10f(absv));
+    /* Round exp10 down to nearest multiple of 3 */
+    int mod3 = ((exp10 % 3) + 3) % 3;
+    int eng_exp = exp10 - mod3;
+    float mantissa = value / powf(10.0f, (float)eng_exp);
+
+    int dec = (fix_decimals >= 0) ? fix_decimals : 4;
+    char fmt[8];
+    snprintf(fmt, sizeof(fmt), "%%.%df", dec);
+
+    /* Format mantissa into a temp buffer, then append the exponent */
+    char tmp[32];
+    snprintf(tmp, sizeof(tmp), fmt, (double)mantissa);
+    if (fix_decimals < 0) trim_trailing_zeros(tmp);
+    snprintf(buf, buf_len, "%sE%d", tmp, eng_exp);
+}
+
 /**
  * @brief Formats a float result into a clean display string.
  *
- * Produces integers without a decimal point, trims trailing zeros from
- * decimal results, and switches to scientific notation for values outside
- * the range [1e-4, 1e7).  Uses explicit %.6f rather than %.6g because
- * newlib-nano's %g formatting is unreliable on ARM targets.
+ * Respects the current notation mode (Normal/Sci/Eng) and decimal mode
+ * (Float/Fix N) set via Calc_SetNotationMode() and Calc_SetDecimalMode().
+ * Uses explicit %.Nf rather than %.Ng because newlib-nano's %g is unreliable
+ * on ARM targets. Output always uses uppercase E for scientific notation.
  *
  * @param value   Float to format
  * @param buf     Output buffer
@@ -1306,15 +1364,55 @@ void Calc_FormatResult(float value, char *buf, uint8_t buf_len)
     /* Fixed-decimal mode: fix_decimals >= 0; Float mode: fix_decimals = -1 */
     int fix_decimals = (calc_decimal_mode > 0) ? (int)calc_decimal_mode - 1 : -1;
 
-    /* Scientific notation for very large or very small non-zero values */
-    if (fabsf(value) >= CALC_SCI_HI || (fabsf(value) < CALC_SCI_LO && value != 0.0f)) {
+    /* --- Sci mode: always scientific notation -------------------------------- */
+    if (calc_notation_mode == 1) {
+        if (value == 0.0f) { snprintf(buf, buf_len, "0"); return; }
+        int dec = (fix_decimals >= 0) ? fix_decimals : 6;
+        char fmt[8];
+        snprintf(fmt, sizeof(fmt), "%%.%de", dec);
+        snprintf(buf, buf_len, fmt, (double)value);
+        /* In float mode, trim trailing zeros from the mantissa portion only.
+         * Temporarily null-terminate at 'e', trim, then re-join with exponent. */
         if (fix_decimals < 0) {
-            snprintf(buf, buf_len, "%.4e", value);
-        } else {
-            char fmt[8];
-            snprintf(fmt, sizeof(fmt), "%%.%de", fix_decimals);
-            snprintf(buf, buf_len, fmt, value);
+            char *e = strchr(buf, 'e');
+            if (e != NULL) {
+                char exp_save[8];
+                snprintf(exp_save, sizeof(exp_save), "%s", e);
+                *e = '\0';
+                trim_trailing_zeros(buf);
+                size_t used = strlen(buf);
+                snprintf(buf + used, (size_t)buf_len - used, "%s", exp_save);
+            }
         }
+        fix_sci_exponent(buf, buf_len);
+        return;
+    }
+
+    /* --- Eng mode: engineering notation ------------------------------------- */
+    if (calc_notation_mode == 2) {
+        format_eng(value, fix_decimals, buf, buf_len);
+        return;
+    }
+
+    /* --- Normal mode -------------------------------------------------------- */
+    /* Auto-switch to scientific for out-of-range values (TI-81: |v| < .001) */
+    if (fabsf(value) >= CALC_SCI_HI || (fabsf(value) < CALC_SCI_LO && value != 0.0f)) {
+        int dec = (fix_decimals >= 0) ? fix_decimals : 6;
+        char fmt[8];
+        snprintf(fmt, sizeof(fmt), "%%.%de", dec);
+        snprintf(buf, buf_len, fmt, (double)value);
+        if (fix_decimals < 0) {
+            char *e = strchr(buf, 'e');
+            if (e != NULL) {
+                char exp_save[8];
+                snprintf(exp_save, sizeof(exp_save), "%s", e);
+                *e = '\0';
+                trim_trailing_zeros(buf);
+                size_t used = strlen(buf);
+                snprintf(buf + used, (size_t)buf_len - used, "%s", exp_save);
+            }
+        }
+        fix_sci_exponent(buf, buf_len);
         return;
     }
 
@@ -1328,17 +1426,7 @@ void Calc_FormatResult(float value, char *buf, uint8_t buf_len)
         }
 
         snprintf(buf, buf_len, "%.6f", value);
-
-        char *dot = strchr(buf, '.');
-        if (dot != NULL) {
-            char *end = buf + strlen(buf) - 1;
-            while (end > dot && *end == '0') {
-                *end-- = '\0';
-            }
-            if (*end == '.') {
-                *end = '\0';
-            }
-        }
+        trim_trailing_zeros(buf);
     } else {
         /* Fix N mode: always show exactly N decimal places */
         char fmt[8];

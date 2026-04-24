@@ -179,6 +179,8 @@ bool handle_mode_screen(Token_t t)
         return true;
     case TOKEN_ENTER:
         s_mode.committed[s_mode.row_selected] = s_mode.cursor[s_mode.row_selected];
+        if (s_mode.row_selected == 0)
+            Calc_SetNotationMode(s_mode.committed[0]);
         if (s_mode.row_selected == 1)
             Calc_SetDecimalMode(s_mode.committed[1]);
         if (s_mode.row_selected == 2)

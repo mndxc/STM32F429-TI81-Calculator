@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
 #include "calc_engine.h"
 
 /* -------------------------------------------------------------------------
@@ -48,6 +49,7 @@ static void reset_state(void)
                 calc_matrices[m].data[r][c] = 0.0f;
     }
     Calc_SetDecimalMode(0);
+    Calc_SetNotationMode(0);
 }
 
 /* =========================================================================
@@ -472,13 +474,13 @@ static void test_format_result(void)
     Calc_FormatResult(1234567.0f, buf, sizeof(buf));
     CHECK(strcmp(buf, "1234567") == 0, "1234567.0 → \"1234567\"");
 
-    /* Large value → scientific notation (%.4e = lowercase 'e') */
+    /* Large value → scientific notation (uppercase E) */
     Calc_FormatResult(12345678.0f, buf, sizeof(buf));
-    CHECK(strchr(buf, 'e') != NULL, "12345678.0 → scientific notation");
+    CHECK(strchr(buf, 'E') != NULL, "12345678.0 → scientific notation");
 
     /* Tiny non-zero value → scientific notation */
     Calc_FormatResult(0.0000001f, buf, sizeof(buf));
-    CHECK(strchr(buf, 'e') != NULL, "0.0000001 → scientific notation");
+    CHECK(strchr(buf, 'E') != NULL, "0.0000001 → scientific notation");
 
     /* Fix 2 mode: mode=3 → fix_decimals=2 */
     Calc_SetDecimalMode(3);
@@ -911,7 +913,8 @@ static void test_pythagorean_identity(void)
 
 /* =========================================================================
  * Group 20 — Property: Calc_FormatResult scientific-notation boundaries
- * Threshold: |val| >= 1e7 or (|val| < 1e-4 and val != 0) → uses 'e'
+ * Threshold (Normal mode): |val| >= 1e7 or (|val| < 1e-3 and val != 0)
+ * All scientific output uses uppercase 'E'.
  * ====================================================================== */
 static void test_format_sci_boundary(void)
 {
@@ -919,35 +922,140 @@ static void test_format_sci_boundary(void)
     char buf[32];
     Calc_SetDecimalMode(0);
 
-    /* Values just below the upper threshold — must NOT use scientific */
+    /* Values in the normal display range — must NOT use scientific notation */
     static const float non_sci[] = {
-        9999999.0f, 1000000.0f, 100.0f, 1.0f, 0.001f, 0.0001f
+        9999999.0f, 1000000.0f, 100.0f, 1.0f, 0.001f
     };
     for (size_t i = 0; i < sizeof(non_sci)/sizeof(non_sci[0]); i++) {
         Calc_FormatResult(non_sci[i], buf, sizeof(buf));
-        CHECK(strchr(buf, 'e') == NULL,
+        CHECK(strpbrk(buf, "eE") == NULL,
               "value in normal range must not use scientific notation");
     }
 
-    /* Values at or above the upper threshold — must use scientific */
+    /* Values at or above the upper threshold — must use scientific (uppercase E) */
     static const float sci_hi[] = { 10000000.0f, 1e8f, 1e10f, -1e9f };
     for (size_t i = 0; i < sizeof(sci_hi)/sizeof(sci_hi[0]); i++) {
         Calc_FormatResult(sci_hi[i], buf, sizeof(buf));
-        CHECK(strchr(buf, 'e') != NULL,
+        CHECK(strchr(buf, 'E') != NULL,
               "value >= 1e7 must use scientific notation");
     }
 
-    /* Values below the lower threshold (non-zero) — must use scientific */
-    static const float sci_lo[] = { 1e-5f, 1e-7f, 1e-10f, -5e-6f };
+    /* Values below the lower threshold (non-zero) — must use scientific (uppercase E) */
+    /* 0.0001f is now below the 1e-3 threshold per TI-81 guidebook */
+    static const float sci_lo[] = { 0.0001f, 1e-5f, 1e-7f, 1e-10f, -5e-6f };
     for (size_t i = 0; i < sizeof(sci_lo)/sizeof(sci_lo[0]); i++) {
         Calc_FormatResult(sci_lo[i], buf, sizeof(buf));
-        CHECK(strchr(buf, 'e') != NULL,
-              "non-zero value with |val| < 1e-4 must use scientific notation");
+        CHECK(strchr(buf, 'E') != NULL,
+              "non-zero value with |val| < 1e-3 must use scientific notation");
     }
 
     /* Zero must never use scientific notation */
     Calc_FormatResult(0.0f, buf, sizeof(buf));
-    CHECK(strchr(buf, 'e') == NULL, "0.0 must not use scientific notation");
+    CHECK(strpbrk(buf, "eE") == NULL, "0.0 must not use scientific notation");
+}
+
+/* =========================================================================
+ * Group 21 — Sci and Eng notation modes
+ * ====================================================================== */
+static void test_notation_modes(void)
+{
+    printf("[21] Sci and Eng notation modes\n");
+    char buf[32];
+
+    /* --- Sci mode, Float decimals ---------------------------------------- */
+    Calc_SetNotationMode(1);
+    Calc_SetDecimalMode(0);
+
+    /* Zero always displays as "0" */
+    Calc_FormatResult(0.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "0") == 0, "Sci: 0 → \"0\"");
+
+    /* 1000 → mantissa 1.0, all trailing zeros trimmed → "1E3" */
+    Calc_FormatResult(1000.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "1E3") == 0, "Sci: 1000 → \"1E3\"");
+
+    /* 0.001 → mantissa 1.0, exponent -3 → "1E-3" */
+    Calc_FormatResult(0.001f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "1E-3") == 0, "Sci: 0.001 → \"1E-3\"");
+
+    /* Negative value */
+    Calc_FormatResult(-1000.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "-1E3") == 0, "Sci: -1000 → \"-1E3\"");
+
+    /* Value with significant decimal digits — check uppercase E present */
+    Calc_FormatResult(12345.678f, buf, sizeof(buf));
+    CHECK(strchr(buf, 'E') != NULL && strchr(buf, 'e') == NULL,
+          "Sci: 12345.678 uses uppercase E");
+    /* Exponent must be 4 */
+    CHECK(strstr(buf, "E4") != NULL, "Sci: 12345.678 exponent is 4");
+
+    /* --- Sci mode, Fix 2 decimals --------------------------------------- */
+    Calc_SetDecimalMode(3); /* mode 3 → Fix 2 */
+
+    /* 1000 in Fix2: "1.00E3" */
+    Calc_FormatResult(1000.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "1.00E3") == 0, "Sci Fix2: 1000 → \"1.00E3\"");
+
+    /* 12345 in Fix2 */
+    Calc_FormatResult(12345.0f, buf, sizeof(buf));
+    CHECK(strstr(buf, "E4") != NULL, "Sci Fix2: 12345 exponent is 4");
+
+    Calc_SetDecimalMode(0);
+
+    /* --- Eng mode, Float decimals --------------------------------------- */
+    Calc_SetNotationMode(2);
+
+    /* Zero */
+    Calc_FormatResult(0.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "0") == 0, "Eng: 0 → \"0\"");
+
+    /* 1000: exp10=3, mod3=0, eng_exp=3, mantissa=1 → "1E3" */
+    Calc_FormatResult(1000.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "1E3") == 0, "Eng: 1000 → \"1E3\"");
+
+    /* 1000000: eng_exp=6, mantissa=1 → "1E6" */
+    Calc_FormatResult(1000000.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "1E6") == 0, "Eng: 1000000 → \"1E6\"");
+
+    /* 12000: eng_exp=3, mantissa=12 → "12E3" */
+    Calc_FormatResult(12000.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "12E3") == 0, "Eng: 12000 → \"12E3\"");
+
+    /* 120000: eng_exp=3, mantissa=120 → "120E3" */
+    Calc_FormatResult(120000.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "120E3") == 0, "Eng: 120000 → \"120E3\"");
+
+    /* 0.001: exp10=-3, mod3=0, eng_exp=-3, mantissa=1 → "1E-3" */
+    Calc_FormatResult(0.001f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "1E-3") == 0, "Eng: 0.001 → \"1E-3\"");
+
+    /* 0.000001: exp10=-6, mod3=0, eng_exp=-6, mantissa=1 → "1E-6" */
+    Calc_FormatResult(0.000001f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "1E-6") == 0, "Eng: 0.000001 → \"1E-6\"");
+
+    /* Exponent is always a multiple of 3 */
+    static const float eng_vals[] = {
+        1.0f, 10.0f, 100.0f, 1e4f, 1e5f, 0.01f, 0.0001f
+    };
+    for (size_t i = 0; i < sizeof(eng_vals)/sizeof(eng_vals[0]); i++) {
+        Calc_FormatResult(eng_vals[i], buf, sizeof(buf));
+        char *ep = strchr(buf, 'E');
+        CHECK(ep != NULL, "Eng: output contains 'E'");
+        if (ep != NULL) {
+            int exp_val = atoi(ep + 1);
+            CHECK(exp_val % 3 == 0, "Eng: exponent is a multiple of 3");
+        }
+    }
+
+    /* --- Eng mode, Fix 2 decimals --------------------------------------- */
+    Calc_SetDecimalMode(3); /* Fix 2 */
+
+    /* 12000 in Fix2: mantissa=12.0, dec=2 → "12.00E3" */
+    Calc_FormatResult(12000.0f, buf, sizeof(buf));
+    CHECK(strcmp(buf, "12.00E3") == 0, "Eng Fix2: 12000 → \"12.00E3\"");
+
+    Calc_SetDecimalMode(0);
+    Calc_SetNotationMode(0); /* restore Normal */
 }
 
 /* =========================================================================
@@ -1022,6 +1130,9 @@ int main(void)
 
     reset_state();
     test_format_sci_boundary();
+
+    reset_state();
+    test_notation_modes();
 
     int total = g_passed + g_failed;
     printf("\n=== Results: %d/%d passed", g_passed, total);

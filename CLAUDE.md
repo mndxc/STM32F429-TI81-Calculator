@@ -6,6 +6,8 @@
 
 Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before starting any significant work. It defines the grading criteria for every scorecard dimension (Rises when / Falls when), standing rules that must never regress, and the Numbers to Keep in Sync across files.
 
+**`docs/Datasheets/TI81Guidebook.md` is the behavioral specification for all calculator features.** Before planning or implementing any feature, read the relevant guidebook chapter. When behavior is ambiguous, the guidebook is authoritative. Any deviation from guidebook behavior must be documented in "Deliberate Deviations from Original TI-81" below — an undocumented deviation is a defect, not a design choice.
+
 **Complexity delta rating** — rate neutral / increase / decrease before every commit; if `increase`, add a `[complexity]` item to "Next session priorities".
 
 Use `/update-project` to trigger a full sync. All open work items live in "Next session priorities" below; resolved items and milestone history are in [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md).
@@ -69,7 +71,7 @@ All actionable items go in `Next session priorities` in this file. Use tags to d
 
 ---
 
-## Feature Completion Status (~72% of original TI-81, as of 2026-03-22)
+## Feature Completion Status (~95% of original TI-81 guidebook, as of 2026-04-23)
 
 Session log and completed features: [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTORY.md). Full area-by-area breakdown: [README.md](../README.md) Status section.
 
@@ -132,7 +134,9 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 **[refactor] PersistBlock_t sub-struct adoption** — Follow-on to REFACTOR Item 6. Design is documented in `docs/TECHNICAL.md` "Persist Migration Design" section. Must be adopted atomically at the next feature that bumps `PERSIST_VERSION`. When implementing: introduce `GraphPersist_t`, `StatPersist_t`, `MatrixPersist_t`, `PrgmPersist_t`, `ModePersist_t` sub-structs; add per-section `graph_ver`/`stat_ver`/... fields; replace the monolithic migration switch with per-section switches. Do not adopt piecemeal — one atomic change at version bump.
 
-**P33 — MODE screen unimplemented rows** — MODE screen rows 1, 5, 6, and 8 display correctly but have no effect on calculator behaviour. Row 4 (`Function | Param`) is now fully wired (P34 complete). Row 1 (`Normal | Sci | Eng`): output format only — medium effort, no new subsystems needed. Rows 5/6/8 (`Connected | Dot`, `Sequential | Simul`, `Real | Polar | Param`) gate further graphing subsystems. Implementation order: (1) Row 1 Sci/Eng notation — wire to number formatter in `calc_engine.c`; (2) Row 5 Connected/Dot — wire to graph renderer in `graph.c`. Spec: `docs/MENU_SPECS.md` lines 25–43. Files: `App/Src/calculator_core.c`, `App/Src/calc_engine.c`, `App/Src/graph.c`, `App/Inc/app_common.h`.
+**P33 — MODE screen unimplemented rows** — Row 1 (`Normal | Sci | Eng`) is now wired (complete). Row 4 (`Function | Param`) complete (P34). Remaining rows: Row 5 (`Connected | Dot`) — wire to graph renderer in `graph.c`; Rows 6/8 (`Sequential | Simul`, `Real | Polar | Param`) gate further graphing subsystems. Spec: `docs/MENU_SPECS.md` lines 25–43. Files: `App/Src/graph.c`, `App/Inc/app_common.h`.
+
+**P36 — PRGM Norm/Sci/Eng notation program commands** — The TI-81 guidebook (Chapter 8, p. 8-16) lists `Norm`, `Sci`, and `Eng` as PRGM [MODE] NUMBER sub-menu commands that set the display notation mode during program execution. Accessible via `[PRGM]` EDIT → [MODE] → NUMBER tab. These are self-contained tokens (no arguments) that call `Calc_SetNotationMode()`. Prerequisites: `Calc_SetNotationMode()` is already implemented (P36 basis). Implementation: add `TOKEN_NORM`, `TOKEN_SCI`, `TOKEN_ENG` tokens; register them in the PRGM MODE NUMBER sub-menu; handle in `prgm_exec.c`. Note: `TOKEN_SCI` / `TOKEN_ENG` names must not clash with any existing token enum values. Files: `App/Inc/app_common.h` (tokens), `App/Src/ui_prgm.c` (menu), `App/Src/prgm_exec.c` (executor).
 
 **[hardware] P7 — Physical TI-81 ribbon pad ↔ STM32 GPIO wiring table** — STM32 GPIO side complete. Remaining: trace each TI-81 PCB ribbon pad to A-line/B-line with a multimeter on a donor board. Requires physical hardware access; indefinite timeline. Files: `docs/GETTING_STARTED.md`.
 

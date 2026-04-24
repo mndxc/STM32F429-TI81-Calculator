@@ -192,6 +192,14 @@ void Calc_FormatResult(float value, char *buf, uint8_t buf_len);
 void Calc_SetDecimalMode(uint8_t mode);
 
 /**
+ * @brief Sets the notation mode used by Calc_FormatResult.
+ *
+ * @param mode  0 = Normal, 1 = Sci, 2 = Eng.
+ *              Matches mode_committed[0] from the MODE screen directly.
+ */
+void Calc_SetNotationMode(uint8_t mode);
+
+/**
  * @brief Evaluates an infix expression with a specific value substituted for X.
  *
  * Used by the graphing subsystem — the graph x coordinate overrides whatever
