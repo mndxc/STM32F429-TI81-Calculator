@@ -22,6 +22,7 @@
 | `docs/DISPLAY_STABILITY.md` | Display stability and pixel-clock artifact notes |
 | `docs/TROUBLESHOOTING.md` | Troubleshooting steps for common build, flash, and runtime issues |
 | `docs/PCB_DESIGN.md` | Custom PCB design notes (paused) |
+| `docs/Datasheets/TI81Guidebook.md` | **Behavioral spec — read-only.** The authoritative reference for every TI-81 feature. Never edit. Consult before planning any feature work. |
 | `App/Tests/test_persist_roundtrip.c` | Hardcoded `PersistBlock_t` size assertion — must match `persist.h` |
 | `scripts/check_sync.sh` | Hard-coded file paths and grep patterns — update when doc structure changes |
 | `scripts/update_test_counts.sh` | Suite executable names — update when a new test executable is added |
@@ -62,6 +63,8 @@ When a rating changes: add a row here, update the table above, and add a Milesto
 ## Do Not Regress
 
 Standing rules that apply regardless of current rating. These define the floor — any new code that violates them is a defect, not a style preference.
+
+**Behavioral specification:** `docs/Datasheets/TI81Guidebook.md` is the authoritative spec for all calculator behavior. Any feature that affects observable behavior must match the guidebook unless the deviation is explicitly recorded in `CLAUDE.md` "Deliberate Deviations from Original TI-81". A deviation without that entry is a defect, not a design choice. Before implementing or modifying any feature, locate and read the relevant guidebook chapter (see Table of Contents, pages iii–vi). Cite the chapter/page in the work item or commit message.
 
 **Documentation:** `docs/PROJECT_HISTORY.md` is the canonical session log and history archive. All doc files must stay in sync with code; artifact-based updates happen per-commit, session log and number sync happen once per session at close (see Update Rules).
 
@@ -107,11 +110,13 @@ If `increase`: immediately add one or more `[complexity]` items to `CLAUDE.md` "
 
 **Hard limit: 3 open `[complexity]` items at any time.**
 
-Before starting any feature work (non-`[bug]`, non-`[docs]`), count the open `[complexity]` items in `CLAUDE.md` "Next session priorities". If the count is ≥ 3:
+Before starting any feature work (non-`[bug]`, non-`[docs]`):
 
-1. Report the count to the user and list the open items by name.
-2. Do not begin the feature.
-3. Propose resolving one `[complexity]` item first.
+1. **Read the guidebook chapter** — open `docs/Datasheets/TI81Guidebook.md` and find the chapter that governs the feature (Table of Contents at pages iii–vi). Read it before writing a single line of code. This step is mandatory even if you believe you already know the correct behavior.
+2. **Count open `[complexity]` items** in `CLAUDE.md` "Next session priorities". If the count is ≥ 3:
+   - Report the count to the user and list the open items by name.
+   - Do not begin the feature.
+   - Propose resolving one `[complexity]` item first.
 
 This limit applies regardless of how urgent the feature seems. `[hardware]` validation items and `[testing]` items do not count toward this limit.
 
@@ -145,6 +150,7 @@ A **breaking change** is any modification that could cause existing saved state 
 
 An item in "Next session priorities" is **done** only when all applicable checkboxes below are met. Do not remove an item from "Next session priorities" until DoD is satisfied.
 
+- [ ] **Guidebook consulted** — for any feature item (untagged): the relevant `docs/Datasheets/TI81Guidebook.md` chapter is cited in the work item description or commit message; observed behavior matches the guidebook or the deviation is recorded in `CLAUDE.md` "Deliberate Deviations from Original TI-81". This checkbox is automatically satisfied for `[bug]`, `[refactor]`, `[testing]`, `[docs]`, `[hardware]`, and `[complexity]` items.
 - [ ] **Host tests pass** — `ctest --test-dir build-tests` exits 0 with no skipped suites
 - [ ] **Hardware validation complete** — or explicitly waived by appending `(hardware waiver: <reason>, <date>)` inline to the item's entry in "Next session priorities"
 - [ ] **Complexity delta rated** — rated neutral / increase / decrease; if `increase`, a `[complexity]` follow-up item exists in "Next session priorities"
@@ -216,7 +222,7 @@ Triggers: module extraction, feature shipped, spec alignment, doc restructure.
 - **`docs/GETTING_STARTED.md`** — verify build commands, OpenOCD paths, and test section are accurate
 - **`docs/TESTING.md`** — update if new test executables or coverage targets added (**canonical source for all test counts** — other docs link here)
 - **`README.md`** — update feature % if completion changed significantly (> ~5%)
-- **`CLAUDE.md` Feature Completion Status** — update the `~72%` header if overall completion changed
+- **`CLAUDE.md` Feature Completion Status** — update the `~95%` header if overall completion changed
 - **`docs/PROJECT_HISTORY.md`** — add a session log entry and update Completed Features if applicable
 - **Scorecard above** — review all 10 dimensions; update any that changed
 - **Document Map above** — add any new doc file

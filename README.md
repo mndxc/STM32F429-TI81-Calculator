@@ -27,7 +27,7 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 ## Status
 
-The core calculator experience is complete and daily-usable on the STM32F429I-DISC1 development board. A custom PCB to replace the original TI-81 internals while keeping the original shell is in progress.
+~95% feature-complete against the original TI-81 guidebook and daily-usable on the STM32F429I-DISC1 development board. A custom PCB to replace the original TI-81 internals while keeping the original shell is in progress.
 
 **Working today:**
 - Arithmetic, expression evaluation, operator precedence, parentheses, history recall
@@ -35,11 +35,12 @@ The core calculator experience is complete and daily-usable on the STM32F429I-DI
 - Function graphing (Y₁–Y₄), parametric mode, TRACE, ZOOM, RANGE, DRAW overlay
 - Matrix operations — 3 matrices up to 6×6; arithmetic, det, transpose, row operations
 - Statistics — 1-Var, four regression models, scatter / XYLine / histogram plots
-- PRGM editor and executor — `If`, `Goto/Lbl`, loops, `Disp`, `Input`, subroutines; programs persist across power-off
+- PRGM editor and executor — `If`, `Goto/Lbl`, `IS>`/`DS<`, `Disp`, `Input`, subroutines; programs persist across power-off
 - VARS / Y-VARS menus; all results persist in FLASH
 
 **Still in progress:**
-- Sci / Eng notation and remaining MODE screen options
+- MODE screen display options (Normal/Sci/Eng done; Connected/Dot, Sequential/Simul, Polar pending)
+- TRACE free-roaming crosshair and exit-on-any-key behaviour
 - Startup splash screen
 - Custom PCB (drop-in replacement for original TI-81 internals)
 
