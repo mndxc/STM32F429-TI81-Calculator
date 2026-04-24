@@ -38,6 +38,7 @@ void Graph_SetWindow(float xmin, float xmax, float ymin, float ymax,
 void Graph_SetParamEnabled(uint8_t idx, bool enabled);
 void Graph_SetParamWindow(float tmin, float tmax, float tstep);
 void Graph_SetParamMode(bool param);
+void Graph_SetConnectedMode(bool connected);
 void Graph_SetGridOn(bool on);
 void Graph_SetActive(bool active);
 

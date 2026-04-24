@@ -31,7 +31,8 @@ static GraphState_t graph_state = {
     .t_min      =   0.0f,
     .t_max      =   6.2832f,   /* 2π */
     .t_step     =   0.1309f,   /* π/24 */
-    .param_mode = false,
+    .param_mode      = false,
+    .plot_connected  = true,
 };
 
 /*---------------------------------------------------------------------------
@@ -69,8 +70,9 @@ void Graph_SetParamWindow(float tmin, float tmax, float tstep)
     graph_state.t_step = tstep;
 }
 
-void Graph_SetParamMode(bool param) { graph_state.param_mode = param; }
-void Graph_SetGridOn(bool on)       { graph_state.grid_on    = on;    }
+void Graph_SetParamMode(bool param)        { graph_state.param_mode     = param;     }
+void Graph_SetConnectedMode(bool connected){ graph_state.plot_connected  = connected; }
+void Graph_SetGridOn(bool on)              { graph_state.grid_on         = on;        }
 void Graph_SetActive(bool active)   { graph_state.active     = active; }
 
 char *Graph_GetEquationBuf(uint8_t idx)
@@ -436,7 +438,7 @@ void Graph_Render(bool angle_degrees)
                 continue;
             }
 
-            if (prev_valid) {
+            if (graph_state.plot_connected && prev_valid) {
                 /* Interpolate across all columns from prev_px+1 to px */
                 int32_t span = px - prev_px;
                 int32_t last_interp = prev_py;
@@ -562,7 +564,7 @@ void Graph_RenderParametric(bool angle_degrees)
                 continue;
             }
 
-            if (prev_valid && (px - prev_px < GRAPH_W / 2) && (prev_px - px < GRAPH_W / 2)) {
+            if (graph_state.plot_connected && prev_valid && (px - prev_px < GRAPH_W / 2) && (prev_px - px < GRAPH_W / 2)) {
                 /* Interpolate vertically between prev and current pixel columns */
                 int32_t span = px - prev_px;
                 if (span == 0) {

@@ -180,6 +180,7 @@ extern ExprBuffer_t expr;   /* .buf = expression string, .len = length, .cursor 
 GraphState_t graph_state __attribute__((weak)) = {
     .x_min = -10.0f, .x_max = 10.0f, .y_min = -10.0f, .y_max = 10.0f,
     .x_scl = 1.0f, .y_scl = 1.0f, .x_res = 1.0f,
+    .plot_connected = true,
 };
 static inline const GraphState_t *Graph_GetState(void) { return &graph_state; }
 static inline void Graph_SetEquationEnabled(uint8_t i, bool v)
@@ -194,8 +195,9 @@ static inline void Graph_SetParamEnabled(uint8_t i, bool v)
     { if (i < GRAPH_NUM_PARAM) graph_state.param_enabled[i] = v; }
 static inline void Graph_SetParamWindow(float a, float b, float c)
     { graph_state.t_min=a; graph_state.t_max=b; graph_state.t_step=c; }
-static inline void Graph_SetParamMode(bool v) { graph_state.param_mode = v; }
-static inline void Graph_SetGridOn(bool v)    { graph_state.grid_on    = v; }
+static inline void Graph_SetParamMode(bool v)        { graph_state.param_mode    = v; }
+static inline void Graph_SetConnectedMode(bool v)    { graph_state.plot_connected = v; }
+static inline void Graph_SetGridOn(bool v)           { graph_state.grid_on        = v; }
 static inline void Graph_SetActive(bool v)    { graph_state.active     = v; }
 static inline char *Graph_GetEquationBuf(uint8_t i)
     { return (i < GRAPH_NUM_EQ) ? graph_state.equations[i] : NULL; }

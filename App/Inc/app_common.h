@@ -139,8 +139,9 @@ typedef struct {
     float   t_max;
     float   t_step;
 
-    /* Mode flag — driven by MODE row 4 */
-    bool    param_mode;     /* false=function (Y=), true=parametric (X/Y pairs) */
+    /* Mode flags — driven by MODE rows 4 and 5 */
+    bool    param_mode;      /* false=function (Y=), true=parametric (X/Y pairs) */
+    bool    plot_connected;  /* true=Connected (lines), false=Dot (pixels only) */
 } GraphState_t;
 
 

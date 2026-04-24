@@ -240,6 +240,7 @@ void Persist_ApplyBlock(const PersistBlock_t *block)
     Graph_SetWindow(block->x_min, block->x_max, block->y_min, block->y_max,
                     block->x_scl, block->y_scl, block->x_res);
     Graph_SetGridOn(block->grid_on != 0);
+    Graph_SetConnectedMode(block->mode_committed[4] == 0);
     for (int i = 0; i < 4; i++) Graph_SetEquationEnabled((uint8_t)i, (block->enabled[i] != 0));
 
     /* Restore matrices [A], [B], [C] — dimensions and 6×6 data */
@@ -266,9 +267,9 @@ void Persist_ApplyBlock(const PersistBlock_t *block)
     Graph_SetParamMode(block->param_mode != 0);
     Graph_SetParamWindow(block->t_min, block->t_max,
                          (block->t_step > 0.0f) ? block->t_step : 0.1309f);
-    /* Re-sync MODE screen cursor for row 4 (Function|Param) */
-    s_mode.cursor[4]    = (block->param_mode != 0) ? 1u : 0u;
-    s_mode.committed[4] = s_mode.cursor[4];
+    /* Re-sync MODE screen cursor for row 3 (Function|Param) */
+    s_mode.cursor[3]    = (block->param_mode != 0) ? 1u : 0u;
+    s_mode.committed[3] = s_mode.cursor[3];
 
     /* Restore STAT data list */
     StatData_t sd;

@@ -185,8 +185,12 @@ bool handle_mode_screen(Token_t t)
             Calc_SetDecimalMode(s_mode.committed[1]);
         if (s_mode.row_selected == 2)
             angle_degrees = (s_mode.committed[2] == 1);
+        if (s_mode.row_selected == 3) {
+            Graph_SetParamMode(s_mode.committed[3] == 1);
+            Graph_InvalidateCache();
+        }
         if (s_mode.row_selected == 4) {
-            Graph_SetParamMode(s_mode.committed[4] == 1);
+            Graph_SetConnectedMode(s_mode.committed[4] == 0);
             Graph_InvalidateCache();
         }
         if (s_mode.row_selected == 6)

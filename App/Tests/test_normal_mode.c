@@ -742,6 +742,28 @@ static void test_edge_cases(void)
 /* -------------------------------------------------------------------------
  * main
  * ---------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------
+ * Group 11: graph mode accessors (3 tests)
+ * ---------------------------------------------------------------------- */
+static void test_graph_mode_accessors(void)
+{
+    printf("Group 11: graph mode accessors\n");
+
+    /* 1. Default plot_connected is true (Connected mode) */
+    CHECK(Graph_GetState()->plot_connected == true,
+          "graph_mode: default plot_connected is true");
+
+    /* 2. Graph_SetConnectedMode(false) sets Dot mode */
+    Graph_SetConnectedMode(false);
+    CHECK(Graph_GetState()->plot_connected == false,
+          "graph_mode: SetConnectedMode(false) → plot_connected false");
+
+    /* 3. Graph_SetConnectedMode(true) restores Connected mode */
+    Graph_SetConnectedMode(true);
+    CHECK(Graph_GetState()->plot_connected == true,
+          "graph_mode: SetConnectedMode(true) → plot_connected true");
+}
+
 int main(void)
 {
     test_digit_key();
@@ -754,6 +776,7 @@ int main(void)
     test_dispatch();
     test_expr_building();
     test_edge_cases();
+    test_graph_mode_accessors();
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);
     return g_failed > 0 ? 1 : 0;

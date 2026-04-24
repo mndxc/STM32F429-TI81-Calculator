@@ -31,8 +31,8 @@ No title text. The full screen is filled with option rows; no tab bar.
 | 1 | Normal \| Sci \| Eng | No — display notation not implemented |
 | 2 | Float \| 0 1 2 3 4 5 6 7 8 9 | Yes — `mode_committed[1]`, `Calc_SetDecimalMode()` |
 | 3 | Radian \| Degree | Yes — `mode_committed[2]`, `angle_degrees` |
-| 4 | Function \| Param | No — parametric graphing not implemented |
-| 5 | Connected \| Dot | No — Connected/Dot curve rendering not implemented |
+| 4 | Function \| Param | Yes — `mode_committed[3]`, `graph_state.param_mode`, `Graph_SetParamMode()` |
+| 5 | Connected \| Dot | Yes — `mode_committed[4]`, `graph_state.plot_connected`, `Graph_SetConnectedMode()` |
 | 6 | Sequential \| Simul | No — simultaneous graphing not implemented |
 | 7 | Grid off \| Grid on | Yes — `mode_committed[6]`, `graph_state.grid_on` |
 | 8 | Polar \| Seq | No — polar/sequence graphing not implemented |
