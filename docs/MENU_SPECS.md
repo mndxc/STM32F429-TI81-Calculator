@@ -35,7 +35,7 @@ No title text. The full screen is filled with option rows; no tab bar.
 | 5 | Connected \| Dot | Yes — `mode_committed[4]`, `graph_state.plot_connected`, `Graph_SetConnectedMode()` |
 | 6 | Sequential \| Simul | Yes — `mode_committed[5]`, `graph_state.plot_sequential`, `Graph_SetSequentialMode()` |
 | 7 | Grid off \| Grid on | Yes — `mode_committed[6]`, `graph_state.grid_on` |
-| 8 | Polar \| Seq | No — polar/sequence graphing not implemented |
+| 8 | Rect \| Pol | Yes — `mode_committed[7]`, `graph_state.polar_display`, `Graph_SetPolarDisplay()`; switches graph cursor and TRACE readout between X/Y and R/θ |
 
 - LEFT/RIGHT moves the selection within a row. UP/DOWN changes the active row.
 - ENTER commits the highlighted selection and stays on the MODE screen.

@@ -21,8 +21,8 @@
 #define CALC_INT_EPS       1e-4f  /* max fractional part to display as integer */
 #define CALC_SINGULARITY_EPS 1e-10f /* pivot threshold below which matrix is singular */
 
-/* User variable storage — A through Z, indexed by (ch - 'A') */
-float calc_variables[26] = {0};
+/* User variable storage — A through Z, indexed by (ch - 'A'); [26] = θ */
+float calc_variables[27] = {0};
 
 /* Matrix storage — [A]=0, [B]=1, [C]=2, ANS=3 (result of last matrix op) */
 CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT] = {
@@ -97,6 +97,7 @@ static bool is_function(MathTokenType_t t)
             t == MATH_FUNC_EXP     || t == MATH_FUNC_ROUND   ||
             t == MATH_FUNC_IPART   || t == MATH_FUNC_FPART   ||
             t == MATH_FUNC_INT     ||
+            t == MATH_FUNC_R_TO_P  || t == MATH_FUNC_P_TO_R  ||
             /* Matrix functions */
             t == MATH_FUNC_DET     || t == MATH_FUNC_ROWSWAP ||
             t == MATH_FUNC_ROWPLUS || t == MATH_FUNC_MROW    ||
@@ -300,8 +301,11 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
     /* Named functions and binary-operator keywords.
        Longer names that share a prefix must appear first.
        Do NOT include '(' in the name — it is tokenized separately as
-       MATH_PAREN_LEFT, which ShuntingYard needs to pop on ')'. */
+       MATH_PAREN_LEFT, which ShuntingYard needs to pop on ')'.
+       R>P and P>R must appear before single-char 'R'/'P' variable checks. */
     static const struct { const char *name; MathTokenType_t type; } funcs[] = {
+        { "R>P",  MATH_FUNC_R_TO_P },
+        { "P>R",  MATH_FUNC_P_TO_R },
         /* Inverse trig — U+E001 (PUA \xEE\x80\x81) aliases must precede the
            plain "sin"/"cos"/"tan" entries (longer-prefix-first rule). */
         { "sin\xEE\x80\x81", MATH_FUNC_ASIN },  /* sin⁻¹( inserted by 2nd+SIN */
@@ -382,6 +386,17 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
         out->tokens[out->count].value = calc_variables[**p - 'A'];
         out->count++;
         (*p)++;
+        *matched = true;
+        return CALC_OK;
+    }
+
+    /* θ variable — U+03B8, UTF-8: 0xCE 0xB8; stored at calc_variables[26] */
+    if ((unsigned char)(*p)[0] == 0xCEu && (unsigned char)(*p)[1] == 0xB8u) {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_NUMBER;
+        out->tokens[out->count].value = calc_variables[26];
+        out->count++;
+        *p += 2;
         *matched = true;
         return CALC_OK;
     }
@@ -1147,6 +1162,33 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, float x_val, float t_val
         }
         if (tt == MATH_MATRIX_VAL) {
             if (!rpn_push(stack, is_matrix, &top, tok.value, true, &res)) return res;
+            continue;
+        }
+
+        /* R>P(x,y) and P>R(r,θ) — 2-arg coordinate conversion with side effects */
+        if (tt == MATH_FUNC_R_TO_P || tt == MATH_FUNC_P_TO_R) {
+            if (top < 1) {
+                rpn_set_error(&res, CALC_ERR_SYNTAX, "Syntax error");
+                return res;
+            }
+            float b = stack[top--];   /* second arg: y (R>P) or θ (P>R) */
+            float a = stack[top];     /* first  arg: x (R>P) or r (P>R) */
+            if (tt == MATH_FUNC_R_TO_P) {
+                float r     = sqrtf(a * a + b * b);
+                float theta = atan2f(b, a);
+                if (angle_degrees) theta *= (180.0f / 3.14159265358979f);
+                calc_variables['R' - 'A'] = r;
+                calc_variables[26]        = theta;
+                stack[top] = r;
+            } else {
+                float theta_rad = angle_degrees ? b * (3.14159265358979f / 180.0f) : b;
+                float x = a * cosf(theta_rad);
+                float y = a * sinf(theta_rad);
+                calc_variables['X' - 'A'] = x;
+                calc_variables['Y' - 'A'] = y;
+                stack[top] = x;
+            }
+            is_matrix[top] = false;
             continue;
         }
 

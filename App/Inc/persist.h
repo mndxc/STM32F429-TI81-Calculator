@@ -26,7 +26,7 @@
  *---------------------------------------------------------------------------*/
 
 #define PERSIST_MAGIC       0xCA1CC0DEU   /* Marker — "calc code" */
-#define PERSIST_VERSION     6U            /* Bumped when STAT data list added */
+#define PERSIST_VERSION     7U            /* Bumped when calc_variables[26]=θ added */
 #define PERSIST_FLASH_ADDR  0x080C0000U   /* Sector 10, 128 KB, unused by firmware */
 #ifndef HOST_TEST
 #  define PERSIST_SECTOR    FLASH_SECTOR_10
@@ -46,7 +46,7 @@
  *
  * Fields:
  *   magic / version  — validated on load; stale or blank sector returns false
- *   calc_variables   — user variables A–Z (extern in calc_engine.h)
+ *   calc_variables   — user variables A–Z plus θ at index 26 (extern in calc_engine.h)
  *   ans              — last result
  *   mode_committed   — 8-byte MODE screen committed selections
  *   zoom_x_fact      — ZOOM FACTORS XFact
@@ -66,7 +66,7 @@
 typedef struct {
     uint32_t magic;               /*   4 B */
     uint32_t version;             /*   4 B */
-    float    calc_variables[26];  /* 104 B */
+    float    calc_variables[27];  /* 108 B — [0–25]=A–Z, [26]=θ */
     float    ans;                 /*   4 B */
     uint8_t  mode_committed[8];   /*   8 B */
     float    zoom_x_fact;         /*   4 B */
@@ -104,7 +104,7 @@ typedef struct {
     uint8_t  _stat_pad[3];                  /*   3 B */
 
     uint32_t checksum;            /*   4 B — XOR of all preceding words */
-} PersistBlock_t;                 /* Total: 2060 B */
+} PersistBlock_t;                 /* Total: 2064 B */
 
 _Static_assert(sizeof(PersistBlock_t) % 4 == 0,
                "PersistBlock_t must be a multiple of 4 bytes");

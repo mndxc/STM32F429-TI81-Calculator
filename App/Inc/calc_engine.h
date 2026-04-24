@@ -74,6 +74,8 @@ typedef enum {
     MATH_FUNC_IPART,        /* iPart( — integer part (truncate toward zero) */
     MATH_FUNC_FPART,        /* fPart( — fractional part */
     MATH_FUNC_INT,          /* int(   — floor (greatest integer) */
+    MATH_FUNC_R_TO_P,       /* R>P(x,y) — rect→polar; stores R,θ; returns R */
+    MATH_FUNC_P_TO_R,       /* P>R(r,θ) — polar→rect; stores X,Y; returns X */
     MATH_PAREN_LEFT,
     MATH_PAREN_RIGHT,
     /* Comparison operators — return 1.0 (true) or 0.0 (false) */
@@ -132,8 +134,8 @@ typedef struct {
  * Variable storage
  *--------------------------------------------------------------------------*/
 
-/** User variable storage — A through Z, indexed by (ch - 'A'). */
-extern float calc_variables[26];
+/** User variable storage — A through Z, indexed by (ch - 'A'); [26] = θ. */
+extern float calc_variables[27];
 
 /** Matrix storage — [A]=0, [B]=1, [C]=2, ANS=3. */
 extern CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT];

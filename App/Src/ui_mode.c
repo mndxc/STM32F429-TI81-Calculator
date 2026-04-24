@@ -13,7 +13,7 @@
  *   Row 4: Connected / Dot          (graph style)
  *   Row 5: Sequential / Simul       (graph draw order)
  *   Row 6: Grid off / Grid on       (grid visibility)
- *   Row 7: Polar / Seq              (coord system)
+ *   Row 7: Rect / Pol               (coordinate display: Rectangular vs Polar)
  */
 
 #ifdef HOST_TEST
@@ -63,7 +63,7 @@ static const char * const mode_options[MODE_ROW_COUNT][MODE_MAX_COLS] = {
     {"Connected", "Dot", NULL},
     {"Sequential","Simul",NULL},
     {"Grid off","Grid on",NULL},
-    {"Polar",  "Seq",    NULL},
+    {"Rect",   "Pol",    NULL},
 };
 
 static const uint8_t mode_option_count[MODE_ROW_COUNT] = {3, 11, 2, 2, 2, 2, 2, 2};
@@ -199,6 +199,8 @@ bool handle_mode_screen(Token_t t)
         }
         if (s_mode.row_selected == 6)
             Graph_SetGridOn(s_mode.committed[6] == 1);
+        if (s_mode.row_selected == 7)
+            Graph_SetPolarDisplay(s_mode.committed[7] == 1);
         lvgl_lock(); ui_update_mode_display(); lvgl_unlock();
         return true;
     case TOKEN_CLEAR:

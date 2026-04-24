@@ -155,6 +155,32 @@ bool handle_sto_pending(Token_t t)
         ui_update_status_bar();
         lvgl_unlock();
         return true;
+    } else if (t == TOKEN_THETA) {
+        sto_pending = false;
+        CalcResult_t result = Calc_Evaluate(expr.buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                            angle_degrees);
+        char result_str[MAX_RESULT_LEN];
+        char expr_hist[MAX_EXPR_LEN + 6];
+        snprintf(expr_hist, sizeof(expr_hist), "%s->\xCE\xB8", expr.buf);  /* ->θ */
+        if (result.error != CALC_OK) {
+            strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
+            result_str[MAX_RESULT_LEN - 1] = '\0';
+        } else if (result.has_matrix) {
+            strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
+            result_str[MAX_RESULT_LEN - 1] = '\0';
+        } else {
+            calc_variables[26] = result.value;
+            Calc_SetAnsScalar(result.value);
+            Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
+        }
+        CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
+        ExprBuffer_Clear(&expr);
+        CalcHistory_ResetRecallOffset();
+        lvgl_lock();
+        CalcHistory_UpdateDisplay();
+        ui_update_status_bar();
+        lvgl_unlock();
+        return true;
     } else if (t == TOKEN_CLEAR || t == TOKEN_2ND || t == TOKEN_ALPHA) {
         sto_pending = false;
         lvgl_lock();

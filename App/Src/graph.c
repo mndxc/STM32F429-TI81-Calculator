@@ -75,6 +75,7 @@ void Graph_SetParamMode(bool param)           { graph_state.param_mode      = pa
 void Graph_SetConnectedMode(bool connected)   { graph_state.plot_connected  = connected;  }
 void Graph_SetSequentialMode(bool sequential) { graph_state.plot_sequential = sequential; }
 void Graph_SetGridOn(bool on)                 { graph_state.grid_on         = on;         }
+void Graph_SetPolarDisplay(bool polar)        { graph_state.polar_display   = polar;      }
 void Graph_SetActive(bool active)   { graph_state.active     = active; }
 
 char *Graph_GetEquationBuf(uint8_t idx)
@@ -804,12 +805,27 @@ static void graph_draw_trace_param(float t, uint8_t pair, bool angle_degrees)
         return;
     }
 
-    format_graph_coord(rx.value, xv_buf, sizeof(xv_buf));
-    snprintf(label_buf, sizeof(label_buf), "X=%s", xv_buf);
-    lv_label_set_text(graph_lbl_x, label_buf);
-    format_graph_coord(ry.value, yv_buf, sizeof(yv_buf));
-    snprintf(label_buf, sizeof(label_buf), "Y=%s", yv_buf);
-    lv_label_set_text(graph_lbl_y, label_buf);
+    if (graph_state.polar_display) {
+        float R     = sqrtf(rx.value * rx.value + ry.value * ry.value);
+        float theta = atan2f(ry.value, rx.value);
+        if (angle_degrees) theta *= (180.0f / 3.14159265358979f);
+        calc_variables['R' - 'A'] = R;
+        calc_variables[26]        = theta;
+        char r_buf[16], th_buf[16];
+        format_graph_coord(R,     r_buf,  sizeof(r_buf));
+        format_graph_coord(theta, th_buf, sizeof(th_buf));
+        snprintf(label_buf, sizeof(label_buf), "R=%s", r_buf);
+        lv_label_set_text(graph_lbl_x, label_buf);
+        snprintf(label_buf, sizeof(label_buf), "\xCE\xB8=%s", th_buf);
+        lv_label_set_text(graph_lbl_y, label_buf);
+    } else {
+        format_graph_coord(rx.value, xv_buf, sizeof(xv_buf));
+        snprintf(label_buf, sizeof(label_buf), "X=%s", xv_buf);
+        lv_label_set_text(graph_lbl_x, label_buf);
+        format_graph_coord(ry.value, yv_buf, sizeof(yv_buf));
+        snprintf(label_buf, sizeof(label_buf), "Y=%s", yv_buf);
+        lv_label_set_text(graph_lbl_y, label_buf);
+    }
 
     int32_t px = math_x_to_px(rx.value);
     int32_t py = math_y_to_px(ry.value);
@@ -854,9 +870,24 @@ static void graph_draw_trace_func(float x, uint8_t eq_idx, bool angle_degrees)
         return;
     }
 
-    format_graph_coord(r.value, y_buf, sizeof(y_buf));
-    snprintf(label_buf, sizeof(label_buf), "Y=%s", y_buf);
-    lv_label_set_text(graph_lbl_y, label_buf);
+    if (graph_state.polar_display) {
+        float R     = sqrtf(x * x + r.value * r.value);
+        float theta = atan2f(r.value, x);
+        if (angle_degrees) theta *= (180.0f / 3.14159265358979f);
+        calc_variables['R' - 'A'] = R;
+        calc_variables[26]        = theta;
+        char r_buf[16], th_buf[16];
+        format_graph_coord(R,     r_buf,  sizeof(r_buf));
+        format_graph_coord(theta, th_buf, sizeof(th_buf));
+        snprintf(label_buf, sizeof(label_buf), "R=%s", r_buf);
+        lv_label_set_text(graph_lbl_x, label_buf);
+        snprintf(label_buf, sizeof(label_buf), "\xCE\xB8=%s", th_buf);
+        lv_label_set_text(graph_lbl_y, label_buf);
+    } else {
+        format_graph_coord(r.value, y_buf, sizeof(y_buf));
+        snprintf(label_buf, sizeof(label_buf), "Y=%s", y_buf);
+        lv_label_set_text(graph_lbl_y, label_buf);
+    }
 
     int32_t px = math_x_to_px(x);
     int32_t py = math_y_to_px(r.value);
@@ -962,14 +993,34 @@ void Graph_DrawZBox(int32_t px, int32_t py,
     /* Mark canvas dirty once after all pixel writes — replaces per-pixel invalidation */
     lv_obj_invalidate(graph_canvas);
 
-    /* Update X/Y readout with math coordinates of current cursor */
-    char x_buf[16], y_buf[16], label_buf[20];
-    format_graph_coord(px_to_math_x(px), x_buf, sizeof(x_buf));
-    format_graph_coord(px_to_math_y(py), y_buf, sizeof(y_buf));
-    snprintf(label_buf, sizeof(label_buf), "X=%s", x_buf);
-    lv_label_set_text(graph_lbl_x, label_buf);
-    snprintf(label_buf, sizeof(label_buf), "Y=%s", y_buf);
-    lv_label_set_text(graph_lbl_y, label_buf);
+    /* Update coordinate readout — Rect (X/Y) or Polar (R/θ) per MODE row 8 */
+    float mx = px_to_math_x(px);
+    float my = px_to_math_y(py);
+    char x_buf[16], y_buf[16], label_buf[22];
+
+    if (graph_state.polar_display) {
+        float r     = sqrtf(mx * mx + my * my);
+        float theta = atan2f(my, mx);
+        if (angle_degrees) theta *= (180.0f / 3.14159265358979f);
+        calc_variables['X' - 'A'] = mx;
+        calc_variables['Y' - 'A'] = my;
+        calc_variables['R' - 'A'] = r;
+        calc_variables[26]        = theta;
+        char r_buf[16], th_buf[16];
+        format_graph_coord(r,     r_buf,  sizeof(r_buf));
+        format_graph_coord(theta, th_buf, sizeof(th_buf));
+        snprintf(label_buf, sizeof(label_buf), "R=%s", r_buf);
+        lv_label_set_text(graph_lbl_x, label_buf);
+        snprintf(label_buf, sizeof(label_buf), "\xCE\xB8=%s", th_buf);  /* θ= */
+        lv_label_set_text(graph_lbl_y, label_buf);
+    } else {
+        format_graph_coord(mx, x_buf, sizeof(x_buf));
+        format_graph_coord(my, y_buf, sizeof(y_buf));
+        snprintf(label_buf, sizeof(label_buf), "X=%s", x_buf);
+        lv_label_set_text(graph_lbl_x, label_buf);
+        snprintf(label_buf, sizeof(label_buf), "Y=%s", y_buf);
+        lv_label_set_text(graph_lbl_y, label_buf);
+    }
 }
 
 /*---------------------------------------------------------------------------

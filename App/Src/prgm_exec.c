@@ -554,6 +554,15 @@ static void prgm_execute_line(uint16_t ln)
                     calc_variables[*varname - 'A'] = r.value;
                     Calc_SetAnsScalar(r.value);
                 }
+            } else if ((unsigned char)varname[0] == 0xCEu &&
+                       (unsigned char)varname[1] == 0xB8u) {
+                /* STO → θ (U+03B8, UTF-8: CE B8) */
+                CalcResult_t r = Calc_Evaluate(left, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                               angle_degrees);
+                if (r.error == CALC_OK && !r.has_matrix) {
+                    calc_variables[26] = r.value;
+                    Calc_SetAnsScalar(r.value);
+                }
             }
         }
         return;

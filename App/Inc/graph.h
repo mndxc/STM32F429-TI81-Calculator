@@ -41,6 +41,7 @@ void Graph_SetParamMode(bool param);
 void Graph_SetConnectedMode(bool connected);
 void Graph_SetSequentialMode(bool sequential);
 void Graph_SetGridOn(bool on);
+void Graph_SetPolarDisplay(bool polar);
 void Graph_SetActive(bool active);
 
 /**

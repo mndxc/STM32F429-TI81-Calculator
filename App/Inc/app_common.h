@@ -107,6 +107,9 @@ typedef enum {
  *   grid_on                  — Written via Graph_SetGridOn() by ui_mode.c (MODE screen row 7).
  *                              Read by graph.c.
  *
+ *   polar_display            — Written via Graph_SetPolarDisplay() by ui_mode.c (MODE screen row 8).
+ *                              Read by graph.c (cursor and trace readout format).
+ *
  *   active                   — Written via Graph_SetActive() by graph_ui.c (GRAPH key handler).
  *                              Read by calculator_core.c, graph.c.
  *
@@ -142,10 +145,11 @@ typedef struct {
     float   t_max;
     float   t_step;
 
-    /* Mode flags — driven by MODE rows 4, 5, and 6 */
+    /* Mode flags — driven by MODE rows 4, 5, 6, and 8 */
     bool    param_mode;       /* false=function (Y=), true=parametric (X/Y pairs) */
     bool    plot_connected;   /* true=Connected (lines), false=Dot (pixels only) */
     bool    plot_sequential;  /* true=Sequential, false=Simultaneous — MODE row 6 */
+    bool    polar_display;    /* true=Pol (show R/θ at cursor), false=Rect (X/Y) — MODE row 8 */
 } GraphState_t;
 
 
