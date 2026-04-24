@@ -193,6 +193,10 @@ bool handle_mode_screen(Token_t t)
             Graph_SetConnectedMode(s_mode.committed[4] == 0);
             Graph_InvalidateCache();
         }
+        if (s_mode.row_selected == 5) {
+            Graph_SetSequentialMode(s_mode.committed[5] == 0);
+            Graph_InvalidateCache();
+        }
         if (s_mode.row_selected == 6)
             Graph_SetGridOn(s_mode.committed[6] == 1);
         lvgl_lock(); ui_update_mode_display(); lvgl_unlock();

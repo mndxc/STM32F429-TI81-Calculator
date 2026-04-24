@@ -241,6 +241,7 @@ void Persist_ApplyBlock(const PersistBlock_t *block)
                     block->x_scl, block->y_scl, block->x_res);
     Graph_SetGridOn(block->grid_on != 0);
     Graph_SetConnectedMode(block->mode_committed[4] == 0);
+    Graph_SetSequentialMode(block->mode_committed[5] == 0);
     for (int i = 0; i < 4; i++) Graph_SetEquationEnabled((uint8_t)i, (block->enabled[i] != 0));
 
     /* Restore matrices [A], [B], [C] — dimensions and 6×6 data */

@@ -1337,7 +1337,7 @@ static void format_eng(float value, int fix_decimals, char *buf, uint8_t buf_len
     float mantissa = value / powf(10.0f, (float)eng_exp);
 
     int dec = (fix_decimals >= 0) ? fix_decimals : 4;
-    char fmt[8];
+    char fmt[16];
     snprintf(fmt, sizeof(fmt), "%%.%df", dec);
 
     /* Format mantissa into a temp buffer, then append the exponent */

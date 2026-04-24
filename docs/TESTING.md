@@ -15,7 +15,7 @@ Run these commands from the **repo root** (the directory containing `CMakeLists.
 ```bash
 cmake -S App/Tests -B build-tests
 cmake --build build-tests
-ctest --test-dir build-tests   # runs all 10 suites (694 assertions total)
+ctest --test-dir build-tests   # runs all 10 suites (742 assertions total)
 ```
 
 Or run individual suites:
@@ -25,7 +25,7 @@ Or run individual suites:
 ./build-tests/test_expr_buffer        # ExprBuffer_t wrapper (48 tests)
 ./build-tests/test_persist_roundtrip  # Serialization (52 tests)
 ./build-tests/test_prgm_exec          # PRGM executor (95 tests)
-./build-tests/test_normal_mode        # handle_normal_mode dispatch (104 tests)
+./build-tests/test_normal_mode        # handle_normal_mode dispatch (110 tests)
 ./build-tests/test_param              # Parametric eval (28 tests)
 ./build-tests/test_stat               # Statistical calculations (39 tests)
 ./build-tests/test_yvars              # Y-VARS calc_engine integration (20 tests)

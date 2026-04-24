@@ -33,7 +33,7 @@ No title text. The full screen is filled with option rows; no tab bar.
 | 3 | Radian \| Degree | Yes — `mode_committed[2]`, `angle_degrees` |
 | 4 | Function \| Param | Yes — `mode_committed[3]`, `graph_state.param_mode`, `Graph_SetParamMode()` |
 | 5 | Connected \| Dot | Yes — `mode_committed[4]`, `graph_state.plot_connected`, `Graph_SetConnectedMode()` |
-| 6 | Sequential \| Simul | No — simultaneous graphing not implemented |
+| 6 | Sequential \| Simul | Yes — `mode_committed[5]`, `graph_state.plot_sequential`, `Graph_SetSequentialMode()` |
 | 7 | Grid off \| Grid on | Yes — `mode_committed[6]`, `graph_state.grid_on` |
 | 8 | Polar \| Seq | No — polar/sequence graphing not implemented |
 

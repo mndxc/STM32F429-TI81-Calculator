@@ -31,8 +31,9 @@ static GraphState_t graph_state = {
     .t_min      =   0.0f,
     .t_max      =   6.2832f,   /* 2π */
     .t_step     =   0.1309f,   /* π/24 */
-    .param_mode      = false,
-    .plot_connected  = true,
+    .param_mode       = false,
+    .plot_connected   = true,
+    .plot_sequential  = true,
 };
 
 /*---------------------------------------------------------------------------
@@ -70,9 +71,10 @@ void Graph_SetParamWindow(float tmin, float tmax, float tstep)
     graph_state.t_step = tstep;
 }
 
-void Graph_SetParamMode(bool param)        { graph_state.param_mode     = param;     }
-void Graph_SetConnectedMode(bool connected){ graph_state.plot_connected  = connected; }
-void Graph_SetGridOn(bool on)              { graph_state.grid_on         = on;        }
+void Graph_SetParamMode(bool param)           { graph_state.param_mode      = param;      }
+void Graph_SetConnectedMode(bool connected)   { graph_state.plot_connected  = connected;  }
+void Graph_SetSequentialMode(bool sequential) { graph_state.plot_sequential = sequential; }
+void Graph_SetGridOn(bool on)                 { graph_state.grid_on         = on;         }
 void Graph_SetActive(bool active)   { graph_state.active     = active; }
 
 char *Graph_GetEquationBuf(uint8_t idx)
@@ -393,75 +395,149 @@ void Graph_Render(bool angle_degrees)
         COLOR_CURVE_Y4,   /* Y4 — magenta */
     };
 
-    /* Plot each active curve */
-    for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
-        const char *eqstr = graph_state.equations[eq];
-        if (strlen(eqstr) == 0 || !graph_state.enabled[eq]) continue;
+    int32_t step = (int32_t)graph_state.x_res;
+    if (step < 1) step = 1;
 
-        /* Refresh postfix cache if the equation string has changed */
-        if (!eq_postfix_valid[eq] ||
-            strncmp(eqstr, eq_postfix_str[eq], sizeof(eq_postfix_str[eq])) != 0) {
-            if (Calc_PrepareGraphEquation(eqstr, 0.0f, &eq_postfix[eq]) == CALC_OK) {
-                strncpy(eq_postfix_str[eq], eqstr, sizeof(eq_postfix_str[eq]) - 1);
-                eq_postfix_str[eq][sizeof(eq_postfix_str[eq]) - 1] = '\0';
-                eq_postfix_valid[eq] = true;
-            } else {
-                eq_postfix_valid[eq] = false;
-                continue; /* Skip uncompilable equation */
+    if (graph_state.plot_sequential) {
+        /* Sequential: complete one curve entirely before starting the next */
+        for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
+            const char *eqstr = graph_state.equations[eq];
+            if (strlen(eqstr) == 0 || !graph_state.enabled[eq]) continue;
+
+            if (!eq_postfix_valid[eq] ||
+                strncmp(eqstr, eq_postfix_str[eq], sizeof(eq_postfix_str[eq])) != 0) {
+                if (Calc_PrepareGraphEquation(eqstr, 0.0f, &eq_postfix[eq]) == CALC_OK) {
+                    strncpy(eq_postfix_str[eq], eqstr, sizeof(eq_postfix_str[eq]) - 1);
+                    eq_postfix_str[eq][sizeof(eq_postfix_str[eq]) - 1] = '\0';
+                    eq_postfix_valid[eq] = true;
+                } else {
+                    eq_postfix_valid[eq] = false;
+                    continue;
+                }
+            }
+
+            lv_color_t curve_color = lv_color_hex(eq_palette[eq]);
+            int32_t prev_py    = -1;
+            int32_t prev_px    = -1;
+            bool    prev_valid = false;
+
+            for (int32_t px = 0; px < GRAPH_W; px += step) {
+                float x = graph_state.x_min +
+                          (float)px / (float)(GRAPH_W - 1) *
+                          (graph_state.x_max - graph_state.x_min);
+
+                CalcResult_t r = Calc_EvalGraphEquation(&eq_postfix[eq], x, angle_degrees);
+
+                if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
+                    prev_valid = false;
+                    continue;
+                }
+
+                int32_t py = math_y_to_px(r.value);
+
+                if (py < 0 || py >= GRAPH_H) {
+                    prev_valid = false;
+                    continue;
+                }
+
+                if (graph_state.plot_connected && prev_valid) {
+                    /* Interpolate across all columns from prev_px+1 to px */
+                    int32_t span = px - prev_px;
+                    int32_t last_interp = prev_py;
+                    for (int32_t cx = prev_px + 1; cx <= px; cx++) {
+                        int32_t cur_interp = prev_py + (int32_t)((float)(cx - prev_px) / (float)span * (py - prev_py));
+                        int32_t y_start = last_interp < cur_interp ? last_interp : cur_interp;
+                        int32_t y_end   = last_interp < cur_interp ? cur_interp : last_interp;
+
+                        /* Clamp to canvas bounds to prevent massive loops on singularities */
+                        if (y_start < 0) y_start = 0;
+                        if (y_end >= GRAPH_H) y_end = GRAPH_H - 1;
+
+                        for (int32_t y = y_start; y <= y_end; y++)
+                            lv_canvas_set_px(graph_canvas, cx, y, curve_color, LV_OPA_COVER);
+                        last_interp = cur_interp;
+                    }
+                } else {
+                    lv_canvas_set_px(graph_canvas, px, py, curve_color, LV_OPA_COVER);
+                }
+
+                prev_py    = py;
+                prev_px    = px;
+                prev_valid = true;
             }
         }
+    } else {
+        /* Simultaneous: all curves advance one pixel column at a time */
+        bool       skip[GRAPH_NUM_EQ];
+        lv_color_t colors[GRAPH_NUM_EQ];
+        int32_t    prev_py[GRAPH_NUM_EQ], prev_px_s[GRAPH_NUM_EQ];
+        bool       prev_valid[GRAPH_NUM_EQ];
 
-        lv_color_t curve_color = lv_color_hex(eq_palette[eq]);
-        int32_t prev_py    = -1;
-        int32_t prev_px    = -1;
-        bool    prev_valid = false;
-
-        int32_t step = (int32_t)graph_state.x_res;
-        if (step < 1) step = 1;
+        for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
+            skip[eq]       = true;
+            prev_py[eq]    = -1;
+            prev_px_s[eq]  = -1;
+            prev_valid[eq] = false;
+            const char *eqstr = graph_state.equations[eq];
+            if (strlen(eqstr) == 0 || !graph_state.enabled[eq]) continue;
+            if (!eq_postfix_valid[eq] ||
+                strncmp(eqstr, eq_postfix_str[eq], sizeof(eq_postfix_str[eq])) != 0) {
+                if (Calc_PrepareGraphEquation(eqstr, 0.0f, &eq_postfix[eq]) == CALC_OK) {
+                    strncpy(eq_postfix_str[eq], eqstr, sizeof(eq_postfix_str[eq]) - 1);
+                    eq_postfix_str[eq][sizeof(eq_postfix_str[eq]) - 1] = '\0';
+                    eq_postfix_valid[eq] = true;
+                } else {
+                    eq_postfix_valid[eq] = false;
+                    continue;
+                }
+            }
+            skip[eq]   = false;
+            colors[eq] = lv_color_hex(eq_palette[eq]);
+        }
 
         for (int32_t px = 0; px < GRAPH_W; px += step) {
             float x = graph_state.x_min +
                       (float)px / (float)(GRAPH_W - 1) *
                       (graph_state.x_max - graph_state.x_min);
 
-            CalcResult_t r = Calc_EvalGraphEquation(&eq_postfix[eq], x, angle_degrees);
+            for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
+                if (skip[eq]) continue;
 
-            if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
-                prev_valid = false;
-                continue;
-            }
+                CalcResult_t r = Calc_EvalGraphEquation(&eq_postfix[eq], x, angle_degrees);
 
-            int32_t py = math_y_to_px(r.value);
-
-            if (py < 0 || py >= GRAPH_H) {
-                prev_valid = false;
-                continue;
-            }
-
-            if (graph_state.plot_connected && prev_valid) {
-                /* Interpolate across all columns from prev_px+1 to px */
-                int32_t span = px - prev_px;
-                int32_t last_interp = prev_py;
-                for (int32_t cx = prev_px + 1; cx <= px; cx++) {
-                    int32_t cur_interp = prev_py + (int32_t)((float)(cx - prev_px) / (float)span * (py - prev_py));
-                    int32_t y_start = last_interp < cur_interp ? last_interp : cur_interp;
-                    int32_t y_end   = last_interp < cur_interp ? cur_interp : last_interp;
-
-                    /* Clamp to canvas bounds to prevent massive loops on singularities */
-                    if (y_start < 0) y_start = 0;
-                    if (y_end >= GRAPH_H) y_end = GRAPH_H - 1;
-
-                    for (int32_t y = y_start; y <= y_end; y++)
-                        lv_canvas_set_px(graph_canvas, cx, y, curve_color, LV_OPA_COVER);
-                    last_interp = cur_interp;
+                if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
+                    prev_valid[eq] = false;
+                    continue;
                 }
-            } else {
-                lv_canvas_set_px(graph_canvas, px, py, curve_color, LV_OPA_COVER);
-            }
 
-            prev_py    = py;
-            prev_px    = px;
-            prev_valid = true;
+                int32_t py = math_y_to_px(r.value);
+
+                if (py < 0 || py >= GRAPH_H) {
+                    prev_valid[eq] = false;
+                    continue;
+                }
+
+                if (graph_state.plot_connected && prev_valid[eq]) {
+                    int32_t span = px - prev_px_s[eq];
+                    int32_t last_interp = prev_py[eq];
+                    for (int32_t cx = prev_px_s[eq] + 1; cx <= px; cx++) {
+                        int32_t cur_interp = prev_py[eq] + (int32_t)((float)(cx - prev_px_s[eq]) / (float)span * (py - prev_py[eq]));
+                        int32_t y_start = last_interp < cur_interp ? last_interp : cur_interp;
+                        int32_t y_end   = last_interp < cur_interp ? cur_interp : last_interp;
+                        if (y_start < 0) y_start = 0;
+                        if (y_end >= GRAPH_H) y_end = GRAPH_H - 1;
+                        for (int32_t y = y_start; y <= y_end; y++)
+                            lv_canvas_set_px(graph_canvas, cx, y, colors[eq], LV_OPA_COVER);
+                        last_interp = cur_interp;
+                    }
+                } else {
+                    lv_canvas_set_px(graph_canvas, px, py, colors[eq], LV_OPA_COVER);
+                }
+
+                prev_py[eq]    = py;
+                prev_px_s[eq]  = px;
+                prev_valid[eq] = true;
+            }
         }
     }
 
@@ -505,95 +581,185 @@ void Graph_RenderParametric(bool angle_degrees)
         COLOR_CURVE_Y3,   /* Pair 3 — yellow */
     };
 
-    for (uint8_t p = 0; p < GRAPH_NUM_PARAM; p++) {
-        const char *xstr = graph_state.param_x[p];
-        const char *ystr = graph_state.param_y[p];
-        if (strlen(xstr) == 0 || strlen(ystr) == 0 || !graph_state.param_enabled[p])
-            continue;
+    float t_step = graph_state.t_step;
+    if (t_step <= 0.0f) t_step = 0.1309f;
 
-        /* Rebuild X(t) postfix cache if stale */
-        if (!param_postfix_valid[p] ||
-            strncmp(xstr, param_postfix_x_str[p], sizeof(param_postfix_x_str[p])) != 0) {
-            if (Calc_PrepareParamEquation(xstr, 0.0f, &param_postfix_x[p]) == CALC_OK) {
-                strncpy(param_postfix_x_str[p], xstr, sizeof(param_postfix_x_str[p]) - 1);
-                param_postfix_x_str[p][sizeof(param_postfix_x_str[p]) - 1] = '\0';
-            } else {
-                param_postfix_valid[p] = false;
+    if (graph_state.plot_sequential) {
+        /* Sequential: complete one parametric pair before starting the next */
+        for (uint8_t p = 0; p < GRAPH_NUM_PARAM; p++) {
+            const char *xstr = graph_state.param_x[p];
+            const char *ystr = graph_state.param_y[p];
+            if (strlen(xstr) == 0 || strlen(ystr) == 0 || !graph_state.param_enabled[p])
                 continue;
+
+            if (!param_postfix_valid[p] ||
+                strncmp(xstr, param_postfix_x_str[p], sizeof(param_postfix_x_str[p])) != 0) {
+                if (Calc_PrepareParamEquation(xstr, 0.0f, &param_postfix_x[p]) == CALC_OK) {
+                    strncpy(param_postfix_x_str[p], xstr, sizeof(param_postfix_x_str[p]) - 1);
+                    param_postfix_x_str[p][sizeof(param_postfix_x_str[p]) - 1] = '\0';
+                } else {
+                    param_postfix_valid[p] = false;
+                    continue;
+                }
+            }
+            if (!param_postfix_valid[p] ||
+                strncmp(ystr, param_postfix_y_str[p], sizeof(param_postfix_y_str[p])) != 0) {
+                if (Calc_PrepareParamEquation(ystr, 0.0f, &param_postfix_y[p]) == CALC_OK) {
+                    strncpy(param_postfix_y_str[p], ystr, sizeof(param_postfix_y_str[p]) - 1);
+                    param_postfix_y_str[p][sizeof(param_postfix_y_str[p]) - 1] = '\0';
+                    param_postfix_valid[p] = true;
+                } else {
+                    param_postfix_valid[p] = false;
+                    continue;
+                }
+            }
+
+            lv_color_t curve_color = lv_color_hex(pair_palette[p]);
+            int32_t prev_px = -1, prev_py = -1;
+            bool    prev_valid = false;
+
+            for (float t = graph_state.t_min;
+                 t <= graph_state.t_max + t_step * 0.5f;
+                 t += t_step) {
+
+                CalcResult_t rx = Calc_EvalParamEquation(&param_postfix_x[p], t, angle_degrees);
+                CalcResult_t ry = Calc_EvalParamEquation(&param_postfix_y[p], t, angle_degrees);
+
+                if (rx.error != CALC_OK || ry.error != CALC_OK ||
+                    isnan(rx.value) || isinf(rx.value) ||
+                    isnan(ry.value) || isinf(ry.value)) {
+                    prev_valid = false;
+                    continue;
+                }
+
+                int32_t px = math_x_to_px(rx.value);
+                int32_t py = math_y_to_px(ry.value);
+
+                if (px < 0 || px >= GRAPH_W || py < 0 || py >= GRAPH_H) {
+                    prev_valid = false;
+                    continue;
+                }
+
+                if (graph_state.plot_connected && prev_valid && (px - prev_px < GRAPH_W / 2) && (prev_px - px < GRAPH_W / 2)) {
+                    int32_t span = px - prev_px;
+                    if (span == 0) {
+                        int32_t y_lo = prev_py < py ? prev_py : py;
+                        int32_t y_hi = prev_py < py ? py : prev_py;
+                        for (int32_t y = y_lo; y <= y_hi; y++)
+                            lv_canvas_set_px(graph_canvas, px, y, curve_color, LV_OPA_COVER);
+                    } else {
+                        int32_t last = prev_py;
+                        for (int32_t cx = prev_px + (span > 0 ? 1 : -1);
+                             cx != px + (span > 0 ? 1 : -1);
+                             cx += (span > 0 ? 1 : -1)) {
+                            int32_t cur = prev_py + (int32_t)((float)(cx - prev_px) / (float)span * (float)(py - prev_py));
+                            int32_t y_lo = last < cur ? last : cur;
+                            int32_t y_hi = last < cur ? cur : last;
+                            if (y_lo < 0) y_lo = 0;
+                            if (y_hi >= GRAPH_H) y_hi = GRAPH_H - 1;
+                            for (int32_t y = y_lo; y <= y_hi; y++)
+                                lv_canvas_set_px(graph_canvas, cx, y, curve_color, LV_OPA_COVER);
+                            last = cur;
+                        }
+                    }
+                } else {
+                    lv_canvas_set_px(graph_canvas, px, py, curve_color, LV_OPA_COVER);
+                }
+
+                prev_px    = px;
+                prev_py    = py;
+                prev_valid = true;
             }
         }
-        /* Rebuild Y(t) postfix cache if stale */
-        if (!param_postfix_valid[p] ||
-            strncmp(ystr, param_postfix_y_str[p], sizeof(param_postfix_y_str[p])) != 0) {
-            if (Calc_PrepareParamEquation(ystr, 0.0f, &param_postfix_y[p]) == CALC_OK) {
-                strncpy(param_postfix_y_str[p], ystr, sizeof(param_postfix_y_str[p]) - 1);
-                param_postfix_y_str[p][sizeof(param_postfix_y_str[p]) - 1] = '\0';
-                param_postfix_valid[p] = true;
-            } else {
-                param_postfix_valid[p] = false;
-                continue;
+    } else {
+        /* Simultaneous: all parametric pairs advance one T step at a time */
+        bool       skip[GRAPH_NUM_PARAM];
+        lv_color_t colors[GRAPH_NUM_PARAM];
+        int32_t    prev_px_s[GRAPH_NUM_PARAM], prev_py_s[GRAPH_NUM_PARAM];
+        bool       prev_valid[GRAPH_NUM_PARAM];
+
+        for (uint8_t p = 0; p < GRAPH_NUM_PARAM; p++) {
+            skip[p]        = true;
+            prev_px_s[p]   = -1;
+            prev_py_s[p]   = -1;
+            prev_valid[p]  = false;
+            const char *xstr = graph_state.param_x[p];
+            const char *ystr = graph_state.param_y[p];
+            if (strlen(xstr) == 0 || strlen(ystr) == 0 || !graph_state.param_enabled[p]) continue;
+            if (!param_postfix_valid[p] ||
+                strncmp(xstr, param_postfix_x_str[p], sizeof(param_postfix_x_str[p])) != 0) {
+                if (Calc_PrepareParamEquation(xstr, 0.0f, &param_postfix_x[p]) == CALC_OK) {
+                    strncpy(param_postfix_x_str[p], xstr, sizeof(param_postfix_x_str[p]) - 1);
+                    param_postfix_x_str[p][sizeof(param_postfix_x_str[p]) - 1] = '\0';
+                } else { param_postfix_valid[p] = false; continue; }
             }
+            if (!param_postfix_valid[p] ||
+                strncmp(ystr, param_postfix_y_str[p], sizeof(param_postfix_y_str[p])) != 0) {
+                if (Calc_PrepareParamEquation(ystr, 0.0f, &param_postfix_y[p]) == CALC_OK) {
+                    strncpy(param_postfix_y_str[p], ystr, sizeof(param_postfix_y_str[p]) - 1);
+                    param_postfix_y_str[p][sizeof(param_postfix_y_str[p]) - 1] = '\0';
+                    param_postfix_valid[p] = true;
+                } else { param_postfix_valid[p] = false; continue; }
+            }
+            skip[p]   = false;
+            colors[p] = lv_color_hex(pair_palette[p]);
         }
-
-        lv_color_t curve_color = lv_color_hex(pair_palette[p]);
-        int32_t prev_px = -1, prev_py = -1;
-        bool    prev_valid = false;
-
-        float t_step = graph_state.t_step;
-        if (t_step <= 0.0f) t_step = 0.1309f;
 
         for (float t = graph_state.t_min;
              t <= graph_state.t_max + t_step * 0.5f;
              t += t_step) {
 
-            CalcResult_t rx = Calc_EvalParamEquation(&param_postfix_x[p], t, angle_degrees);
-            CalcResult_t ry = Calc_EvalParamEquation(&param_postfix_y[p], t, angle_degrees);
+            for (uint8_t p = 0; p < GRAPH_NUM_PARAM; p++) {
+                if (skip[p]) continue;
 
-            if (rx.error != CALC_OK || ry.error != CALC_OK ||
-                isnan(rx.value) || isinf(rx.value) ||
-                isnan(ry.value) || isinf(ry.value)) {
-                prev_valid = false;
-                continue;
-            }
+                CalcResult_t rx = Calc_EvalParamEquation(&param_postfix_x[p], t, angle_degrees);
+                CalcResult_t ry = Calc_EvalParamEquation(&param_postfix_y[p], t, angle_degrees);
 
-            int32_t px = math_x_to_px(rx.value);
-            int32_t py = math_y_to_px(ry.value);
-
-            if (px < 0 || px >= GRAPH_W || py < 0 || py >= GRAPH_H) {
-                prev_valid = false;
-                continue;
-            }
-
-            if (graph_state.plot_connected && prev_valid && (px - prev_px < GRAPH_W / 2) && (prev_px - px < GRAPH_W / 2)) {
-                /* Interpolate vertically between prev and current pixel columns */
-                int32_t span = px - prev_px;
-                if (span == 0) {
-                    int32_t y_lo = prev_py < py ? prev_py : py;
-                    int32_t y_hi = prev_py < py ? py : prev_py;
-                    for (int32_t y = y_lo; y <= y_hi; y++)
-                        lv_canvas_set_px(graph_canvas, px, y, curve_color, LV_OPA_COVER);
-                } else {
-                    int32_t last = prev_py;
-                    for (int32_t cx = prev_px + (span > 0 ? 1 : -1);
-                         cx != px + (span > 0 ? 1 : -1);
-                         cx += (span > 0 ? 1 : -1)) {
-                        int32_t cur = prev_py + (int32_t)((float)(cx - prev_px) / (float)span * (float)(py - prev_py));
-                        int32_t y_lo = last < cur ? last : cur;
-                        int32_t y_hi = last < cur ? cur : last;
-                        if (y_lo < 0) y_lo = 0;
-                        if (y_hi >= GRAPH_H) y_hi = GRAPH_H - 1;
-                        for (int32_t y = y_lo; y <= y_hi; y++)
-                            lv_canvas_set_px(graph_canvas, cx, y, curve_color, LV_OPA_COVER);
-                        last = cur;
-                    }
+                if (rx.error != CALC_OK || ry.error != CALC_OK ||
+                    isnan(rx.value) || isinf(rx.value) ||
+                    isnan(ry.value) || isinf(ry.value)) {
+                    prev_valid[p] = false;
+                    continue;
                 }
-            } else {
-                lv_canvas_set_px(graph_canvas, px, py, curve_color, LV_OPA_COVER);
-            }
 
-            prev_px    = px;
-            prev_py    = py;
-            prev_valid = true;
+                int32_t px = math_x_to_px(rx.value);
+                int32_t py = math_y_to_px(ry.value);
+
+                if (px < 0 || px >= GRAPH_W || py < 0 || py >= GRAPH_H) {
+                    prev_valid[p] = false;
+                    continue;
+                }
+
+                if (graph_state.plot_connected && prev_valid[p] && (px - prev_px_s[p] < GRAPH_W / 2) && (prev_px_s[p] - px < GRAPH_W / 2)) {
+                    int32_t span = px - prev_px_s[p];
+                    if (span == 0) {
+                        int32_t y_lo = prev_py_s[p] < py ? prev_py_s[p] : py;
+                        int32_t y_hi = prev_py_s[p] < py ? py : prev_py_s[p];
+                        for (int32_t y = y_lo; y <= y_hi; y++)
+                            lv_canvas_set_px(graph_canvas, px, y, colors[p], LV_OPA_COVER);
+                    } else {
+                        int32_t last = prev_py_s[p];
+                        for (int32_t cx = prev_px_s[p] + (span > 0 ? 1 : -1);
+                             cx != px + (span > 0 ? 1 : -1);
+                             cx += (span > 0 ? 1 : -1)) {
+                            int32_t cur = prev_py_s[p] + (int32_t)((float)(cx - prev_px_s[p]) / (float)span * (float)(py - prev_py_s[p]));
+                            int32_t y_lo = last < cur ? last : cur;
+                            int32_t y_hi = last < cur ? cur : last;
+                            if (y_lo < 0) y_lo = 0;
+                            if (y_hi >= GRAPH_H) y_hi = GRAPH_H - 1;
+                            for (int32_t y = y_lo; y <= y_hi; y++)
+                                lv_canvas_set_px(graph_canvas, cx, y, colors[p], LV_OPA_COVER);
+                            last = cur;
+                        }
+                    }
+                } else {
+                    lv_canvas_set_px(graph_canvas, px, py, colors[p], LV_OPA_COVER);
+                }
+
+                prev_px_s[p]  = px;
+                prev_py_s[p]  = py;
+                prev_valid[p] = true;
+            }
         }
     }
 

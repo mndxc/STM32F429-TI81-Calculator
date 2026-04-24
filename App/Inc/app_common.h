@@ -101,6 +101,9 @@ typedef enum {
  *   param_mode               — Written via Graph_SetParamMode() by ui_mode.c (MODE screen row 4).
  *                              Read by all graph modules to branch behaviour.
  *
+ *   plot_sequential          — Written via Graph_SetSequentialMode() by ui_mode.c (MODE screen row 6).
+ *                              Read by graph.c.
+ *
  *   grid_on                  — Written via Graph_SetGridOn() by ui_mode.c (MODE screen row 7).
  *                              Read by graph.c.
  *
@@ -139,9 +142,10 @@ typedef struct {
     float   t_max;
     float   t_step;
 
-    /* Mode flags — driven by MODE rows 4 and 5 */
-    bool    param_mode;      /* false=function (Y=), true=parametric (X/Y pairs) */
-    bool    plot_connected;  /* true=Connected (lines), false=Dot (pixels only) */
+    /* Mode flags — driven by MODE rows 4, 5, and 6 */
+    bool    param_mode;       /* false=function (Y=), true=parametric (X/Y pairs) */
+    bool    plot_connected;   /* true=Connected (lines), false=Dot (pixels only) */
+    bool    plot_sequential;  /* true=Sequential, false=Simultaneous — MODE row 6 */
 } GraphState_t;
 
 

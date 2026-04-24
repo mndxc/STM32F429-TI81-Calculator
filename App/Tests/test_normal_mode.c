@@ -743,7 +743,7 @@ static void test_edge_cases(void)
  * main
  * ---------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------
- * Group 11: graph mode accessors (3 tests)
+ * Group 11: graph mode accessors (6 tests)
  * ---------------------------------------------------------------------- */
 static void test_graph_mode_accessors(void)
 {
@@ -762,6 +762,20 @@ static void test_graph_mode_accessors(void)
     Graph_SetConnectedMode(true);
     CHECK(Graph_GetState()->plot_connected == true,
           "graph_mode: SetConnectedMode(true) → plot_connected true");
+
+    /* 4. Default plot_sequential is true (Sequential mode) */
+    CHECK(Graph_GetState()->plot_sequential == true,
+          "graph_mode: default plot_sequential is true");
+
+    /* 5. Graph_SetSequentialMode(false) sets Simultaneous mode */
+    Graph_SetSequentialMode(false);
+    CHECK(Graph_GetState()->plot_sequential == false,
+          "graph_mode: SetSequentialMode(false) → plot_sequential false");
+
+    /* 6. Graph_SetSequentialMode(true) restores Sequential mode */
+    Graph_SetSequentialMode(true);
+    CHECK(Graph_GetState()->plot_sequential == true,
+          "graph_mode: SetSequentialMode(true) → plot_sequential true");
 }
 
 int main(void)
