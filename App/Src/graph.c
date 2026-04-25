@@ -771,6 +771,21 @@ void Graph_RenderParametric(bool angle_degrees)
     graph_clean_valid = true;
 }
 
+static void draw_crosshair_px(int32_t px, int32_t py, lv_color_t c)
+{
+    const int32_t ARM = 5;
+    for (int32_t dx = -ARM; dx <= ARM; dx++) {
+        int32_t cx = px + dx;
+        if (cx >= 0 && cx < GRAPH_W && py >= 0 && py < GRAPH_H)
+            lv_canvas_set_px(graph_canvas, cx, py, c, LV_OPA_COVER);
+    }
+    for (int32_t dy = -ARM; dy <= ARM; dy++) {
+        int32_t cy = py + dy;
+        if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
+            lv_canvas_set_px(graph_canvas, px, cy, c, LV_OPA_COVER);
+    }
+}
+
 /* Parametric trace helper — draws T=/X=/Y= readouts and crosshair for one
  * T value on the given pair index.  Called only from Graph_DrawTrace(). */
 static void graph_draw_trace_param(float t, uint8_t pair, bool angle_degrees)
@@ -830,20 +845,7 @@ static void graph_draw_trace_param(float t, uint8_t pair, bool angle_degrees)
     int32_t px = math_x_to_px(rx.value);
     int32_t py = math_y_to_px(ry.value);
 
-    if (px >= 0 && px < GRAPH_W && py >= 0 && py < GRAPH_H) {
-        lv_color_t cur = lv_color_hex(0x00FF00);
-        const int32_t ARM = 5;
-        for (int32_t dx = -ARM; dx <= ARM; dx++) {
-            int32_t cx = px + dx;
-            if (cx >= 0 && cx < GRAPH_W)
-                lv_canvas_set_px(graph_canvas, cx, py, cur, LV_OPA_COVER);
-        }
-        for (int32_t dy = -ARM; dy <= ARM; dy++) {
-            int32_t cy = py + dy;
-            if (cy >= 0 && cy < GRAPH_H)
-                lv_canvas_set_px(graph_canvas, px, cy, cur, LV_OPA_COVER);
-        }
-    }
+    draw_crosshair_px(px, py, lv_color_hex(0x00FF00));
 }
 
 /* Function-mode trace helper — draws X=/Y= readouts and crosshair at x on
@@ -891,21 +893,7 @@ static void graph_draw_trace_func(float x, uint8_t eq_idx, bool angle_degrees)
 
     int32_t px = math_x_to_px(x);
     int32_t py = math_y_to_px(r.value);
-
-    /* Draw crosshair in bright green — visible against all curve colors */
-    lv_color_t cur = lv_color_hex(0x00FF00);
-    const int32_t ARM = 5;
-
-    for (int32_t dx = -ARM; dx <= ARM; dx++) {
-        int32_t cx = px + dx;
-        if (cx >= 0 && cx < GRAPH_W && py >= 0 && py < GRAPH_H)
-            lv_canvas_set_px(graph_canvas, cx, py, cur, LV_OPA_COVER);
-    }
-    for (int32_t dy = -ARM; dy <= ARM; dy++) {
-        int32_t cy = py + dy;
-        if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
-            lv_canvas_set_px(graph_canvas, px, cy, cur, LV_OPA_COVER);
-    }
+    draw_crosshair_px(px, py, lv_color_hex(0x00FF00));
 }
 
 void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)
@@ -954,16 +942,7 @@ void Graph_DrawFreeCursor(float x, float y, bool angle_degrees)
 
     int32_t px = math_x_to_px(x);
     int32_t py = math_y_to_px(y);
-    lv_color_t c = lv_color_hex(COLOR_WHITE);
-    const int32_t ARM = 5;
-    for (int32_t d = -ARM; d <= ARM; d++) {
-        int32_t cx = px + d;
-        if (cx >= 0 && cx < GRAPH_W && py >= 0 && py < GRAPH_H)
-            lv_canvas_set_px(graph_canvas, cx, py, c, LV_OPA_COVER);
-        int32_t cy = py + d;
-        if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
-            lv_canvas_set_px(graph_canvas, px, cy, c, LV_OPA_COVER);
-    }
+    draw_crosshair_px(px, py, lv_color_hex(COLOR_WHITE));
 }
 
 void Graph_EraseFreeCursor(void)

@@ -101,6 +101,7 @@ The single history archive for this project. Add a Session Log entry after every
 
 | Item | Summary | Date |
 |---|---|---|
+| [complexity] Crosshair duplication | `draw_crosshair_px(px, py, c)` helper extracted; ARM=5 loop removed from `Graph_DrawFreeCursor`, `graph_draw_trace_func`, `graph_draw_trace_param`; complexity delta: decrease | 2026-04-24 |
 | ZOOM Trig default constants | `Ymin`/`Ymax` ±4→±3, `Yscl` 1.0→0.25 in `ui_graph_zoom.c:205`; matches guidebook p. 3-15 | 2026-04-24 |
 | [docs] EE glyph + MATRX extras | `TOKEN_EE` `*10^` deviation documented; `dim(`, `fill(`, `identity(`, `randM(` removed from MATRX MATH tab (TI-82 additions, not in TI-81 spec); item count 6→2 | 2026-04-24 |
 | Item 4 (TRACE crosshair) | Free-roaming blinking crosshair + TRACE toggle fix implemented; hardware validation item added | 2026-04-24 |

@@ -109,8 +109,6 @@ Items are ordered within each tier by estimated difficulty (easiest first). Depe
 
 #### Easy — self-contained, hours
 
-**[complexity] Free-cursor crosshair drawing duplication** — `Graph_DrawFreeCursor`, `graph_draw_trace_func`, and `graph_draw_trace_param` all contain the same ARM=5 pixel-loop crosshair drawing pattern. Extract to a `static void draw_crosshair_px(int32_t px, int32_t py, lv_color_t c)` helper in `graph.c` when a convenient refactor opportunity arises. Files: `App/Src/graph.c`.
-
 **[complexity] P29 — DRAW menu complexity follow-up (stat renderer extraction)** — Draw layer extracted to `graph_draw.c`; `Graph_DrawTrace()` split into `graph_draw_trace_param/func` static helpers (118→17 lines); `graph_render_setup()` deduplicated from both render functions; `GRAPH_BUF_ADDR` named constant added. Remaining: stat renderer functions (`Graph_DrawScatter/XYLine/Histogram`, `stat_plot_prepare`, `draw_line_px`) still in `graph.c` (~150 lines, tightly coupled to private canvas state — `graph_render_setup()` now exposed as a hook point if extraction to `graph_stat.c` is pursued). Assess at next code-organisation review. Files: `App/Src/graph.c`.
 
 **[bug] Auto-close trailing `(` on ENTER** — Guidebook p. 1-9: "You may omit any right (close) parenthesis at the end of an expression." `sy_drain_stack()` in `calc_engine.c` returns `CALC_ERR_SYNTAX` when any `(` remains on the operator stack. Fix: drain remaining `(` as implicit `)` rather than error. Files: `App/Src/calc_engine.c`.
