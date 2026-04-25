@@ -198,6 +198,70 @@ static void test_trig_degrees(void)
 }
 
 /* =========================================================================
+ * Group 5b — Hyperbolic functions
+ * ====================================================================== */
+static void test_hyp_functions(void)
+{
+    printf("[5b] Hyperbolic functions\n");
+    CalcResult_t r;
+
+    r = Calc_Evaluate("sinh(0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.0f), "sinh(0)=0");
+
+    r = Calc_Evaluate("cosh(0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.0f), "cosh(0)=1");
+
+    r = Calc_Evaluate("tanh(0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.0f), "tanh(0)=0");
+
+    r = Calc_Evaluate("sinh(1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.17520f), "sinh(1)~1.17520");
+
+    r = Calc_Evaluate("cosh(1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.54308f), "cosh(1)~1.54308");
+
+    r = Calc_Evaluate("tanh(1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.76159f), "tanh(1)~0.76159");
+
+    /* Inverse hyperbolic */
+    r = Calc_Evaluate("asinh(0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.0f), "asinh(0)=0");
+
+    r = Calc_Evaluate("asinh(1.17520)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.0f), "asinh(sinh(1))~1");
+
+    r = Calc_Evaluate("acosh(1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.0f), "acosh(1)=0");
+
+    r = Calc_Evaluate("acosh(1.54308)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.0f), "acosh(cosh(1))~1");
+
+    r = Calc_Evaluate("atanh(0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.0f), "atanh(0)=0");
+
+    r = Calc_Evaluate("atanh(0.76159)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.0f), "atanh(tanh(1))~1");
+
+    /* Domain errors */
+    r = Calc_Evaluate("acosh(0.5)", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "acosh(0.5) domain error");
+
+    r = Calc_Evaluate("atanh(1)", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "atanh(1) domain error");
+
+    r = Calc_Evaluate("atanh(-1)", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "atanh(-1) domain error");
+
+    /* HYP menu insert strings (engine receives asinh/acosh/atanh keywords) */
+    r = Calc_Evaluate("asinh(1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.88137f), "asinh(1)~0.88137");
+
+    /* sinh not confused with sin via keyword table prefix ordering */
+    r = Calc_Evaluate("sin(0)+sinh(1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.17520f), "sin(0)+sinh(1)~sinh(1)");
+}
+
+/* =========================================================================
  * Group 6 — Math functions
  * ====================================================================== */
 static void test_math_functions(void)
@@ -1079,6 +1143,9 @@ int main(void)
 
     reset_state();
     test_trig_degrees();
+
+    reset_state();
+    test_hyp_functions();
 
     reset_state();
     test_math_functions();

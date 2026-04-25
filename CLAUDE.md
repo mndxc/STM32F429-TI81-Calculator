@@ -31,7 +31,7 @@ Snapshot as of **2026-04-17** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 742 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 771 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
 
 ### Scorecard Change Log
 
@@ -51,6 +51,8 @@ Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware valida
 | 2026-04-17 | Code organisation | B | B | COUPLING_REFACTOR T9: Persist_BuildBlock/Persist_ApplyBlock moved from calculator_core.c (~113 lines) into persist.c; Calc_GetAngleDegrees/SetAngleDegrees added; calculator_core.c reduced 1544→1453 lines; Calc_BuildPersistBlock/ApplyPersistBlock retired; complexity delta: neutral |
 | 2026-04-17 | API / header design | A+ | A+ | COUPLING_REFACTOR T11: stat_data/stat_results made static in ui_stat.c; extern declarations removed from app_common.h; 3 accessors added (Stat_GetData/Stat_GetResults/Stat_SetData); ui_vars.c and persist.c updated to use accessors; direct field writes outside ui_stat.c are now compile errors; complexity delta: neutral |
 | 2026-04-24 | Code organisation | B | B | [complexity] P30 follow-up: ui_stat_edit.c extracted from ui_stat.c (703→367 lines); DATA editor state/helpers/init/display/handler moved; Stat_EditOpen() added; dead menu_insert_text extern removed; ui_stat.c now under 500-line threshold; complexity delta: decrease |
+| 2026-04-24 | Testing | A | A | P36–P39 PRGM MODE commands: 17 new cmd handlers (Norm/Sci/Eng/Fix/Float/Rad/Deg + 10 GRAPH), new ui_prgm_mode.c sub-menu (NUMBER/GRAPH tabs), 10 new host assertions; suite grows to 10 suites / 752 assertions; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | Hyperbolic functions engine: 6 `MATH_FUNC_SINH/COSH/TANH/ASINH/ACOSH/ATANH` tokens, keyword entries, eval cases; 16 new host assertions; suite grows to 10 suites / 771 assertions; complexity delta: neutral |
 
 ---
 
@@ -113,8 +115,6 @@ Items are ordered within each tier by estimated difficulty (easiest first). Depe
 
 **[bug] Auto-close trailing `(` on ENTER** — Guidebook p. 1-9: "You may omit any right (close) parenthesis at the end of an expression." `sy_drain_stack()` in `calc_engine.c` returns `CALC_ERR_SYNTAX` when any `(` remains on the operator stack. Fix: drain remaining `(` as implicit `)` rather than error. Files: `App/Src/calc_engine.c`.
 
-**MATRX row operations in menu** — Engine already implements `RowSwap(`, `Row+(`, `*Row(`, `*Row+(` but all four are absent from the MATRX MATH menu in `ui_matrix.c`. Spec positions them as items 1–4 (shifting `det` to 5, `T` to 6). Add 4 menu entries. Files: `App/Src/ui_matrix.c`.
-
 **[bug] `End` subroutine return** — Guidebook p. 8-11: `End` in a called subroutine returns control to the calling program. `cmd_end()` in `prgm_exec.c` is currently a no-op. Fix: check call stack depth; if non-empty, pop the frame (resume caller); if empty, terminate (equivalent to `Stop`). Files: `App/Src/prgm_exec.c`.
 
 **`Dim{x}` in VARS DIM tab** — VARS DIM menu is missing item 7: `Dim{x}` (guidebook pp. 6-11, 7-11), which returns the number of stat data points. Add a 7th entry that reads `Stat_GetResults()->n`. Files: `App/Src/ui_vars.c`.
@@ -123,8 +123,6 @@ Items are ordered within each tier by estimated difficulty (easiest first). Depe
 
 **Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
 
-**Hyperbolic functions engine** — The MATH HYP tab inserts `sinh(`, `cosh(`, `tanh(`, `sinh⁻¹(`, `cosh⁻¹(`, `tanh⁻¹(` but the engine has no matching tokens or RPN handlers — every HYP item currently produces a syntax error. Add 6 `MATH_FUNC_*` enum values, keyword-table entries, and `eval_unary_func()` cases backed by `<math.h>` `sinhf/coshf/tanhf/asinhf/acoshf/atanhf`. Files: `App/Inc/calc_engine.h`, `App/Src/calc_engine.c`.
-
 **`nDeriv(` numerical derivative** — MATH menu item inserts `nDeriv(` but no engine token or evaluator exists (syntax error on ENTER). Implement as a 3-arg function `nDeriv(expr, X, val)` using the symmetric difference quotient `(f(val+ε)−f(val−ε))/(2ε)` with `ε=0.001`. Requires a recursive expression evaluator call with a temporary X binding. Files: `App/Inc/calc_engine.h`, `App/Src/calc_engine.c`.
 
 **`°` degree / `r` radian postfix tokens** — MATH menu items 6/7 insert `°` and `r` but the engine has no per-argument angle-override mechanism. Implement as postfix unary operators that convert their operand to/from radians before further evaluation, independently of the global angle mode. Files: `App/Inc/calc_engine.h`, `App/Src/calc_engine.c`.
@@ -132,8 +130,6 @@ Items are ordered within each tier by estimated difficulty (easiest first). Depe
 **TRACE auto-pan at viewport edge** — Guidebook p. 3-10: when the trace cursor reaches `Xmin` or `Xmax`, the viewing window pans and `Xmin`/`Xmax` update. `handle_trace_mode()` in `graph_ui.c` currently clamps at the boundary. Add a pan branch that shifts both bounds by `(Xmax−Xmin)/2` and triggers a re-render. Files: `App/Src/graph_ui.c`.
 
 **Stat data point INS/DEL** — Guidebook p. 7-5: pressing INS on the `=` sign row of the stat editor inserts a new `(0,0)` data point at the cursor; DEL removes the current point. `ui_stat.c` currently supports only in-place cell editing. Files: `App/Src/ui_stat.c`.
-
-**P36–P39 — PRGM MODE program commands (full sweep)** — P36 (Norm/Sci/Eng), P37 (Connected/Dot), and P39 (Sequence/Simul) each add tokens and handlers in `prgm_exec.c`, all sharing the same PRGM MODE sub-menu structure. Implement together in one pass: NUMBER tab (Norm/Sci/Eng/Fix n/Float/Rad/Deg), GRAPH tab (Function/Param/Connected/Dot/Sequence/Simul/Grid Off/Grid On/Rect/Polar). Include all untracked commands (Fix/Float/Rad/Deg/Grid Off–On/Rect/Polar/Function/Param) in the same sweep since they share the menu and each is a single `prgm_exec.c` handler calling an existing API. Note: `TOKEN_SCI`/`TOKEN_ENG`/`TOKEN_NORM` names must not clash with any existing token enum values. Files: `App/Inc/app_common.h`, `App/Src/ui_prgm.c`, `App/Src/prgm_exec.c`.
 
 **Parametric Y-VARS tabs** — `ui_yvars.c` currently defers parametric pair selectors. Add ON/OFF tab entries for parametric equation pairs (`X₁t-On/Off`, `Y₁t-On/Off` etc.) mirroring the existing `Yn-On/Off` pattern. Files: `App/Src/ui_yvars.c`.
 

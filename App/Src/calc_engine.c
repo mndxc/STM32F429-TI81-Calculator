@@ -46,15 +46,11 @@ static uint8_t s_yeq_count = 0;
  * references another Y= equation (or itself). */
 static int s_y_eval_depth = 0;
 
-void Calc_SetDecimalMode(uint8_t mode)
-{
-    calc_decimal_mode = mode;
-}
+void Calc_SetDecimalMode(uint8_t mode) { calc_decimal_mode  = mode; }
+uint8_t Calc_GetDecimalMode(void)      { return calc_decimal_mode;  }
 
-void Calc_SetNotationMode(uint8_t mode)
-{
-    calc_notation_mode = mode;
-}
+void Calc_SetNotationMode(uint8_t mode) { calc_notation_mode  = mode; }
+uint8_t Calc_GetNotationMode(void)      { return calc_notation_mode;  }
 
 void Calc_RegisterYEquations(const char (*eqs)[64], uint8_t count)
 {
@@ -92,6 +88,9 @@ static bool is_function(MathTokenType_t t)
     return (t == MATH_FUNC_SIN     || t == MATH_FUNC_COS     ||
             t == MATH_FUNC_TAN     || t == MATH_FUNC_ASIN    ||
             t == MATH_FUNC_ACOS    || t == MATH_FUNC_ATAN    ||
+            t == MATH_FUNC_SINH    || t == MATH_FUNC_COSH    ||
+            t == MATH_FUNC_TANH    || t == MATH_FUNC_ASINH   ||
+            t == MATH_FUNC_ACOSH   || t == MATH_FUNC_ATANH   ||
             t == MATH_FUNC_LN      || t == MATH_FUNC_LOG     ||
             t == MATH_FUNC_SQRT    || t == MATH_FUNC_ABS     ||
             t == MATH_FUNC_EXP     || t == MATH_FUNC_ROUND   ||
@@ -311,6 +310,13 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
         { "sin\xEE\x80\x81", MATH_FUNC_ASIN },  /* sin⁻¹( inserted by 2nd+SIN */
         { "cos\xEE\x80\x81", MATH_FUNC_ACOS },  /* cos⁻¹( inserted by 2nd+COS */
         { "tan\xEE\x80\x81", MATH_FUNC_ATAN },  /* tan⁻¹( inserted by 2nd+TAN */
+        /* Hyperbolic — longer names first so "sinh" matches before "sin", etc. */
+        { "asinh",   MATH_FUNC_ASINH    },
+        { "acosh",   MATH_FUNC_ACOSH    },
+        { "atanh",   MATH_FUNC_ATANH    },
+        { "sinh",    MATH_FUNC_SINH     },
+        { "cosh",    MATH_FUNC_COSH     },
+        { "tanh",    MATH_FUNC_TANH     },
         { "sin",     MATH_FUNC_SIN      },
         { "cos",     MATH_FUNC_COS      },
         { "tan",     MATH_FUNC_TAN      },
@@ -1034,6 +1040,18 @@ static bool eval_unary_func(MathTokenType_t type,
         stack[*top] = acosf(a) / deg_factor;
         break;
     case MATH_FUNC_ATAN:   stack[*top] = atanf(a) / deg_factor;  break;
+    case MATH_FUNC_SINH:   stack[*top] = sinhf(a);               break;
+    case MATH_FUNC_COSH:   stack[*top] = coshf(a);               break;
+    case MATH_FUNC_TANH:   stack[*top] = tanhf(a);               break;
+    case MATH_FUNC_ASINH:  stack[*top] = asinhf(a);              break;
+    case MATH_FUNC_ACOSH:
+        if (a < 1.0f) MERR(CALC_ERR_DOMAIN, "Domain error: acosh");
+        stack[*top] = acoshf(a);
+        break;
+    case MATH_FUNC_ATANH:
+        if (a <= -1.0f || a >= 1.0f) MERR(CALC_ERR_DOMAIN, "Domain error: atanh");
+        stack[*top] = atanhf(a);
+        break;
     case MATH_FUNC_LN:
         if (a <= 0.0f) MERR(CALC_ERR_DOMAIN, "Domain error: ln");
         stack[*top] = logf(a);

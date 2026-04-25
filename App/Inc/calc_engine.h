@@ -65,6 +65,12 @@ typedef enum {
     MATH_FUNC_ASIN,
     MATH_FUNC_ACOS,
     MATH_FUNC_ATAN,
+    MATH_FUNC_SINH,
+    MATH_FUNC_COSH,
+    MATH_FUNC_TANH,
+    MATH_FUNC_ASINH,
+    MATH_FUNC_ACOSH,
+    MATH_FUNC_ATANH,
     MATH_FUNC_LN,
     MATH_FUNC_LOG,
     MATH_FUNC_SQRT,
@@ -192,6 +198,7 @@ void Calc_FormatResult(float value, char *buf, uint8_t buf_len);
  *              Matches mode_committed[1] from the MODE screen directly.
  */
 void Calc_SetDecimalMode(uint8_t mode);
+uint8_t Calc_GetDecimalMode(void);
 
 /**
  * @brief Sets the notation mode used by Calc_FormatResult.
@@ -200,6 +207,7 @@ void Calc_SetDecimalMode(uint8_t mode);
  *              Matches mode_committed[0] from the MODE screen directly.
  */
 void Calc_SetNotationMode(uint8_t mode);
+uint8_t Calc_GetNotationMode(void);
 
 /**
  * @brief Evaluates an infix expression with a specific value substituted for X.
