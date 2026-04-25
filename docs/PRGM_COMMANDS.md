@@ -164,6 +164,87 @@ appears blank until the next output or user input.
 
 ---
 
+## MODE Settings (MODE sub-menu)
+
+These commands mirror the interactive MODE screen settings. They are entered via the
+**PRGM MODE** sub-menu (NUMBER and GRAPH tabs) in the program editor.
+
+### `Norm`
+
+Sets Normal (auto) display notation. Equivalent to selecting **Norm** on the MODE screen.
+
+### `Sci`
+
+Sets Scientific display notation. All results are shown as `a.bbbE±n`.
+
+### `Eng`
+
+Sets Engineering display notation. Exponent is always a multiple of 3.
+
+### `Fix <0–9>`
+
+Sets Fixed decimal display with the given number of decimal places (0–9).
+The digit argument is required.
+
+```
+Fix 2       ← display 2 decimal places
+Fix 0       ← display integers only
+```
+
+### `Float`
+
+Sets Floating (auto) decimal display. Cancels any active `Fix` setting.
+
+### `Rad`
+
+Sets Radian angle mode. Affects all trig evaluations for the remainder of the program.
+
+### `Deg`
+
+Sets Degree angle mode. Affects all trig evaluations for the remainder of the program.
+
+### `Function`
+
+Switches to Function (Y=) graphing mode. Equivalent to selecting **Func** on the MODE screen.
+
+### `Param`
+
+Switches to Parametric graphing mode. Equivalent to selecting **Param** on the MODE screen.
+
+### `Connected`
+
+Sets Connected graph style: curve pixels are joined by line segments.
+
+### `Dot`
+
+Sets Dot graph style: only individual pixels are plotted; no line segments are drawn.
+
+### `Sequence`
+
+Sets Sequential plotting: each Y= equation is drawn completely before the next begins.
+
+### `Simul`
+
+Sets Simultaneous plotting: all enabled equations advance one column at a time together.
+
+### `Grid Off`
+
+Disables graph grid dots. Two-word command; must be entered exactly as `Grid Off`.
+
+### `Grid On`
+
+Enables graph grid dots. Two-word command; must be entered exactly as `Grid On`.
+
+### `Rect`
+
+Sets Rectangular (X/Y) coordinate display at the graph cursor and in TRACE readout.
+
+### `Polar`
+
+Sets Polar (R/θ) coordinate display at the graph cursor and in TRACE readout.
+
+---
+
 ## Assignment
 
 ### `<expr>-><var>`

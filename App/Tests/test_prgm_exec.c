@@ -592,6 +592,74 @@ static void test_nested_subroutine(void)
  * main
  * ---------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------
+ * Group 14: PRGM MODE commands — NUMBER tab (8 tests)
+ * Tests the Norm/Sci/Eng/Fix/Float/Rad/Deg command handlers via a running
+ * program.  Graph_Set* commands are host-guarded so only the number/angle
+ * commands are verifiable here.
+ * ---------------------------------------------------------------------- */
+static void test_prgm_mode_cmds(void)
+{
+    printf("Group 14: PRGM MODE commands\n");
+
+    /* 1. Norm sets notation mode to 0 */
+    reset_state();
+    Calc_SetNotationMode(2); /* start with Eng */
+    run_program("Norm");
+    CHECK(Calc_GetNotationMode() == 0, "Norm: notation mode = 0");
+    CHECK(current_mode == MODE_NORMAL, "Norm: program completes");
+
+    /* 2. Sci sets notation mode to 1 */
+    reset_state();
+    run_program("Sci");
+    CHECK(Calc_GetNotationMode() == 1, "Sci: notation mode = 1");
+
+    /* 3. Eng sets notation mode to 2 */
+    reset_state();
+    run_program("Eng");
+    CHECK(Calc_GetNotationMode() == 2, "Eng: notation mode = 2");
+
+    /* 4. Float sets decimal mode to 0 */
+    reset_state();
+    Calc_SetDecimalMode(5); /* start with Fix 4 */
+    run_program("Float");
+    CHECK(Calc_GetDecimalMode() == 0, "Float: decimal mode = 0");
+
+    /* 5. Fix 0 sets decimal mode to 1 */
+    reset_state();
+    run_program("Fix 0");
+    CHECK(Calc_GetDecimalMode() == 1, "Fix 0: decimal mode = 1");
+
+    /* 6. Fix 9 sets decimal mode to 10 */
+    reset_state();
+    run_program("Fix 9");
+    CHECK(Calc_GetDecimalMode() == 10, "Fix 9: decimal mode = 10");
+
+    /* 7. Rad clears angle_degrees */
+    reset_state();
+    angle_degrees = true;
+    run_program("Rad");
+    CHECK(angle_degrees == false, "Rad: angle_degrees = false");
+
+    /* 8. Deg sets angle_degrees */
+    reset_state();
+    angle_degrees = false;
+    run_program("Deg");
+    CHECK(angle_degrees == true, "Deg: angle_degrees = true");
+
+    /* 9. Notation/angle changes persist to subsequent expression evaluation */
+    reset_state();
+    run_program("Sci\n2->A");
+    CHECK(Calc_GetNotationMode() == 1, "Sci+expr: notation still Sci");
+    CHECK(NEAR(calc_variables['A'-'A'], 2.0f), "Sci+expr: A=2");
+
+    /* 10. Fix with invalid arg is a no-op */
+    reset_state();
+    Calc_SetDecimalMode(3);
+    run_program("Fix X"); /* 'X' is not a digit */
+    CHECK(Calc_GetDecimalMode() == 3, "Fix X: mode unchanged");
+}
+
 int main(void)
 {
     printf("=== test_prgm_exec ===\n");
@@ -610,6 +678,7 @@ int main(void)
     test_empty_body();
     test_lookup_slot();
     test_nested_subroutine();
+    test_prgm_mode_cmds();
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);
     return g_failed > 0 ? 1 : 0;

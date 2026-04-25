@@ -83,6 +83,7 @@ set(APP_SOURCES
     App/Src/ui_prgm_ctl.c
     App/Src/ui_prgm_io.c
     App/Src/ui_prgm_exec.c
+    App/Src/ui_prgm_mode.c
     App/Src/ui_draw.c
     App/Src/ui_vars.c
     App/Src/ui_yvars.c

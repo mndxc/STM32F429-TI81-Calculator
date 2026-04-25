@@ -37,6 +37,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_prgm_ctl.c               PRGM CTL sub-menu — Lbl/Goto/If/IS>/DS</,Pause/End/Stop (extracted from ui_prgm.c)
     ui_prgm_io.c                PRGM I/O sub-menu — Disp/Input/DispHome/DispGraph/ClrHome (extracted from ui_prgm.c)
     ui_prgm_exec.c              PRGM EXEC sub-menu — subroutine slot picker (extracted from ui_prgm.c)
+    ui_prgm_mode.c              PRGM MODE sub-menu — NUMBER (Norm/Sci/Eng/Fix/Float/Rad/Deg) and GRAPH tabs (extracted from ui_prgm.c)
     menu_state.c                Shared MenuState_t navigation helpers (MoveUp/Down, PrevTab/NextTab, DigitToIndex; no LVGL/HAL)
     ui_draw.c                   DRAW menu UI and command dispatch (extracted module)
     ui_vars.c                   VARS menu UI — 5-tab (XY/Σ/LR/DIM/RNG) value-insert menu (extracted module; MenuState_t proof-of-concept)
@@ -67,6 +68,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_prgm_ctl.h               PRGM CTL sub-menu interface (screen pointer, init, reset, display-update, handler)
     ui_prgm_io.h                PRGM I/O sub-menu interface (screen pointer, init, reset, display-update, handler)
     ui_prgm_exec.h              PRGM EXEC sub-menu interface (screen pointer, init, reset, display-update, handler)
+    ui_prgm_mode.h              PRGM MODE sub-menu interface (screen pointer, init, reset, display-update, handler)
     menu_state.h                Shared MenuState_t struct and navigation helper declarations
     ui_draw.h                   DRAW menu UI interface (DrawMenuState_t, handler protos)
     ui_vars.h                   VARS menu UI interface (MenuState_t, handler protos)

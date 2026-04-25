@@ -42,6 +42,7 @@
 #  include "ui_prgm_ctl.h"
 #  include "ui_prgm_io.h"
 #  include "ui_prgm_exec.h"
+#  include "ui_prgm_mode.h"
 #  include "ui_stat.h"
 #  include "ui_draw.h"
 #  include "ui_vars.h"
@@ -1195,8 +1196,10 @@ static const ModeEntry_t k_mode_handlers[] = {
     { MODE_PRGM_CTL_MENU,      handle_prgm_ctl_menu     },
     { MODE_PRGM_IO_MENU,       handle_prgm_io_menu      },
     { MODE_PRGM_EXEC_MENU,     handle_prgm_exec_menu    },
+    { MODE_PRGM_MODE_NUMBER,   handle_prgm_mode_number  },
+    { MODE_PRGM_MODE_GRAPH,    handle_prgm_mode_graph   },
 };
-_Static_assert(ARRAY_SIZE(k_mode_handlers) == 23,
+_Static_assert(ARRAY_SIZE(k_mode_handlers) == 25,
                "mode handler count mismatch — update k_mode_handlers");
 
 /**

@@ -501,26 +501,233 @@ static void cmd_input(const char *line, uint16_t ln)
 
 
 /*---------------------------------------------------------------------------
+ * PRGM MODE — NUMBER tab handlers
+ * Each sets a display/angle mode by calling the same API used by ui_mode.c.
+ *---------------------------------------------------------------------------*/
+
+/* CMD: Norm
+ * Syntax: Norm
+ * Effect: Sets Normal (auto) display notation. */
+static void cmd_norm(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+    Calc_SetNotationMode(0);
+}
+
+/* CMD: Sci
+ * Syntax: Sci
+ * Effect: Sets Scientific display notation. */
+static void cmd_sci(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+    Calc_SetNotationMode(1);
+}
+
+/* CMD: Eng
+ * Syntax: Eng
+ * Effect: Sets Engineering display notation. */
+static void cmd_eng(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+    Calc_SetNotationMode(2);
+}
+
+/* CMD: Fix
+ * Syntax: Fix <0-9>
+ * Effect: Sets Fixed decimal display with the given number of decimal places.
+ *         Decimal mode 1 = Fix 0, 2 = Fix 1, …, 10 = Fix 9. */
+static void cmd_fix(const char *line, uint16_t ln)
+{
+    (void)ln;
+    const char *arg = line + 4; /* "Fix " is 4 chars */
+    if (*arg >= '0' && *arg <= '9')
+        Calc_SetDecimalMode((uint8_t)(*arg - '0') + 1u);
+}
+
+/* CMD: Float
+ * Syntax: Float
+ * Effect: Sets Floating (auto) decimal display. */
+static void cmd_float(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+    Calc_SetDecimalMode(0);
+}
+
+/* CMD: Rad
+ * Syntax: Rad
+ * Effect: Sets Radian angle mode. */
+static void cmd_rad(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+    Calc_SetAngleDegrees(false);
+}
+
+/* CMD: Deg
+ * Syntax: Deg
+ * Effect: Sets Degree angle mode. */
+static void cmd_deg(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+    Calc_SetAngleDegrees(true);
+}
+
+/*---------------------------------------------------------------------------
+ * PRGM MODE — GRAPH tab handlers
+ * Each calls the same Graph_Set* accessor used by ui_mode.c.
+ * All Graph_Set* calls are guarded by #ifndef HOST_TEST because graph.h
+ * is not available in host-test builds.
+ *---------------------------------------------------------------------------*/
+
+/* CMD: Function
+ * Syntax: Function
+ * Effect: Switches to Function (Y=) graphing mode. */
+static void cmd_function(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetParamMode(false);
+#endif
+}
+
+/* CMD: Param
+ * Syntax: Param
+ * Effect: Switches to Parametric graphing mode. */
+static void cmd_param(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetParamMode(true);
+#endif
+}
+
+/* CMD: Connected
+ * Syntax: Connected
+ * Effect: Sets Connected (line segment) graph style. */
+static void cmd_connected(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetConnectedMode(true);
+#endif
+}
+
+/* CMD: Dot
+ * Syntax: Dot
+ * Effect: Sets Dot (pixel only) graph style. */
+static void cmd_dot(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetConnectedMode(false);
+#endif
+}
+
+/* CMD: Sequence
+ * Syntax: Sequence
+ * Effect: Sets Sequential plotting (one equation at a time). */
+static void cmd_sequence(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetSequentialMode(true);
+#endif
+}
+
+/* CMD: Simul
+ * Syntax: Simul
+ * Effect: Sets Simultaneous plotting (all equations advance together). */
+static void cmd_simul(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetSequentialMode(false);
+#endif
+}
+
+/* CMD: Grid Off
+ * Syntax: Grid Off
+ * Effect: Disables graph grid dots. */
+static void cmd_grid_off(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetGridOn(false);
+#endif
+}
+
+/* CMD: Grid On
+ * Syntax: Grid On
+ * Effect: Enables graph grid dots. */
+static void cmd_grid_on(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetGridOn(true);
+#endif
+}
+
+/* CMD: Rect
+ * Syntax: Rect
+ * Effect: Sets Rectangular (X/Y) coordinate display at graph cursor. */
+static void cmd_rect(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetPolarDisplay(false);
+#endif
+}
+
+/* CMD: Polar
+ * Syntax: Polar
+ * Effect: Sets Polar (R/θ) coordinate display at graph cursor. */
+static void cmd_polar(const char *line, uint16_t ln)
+{
+    (void)line; (void)ln;
+#ifndef HOST_TEST
+    Graph_SetPolarDisplay(true);
+#endif
+}
+
+/*---------------------------------------------------------------------------
  * Dispatch table — ordered by frequency for a minor linear-scan benefit.
  * STO (strstr pattern) and general expression (fallback) are handled after
  * the table loop in prgm_execute_line.
  *---------------------------------------------------------------------------*/
 
 static const CmdEntry_t cmd_table[] = {
-    { "If ",       3, false, cmd_if        },
-    { "Disp ",     5, false, cmd_disp      },
-    { "End",       3, true,  cmd_end       },
-    { "Goto ",     5, false, cmd_goto      },
-    { "Lbl ",      4, false, cmd_lbl       },
-    { "IS>(",      4, false, cmd_is_gt     },
-    { "DS<(",      4, false, cmd_ds_lt     },
-    { "Pause",     5, true,  cmd_pause     },
-    { "Stop",      4, true,  cmd_stop      },
-    { "prgm",      4, false, cmd_prgm_call },
-    { "ClrHome",   7, true,  cmd_clrhome   },
-    { "DispHome",  8, true,  cmd_disphome  },
-    { "DispGraph", 9, true,  cmd_dispgraph },
-    { "Input ",    6, false, cmd_input     },
+    { "If ",        3, false, cmd_if        },
+    { "Disp ",      5, false, cmd_disp      },
+    { "End",        3, true,  cmd_end       },
+    { "Goto ",      5, false, cmd_goto      },
+    { "Lbl ",       4, false, cmd_lbl       },
+    { "IS>(",       4, false, cmd_is_gt     },
+    { "DS<(",       4, false, cmd_ds_lt     },
+    { "Pause",      5, true,  cmd_pause     },
+    { "Stop",       4, true,  cmd_stop      },
+    { "prgm",       4, false, cmd_prgm_call },
+    { "ClrHome",    7, true,  cmd_clrhome   },
+    { "DispHome",   8, true,  cmd_disphome  },
+    { "DispGraph",  9, true,  cmd_dispgraph },
+    { "Input ",     6, false, cmd_input     },
+    /* PRGM MODE — NUMBER tab */
+    { "Norm",       4, true,  cmd_norm      },
+    { "Sci",        3, true,  cmd_sci       },
+    { "Eng",        3, true,  cmd_eng       },
+    { "Fix ",       4, false, cmd_fix       },
+    { "Float",      5, true,  cmd_float     },
+    { "Rad",        3, true,  cmd_rad       },
+    { "Deg",        3, true,  cmd_deg       },
+    /* PRGM MODE — GRAPH tab */
+    { "Function",   8, true,  cmd_function  },
+    { "Param",      5, true,  cmd_param     },
+    { "Connected",  9, true,  cmd_connected },
+    { "Dot",        3, true,  cmd_dot       },
+    { "Sequence",   8, true,  cmd_sequence  },
+    { "Simul",      5, true,  cmd_simul     },
+    { "Grid Off",   8, true,  cmd_grid_off  },
+    { "Grid On",    7, true,  cmd_grid_on   },
+    { "Rect",       4, true,  cmd_rect      },
+    { "Polar",      5, true,  cmd_polar     },
 };
 
 /** Execute the program line at index @p ln. prgm_run_pc is already ln+1. */

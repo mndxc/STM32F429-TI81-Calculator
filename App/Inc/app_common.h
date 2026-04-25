@@ -66,6 +66,8 @@ typedef enum {
     MODE_DRAW_MENU,          /* DRAW menu (single-list, 7 items) active */
     MODE_VARS_MENU,          /* VARS menu (5-tab: XY/Σ/LR/DIM/RNG) active */
     MODE_YVARS_MENU,         /* Y-VARS menu (3-tab: Y/ON/OFF) active */
+    MODE_PRGM_MODE_NUMBER,   /* PRGM MODE NUMBER tab (Norm/Sci/Eng/Fix/Float/Rad/Deg) */
+    MODE_PRGM_MODE_GRAPH,    /* PRGM MODE GRAPH tab (Function/Param/Connected/Dot/Sequence/Simul/Grid Off/Grid On/Rect/Polar) */
     MODE_STO,                /* Synthetic: STO pending — cursor shows green 'A'; never set as current_mode */
 } CalcMode_t;
 

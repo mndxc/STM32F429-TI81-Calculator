@@ -15,6 +15,7 @@
 #include "ui_prgm_ctl.h"
 #include "ui_prgm_io.h"
 #include "ui_prgm_exec.h"
+#include "ui_prgm_mode.h"
 #include "ui_palette.h"
 #include "calc_internal.h"
 #include "prgm_exec.h"
@@ -240,6 +241,9 @@ static void ui_init_prgm_editor_screen(void)
 
     /* --- EXEC sub-menu — owned by ui_prgm_exec.c --- */
     ui_init_prgm_exec_screen(scr);
+
+    /* --- MODE sub-menu — owned by ui_prgm_mode.c --- */
+    ui_init_prgm_mode_screens(scr);
 }
 
 /* Returns the display identifier string for a program slot (0-based index).
@@ -1047,6 +1051,15 @@ bool handle_prgm_editor(Token_t t)
         ui_prgm_ctl_reset_and_show();
         lvgl_unlock();
         return true;
+    case TOKEN_MODE:
+        /* Open MODE NUMBER sub-menu */
+        Calc_SetMode(MODE_PRGM_MODE_NUMBER);
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_editor_screen,        LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(ui_prgm_mode_num_screen,    LV_OBJ_FLAG_HIDDEN);
+        ui_prgm_mode_num_reset_and_show();
+        lvgl_unlock();
+        return true;
     default:
         prgm_editor_handle_insert(t);
         return true;
@@ -1077,6 +1090,14 @@ void prgm_submenu_tab_switch(lv_obj_t *hide_screen, CalcMode_t to_mode)
         show_screen = ui_prgm_io_screen;
         lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
         ui_prgm_io_reset_and_show();
+    } else if (to_mode == MODE_PRGM_MODE_NUMBER) {
+        show_screen = ui_prgm_mode_num_screen;
+        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_prgm_mode_num_reset_and_show();
+    } else if (to_mode == MODE_PRGM_MODE_GRAPH) {
+        show_screen = ui_prgm_mode_gph_screen;
+        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+        ui_prgm_mode_gph_reset_and_show();
     } else {
         show_screen = ui_prgm_exec_screen;
         lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
@@ -1150,6 +1171,8 @@ void hide_prgm_screens(void) {
     if (ui_prgm_ctl_screen) lv_obj_add_flag(ui_prgm_ctl_screen, LV_OBJ_FLAG_HIDDEN);
     if (ui_prgm_io_screen) lv_obj_add_flag(ui_prgm_io_screen, LV_OBJ_FLAG_HIDDEN);
     if (ui_prgm_exec_screen) lv_obj_add_flag(ui_prgm_exec_screen, LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_mode_num_screen) lv_obj_add_flag(ui_prgm_mode_num_screen, LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_mode_gph_screen) lv_obj_add_flag(ui_prgm_mode_gph_screen, LV_OBJ_FLAG_HIDDEN);
     if (ui_prgm_menu_screen) lv_obj_add_flag(ui_prgm_menu_screen, LV_OBJ_FLAG_HIDDEN);
 }
 

@@ -426,10 +426,12 @@ static inline void prgm_reset_state(CalcMode_t m)   { (void)m; }
 static inline bool handle_prgm_menu(Token_t t)      { (void)t; return false; }
 static inline bool handle_prgm_new_name(Token_t t)  { (void)t; return false; }
 static inline bool handle_prgm_editor(Token_t t)    { (void)t; return false; }
-static inline bool handle_prgm_ctl_menu(Token_t t)  { (void)t; return false; }
-static inline bool handle_prgm_io_menu(Token_t t)   { (void)t; return false; }
-static inline bool handle_prgm_exec_menu(Token_t t) { (void)t; return false; }
-static inline bool handle_prgm_running(Token_t t)   { (void)t; return false; }
+static inline bool handle_prgm_ctl_menu(Token_t t)    { (void)t; return false; }
+static inline bool handle_prgm_io_menu(Token_t t)     { (void)t; return false; }
+static inline bool handle_prgm_exec_menu(Token_t t)   { (void)t; return false; }
+static inline bool handle_prgm_mode_number(Token_t t) { (void)t; return false; }
+static inline bool handle_prgm_mode_graph(Token_t t)  { (void)t; return false; }
+static inline bool handle_prgm_running(Token_t t)     { (void)t; return false; }
 static inline void prgm_editor_menu_insert(const char *s) { (void)s; }
 static inline void ui_prgm_menu_show(const char *title,
     const char texts[][PRGM_MAX_LINE_LEN], uint8_t count,

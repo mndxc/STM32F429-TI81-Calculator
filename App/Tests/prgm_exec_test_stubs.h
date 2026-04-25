@@ -171,6 +171,13 @@ static inline void        Calc_SetMode(CalcMode_t m) { current_mode = m; }
 static inline CalcMode_t  Calc_GetMode(void)         { return current_mode; }
 
 /*---------------------------------------------------------------------------
+ * Angle getter/setter stubs — operate on the test-owned extern angle_degrees
+ * defined in test_prgm_exec.c.  Mirror the API in calculator_core.h.
+ *---------------------------------------------------------------------------*/
+static inline void Calc_SetAngleDegrees(bool degrees) { angle_degrees = degrees; }
+static inline bool Calc_GetAngleDegrees(void)          { return angle_degrees; }
+
+/*---------------------------------------------------------------------------
  * ANS getter/setter stubs — operate on the test-owned extern ans/ans_is_matrix
  * defined in test_prgm_exec.c.  Mirror the API in calculator_core.h.
  *---------------------------------------------------------------------------*/
