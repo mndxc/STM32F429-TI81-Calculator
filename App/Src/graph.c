@@ -933,6 +933,46 @@ void Graph_ClearTrace(void)
     if (graph_lbl_t != NULL) lv_label_set_text(graph_lbl_t, "");
 }
 
+void Graph_DrawFreeCursor(float x, float y, bool angle_degrees)
+{
+    (void)angle_degrees;
+    if (graph_canvas == NULL) return;
+
+    if (graph_clean_valid)
+        memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
+    else
+        Graph_Render(angle_degrees);
+
+    char coord_buf[16], lbl_buf[20];
+    format_graph_coord(x, coord_buf, sizeof(coord_buf));
+    snprintf(lbl_buf, sizeof(lbl_buf), "X=%s", coord_buf);
+    lv_label_set_text(graph_lbl_x, lbl_buf);
+    lv_label_set_text(graph_lbl_t, "");
+    format_graph_coord(y, coord_buf, sizeof(coord_buf));
+    snprintf(lbl_buf, sizeof(lbl_buf), "Y=%s", coord_buf);
+    lv_label_set_text(graph_lbl_y, lbl_buf);
+
+    int32_t px = math_x_to_px(x);
+    int32_t py = math_y_to_px(y);
+    lv_color_t c = lv_color_hex(COLOR_WHITE);
+    const int32_t ARM = 5;
+    for (int32_t d = -ARM; d <= ARM; d++) {
+        int32_t cx = px + d;
+        if (cx >= 0 && cx < GRAPH_W && py >= 0 && py < GRAPH_H)
+            lv_canvas_set_px(graph_canvas, cx, py, c, LV_OPA_COVER);
+        int32_t cy = py + d;
+        if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
+            lv_canvas_set_px(graph_canvas, px, cy, c, LV_OPA_COVER);
+    }
+}
+
+void Graph_EraseFreeCursor(void)
+{
+    if (graph_canvas == NULL || !graph_clean_valid) return;
+    memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
+    lv_obj_invalidate(graph_canvas);
+}
+
 void Graph_DrawZBox(int32_t px, int32_t py,
                     int32_t px1, int32_t py1,
                     bool corner1_set, bool angle_degrees)

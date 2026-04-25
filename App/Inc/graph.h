@@ -87,6 +87,20 @@ void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees);
 void Graph_ClearTrace(void);
 
 /**
+ * @brief Restores the clean frame and draws a free-roaming crosshair at
+ *        math coordinate (x, y). Updates the X=/Y= readout labels.
+ *        White crosshair — distinct from the green trace cursor.
+ */
+void Graph_DrawFreeCursor(float x, float y, bool angle_degrees);
+
+/**
+ * @brief Restores the clean frame without crosshair pixels. Coordinate labels
+ *        are left unchanged. Called by the blink timer to hide the cursor
+ *        between flashes. Must be called under lvgl_lock().
+ */
+void Graph_EraseFreeCursor(void);
+
+/**
  * @brief Renders parametric X(t)/Y(t) pairs onto the canvas.
  *        Dispatched from Graph_Render when graph_state.param_mode is true.
  */

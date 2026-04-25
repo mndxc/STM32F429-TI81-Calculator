@@ -195,7 +195,7 @@ bool handle_param_yeq_mode(Token_t t)
 
     /* Navigation keys */
     switch (t) {
-    case TOKEN_GRAPH:    nav_to(MODE_NORMAL);            return true;
+    case TOKEN_GRAPH:    nav_to(MODE_GRAPH_FREE_CURSOR);  return true;
     case TOKEN_RANGE:    nav_to(MODE_GRAPH_RANGE);       return true;
     case TOKEN_ZOOM:     nav_to(MODE_GRAPH_ZOOM);        return true;
     case TOKEN_TRACE:    nav_to(MODE_GRAPH_TRACE);       return true;

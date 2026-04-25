@@ -1178,6 +1178,7 @@ static const ModeEntry_t k_mode_handlers[] = {
     { MODE_GRAPH_ZOOM_FACTORS, handle_zoom_factors_mode },
     { MODE_GRAPH_ZBOX,         handle_zbox_mode         },
     { MODE_GRAPH_TRACE,        handle_trace_mode        },
+    { MODE_GRAPH_FREE_CURSOR,  handle_free_cursor_mode  },
     { MODE_GRAPH_PARAM_YEQ,    handle_param_yeq_mode    },
     { MODE_MODE_SCREEN,        handle_mode_screen       },
     { MODE_MATH_MENU,          handle_math_menu         },
@@ -1195,7 +1196,7 @@ static const ModeEntry_t k_mode_handlers[] = {
     { MODE_PRGM_IO_MENU,       handle_prgm_io_menu      },
     { MODE_PRGM_EXEC_MENU,     handle_prgm_exec_menu    },
 };
-_Static_assert(ARRAY_SIZE(k_mode_handlers) == 22,
+_Static_assert(ARRAY_SIZE(k_mode_handlers) == 23,
                "mode handler count mismatch — update k_mode_handlers");
 
 /**

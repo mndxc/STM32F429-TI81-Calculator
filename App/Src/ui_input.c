@@ -277,7 +277,7 @@ static void handle_normal_graph_nav(Token_t t)
         break;
     case TOKEN_RANGE: nav_to(MODE_GRAPH_RANGE); break;
     case TOKEN_ZOOM:  nav_to(MODE_GRAPH_ZOOM);  break;
-    case TOKEN_GRAPH: nav_to(MODE_NORMAL);       break;
+    case TOKEN_GRAPH: nav_to(MODE_GRAPH_FREE_CURSOR); break;
     case TOKEN_TRACE: nav_to(MODE_GRAPH_TRACE); break;
     default:          break;
     }

@@ -35,12 +35,12 @@ static lv_obj_t *matrix_edit_cursor_inner  = NULL;
 
 /* Strings / Constants */
 static const char * const matrix_tab_names[2]     = {"MATRX", "EDIT"};
-static const uint8_t matrix_tab_item_count[2]     = {6, 3};
-static const char * const matrix_op_names[6]      = {
-    "det(", "T", "dim(", "fill(", "identity(", "randM("
+static const uint8_t matrix_tab_item_count[2]     = {2, 3};
+static const char * const matrix_op_names[2]      = {
+    "det(", "T"
 };
-static const char * const matrix_op_insert[6]     = {
-    "det(", "^T", "dim(", "fill(", "identity(", "randM("
+static const char * const matrix_op_insert[2]     = {
+    "det(", "^T"
 };
 static const char * const matrix_edit_item_names[3] = {"[A]", "[B]", "[C]"};
 
@@ -346,7 +346,7 @@ bool handle_matrix_menu(Token_t t, MenuState_t *s)
         s->return_mode = MODE_NORMAL;
         s->tab         = 0;
         s->cursor      = 0;
-        nav_to(MODE_NORMAL);
+        nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
     case TOKEN_TRACE:
         s->return_mode = MODE_NORMAL;

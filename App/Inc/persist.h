@@ -26,7 +26,7 @@
  *---------------------------------------------------------------------------*/
 
 #define PERSIST_MAGIC       0xCA1CC0DEU   /* Marker — "calc code" */
-#define PERSIST_VERSION     7U            /* Bumped when calc_variables[26]=θ added */
+#define PERSIST_VERSION     8U            /* Bumped when STAT_MAX_POINTS raised 99→150 */
 #define PERSIST_FLASH_ADDR  0x080C0000U   /* Sector 10, 128 KB, unused by firmware */
 #ifndef HOST_TEST
 #  define PERSIST_SECTOR    FLASH_SECTOR_10
@@ -98,13 +98,13 @@ typedef struct {
     float    t_step;                         /* 4 B */
 
     /* Statistics data list */
-    float    stat_list_x[STAT_MAX_POINTS];  /* 396 B */
-    float    stat_list_y[STAT_MAX_POINTS];  /* 396 B */
+    float    stat_list_x[STAT_MAX_POINTS];  /* 600 B */
+    float    stat_list_y[STAT_MAX_POINTS];  /* 600 B */
     uint8_t  stat_list_len;                 /*   1 B */
     uint8_t  _stat_pad[3];                  /*   3 B */
 
     uint32_t checksum;            /*   4 B — XOR of all preceding words */
-} PersistBlock_t;                 /* Total: 2064 B */
+} PersistBlock_t;                 /* Total: 2472 B */
 
 _Static_assert(sizeof(PersistBlock_t) % 4 == 0,
                "PersistBlock_t must be a multiple of 4 bytes");

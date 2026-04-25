@@ -298,7 +298,7 @@ static bool menu_handle_nav_keys(Token_t t, CalcMode_t *ret_mode,
     case TOKEN_Y_EQUALS: target = MODE_GRAPH_YEQ;   break;
     case TOKEN_RANGE:    target = MODE_GRAPH_RANGE;  break;
     case TOKEN_ZOOM:     target = MODE_GRAPH_ZOOM;   break;
-    case TOKEN_GRAPH:    target = MODE_NORMAL;        break;
+    case TOKEN_GRAPH:    target = MODE_GRAPH_FREE_CURSOR; break;
     case TOKEN_TRACE:    target = MODE_GRAPH_TRACE;  break;
     default:             return false;
     }

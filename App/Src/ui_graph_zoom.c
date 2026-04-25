@@ -202,7 +202,7 @@ static void apply_zoom_preset(uint8_t preset)
         Graph_SetWindow(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 1.0f, gs->x_res);
         break;
     case 2: /* ZTrig */
-        Graph_SetWindow(-6.2832f, 6.2832f, -4.0f, 4.0f, 1.5708f, 1.0f, gs->x_res);
+        Graph_SetWindow(-6.2832f, 6.2832f, -3.0f, 3.0f, 1.5708f, 0.25f, gs->x_res);
         break;
     case 3: /* ZDecimal */
         Graph_SetWindow(-4.7f, 4.7f, -3.1f, 3.1f, 0.5f, 0.5f, gs->x_res);
@@ -303,7 +303,7 @@ bool handle_zoom_mode(Token_t t)
         return true;
     case TOKEN_GRAPH:
         zoom_menu_reset();
-        nav_to(MODE_NORMAL);
+        nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
     case TOKEN_TRACE:
         zoom_menu_reset();

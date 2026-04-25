@@ -34,6 +34,13 @@ typedef struct {
 } TraceState_t;
 
 typedef struct {
+    float       x_math;
+    float       y_math;
+    bool        cursor_visible;
+    lv_timer_t *blink_timer;
+} FreeCursorState_t;
+
+typedef struct {
     int32_t  px,  py;           /* Current cursor pixel position */
     int32_t  px1, py1;          /* First corner (valid once corner1_set) */
     bool     corner1_set;
@@ -69,6 +76,7 @@ static lv_obj_t *yeq_cursor_inner = NULL;
 
 static YeqEditorState_t   s_yeq   = {0};
 static TraceState_t       s_trace = {0};
+static FreeCursorState_t  s_free  = {0};
 static ZBoxState_t        s_zbox  = { .px = GRAPH_W / 2, .py = GRAPH_H / 2 };
 /* ZoomMenuState_t s_zoom in ui_graph_zoom.c */
 /* RangeEditorState_t s_range and ZoomFactorsState_t s_zf in graph_ui_range.c */
@@ -311,6 +319,9 @@ void graph_ui_yeq_insert(const char *ins)
     lvgl_unlock();
 }
 
+/* Forward declaration — defined after handle_trace_mode. */
+static void free_cursor_blink_cb(lv_timer_t *t);
+
 /*---------------------------------------------------------------------------
  * nav_to — navigates to a graph-related screen from any current mode
  *---------------------------------------------------------------------------*/
@@ -352,10 +363,21 @@ void nav_to(CalcMode_t target)
         ui_update_zoom_display();
         break;
 
-    case MODE_NORMAL:  /* TOKEN_GRAPH — show graph canvas and render */
+    case MODE_NORMAL:  /* fall-through from sub-modes that don't use free cursor */
         Graph_SetActive(true);
         Graph_SetVisible(true);
         Graph_Render(angle_degrees);
+        break;
+
+    case MODE_GRAPH_FREE_CURSOR:
+        Graph_SetActive(true);
+        Graph_SetVisible(true);
+        Graph_Render(angle_degrees);
+        s_free.x_math = (Graph_GetState()->x_min + Graph_GetState()->x_max) * 0.5f;
+        s_free.y_math = (Graph_GetState()->y_min + Graph_GetState()->y_max) * 0.5f;
+        s_free.cursor_visible = true;
+        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math, angle_degrees);
+        s_free.blink_timer = lv_timer_create(free_cursor_blink_cb, 500, NULL);
         break;
 
     case MODE_GRAPH_TRACE:
@@ -513,7 +535,7 @@ static bool handle_yeq_navigation(Token_t t)
 {
     char *eq = Graph_GetEquationBuf(s_yeq.selected);
     switch (t) {
-    case TOKEN_GRAPH:    nav_to(MODE_NORMAL);                      return true;
+    case TOKEN_GRAPH:    nav_to(MODE_GRAPH_FREE_CURSOR);            return true;
     case TOKEN_RANGE:    nav_to(MODE_GRAPH_RANGE);                 return true;
     case TOKEN_ZOOM:     zoom_menu_reset(); nav_to(MODE_GRAPH_ZOOM); return true;
     case TOKEN_TRACE:    nav_to(MODE_GRAPH_TRACE);                 return true;
@@ -737,11 +759,11 @@ bool handle_zbox_mode(Token_t t)
         return true;
     case TOKEN_ZOOM:
         s_zbox.corner1_set = false;
-        nav_to(MODE_NORMAL);
+        nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
     case TOKEN_GRAPH:
         s_zbox.corner1_set = false;
-        nav_to(MODE_NORMAL);
+        nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
     case TOKEN_Y_EQUALS:
         s_zbox.corner1_set = false;
@@ -840,13 +862,18 @@ bool handle_trace_mode(Token_t t)
         Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
         lvgl_unlock();
         return true;
-    case TOKEN_TRACE:
-        Calc_SetMode(MODE_NORMAL);
+    case TOKEN_TRACE: {
+        /* Re-snap to centre of viewport on the current equation — original TI-81
+         * does not exit trace when TRACE is pressed again. */
+        if (gs->param_mode)
+            s_trace.x = (gs->t_min + gs->t_max) * 0.5f;
+        else
+            s_trace.x = (gs->x_min + gs->x_max) * 0.5f;
         lvgl_lock();
-        Graph_ClearTrace();
-        Graph_Render(angle_degrees);
+        Graph_DrawTrace(s_trace.x, s_trace.eq_idx, angle_degrees);
         lvgl_unlock();
         return true;
+    }
     case TOKEN_Y_EQUALS:
         lvgl_lock(); Graph_ClearTrace(); lvgl_unlock();
         nav_to(MODE_GRAPH_YEQ);
@@ -862,11 +889,119 @@ bool handle_trace_mode(Token_t t)
         return true;
     case TOKEN_GRAPH:
         lvgl_lock(); Graph_ClearTrace(); lvgl_unlock();
-        nav_to(MODE_NORMAL);
+        nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
     default:
         Calc_SetMode(MODE_NORMAL);
         lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return false; /* fall through to main switch */
+    }
+}
+
+/*---------------------------------------------------------------------------
+ * Free-roaming crosshair (plain graph canvas before TRACE is pressed)
+ *---------------------------------------------------------------------------*/
+
+/* Runs inside lv_task_handler — must NOT call lvgl_lock(). */
+static void free_cursor_blink_cb(lv_timer_t *t)
+{
+    (void)t;
+    s_free.cursor_visible = !s_free.cursor_visible;
+    if (s_free.cursor_visible)
+        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math, angle_degrees);
+    else
+        Graph_EraseFreeCursor();
+}
+
+/* Called under lvgl_lock(). Stops the blink timer and removes cursor pixels. */
+static void free_cursor_stop(void)
+{
+    if (s_free.blink_timer) {
+        lv_timer_delete(s_free.blink_timer);
+        s_free.blink_timer = NULL;
+    }
+    Graph_EraseFreeCursor();
+}
+
+bool handle_free_cursor_mode(Token_t t)
+{
+    const GraphState_t *gs = Graph_GetState();
+    float xstep = (gs->x_max - gs->x_min) / (float)(GRAPH_W - 1);
+    float ystep = (gs->y_max - gs->y_min) / (float)(GRAPH_H - 1);
+
+    switch (t) {
+    case TOKEN_LEFT:
+        if (s_free.x_math > gs->x_min) s_free.x_math -= xstep;
+        lvgl_lock();
+        s_free.cursor_visible = true;
+        if (s_free.blink_timer) lv_timer_reset(s_free.blink_timer);
+        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_RIGHT:
+        if (s_free.x_math < gs->x_max) s_free.x_math += xstep;
+        lvgl_lock();
+        s_free.cursor_visible = true;
+        if (s_free.blink_timer) lv_timer_reset(s_free.blink_timer);
+        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_UP:
+        if (s_free.y_math < gs->y_max) s_free.y_math += ystep;
+        lvgl_lock();
+        s_free.cursor_visible = true;
+        if (s_free.blink_timer) lv_timer_reset(s_free.blink_timer);
+        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_DOWN:
+        if (s_free.y_math > gs->y_min) s_free.y_math -= ystep;
+        lvgl_lock();
+        s_free.cursor_visible = true;
+        if (s_free.blink_timer) lv_timer_reset(s_free.blink_timer);
+        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math, angle_degrees);
+        lvgl_unlock();
+        return true;
+    case TOKEN_TRACE:
+        /* Snap crosshair to first active equation at the current X position. */
+        lvgl_lock(); free_cursor_stop(); lvgl_unlock();
+        s_trace.x = gs->param_mode
+                  ? (gs->t_min + gs->t_max) * 0.5f
+                  : s_free.x_math;
+        s_trace.eq_idx = 0;
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    case TOKEN_GRAPH:
+        /* Re-render and re-centre cursor (same as entering the graph screen). */
+        lvgl_lock();
+        free_cursor_stop();
+        s_free.x_math = (gs->x_min + gs->x_max) * 0.5f;
+        s_free.y_math = (gs->y_min + gs->y_max) * 0.5f;
+        Graph_Render(angle_degrees);
+        s_free.cursor_visible = true;
+        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math, angle_degrees);
+        s_free.blink_timer = lv_timer_create(free_cursor_blink_cb, 500, NULL);
+        lvgl_unlock();
+        return true;
+    case TOKEN_Y_EQUALS:
+        lvgl_lock(); free_cursor_stop(); lvgl_unlock();
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        lvgl_lock(); free_cursor_stop(); lvgl_unlock();
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_ZOOM:
+        lvgl_lock(); free_cursor_stop(); lvgl_unlock();
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    default:
+        Calc_SetMode(MODE_NORMAL);
+        lvgl_lock();
+        free_cursor_stop();
         hide_all_screens();
         lvgl_unlock();
         return false; /* fall through to main switch */

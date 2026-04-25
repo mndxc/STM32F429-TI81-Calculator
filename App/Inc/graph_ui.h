@@ -60,5 +60,6 @@ bool handle_yeq_mode(Token_t t);
 /* handle_zoom_mode declared in ui_graph_zoom.h */
 bool handle_zbox_mode(Token_t t);
 bool handle_trace_mode(Token_t t);
+bool handle_free_cursor_mode(Token_t t);
 
 #endif /* APP_GRAPH_UI_H */

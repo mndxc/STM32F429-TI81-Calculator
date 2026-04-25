@@ -591,7 +591,7 @@ bool handle_range_mode(Token_t t)
 
     case TOKEN_GRAPH:
         range_commit_field();
-        nav_to(MODE_NORMAL);
+        nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
 
     case TOKEN_RANGE:
@@ -725,7 +725,7 @@ bool handle_zoom_factors_mode(Token_t t)
     case TOKEN_GRAPH:
         zoom_factors_commit_field();
         zoom_factors_reset();
-        nav_to(MODE_NORMAL);
+        nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
 
     case TOKEN_TRACE:

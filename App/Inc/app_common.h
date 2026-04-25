@@ -43,7 +43,8 @@ typedef enum {
     MODE_GRAPH_YEQ,     /* Y= equation editor active */
     MODE_GRAPH_RANGE,   /* RANGE field editor active */
     MODE_GRAPH_ZOOM,    /* ZOOM preset menu active */
-    MODE_GRAPH_TRACE,   /* Trace cursor active on graph */
+    MODE_GRAPH_TRACE,        /* Trace cursor active on graph */
+    MODE_GRAPH_FREE_CURSOR,  /* Free-roaming crosshair on graph canvas; TRACE snaps to curve */
     MODE_GRAPH_ZBOX,    /* ZBox rubber-band zoom active */
     MODE_MODE_SCREEN,        /* MODE settings screen active */
     MODE_MATH_MENU,          /* MATH/NUM/HYP/PRB menu active */
@@ -157,7 +158,7 @@ typedef struct {
  * Statistics state
  *---------------------------------------------------------------------------*/
 
-#define STAT_MAX_POINTS 99  /* Maximum number of (x,y) data points */
+#define STAT_MAX_POINTS 150  /* Maximum number of (x,y) data points — guidebook p. 7-2 */
 
 /**
  * @brief Holds the user's statistics data list.
