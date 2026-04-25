@@ -588,13 +588,20 @@ static CalcError_t sy_handle_operator(const MathToken_t *tok,
 }
 
 /* Pop all remaining operators from op_stack to out at the end of the token
- * stream.  Returns CALC_ERR_SYNTAX if an unmatched '(' is found. */
+ * stream.  Unmatched '(' are treated as implicit ')' per TI-81 guidebook
+ * p. 1-9: "You may omit any right parenthesis at the end of an expression." */
 static CalcError_t sy_drain_stack(MathToken_t *op_stack, int *op_top,
                                   TokenList_t *out)
 {
     while (*op_top >= 0) {
-        if (op_stack[*op_top].type == MATH_PAREN_LEFT)
-            return CALC_ERR_SYNTAX; /* Mismatched parentheses */
+        if (op_stack[*op_top].type == MATH_PAREN_LEFT) {
+            (*op_top)--; /* discard implicit ')' */
+            if (*op_top >= 0 && is_function(op_stack[*op_top].type)) {
+                if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+                out->tokens[out->count++] = op_stack[(*op_top)--];
+            }
+            continue;
+        }
         if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
         out->tokens[out->count++] = op_stack[(*op_top)--];
     }

@@ -60,9 +60,9 @@ static void test_prepare(void)
     err = Calc_PrepareParamEquation("sin(T)", 0.0f, &eq);
     CHECK(err == CALC_OK, "prepare 'sin(T)' succeeds");
 
-    /* Invalid expression */
-    err = Calc_PrepareParamEquation("(+", 0.0f, &eq);
-    CHECK(err != CALC_OK, "prepare '(+' fails");
+    /* Invalid expression — unmatched ')' is still a hard SY error */
+    err = Calc_PrepareParamEquation(")1+2", 0.0f, &eq);
+    CHECK(err != CALC_OK, "prepare ')1+2' fails (unmatched close paren)");
 
     /* Implicit multiply: 2T */
     err = Calc_PrepareParamEquation("2T", 0.0f, &eq);

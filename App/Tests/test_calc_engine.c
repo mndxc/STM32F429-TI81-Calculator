@@ -504,10 +504,22 @@ static void test_errors(void)
     CHECK(r.error == CALC_ERR_SYNTAX, "2++2 → SYNTAX");
 
     r = Calc_Evaluate("(2+2", 0, false, false);
-    CHECK(r.error == CALC_ERR_SYNTAX, "(2+2 → SYNTAX (unbalanced open)");
+    CHECK(r.error == CALC_OK && r.value == 4.0f, "(2+2 → 4 (implicit close paren)");
 
     r = Calc_Evaluate("2+2)", 0, false, false);
     CHECK(r.error == CALC_ERR_SYNTAX, "2+2) → SYNTAX (unbalanced close)");
+
+    r = Calc_Evaluate("sin(0", 0, false, false);
+    CHECK(r.error == CALC_OK && r.value == 0.0f, "sin(0 → 0 (implicit close after function)");
+
+    r = Calc_Evaluate("\xE2\x88\x9A(4", 0, false, false);
+    CHECK(r.error == CALC_OK && r.value == 2.0f, "√(4 → 2 (implicit close after sqrt)");
+
+    r = Calc_Evaluate("abs(-3", 0, false, false);
+    CHECK(r.error == CALC_OK && r.value == 3.0f, "abs(-3 → 3 (implicit close)");
+
+    r = Calc_Evaluate("(1+(2+3", 0, false, false);
+    CHECK(r.error == CALC_OK && r.value == 6.0f, "(1+(2+3 → 6 (nested implicit close)");
 }
 
 /* =========================================================================
