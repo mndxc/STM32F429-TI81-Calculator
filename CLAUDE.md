@@ -31,7 +31,7 @@ Snapshot as of **2026-04-17** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_stat.c 703 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 742 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 742 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
 
 ### Scorecard Change Log
 
@@ -50,6 +50,7 @@ Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware valida
 | 2026-04-17 | Code organisation | B | B | COUPLING_REFACTOR T8: history ring buffer extracted from calculator_core.c into calc_history.c (~150 lines moved); calc_internal.h history externs removed; CalcHistory_* API (13 functions); calculator_core.c reduced ~150 lines; complexity delta: neutral |
 | 2026-04-17 | Code organisation | B | B | COUPLING_REFACTOR T9: Persist_BuildBlock/Persist_ApplyBlock moved from calculator_core.c (~113 lines) into persist.c; Calc_GetAngleDegrees/SetAngleDegrees added; calculator_core.c reduced 1544→1453 lines; Calc_BuildPersistBlock/ApplyPersistBlock retired; complexity delta: neutral |
 | 2026-04-17 | API / header design | A+ | A+ | COUPLING_REFACTOR T11: stat_data/stat_results made static in ui_stat.c; extern declarations removed from app_common.h; 3 accessors added (Stat_GetData/Stat_GetResults/Stat_SetData); ui_vars.c and persist.c updated to use accessors; direct field writes outside ui_stat.c are now compile errors; complexity delta: neutral |
+| 2026-04-24 | Code organisation | B | B | [complexity] P30 follow-up: ui_stat_edit.c extracted from ui_stat.c (703→367 lines); DATA editor state/helpers/init/display/handler moved; Stat_EditOpen() added; dead menu_insert_text extern removed; ui_stat.c now under 500-line threshold; complexity delta: decrease |
 
 ---
 
@@ -111,8 +112,6 @@ Items are ordered within each tier by estimated difficulty (easiest first). Depe
 **[complexity] Free-cursor crosshair drawing duplication** — `Graph_DrawFreeCursor`, `graph_draw_trace_func`, and `graph_draw_trace_param` all contain the same ARM=5 pixel-loop crosshair drawing pattern. Extract to a `static void draw_crosshair_px(int32_t px, int32_t py, lv_color_t c)` helper in `graph.c` when a convenient refactor opportunity arises. Files: `App/Src/graph.c`.
 
 **[complexity] P29 — DRAW menu complexity follow-up (stat renderer extraction)** — Draw layer extracted to `graph_draw.c`; `Graph_DrawTrace()` split into `graph_draw_trace_param/func` static helpers (118→17 lines); `graph_render_setup()` deduplicated from both render functions; `GRAPH_BUF_ADDR` named constant added. Remaining: stat renderer functions (`Graph_DrawScatter/XYLine/Histogram`, `stat_plot_prepare`, `draw_line_px`) still in `graph.c` (~150 lines, tightly coupled to private canvas state — `graph_render_setup()` now exposed as a hook point if extraction to `graph_stat.c` is pursued). Assess at next code-organisation review. Files: `App/Src/graph.c`.
-
-**[complexity] P30 — STAT menu complexity follow-up** — P30 added `calc_stat.c`, `ui_stat.c`, three new modes, 796 B to `PersistBlock_t`, and three graph renderers. `ui_stat.c` is a new ~470-line file. No single file crossed a new 500-line boundary. Assess at next code-organisation review whether `handle_stat_menu` warrants extraction.
 
 **[bug] Auto-close trailing `(` on ENTER** — Guidebook p. 1-9: "You may omit any right (close) parenthesis at the end of an expression." `sy_drain_stack()` in `calc_engine.c` returns `CALC_ERR_SYNTAX` when any `(` remains on the operator stack. Fix: drain remaining `(` as implicit `)` rather than error. Files: `App/Src/calc_engine.c`.
 

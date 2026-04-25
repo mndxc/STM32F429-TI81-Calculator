@@ -64,6 +64,9 @@ void ui_update_stat_edit_display(void);
 /** Redraws the results display from stat_results. */
 void ui_update_stat_results_display(void);
 
+/** Resets DATA editor state and transitions to MODE_STAT_EDIT. */
+void Stat_EditOpen(void);
+
 /** Initialises STAT menu state and shows the screen. Called under lvgl_lock(). */
 void       Stat_MenuOpen(CalcMode_t return_to);
 

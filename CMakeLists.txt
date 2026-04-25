@@ -77,6 +77,7 @@ set(APP_SOURCES
     App/Src/prgm_exec.c
     App/Src/ui_matrix.c
     App/Src/ui_stat.c
+    App/Src/ui_stat_edit.c
     App/Src/calc_stat.c
     App/Src/ui_prgm.c
     App/Src/ui_prgm_ctl.c

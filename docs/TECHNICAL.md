@@ -30,7 +30,8 @@ App/                            ← Custom application code (never touched by Cu
     ui_math_menu.c              MATH/NUM/HYP/PRB and TEST menu UI — state, LVGL init, display, and token handlers (extracted module)
     ui_matrix.c                 Matrix cell editor UI (extracted module)
     ui_mode.c                   MODE settings screen — state, LVGL init, display, and token handler (extracted module)
-    ui_stat.c                   STAT menu, DATA list editor, and results screen UI (extracted module)
+    ui_stat.c                   STAT menu and results screen UI (extracted module)
+    ui_stat_edit.c              STAT DATA list editor — screen init, display update, and token handler (extracted from ui_stat.c)
     calc_stat.c                 Pure statistical math layer — 1-Var, LinReg, LnReg, ExpReg, PwrReg, sort, clear
     ui_prgm.c                   Program menu and editor UI (extracted module)
     ui_prgm_ctl.c               PRGM CTL sub-menu — Lbl/Goto/If/IS>/DS</,Pause/End/Stop (extracted from ui_prgm.c)
