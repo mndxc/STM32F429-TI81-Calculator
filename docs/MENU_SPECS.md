@@ -28,7 +28,7 @@ No title text. The full screen is filled with option rows; no tab bar.
 
 | Row | Options | Wired? |
 |-----|---------|--------|
-| 1 | Normal \| Sci \| Eng | No — display notation not implemented |
+| 1 | Normal \| Sci \| Eng | Yes — `mode_committed[0]`, `Calc_SetNotationMode()` |
 | 2 | Float \| 0 1 2 3 4 5 6 7 8 9 | Yes — `mode_committed[1]`, `Calc_SetDecimalMode()` |
 | 3 | Radian \| Degree | Yes — `mode_committed[2]`, `angle_degrees` |
 | 4 | Function \| Param | Yes — `mode_committed[3]`, `graph_state.param_mode`, `Graph_SetParamMode()` |

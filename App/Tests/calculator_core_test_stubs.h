@@ -469,6 +469,7 @@ static inline bool handle_zoom_mode(Token_t t)         { (void)t; return false; 
 static inline bool handle_zoom_factors_mode(Token_t t) { (void)t; return false; }
 static inline bool handle_zbox_mode(Token_t t)         { (void)t; return false; }
 static inline bool handle_trace_mode(Token_t t)        { (void)t; return false; }
+static inline bool handle_free_cursor_mode(Token_t t)  { (void)t; return false; }
 
 /*---------------------------------------------------------------------------
  * ui_mode.h replacement

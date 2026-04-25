@@ -632,10 +632,10 @@ static void test_dispatch(void)
     handle_normal_mode(TOKEN_MODE);
     CHECK(current_mode == MODE_MODE_SCREEN, "dispatch: TOKEN_MODE → MODE_MODE_SCREEN");
 
-    /* 6. TOKEN_GRAPH navigates to MODE_NORMAL (nav_to stub sets current_mode) */
+    /* 6. TOKEN_GRAPH navigates to MODE_GRAPH_FREE_CURSOR */
     reset_state();
     handle_normal_mode(TOKEN_GRAPH);
-    CHECK(current_mode == MODE_NORMAL, "dispatch: TOKEN_GRAPH → MODE_NORMAL");
+    CHECK(current_mode == MODE_GRAPH_FREE_CURSOR, "dispatch: TOKEN_GRAPH → MODE_GRAPH_FREE_CURSOR");
 
     /* 7. TOKEN_TRACE navigates to MODE_GRAPH_TRACE */
     reset_state();
