@@ -203,9 +203,11 @@ bool handle_sto_pending(Token_t t)
 static void handle_function_insert(Token_t t)
 {
     switch (t) {
-    case TOKEN_MTRX_A: expr_insert_str("[A]"); break;
-    case TOKEN_MTRX_B: expr_insert_str("[B]"); break;
-    case TOKEN_MTRX_C: expr_insert_str("[C]"); break;
+    case TOKEN_MTRX_A: expr_insert_str("[A]");  break;
+    case TOKEN_MTRX_B: expr_insert_str("[B]");  break;
+    case TOKEN_MTRX_C: expr_insert_str("[C]");  break;
+    case TOKEN_LIST_X: expr_insert_str("{x}("); break;
+    case TOKEN_LIST_Y: expr_insert_str("{y}("); break;
 
     case TOKEN_SIN:   expr_insert_str("sin(");  break;
     case TOKEN_COS:   expr_insert_str("cos(");  break;
@@ -316,6 +318,7 @@ void handle_normal_mode(Token_t t)
     case TOKEN_VARS:                menu_open(TOKEN_VARS,   MODE_NORMAL); break;
     case TOKEN_Y_VARS:              menu_open(TOKEN_Y_VARS, MODE_NORMAL); break;
     case TOKEN_MTRX_A: case TOKEN_MTRX_B: case TOKEN_MTRX_C:
+    case TOKEN_LIST_X: case TOKEN_LIST_Y:
     case TOKEN_SIN: case TOKEN_COS: case TOKEN_TAN:
     case TOKEN_ASIN: case TOKEN_ACOS: case TOKEN_ATAN:
     case TOKEN_ABS: case TOKEN_LN: case TOKEN_LOG: case TOKEN_SQRT:

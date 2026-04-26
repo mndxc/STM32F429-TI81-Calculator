@@ -1135,6 +1135,113 @@ static void test_notation_modes(void)
 }
 
 /* =========================================================================
+ * Group 5c — nDeriv( numerical derivative
+ * ====================================================================== */
+
+/* Float32 catastrophic cancellation in (f(x+ε)-f(x-ε)) limits accuracy to
+ * ~5e-4 for polynomial expressions at values around 2–5.  Use a wider
+ * tolerance here while keeping standard NEAR for transcendental functions
+ * (where cancellation is negligible near zero). */
+#define NEAR_D(a, b)  (fabs((double)(a) - (double)(b)) < 5e-4)
+
+static void test_nderiv(void)
+{
+    printf("[5c] nDeriv( numerical derivative\n");
+    CalcResult_t r;
+
+    /* d/dX [X^2] at X=3 = 2*3 = 6 */
+    r = Calc_Evaluate("nDeriv(X^2,X,3)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR_D(r.value, 6.0f), "nDeriv(X^2,X,3)=6");
+
+    /* d/dX [X^3] at X=2 = 3*4 = 12 */
+    r = Calc_Evaluate("nDeriv(X^3,X,2)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR_D(r.value, 12.0f), "nDeriv(X^3,X,2)=12");
+
+    /* d/dX [2*X+1] = 2 (constant derivative, exact in float32) */
+    r = Calc_Evaluate("nDeriv(2*X+1,X,5)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR_D(r.value, 2.0f), "nDeriv(2*X+1,X,5)=2");
+
+    /* d/dX [sin(X)] at X=0 = cos(0) = 1 (radians; no cancellation near 0) */
+    r = Calc_Evaluate("nDeriv(sin(X),X,0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.0f), "nDeriv(sin(X),X,0)=1");
+
+    /* d/dX [X^2] at X=0 = 0 (exact: symmetric about zero) */
+    r = Calc_Evaluate("nDeriv(X^2,X,0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.0f), "nDeriv(X^2,X,0)=0");
+
+    /* val can be a compound expression: nDeriv(X^2,X,1+1) = 4 */
+    r = Calc_Evaluate("nDeriv(X^2,X,1+1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR_D(r.value, 4.0f), "nDeriv(X^2,X,1+1)=4");
+}
+
+#undef NEAR_D
+
+/* =========================================================================
+ * Group 5d — {x}(n) / {y}(n) stat list element access
+ * ====================================================================== */
+
+static float s_tx[] = { 1.0f, 3.0f, 5.0f, 7.0f, 9.0f };
+static float s_ty[] = { 2.0f, 4.0f, 6.0f, 8.0f, 10.0f };
+static int   s_tlen = 5;
+
+static float test_stat_get_x(int n)   { return s_tx[n - 1]; }
+static float test_stat_get_y(int n)   { return s_ty[n - 1]; }
+static int   test_stat_get_len(void)  { return s_tlen; }
+
+static void test_list_access(void)
+{
+    printf("[5d] {x}(n) / {y}(n) stat list element access\n");
+    CalcResult_t r;
+
+    /* Valid index — basic reads */
+    Calc_RegisterStatAccessors(test_stat_get_x, test_stat_get_y, test_stat_get_len);
+
+    r = Calc_Evaluate("{x}(1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.0f), "{x}(1)=1");
+
+    r = Calc_Evaluate("{x}(3)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 5.0f), "{x}(3)=5");
+
+    r = Calc_Evaluate("{x}(5)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 9.0f), "{x}(5)=9");
+
+    r = Calc_Evaluate("{y}(2)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 4.0f), "{y}(2)=4");
+
+    r = Calc_Evaluate("{y}(5)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 10.0f), "{y}(5)=10");
+
+    /* Compound expressions */
+    r = Calc_Evaluate("{x}(1)+{y}(1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 3.0f), "{x}(1)+{y}(1)=3");
+
+    r = Calc_Evaluate("2*{x}(3)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 10.0f), "2*{x}(3)=10");
+
+    /* Out-of-range — index 0 (below 1-based range) */
+    r = Calc_Evaluate("{x}(0)", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "{x}(0) -> DOMAIN error");
+
+    /* Out-of-range — index beyond list length */
+    r = Calc_Evaluate("{x}(6)", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "{x}(6) beyond list -> DOMAIN error");
+
+    r = Calc_Evaluate("{y}(0)", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "{y}(0) -> DOMAIN error");
+
+    r = Calc_Evaluate("{y}(6)", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "{y}(6) beyond list -> DOMAIN error");
+
+    /* Unregistered accessors — DOMAIN error */
+    Calc_RegisterStatAccessors(NULL, NULL, NULL);
+    r = Calc_Evaluate("{x}(1)", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "{x}(1) unregistered -> DOMAIN error");
+
+    r = Calc_Evaluate("{y}(1)", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "{y}(1) unregistered -> DOMAIN error");
+}
+
+/* =========================================================================
  * main
  * ====================================================================== */
 int main(void)
@@ -1158,6 +1265,12 @@ int main(void)
 
     reset_state();
     test_hyp_functions();
+
+    reset_state();
+    test_nderiv();
+
+    reset_state();
+    test_list_access();
 
     reset_state();
     test_math_functions();

@@ -109,6 +109,9 @@ typedef enum {
     MATH_FUNC_ROWPLUS,      /* row+( — 3 args: matrix, r1, r2 → matrix (row[r1]+=row[r2]) */
     MATH_FUNC_MROW,         /* *row( — 3 args: k, matrix, r → matrix (row[r]*=k) */
     MATH_FUNC_MROWPLUS,     /* *row+( — 4 args: k, matrix, r1, r2 → matrix (row[r1]+=k*row[r2]) */
+    MATH_FUNC_NDERIV,       /* nDeriv( — 3 args: expr (pre-compiled), var, val → numeric derivative */
+    MATH_FUNC_LIST_X,       /* {x}(n) — nth stat x data point (1-based) */
+    MATH_FUNC_LIST_Y,       /* {y}(n) — nth stat y data point (1-based) */
     MATH_COMMA,             /* , — argument separator (consumed by ShuntingYard, never in RPN) */
 } MathTokenType_t;
 
@@ -163,6 +166,19 @@ extern CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT];
  * @param count  Number of valid equation slots (must be <= GRAPH_NUM_EQ)
  */
 void Calc_RegisterYEquations(const char (*eqs)[64], uint8_t count);
+
+/**
+ * @brief Registers stat list accessor callbacks so that {x}(n) / {y}(n)
+ *        can be evaluated without coupling calc_engine to the UI stat layer.
+ *        Pass NULL to disable; evaluates to CALC_ERR_DOMAIN when not registered.
+ *
+ * @param get_x   Returns list_x value at 1-based index n
+ * @param get_y   Returns list_y value at 1-based index n
+ * @param get_len Returns number of valid data points
+ */
+void Calc_RegisterStatAccessors(float (*get_x)(int n),
+                                 float (*get_y)(int n),
+                                 int   (*get_len)(void));
 
 /**
  * @brief Evaluates an infix expression string.

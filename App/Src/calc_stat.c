@@ -270,3 +270,31 @@ float CalcStat_SigmaY(const StatData_t *d)
     float v  = (CalcStat_SumY2(d) - (float)n * my * my) / (float)n;
     return sqrtf(v < 0.0f ? 0.0f : v);
 }
+
+/*---------------------------------------------------------------------------
+ * Row insert / delete  (used by the DATA editor for INS/DEL key handling)
+ *---------------------------------------------------------------------------*/
+
+bool CalcStat_InsertRow(StatData_t *d, uint8_t at_row)
+{
+    if (d->list_len >= STAT_MAX_POINTS) return false;
+    if (at_row > d->list_len)           return false;
+    for (int i = (int)d->list_len; i > (int)at_row; i--) {
+        d->list_x[i] = d->list_x[i - 1];
+        d->list_y[i] = d->list_y[i - 1];
+    }
+    d->list_x[at_row] = 0.0f;
+    d->list_y[at_row] = 0.0f;
+    d->list_len++;
+    return true;
+}
+
+void CalcStat_DeleteRow(StatData_t *d, uint8_t row)
+{
+    if (row >= d->list_len) return;
+    for (int i = (int)row; i < (int)d->list_len - 1; i++) {
+        d->list_x[i] = d->list_x[i + 1];
+        d->list_y[i] = d->list_y[i + 1];
+    }
+    d->list_len--;
+}

@@ -15,7 +15,7 @@ Run these commands from the **repo root** (the directory containing `CMakeLists.
 ```bash
 cmake -S App/Tests -B build-tests
 cmake --build build-tests
-ctest --test-dir build-tests   # runs all 10 suites (742 assertions total)
+ctest --test-dir build-tests   # runs all 10 suites (831 assertions total)
 ```
 
 Or run individual suites:

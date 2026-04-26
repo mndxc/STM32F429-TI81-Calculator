@@ -282,6 +282,85 @@ static void test_clear(void)
     CHECK(d.list_y[0] == 0.0f, "clear: list_y[0]=0");
 }
 
+static void test_insert_row(void)
+{
+    printf("test_insert_row\n");
+    float xs[3] = {1.0f, 2.0f, 3.0f};
+    float ys[3] = {10.0f, 20.0f, 30.0f};
+
+    /* Insert in the middle (before row 1) */
+    StatData_t d = {0};
+    fill_xy(&d, xs, ys, 3);
+    bool ok = CalcStat_InsertRow(&d, 1);
+    CHECK(ok, "insert_mid: ok");
+    CHECK(d.list_len == 4, "insert_mid: list_len=4");
+    CHECK(d.list_x[0] == 1.0f  && d.list_y[0] == 10.0f, "insert_mid: row0 unchanged");
+    CHECK(d.list_x[1] == 0.0f  && d.list_y[1] == 0.0f,  "insert_mid: row1 new (0,0)");
+    CHECK(d.list_x[2] == 2.0f  && d.list_y[2] == 20.0f, "insert_mid: row2 shifted");
+    CHECK(d.list_x[3] == 3.0f  && d.list_y[3] == 30.0f, "insert_mid: row3 shifted");
+
+    /* Insert at row 0 (prepend) */
+    StatData_t d2 = {0};
+    fill_xy(&d2, xs, ys, 3);
+    ok = CalcStat_InsertRow(&d2, 0);
+    CHECK(ok, "insert_head: ok");
+    CHECK(d2.list_len == 4, "insert_head: list_len=4");
+    CHECK(d2.list_x[0] == 0.0f && d2.list_y[0] == 0.0f,  "insert_head: row0 new");
+    CHECK(d2.list_x[1] == 1.0f && d2.list_y[1] == 10.0f, "insert_head: row1=old row0");
+
+    /* Insert at row == list_len (append) */
+    StatData_t d3 = {0};
+    fill_xy(&d3, xs, ys, 3);
+    ok = CalcStat_InsertRow(&d3, 3);
+    CHECK(ok, "insert_tail: ok");
+    CHECK(d3.list_len == 4, "insert_tail: list_len=4");
+    CHECK(d3.list_x[3] == 0.0f && d3.list_y[3] == 0.0f, "insert_tail: row3 new");
+    CHECK(d3.list_x[0] == 1.0f, "insert_tail: row0 unchanged");
+
+    /* Insert when at capacity: must return false */
+    StatData_t d4 = {0};
+    d4.list_len = STAT_MAX_POINTS;
+    ok = CalcStat_InsertRow(&d4, 0);
+    CHECK(!ok, "insert_full: returns false");
+    CHECK(d4.list_len == STAT_MAX_POINTS, "insert_full: list_len unchanged");
+}
+
+static void test_delete_row(void)
+{
+    printf("test_delete_row\n");
+    float xs[4] = {1.0f, 2.0f, 3.0f, 4.0f};
+    float ys[4] = {10.0f, 20.0f, 30.0f, 40.0f};
+
+    /* Delete middle row (row 1) */
+    StatData_t d = {0};
+    fill_xy(&d, xs, ys, 4);
+    CalcStat_DeleteRow(&d, 1);
+    CHECK(d.list_len == 3, "delete_mid: list_len=3");
+    CHECK(d.list_x[0] == 1.0f && d.list_y[0] == 10.0f, "delete_mid: row0 unchanged");
+    CHECK(d.list_x[1] == 3.0f && d.list_y[1] == 30.0f, "delete_mid: row1=old row2");
+    CHECK(d.list_x[2] == 4.0f && d.list_y[2] == 40.0f, "delete_mid: row2=old row3");
+
+    /* Delete first row */
+    StatData_t d2 = {0};
+    fill_xy(&d2, xs, ys, 4);
+    CalcStat_DeleteRow(&d2, 0);
+    CHECK(d2.list_len == 3, "delete_head: list_len=3");
+    CHECK(d2.list_x[0] == 2.0f && d2.list_y[0] == 20.0f, "delete_head: row0=old row1");
+
+    /* Delete last row */
+    StatData_t d3 = {0};
+    fill_xy(&d3, xs, ys, 4);
+    CalcStat_DeleteRow(&d3, 3);
+    CHECK(d3.list_len == 3, "delete_tail: list_len=3");
+    CHECK(d3.list_x[2] == 3.0f && d3.list_y[2] == 30.0f, "delete_tail: row2=old row2");
+
+    /* Out-of-range row: no-op */
+    StatData_t d4 = {0};
+    fill_xy(&d4, xs, ys, 4);
+    CalcStat_DeleteRow(&d4, 5);
+    CHECK(d4.list_len == 4, "delete_oob: no-op");
+}
+
 /* --- main ----------------------------------------------------------------- */
 
 int main(void)
@@ -301,6 +380,8 @@ int main(void)
     test_sort_y();
     test_ystat();
     test_clear();
+    test_insert_row();
+    test_delete_row();
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);
     return (g_failed > 0) ? 1 : 0;

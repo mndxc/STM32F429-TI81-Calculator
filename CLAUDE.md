@@ -31,7 +31,7 @@ Snapshot as of **2026-04-17** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 787 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 830 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
 
 ### Scorecard Change Log
 
@@ -55,6 +55,9 @@ Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware valida
 | 2026-04-25 | Testing | A | A | Hyperbolic functions engine: 6 `MATH_FUNC_SINH/COSH/TANH/ASINH/ACOSH/ATANH` tokens, keyword entries, eval cases; 16 new host assertions; suite grows to 10 suites / 771 assertions; complexity delta: neutral |
 | 2026-04-25 | Error handling | A- | A- | [bug] Auto-close trailing `(`: `sy_drain_stack()` now discards unmatched `(` as implicit `)` per guidebook p. 1-9; emits pending function tokens; 4 new host assertions; suite grows to 10 suites / 775 assertions; complexity delta: neutral |
 | 2026-04-25 | Testing | A | A | [bug] `End` subroutine return: `cmd_end()` sets `prgm_run_pc = prgm_run_num_lines`, delegating to existing implicit-return machinery; top-level terminates, subroutine pops call frame; 12 new host assertions (Group 18); suite grows to 10 suites / 787 assertions; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | `nDeriv(` numerical derivative: `MATH_FUNC_NDERIV` token + pre-compile-arg1 tokenizer hook + symmetric difference quotient evaluator (ε=0.001); 6 new host assertions (group 5c); suite grows to 10 suites / 793 assertions; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | Stat data point INS/DEL: `CalcStat_InsertRow/DeleteRow` in `calc_stat.c`; col=2 row-select state in `ui_stat_edit.c`; INS/DEL operate on whole row (guidebook p. 7-5); `>` prefix distinguishes row-select cursor; 37 new host assertions; suite grows to 10 suites / 830 assertions; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | `{x}(n)` / `{y}(n)` list-element access: `MATH_FUNC_LIST_X/Y` tokens; `{x}`/`{y}` keyword entries; `Calc_RegisterStatAccessors()` registration pattern (decouples calc_engine from UI layer); `TOKEN_LIST_X/Y` insert `{x}(`/`{y}(` in ui_input.c; eval in `eval_unary_func()` with 1-based bounds check; 13 new host assertions (group 5d); suite grows to 10 suites / 831 assertions; complexity delta: neutral |
 
 ---
 
@@ -121,13 +124,9 @@ Items are ordered within each tier by estimated difficulty (easiest first). Depe
 
 **Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is RGB565 array in FLASH.
 
-**`nDeriv(` numerical derivative** — MATH menu item inserts `nDeriv(` but no engine token or evaluator exists (syntax error on ENTER). Implement as a 3-arg function `nDeriv(expr, X, val)` using the symmetric difference quotient `(f(val+ε)−f(val−ε))/(2ε)` with `ε=0.001`. Requires a recursive expression evaluator call with a temporary X binding. Files: `App/Inc/calc_engine.h`, `App/Src/calc_engine.c`.
-
 **`°` degree / `r` radian postfix tokens** — MATH menu items 6/7 insert `°` and `r` but the engine has no per-argument angle-override mechanism. Implement as postfix unary operators that convert their operand to/from radians before further evaluation, independently of the global angle mode. Files: `App/Inc/calc_engine.h`, `App/Src/calc_engine.c`.
 
 **TRACE auto-pan at viewport edge** — Guidebook p. 3-10: when the trace cursor reaches `Xmin` or `Xmax`, the viewing window pans and `Xmin`/`Xmax` update. `handle_trace_mode()` in `graph_ui.c` currently clamps at the boundary. Add a pan branch that shifts both bounds by `(Xmax−Xmin)/2` and triggers a re-render. Files: `App/Src/graph_ui.c`.
-
-**Stat data point INS/DEL** — Guidebook p. 7-5: pressing INS on the `=` sign row of the stat editor inserts a new `(0,0)` data point at the cursor; DEL removes the current point. `ui_stat.c` currently supports only in-place cell editing. Files: `App/Src/ui_stat.c`.
 
 **Parametric Y-VARS tabs** — `ui_yvars.c` currently defers parametric pair selectors. Add ON/OFF tab entries for parametric equation pairs (`X₁t-On/Off`, `Y₁t-On/Off` etc.) mirroring the existing `Yn-On/Off` pattern. Files: `App/Src/ui_yvars.c`.
 
@@ -135,13 +134,11 @@ Items are ordered within each tier by estimated difficulty (easiest first). Depe
 
 **ZOOM In/Out/Integer cursor-pick mode** — Spec (guidebook pp. 3-13/3-14/3-16): ZOOM In, Out, and Integer require the user to position a cursor on the graph before ENTER commits, with the selected point becoming the new window centre. Currently all three jump directly to computed windows without cursor interaction. Requires a cursor-pick state machine (similar to ZBox but single-point) wired into the ZOOM flow. ZOOM In/Out/Integer share the same infrastructure; implement together. The interactive on-graph DRAW item below can reuse this cursor infrastructure. Files: `App/Src/ui_graph_zoom.c`, `App/Src/graph_ui.c`.
 
-**`{x}(n)` / `{y}(n)` list-element access** — `TOKEN_LIST_X` / `TOKEN_LIST_Y` are keyboard-mapped (`2nd+0` / `2nd+.`) and defined in `keypad_map.h` but have no insertion handler, no engine keyword, and no evaluator — pressing `2nd+0` silently does nothing. Wire end-to-end: insert `{x}(` / `{y}(` in `ui_input.c`; add keyword-table entries in `calc_engine.c`; add eval case that indexes into `Stat_GetData()` array (1-based, out-of-range → DOMAIN error). Files: `App/Src/ui_input.c`, `App/Src/calc_engine.c`.
-
 **STO → matrix / matrix element / Y= slot** — `handle_sto_pending()` only recognises scalar A–Z and θ. Guidebook defines three additional STO targets: `STO→[A]` (copy result into matrix slot), `STO→[A](r,c)` (store scalar into a matrix element), `STO→Yn` (store expression string into a Y= slot for programmatic equation definition). Each requires a distinct parser path; matrix-copy also needs a `CalcMatrix_t` copy accessor. Files: `App/Src/ui_input.c`, `App/Src/ui_matrix.c`, `App/Src/graph_ui.c`.
 
 **RESET menu (`2nd + +`)** — `TOKEN_RESET` is keyboard-mapped but has no handler anywhere. Implement: on `TOKEN_RESET`, show a confirmation screen (`1:No / 2:Reset`); on confirm, call a new `Persist_Reset()` that zeroes all FLASH-persisted state and resets in-memory variables, matrices, stat data, Y= equations, RANGE, and Rand seed; display "Mem cleared". Files: `App/Src/calculator_core.c` (or new `App/Src/ui_reset.c`), `App/Src/persist.c`.
 
-**`Shade(` full argument set** — Guidebook p. 5-8: `Shade(lowerfunc, upperfunc [, resolution, Xbeg, Xend])` where `lowerfunc`/`upperfunc` are expressions in X evaluated per-column. Current implementation parses only 2 scalar constants and fills a fixed horizontal band. Upgrade: parse up to 5 args; evaluate the first two as per-column X-expressions using a recursive evaluator; respect optional `resolution`, `Xbeg`, `Xend`. Files: `App/Src/ui_draw.c`, `App/Src/graph_draw.c`. *Prerequisite: `nDeriv(` recursive expression evaluation (Medium item above).*
+**`Shade(` full argument set** — Guidebook p. 5-8: `Shade(lowerfunc, upperfunc [, resolution, Xbeg, Xend])` where `lowerfunc`/`upperfunc` are expressions in X evaluated per-column. Current implementation parses only 2 scalar constants and fills a fixed horizontal band. Upgrade: parse up to 5 args; evaluate the first two as per-column X-expressions using a recursive evaluator; respect optional `resolution`, `Xbeg`, `Xend`. Files: `App/Src/ui_draw.c`, `App/Src/graph_draw.c`. *Prerequisite: `nDeriv(` expression pre-compilation pattern (now done — see `Calc_PrepareGraphEquation` usage in `try_tokenize_identifier`).*
 
 **`Input` no-argument graph-exploration mode** — Guidebook p. 8-13: `Input` with no variable argument suspends the program, activates the free graph cursor, and resumes when ENTER is pressed. `cmd_input()` currently always requires a variable. Implement: detect missing argument; switch to `MODE_GRAPH_FREE_CURSOR`; block the prgm_exec task on a new semaphore; release the semaphore from the graph cursor's ENTER handler. Files: `App/Src/prgm_exec.c`, `App/Src/graph_ui.c`.
 

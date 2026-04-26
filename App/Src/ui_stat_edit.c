@@ -4,6 +4,12 @@
  *
  * Extracted from ui_stat.c; manages MODE_STAT_EDIT and the associated LVGL screen.
  * Data is accessed via Stat_GetData() / the shared stat_data pointer in ui_stat.c.
+ *
+ * Column states:
+ *   col=0  editing X value of current row
+ *   col=1  editing Y value of current row
+ *   col=2  "= cursor" row-select mode (TI-81 guidebook p. 7-5) — pressing
+ *          INS inserts a new (0,0) row before the cursor; DEL deletes the row
  */
 
 #include "ui_stat.h"
@@ -30,7 +36,7 @@ void Stat_HideEditScreen(void) { lv_obj_add_flag  (ui_stat_edit_screen, LV_OBJ_F
  *---------------------------------------------------------------------------*/
 
 static uint8_t  stat_edit_row    = 0;
-static uint8_t  stat_edit_col    = 0;   /* 0=X, 1=Y */
+static uint8_t  stat_edit_col    = 0;   /* 0=X, 1=Y, 2=row-select (= cursor) */
 static uint8_t  stat_edit_scroll = 0;
 static char     stat_edit_buf[20];
 static uint8_t  stat_edit_len    = 0;
@@ -50,9 +56,15 @@ static void stat_fmt(float v, char *buf, size_t len)
     Calc_FormatResult(v, buf, (uint8_t)(len < 255 ? len : 255));
 }
 
-/** Load the value at (row, col) into stat_edit_buf. */
+/** Load the value at (row, col) into stat_edit_buf.
+ *  At col=2 (row-select mode) the buffer is always cleared. */
 static void stat_edit_load_cell(void)
 {
+    if (stat_edit_col == 2) {
+        stat_edit_buf[0] = '\0';
+        stat_edit_len    = 0;
+        return;
+    }
     const StatData_t *d = Stat_GetData();
     if (stat_edit_row < d->list_len) {
         float v = (stat_edit_col == 0)
@@ -186,18 +198,28 @@ void ui_update_stat_edit_display(void)
             ybuf[0] = '\0';
         }
 
-        if (row == (int)stat_edit_row) {
+        bool is_cursor_row = (row == (int)stat_edit_row);
+
+        /* Override the active cell with the edit buffer (col 0 or 1 only). */
+        if (is_cursor_row) {
             if (stat_edit_col == 0)
                 snprintf(xbuf, sizeof(xbuf), "%s", stat_edit_buf);
-            else
+            else if (stat_edit_col == 1)
                 snprintf(ybuf, sizeof(ybuf), "%s", stat_edit_buf);
+            /* col == 2: show stored values unchanged */
         }
 
+        /* In row-select mode the '>' prefix replaces the leading space so the
+         * user can see the cursor is on the row-level (= sign) position. */
         char line[50];
-        snprintf(line, sizeof(line), "%2d: %-10s %-10s",
-                 row + 1, xbuf, ybuf);
+        bool is_row_select = is_cursor_row && (stat_edit_col == 2);
+        if (is_row_select)
+            snprintf(line, sizeof(line), ">%2d: %-10s %-10s",
+                     row + 1, xbuf, ybuf);
+        else
+            snprintf(line, sizeof(line), " %2d: %-10s %-10s",
+                     row + 1, xbuf, ybuf);
 
-        bool is_cursor_row = (row == (int)stat_edit_row);
         lv_obj_set_style_text_color(stat_edit_row_labels[i],
             is_cursor_row ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(stat_edit_row_labels[i], line);
@@ -232,6 +254,18 @@ bool handle_stat_edit(Token_t t)
     uint8_t total = (d->list_len < STAT_MAX_POINTS)
                     ? d->list_len + 1u
                     : STAT_MAX_POINTS;
+
+    /* Pressing a digit/decimal/neg key while in row-select mode (col=2)
+     * silently transitions to X-editing with a fresh empty buffer, matching
+     * the "original value is cleared automatically when you begin typing"
+     * behaviour described on guidebook p. 7-5. */
+    bool is_input_key = ((t >= TOKEN_0 && t <= TOKEN_9) ||
+                         t == TOKEN_DECIMAL || t == TOKEN_NEG);
+    if (stat_edit_col == 2 && is_input_key) {
+        stat_edit_col = 0;
+        stat_edit_len = 0;
+        stat_edit_buf[0] = '\0';
+    }
 
     switch (t) {
     /* Digit and decimal input */
@@ -287,8 +321,26 @@ bool handle_stat_edit(Token_t t)
         lvgl_unlock();
         return true;
 
+    /* DEL — character delete when editing a cell; row delete in row-select mode */
     case TOKEN_DEL:
-        if (stat_edit_len > 0) {
+        if (stat_edit_col == 2) {
+            /* Row-level delete (guidebook p. 7-5) */
+            if (stat_edit_row < d->list_len) {
+                StatData_t tmp;
+                memcpy(&tmp, d, sizeof(tmp));
+                CalcStat_DeleteRow(&tmp, stat_edit_row);
+                Stat_SetData(&tmp);
+                /* Clamp cursor after deletion */
+                d = Stat_GetData();
+                if (d->list_len > 0 && stat_edit_row >= d->list_len)
+                    stat_edit_row = (uint8_t)(d->list_len - 1);
+                stat_edit_fix_scroll();
+                stat_edit_load_cell();
+                lvgl_lock();
+                ui_update_stat_edit_display();
+                lvgl_unlock();
+            }
+        } else if (stat_edit_len > 0) {
             stat_edit_len--;
             stat_edit_buf[stat_edit_len] = '\0';
             lvgl_lock();
@@ -297,19 +349,45 @@ bool handle_stat_edit(Token_t t)
         }
         return true;
 
+    /* INS — insert a new (0,0) row before the cursor in row-select mode */
+    case TOKEN_INS:
+        if (stat_edit_col == 2) {
+            StatData_t tmp;
+            memcpy(&tmp, d, sizeof(tmp));
+            if (CalcStat_InsertRow(&tmp, stat_edit_row)) {
+                Stat_SetData(&tmp);
+                stat_edit_col = 0;
+                stat_edit_fix_scroll();
+                stat_edit_load_cell();
+                lvgl_lock();
+                ui_update_stat_edit_display();
+                lvgl_unlock();
+            }
+        }
+        return true;
+
     case TOKEN_ENTER:
     case TOKEN_DOWN: {
-        stat_edit_commit();
-        if (stat_edit_col == 0) {
-            stat_edit_col = 1;
-        } else {
-            stat_edit_col = 0;
-            if ((int)stat_edit_row + 1 < (int)STAT_MAX_POINTS) {
+        if (stat_edit_col == 2) {
+            /* In row-select mode: advance one row, stay in row-select */
+            d     = Stat_GetData();
+            total = (d->list_len < STAT_MAX_POINTS)
+                    ? d->list_len + 1u : STAT_MAX_POINTS;
+            if ((int)stat_edit_row + 1 < (int)total)
                 stat_edit_row++;
-                d     = Stat_GetData();
-                total = (d->list_len < STAT_MAX_POINTS)
-                        ? d->list_len + 1u : STAT_MAX_POINTS;
-                if (stat_edit_row >= total) stat_edit_row = (uint8_t)(total - 1);
+        } else {
+            stat_edit_commit();
+            if (stat_edit_col == 0) {
+                stat_edit_col = 1;
+            } else {
+                stat_edit_col = 0;
+                if ((int)stat_edit_row + 1 < (int)STAT_MAX_POINTS) {
+                    stat_edit_row++;
+                    d     = Stat_GetData();
+                    total = (d->list_len < STAT_MAX_POINTS)
+                            ? d->list_len + 1u : STAT_MAX_POINTS;
+                    if (stat_edit_row >= total) stat_edit_row = (uint8_t)(total - 1);
+                }
             }
         }
         stat_edit_fix_scroll();
@@ -320,13 +398,18 @@ bool handle_stat_edit(Token_t t)
         return true;
     }
     case TOKEN_UP: {
-        stat_edit_commit();
-        if (stat_edit_col == 1) {
-            stat_edit_col = 0;
+        if (stat_edit_col == 2) {
+            /* In row-select mode: move up one row, stay in row-select */
+            if (stat_edit_row > 0) stat_edit_row--;
         } else {
-            if (stat_edit_row > 0) {
-                stat_edit_row--;
-                stat_edit_col = 1;
+            stat_edit_commit();
+            if (stat_edit_col == 1) {
+                stat_edit_col = 0;
+            } else {
+                if (stat_edit_row > 0) {
+                    stat_edit_row--;
+                    stat_edit_col = 1;
+                }
             }
         }
         stat_edit_fix_scroll();
@@ -340,9 +423,11 @@ bool handle_stat_edit(Token_t t)
         stat_edit_commit();
         if (stat_edit_col == 1) {
             stat_edit_col = 0;
-        } else if (stat_edit_row > 0) {
-            stat_edit_row--;
-            stat_edit_col = 1;
+        } else if (stat_edit_col == 0) {
+            stat_edit_col = 2;          /* enter row-select (= cursor) */
+        } else {                        /* col == 2 */
+            if (stat_edit_row > 0) stat_edit_row--;
+            /* stay in col=2 */
         }
         stat_edit_fix_scroll();
         stat_edit_load_cell();
@@ -352,7 +437,9 @@ bool handle_stat_edit(Token_t t)
         return true;
     case TOKEN_RIGHT:
         stat_edit_commit();
-        if (stat_edit_col == 0) {
+        if (stat_edit_col == 2) {
+            stat_edit_col = 0;          /* exit row-select, edit X */
+        } else if (stat_edit_col == 0) {
             stat_edit_col = 1;
         } else if (stat_edit_row + 1 < total) {
             stat_edit_row++;
@@ -365,8 +452,8 @@ bool handle_stat_edit(Token_t t)
         lvgl_unlock();
         return true;
     case TOKEN_CLEAR:
-        if (stat_edit_len == 0) {
-            stat_edit_commit();
+        if (stat_edit_col == 2 || stat_edit_len == 0) {
+            if (stat_edit_col != 2) stat_edit_commit();
             Calc_SetMode(MODE_STAT_MENU);
             lvgl_lock();
             Stat_HideEditScreen();

@@ -46,6 +46,16 @@ static uint8_t s_yeq_count = 0;
  * references another Y= equation (or itself). */
 static int s_y_eval_depth = 0;
 
+/* Compiled postfix for the expression argument of nDeriv(expr, X, val).
+ * Populated at tokenize time by the nDeriv( special case in try_tokenize_identifier(). */
+static GraphEquation_t s_nderiv_eq = { .count = 0 };
+
+/* Stat list accessors — registered via Calc_RegisterStatAccessors().
+ * NULL until registered; {x}(n)/{y}(n) yield DOMAIN error when NULL. */
+static float (*s_stat_get_x)(int n)   = NULL;
+static float (*s_stat_get_y)(int n)   = NULL;
+static int   (*s_stat_get_len)(void)  = NULL;
+
 void Calc_SetDecimalMode(uint8_t mode) { calc_decimal_mode  = mode; }
 uint8_t Calc_GetDecimalMode(void)      { return calc_decimal_mode;  }
 
@@ -56,6 +66,15 @@ void Calc_RegisterYEquations(const char (*eqs)[64], uint8_t count)
 {
     s_yeq       = eqs;
     s_yeq_count = count;
+}
+
+void Calc_RegisterStatAccessors(float (*get_x)(int n),
+                                 float (*get_y)(int n),
+                                 int   (*get_len)(void))
+{
+    s_stat_get_x   = get_x;
+    s_stat_get_y   = get_y;
+    s_stat_get_len = get_len;
 }
 
 /*---------------------------------------------------------------------------
@@ -100,7 +119,9 @@ static bool is_function(MathTokenType_t t)
             /* Matrix functions */
             t == MATH_FUNC_DET     || t == MATH_FUNC_ROWSWAP ||
             t == MATH_FUNC_ROWPLUS || t == MATH_FUNC_MROW    ||
-            t == MATH_FUNC_MROWPLUS);
+            t == MATH_FUNC_MROWPLUS ||
+            t == MATH_FUNC_NDERIV  ||
+            t == MATH_FUNC_LIST_X  || t == MATH_FUNC_LIST_Y);
 }
 
 static int precedence(MathTokenType_t t)
@@ -297,6 +318,43 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
         return CALC_OK;
     }
 
+    /* nDeriv(expr, X, val) — numerical derivative via symmetric difference quotient.
+     * arg1 (the expression) is extracted here and compiled into s_nderiv_eq so it
+     * can be evaluated at val±ε later.  We emit MATH_FUNC_NDERIV + MATH_PAREN_LEFT
+     * and advance *p past arg1 and its trailing comma; args 2 and 3 (X and val) are
+     * then tokenised normally by the main loop so ShuntingYard handles them as the
+     * two stack operands that MATH_FUNC_NDERIV pops at eval time. */
+    if (strncmp(*p, "nDeriv(", 7) == 0) {
+        const char *arg1_start = *p + 7;
+        const char *q          = arg1_start;
+        int depth = 0;
+        while (*q != '\0') {
+            if      (*q == '(')                   { depth++; }
+            else if (*q == ')' && depth == 0)     { break; }
+            else if (*q == ')')                   { depth--; }
+            else if (*q == ',' && depth == 0)     { break; }
+            q++;
+        }
+        if (*q != ',') return CALC_ERR_SYNTAX;
+        size_t arg1_len = (size_t)(q - arg1_start);
+        if (arg1_len == 0 || arg1_len >= CALC_EXPR_MAX_LEN) return CALC_ERR_SYNTAX;
+        char arg1_buf[CALC_EXPR_MAX_LEN];
+        memcpy(arg1_buf, arg1_start, arg1_len);
+        arg1_buf[arg1_len] = '\0';
+        CalcError_t cerr = Calc_PrepareGraphEquation(arg1_buf, ans, &s_nderiv_eq);
+        if (cerr != CALC_OK) return cerr;
+        if (out->count + 2 > CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_FUNC_NDERIV;
+        out->tokens[out->count].value = 0.0f;
+        out->count++;
+        out->tokens[out->count].type  = MATH_PAREN_LEFT;
+        out->tokens[out->count].value = 0.0f;
+        out->count++;
+        *p       = q + 1; /* skip arg1 and its trailing comma */
+        *matched = true;
+        return CALC_OK;
+    }
+
     /* Named functions and binary-operator keywords.
        Longer names that share a prefix must appear first.
        Do NOT include '(' in the name — it is tokenized separately as
@@ -340,6 +398,9 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
         { "rowSwap", MATH_FUNC_ROWSWAP  },
         { "row+",    MATH_FUNC_ROWPLUS  },
         { "det",     MATH_FUNC_DET      },
+        /* Stat list element access — {x}(n) and {y}(n) (1-based index) */
+        { "{x}",     MATH_FUNC_LIST_X   },
+        { "{y}",     MATH_FUNC_LIST_Y   },
     };
 
     for (int i = 0; i < (int)(sizeof(funcs)/sizeof(funcs[0])); i++) {
@@ -1076,6 +1137,20 @@ static bool eval_unary_func(MathTokenType_t type,
     case MATH_FUNC_IPART:  stack[*top] = truncf(a);              break;
     case MATH_FUNC_FPART:  stack[*top] = a - truncf(a);          break;
     case MATH_FUNC_INT:    stack[*top] = floorf(a);              break;
+    case MATH_FUNC_LIST_X: {
+        if (!s_stat_get_x || !s_stat_get_len) MERR(CALC_ERR_DOMAIN, "Domain error: {x}");
+        int n = (int)roundf(a);
+        if (n < 1 || n > s_stat_get_len()) MERR(CALC_ERR_DOMAIN, "Domain error: {x}");
+        stack[*top] = s_stat_get_x(n);
+        break;
+    }
+    case MATH_FUNC_LIST_Y: {
+        if (!s_stat_get_y || !s_stat_get_len) MERR(CALC_ERR_DOMAIN, "Domain error: {y}");
+        int n = (int)roundf(a);
+        if (n < 1 || n > s_stat_get_len()) MERR(CALC_ERR_DOMAIN, "Domain error: {y}");
+        stack[*top] = s_stat_get_y(n);
+        break;
+    }
     default:               break;
     }
 #undef MERR
@@ -1214,6 +1289,25 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, float x_val, float t_val
                 stack[top] = x;
             }
             is_matrix[top] = false;
+            continue;
+        }
+
+        /* nDeriv(expr, X, val) — symmetric difference quotient (ε = 0.001)
+         * Stack on entry: [X_ref, val] (top = val). */
+        if (tt == MATH_FUNC_NDERIV) {
+            if (top < 1) {
+                rpn_set_error(&res, CALC_ERR_SYNTAX, "Syntax error");
+                return res;
+            }
+            float val = stack[top--]; /* arg3: evaluation point */
+            top--;                    /* arg2: variable ref (discard) */
+            float eps = 1e-3f;
+            CalcResult_t fp = Calc_EvalGraphEquation(&s_nderiv_eq, val + eps, angle_degrees);
+            if (fp.error != CALC_OK) { res = fp; return res; }
+            CalcResult_t fm = Calc_EvalGraphEquation(&s_nderiv_eq, val - eps, angle_degrees);
+            if (fm.error != CALC_OK) { res = fm; return res; }
+            float deriv = (fp.value - fm.value) / (2.0f * eps);
+            if (!rpn_push(stack, is_matrix, &top, deriv, false, &res)) return res;
             continue;
         }
 

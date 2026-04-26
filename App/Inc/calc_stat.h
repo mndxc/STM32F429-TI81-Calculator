@@ -82,4 +82,19 @@ float CalcStat_MeanY(const StatData_t *d);
 float CalcStat_SxY(const StatData_t *d);
 float CalcStat_SigmaY(const StatData_t *d);
 
+/**
+ * @brief Insert a new (0,0) data point before position at_row.
+ *
+ * Shifts all rows from at_row onwards down by one. Returns false if the
+ * list is already at STAT_MAX_POINTS capacity or at_row > list_len.
+ */
+bool CalcStat_InsertRow(StatData_t *d, uint8_t at_row);
+
+/**
+ * @brief Delete the data point at position row.
+ *
+ * Shifts all subsequent rows up by one. No-op if row >= list_len.
+ */
+void CalcStat_DeleteRow(StatData_t *d, uint8_t row);
+
 #endif /* CALC_STAT_H */

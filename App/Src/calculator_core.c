@@ -61,6 +61,16 @@
 #include <string.h>
 
 /*---------------------------------------------------------------------------
+ * Stat list accessors — forwarded to calc_engine via Calc_RegisterStatAccessors().
+ * Guarded: Stat_GetData() is unavailable in HOST_TEST builds.
+ *---------------------------------------------------------------------------*/
+#ifndef HOST_TEST
+static float calc_stat_get_x(int n)   { return Stat_GetData()->list_x[n - 1]; }
+static float calc_stat_get_y(int n)   { return Stat_GetData()->list_y[n - 1]; }
+static int   calc_stat_get_len(void)  { return Stat_GetData()->list_len; }
+#endif
+
+/*---------------------------------------------------------------------------
  * Constants
  *---------------------------------------------------------------------------*/
 
@@ -1433,6 +1443,9 @@ void StartCalcCoreTask(void const *argument)
     Calc_RegisterYEquations(
         Graph_GetState()->equations,
         GRAPH_NUM_EQ);
+#ifndef HOST_TEST
+    Calc_RegisterStatAccessors(calc_stat_get_x, calc_stat_get_y, calc_stat_get_len);
+#endif
     /* Load programs from FLASH sector 11 before populating the PRGM menu */
     Prgm_Init();
 
