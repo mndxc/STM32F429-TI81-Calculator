@@ -3,13 +3,13 @@
  * @brief   Y-VARS menu UI (2nd+VARS key).
  *
  * Three-tab menu:
- *   Y   — 4 items: Y₁–Y₄; selecting one inserts an equation reference string
- *          into the expression buffer (or Y= editor if opened from there).
- *   ON  — 5 items: All-On, Y₁-On … Y₄-On; sets graph_state.enabled[] true.
- *   OFF — 5 items: All-Off, Y₁-Off … Y₄-Off; sets graph_state.enabled[] false.
- *
- * Parametric pairs (X₁t/Y₁t etc.) are deferred until parametric Y-VARS
- * support is added.
+ *   Y   — 10 items: Y₁–Y₄, X₁t, Y₁t, X₂t, Y₂t, X₃t, Y₃t; selecting one
+ *          inserts an equation reference string into the expression buffer
+ *          (or Y= editor if opened from there).  Scrolls when > 7 items are
+ *          visible (overflow indicator ↓/↑ at row 7 / row 1).
+ *   ON  —  8 items: All-On, Y₁-On … Y₄-On, X₁t-On … X₃t-On; sets enabled
+ *          flags on function equations and/or parametric pairs.
+ *   OFF —  8 items: All-Off, Y₁-Off … Y₄-Off, X₁t-Off … X₃t-Off.
  *
  * Font notes (see CLAUDE.md gotcha #14 and MENU_SPECS.md):
  *   ₁₂₃₄ = U+2081–2084 → \xE2\x82\x81 … \xE2\x82\x84
@@ -27,46 +27,64 @@
  *---------------------------------------------------------------------------*/
 
 #define YVARS_TAB_COUNT     3
-#define YVARS_Y_ITEMS       4   /* Y₁–Y₄ */
-#define YVARS_ON_ITEMS      5   /* All-On, Y₁-On … Y₄-On */
-#define YVARS_OFF_ITEMS     5   /* All-Off, Y₁-Off … Y₄-Off */
+#define YVARS_Y_ITEMS       10  /* Y₁–Y₄, X₁t, Y₁t, X₂t, Y₂t, X₃t, Y₃t */
+#define YVARS_ON_ITEMS       8  /* All-On, Y₁-On…Y₄-On, X₁t-On…X₃t-On */
+#define YVARS_OFF_ITEMS      8  /* All-Off, Y₁-Off…Y₄-Off, X₁t-Off…X₃t-Off */
 
 static const char * const yvars_tab_names[YVARS_TAB_COUNT] = {
     "Y", "ON", "OFF"
 };
 
-/* Tab 0: Y — equation reference insert strings (displayed in menu) */
+/* Tab 0: Y — displayed item names (number prefix + label) */
 static const char * const yvars_y_names[YVARS_Y_ITEMS] = {
-    "1:Y\xE2\x82\x81",   /* Y₁ */
-    "2:Y\xE2\x82\x82",   /* Y₂ */
-    "3:Y\xE2\x82\x83",   /* Y₃ */
-    "4:Y\xE2\x82\x84",   /* Y₄ */
+    "1:Y\xE2\x82\x81",             /* Y₁ */
+    "2:Y\xE2\x82\x82",             /* Y₂ */
+    "3:Y\xE2\x82\x83",             /* Y₃ */
+    "4:Y\xE2\x82\x84",             /* Y₄ */
+    "5:X\xE2\x82\x81t",            /* X₁t */
+    "6:Y\xE2\x82\x81t",            /* Y₁t */
+    "7:X\xE2\x82\x82t",            /* X₂t */
+    "8:Y\xE2\x82\x82t",            /* Y₂t */
+    "9:X\xE2\x82\x83t",            /* X₃t */
+    "0:Y\xE2\x82\x83t",            /* Y₃t */
 };
 
-/* Insert strings for Y tab — "Y₁" through "Y₄" (4 bytes each) */
+/* Insert strings for Y tab */
 static const char * const yvars_y_insert[YVARS_Y_ITEMS] = {
-    "Y\xE2\x82\x81",
-    "Y\xE2\x82\x82",
-    "Y\xE2\x82\x83",
-    "Y\xE2\x82\x84",
+    "Y\xE2\x82\x81",               /* Y₁ */
+    "Y\xE2\x82\x82",               /* Y₂ */
+    "Y\xE2\x82\x83",               /* Y₃ */
+    "Y\xE2\x82\x84",               /* Y₄ */
+    "X\xE2\x82\x81t",              /* X₁t */
+    "Y\xE2\x82\x81t",              /* Y₁t */
+    "X\xE2\x82\x82t",              /* X₂t */
+    "Y\xE2\x82\x82t",              /* Y₂t */
+    "X\xE2\x82\x83t",              /* X₃t */
+    "Y\xE2\x82\x83t",              /* Y₃t */
 };
 
 /* Tab 1: ON */
 static const char * const yvars_on_names[YVARS_ON_ITEMS] = {
     "1:All-On",
-    "2:Y\xE2\x82\x81-On",
-    "3:Y\xE2\x82\x82-On",
-    "4:Y\xE2\x82\x83-On",
-    "5:Y\xE2\x82\x84-On",
+    "2:Y\xE2\x82\x81-On",          /* Y₁-On */
+    "3:Y\xE2\x82\x82-On",          /* Y₂-On */
+    "4:Y\xE2\x82\x83-On",          /* Y₃-On */
+    "5:Y\xE2\x82\x84-On",          /* Y₄-On */
+    "6:X\xE2\x82\x81t-On",         /* X₁t-On */
+    "7:X\xE2\x82\x82t-On",         /* X₂t-On */
+    "8:X\xE2\x82\x83t-On",         /* X₃t-On */
 };
 
 /* Tab 2: OFF */
 static const char * const yvars_off_names[YVARS_OFF_ITEMS] = {
     "1:All-Off",
-    "2:Y\xE2\x82\x81-Off",
-    "3:Y\xE2\x82\x82-Off",
-    "4:Y\xE2\x82\x83-Off",
-    "5:Y\xE2\x82\x84-Off",
+    "2:Y\xE2\x82\x81-Off",         /* Y₁-Off */
+    "3:Y\xE2\x82\x82-Off",         /* Y₂-Off */
+    "4:Y\xE2\x82\x83-Off",         /* Y₃-Off */
+    "5:Y\xE2\x82\x84-Off",         /* Y₄-Off */
+    "6:X\xE2\x82\x81t-Off",        /* X₁t-Off */
+    "7:X\xE2\x82\x82t-Off",        /* X₂t-Off */
+    "8:X\xE2\x82\x83t-Off",        /* X₃t-Off */
 };
 
 static const uint8_t yvars_tab_item_count[YVARS_TAB_COUNT] = {
@@ -86,6 +104,7 @@ lv_obj_t *ui_yvars_screen = NULL;
 
 static lv_obj_t *yvars_item_labels[MENU_VISIBLE_ROWS];
 static lv_obj_t *yvars_tab_labels[YVARS_TAB_COUNT];
+static lv_obj_t *yvars_scroll_ind[2]; /* [0]=top(↑)  [1]=bottom(↓) */
 
 /*---------------------------------------------------------------------------
  * Actions
@@ -100,18 +119,25 @@ static void yvars_do_y_insert(uint8_t idx)
     menu_insert_text(yvars_y_insert[idx], &yvars_menu_state.return_mode);
 }
 
-/** ON/OFF tab: set enabled state for item idx; idx 0 = All. */
+/**
+ * ON/OFF tab: set enabled state for absolute item idx.
+ *   idx 0        → All (all Y= equations + all parametric pairs)
+ *   idx 1–4      → Y₁–Y₄ (function equation idx-1)
+ *   idx 5–7      → X₁t–X₃t (parametric pair idx-5)
+ */
 static void yvars_do_enable(uint8_t idx, bool enable)
 {
     if (idx == 0) {
-        /* All-On / All-Off */
         for (int i = 0; i < GRAPH_NUM_EQ; i++)
             Graph_SetEquationEnabled((uint8_t)i, enable);
-    } else {
+        for (int i = 0; i < GRAPH_NUM_PARAM; i++)
+            Graph_SetParamEnabled((uint8_t)i, enable);
+    } else if (idx <= 4) {
         Graph_SetEquationEnabled((uint8_t)(idx - 1), enable);
+    } else {
+        Graph_SetParamEnabled((uint8_t)(idx - 5), enable);
     }
 
-    /* Close menu and return to normal mode */
     lvgl_lock();
     lv_obj_add_flag(ui_yvars_screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
@@ -157,6 +183,22 @@ void ui_init_yvars_screen(void)
             lv_color_hex(COLOR_WHITE), 0);
         lv_label_set_text(yvars_item_labels[i], "");
     }
+
+    /* Scroll indicators — [0] top row, [1] bottom row; overlay the ':' char */
+    for (int i = 0; i < 2; i++) {
+        int row = (i == 0) ? 0 : (MENU_VISIBLE_ROWS - 1);
+        yvars_scroll_ind[i] = lv_label_create(ui_yvars_screen);
+        lv_obj_set_pos(yvars_scroll_ind[i], 18, 30 + row * 30);
+        lv_obj_set_style_text_font(yvars_scroll_ind[i], &jetbrains_mono_24, 0);
+        lv_obj_set_style_text_color(yvars_scroll_ind[i],
+            lv_color_hex(COLOR_AMBER), 0);
+        lv_obj_set_style_bg_color(yvars_scroll_ind[i],
+            lv_color_hex(COLOR_BLACK), 0);
+        lv_obj_set_style_bg_opa(yvars_scroll_ind[i], LV_OPA_COVER, 0);
+        lv_obj_set_style_pad_all(yvars_scroll_ind[i], 0, 0);
+        lv_label_set_text(yvars_scroll_ind[i], "");
+        lv_obj_add_flag(yvars_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
+    }
 }
 
 /*---------------------------------------------------------------------------
@@ -167,6 +209,7 @@ void ui_update_yvars_display(void)
 {
     uint8_t tab    = yvars_menu_state.tab;
     uint8_t cursor = yvars_menu_state.cursor;
+    uint8_t scroll = yvars_menu_state.scroll;
     uint8_t total  = yvars_tab_item_count[tab];
 
     /* Tab labels */
@@ -176,9 +219,14 @@ void ui_update_yvars_display(void)
                             : lv_color_hex(COLOR_GREY_INACTIVE), 0);
     }
 
-    /* Item rows — all items fit in MENU_VISIBLE_ROWS (no scroll needed) */
+    /* Hide scroll indicators; re-show below if needed */
+    lv_obj_add_flag(yvars_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(yvars_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
+
+    /* Item rows */
     for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        if (i >= (int)total) {
+        int idx = (int)scroll + i;
+        if (idx >= (int)total) {
             lv_label_set_text(yvars_item_labels[i], "");
             lv_obj_set_style_text_color(yvars_item_labels[i],
                 lv_color_hex(COLOR_WHITE), 0);
@@ -187,9 +235,9 @@ void ui_update_yvars_display(void)
 
         const char *name = "";
         switch (tab) {
-        case 0: name = yvars_y_names[i];   break;
-        case 1: name = yvars_on_names[i];  break;
-        case 2: name = yvars_off_names[i]; break;
+        case 0: name = yvars_y_names[idx];   break;
+        case 1: name = yvars_on_names[idx];  break;
+        case 2: name = yvars_off_names[idx]; break;
         default: break;
         }
 
@@ -197,6 +245,15 @@ void ui_update_yvars_display(void)
         lv_obj_set_style_text_color(yvars_item_labels[i],
             (i == (int)cursor) ? lv_color_hex(COLOR_YELLOW)
                                : lv_color_hex(COLOR_WHITE), 0);
+
+        if ((scroll > 0) && (i == 0)) {
+            lv_label_set_text(yvars_scroll_ind[0], "\xE2\x86\x91");
+            lv_obj_clear_flag(yvars_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
+        }
+        if (((int)scroll + MENU_VISIBLE_ROWS < (int)total) && (i == MENU_VISIBLE_ROWS - 1)) {
+            lv_label_set_text(yvars_scroll_ind[1], "\xE2\x86\x93");
+            lv_obj_clear_flag(yvars_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
+        }
     }
 }
 
@@ -211,12 +268,12 @@ bool handle_yvars_menu(Token_t t)
 
     switch (t) {
     case TOKEN_LEFT:
-        tab_move(&s->tab, &s->cursor, NULL,
+        tab_move(&s->tab, &s->cursor, &s->scroll,
                  YVARS_TAB_COUNT, true, ui_update_yvars_display);
         return true;
 
     case TOKEN_RIGHT:
-        tab_move(&s->tab, &s->cursor, NULL,
+        tab_move(&s->tab, &s->cursor, &s->scroll,
                  YVARS_TAB_COUNT, false, ui_update_yvars_display);
         return true;
 
@@ -235,8 +292,8 @@ bool handle_yvars_menu(Token_t t)
         return true;
 
     case TOKEN_ENTER: {
-        uint8_t idx = s->cursor;
-        if (idx < total) {
+        uint8_t idx = MenuState_AbsoluteIndex(s);
+        if ((int)idx < (int)total) {
             switch (s->tab) {
             case 0: yvars_do_y_insert(idx);        break;
             case 1: yvars_do_enable(idx, true);    break;
@@ -246,11 +303,18 @@ bool handle_yvars_menu(Token_t t)
         return true;
     }
 
-    /* Digit shortcuts 1–4 for Y tab; 1–5 for ON/OFF tabs */
-    case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4: case TOKEN_5: {
-        int idx = (int)(t - TOKEN_1);   /* 0-based */
-        if (idx < (int)total) {
-            s->cursor = (uint8_t)idx;
+    /* Digit shortcuts: 1–9 → idx 0–8; 0 → idx 9 */
+    case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4: case TOKEN_5:
+    case TOKEN_6: case TOKEN_7: case TOKEN_8: case TOKEN_9: case TOKEN_0: {
+        int idx = MenuState_DigitToIndex(t, total);
+        if (idx >= 0) {
+            if (idx < MENU_VISIBLE_ROWS) {
+                s->scroll = 0;
+                s->cursor = (uint8_t)idx;
+            } else {
+                s->scroll = (uint8_t)(idx - MENU_VISIBLE_ROWS + 1);
+                s->cursor = (uint8_t)(MENU_VISIBLE_ROWS - 1);
+            }
             switch (s->tab) {
             case 0: yvars_do_y_insert((uint8_t)idx);        break;
             case 1: yvars_do_enable((uint8_t)idx, true);    break;

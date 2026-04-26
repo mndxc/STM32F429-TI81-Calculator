@@ -4,12 +4,10 @@
  *          declarations.
  *
  * Three-tab menu opened by 2nd+VARS (TOKEN_Y_VARS):
- *   Y   — inserts Y₁–Y₄ equation reference strings into the expression buffer
- *   ON  — enables Y₁–Y₄ equations (writes graph_state.enabled[])
- *   OFF — disables Y₁–Y₄ equations (writes graph_state.enabled[])
- *
- * Parametric entries (X₁t, Y₁t etc.) are deferred until parametric graphing
- * Y-VARS support is implemented.
+ *   Y   — inserts Y₁–Y₄ / X₁t–X₃t / Y₁t–Y₃t equation reference strings
+ *         into the expression buffer (scrolls when list exceeds 7 rows)
+ *   ON  — enables Y₁–Y₄ equations and/or parametric pairs X₁t–X₃t
+ *   OFF — disables Y₁–Y₄ equations and/or parametric pairs X₁t–X₃t
  *
  * Font notes (see CLAUDE.md gotcha #14):
  *   ₁₂₃₄ = U+2081–2084 → \xE2\x82\x81 … \xE2\x82\x84
