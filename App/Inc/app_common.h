@@ -68,6 +68,7 @@ typedef enum {
     MODE_YVARS_MENU,         /* Y-VARS menu (3-tab: Y/ON/OFF) active */
     MODE_PRGM_MODE_NUMBER,   /* PRGM MODE NUMBER tab (Norm/Sci/Eng/Fix/Float/Rad/Deg) */
     MODE_PRGM_MODE_GRAPH,    /* PRGM MODE GRAPH tab (Function/Param/Connected/Dot/Sequence/Simul/Grid Off/Grid On/Rect/Polar) */
+    MODE_RESET_CONFIRM,      /* RESET confirmation screen (2nd++): 1:No / 2:Reset */
     MODE_STO,                /* Synthetic: STO pending — cursor shows green 'A'; never set as current_mode */
 } CalcMode_t;
 

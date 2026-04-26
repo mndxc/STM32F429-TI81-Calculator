@@ -282,4 +282,45 @@ void Persist_ApplyBlock(const PersistBlock_t *block)
     Stat_SetData(&sd);
 }
 
+/**
+ * @brief  Factory-reset all calculator state (guidebook p. 1-28).
+ *
+ * Builds a default-valued block, applies it in-memory, then saves to FLASH.
+ * The caller must separately call Prgm_Init()+Prgm_Save() and srand(0).
+ */
+void Persist_Reset(void)
+{
+    PersistBlock_t block;
+    memset(&block, 0, sizeof(block));
+
+    /* RANGE: standard defaults (guidebook p. 1-28, p. 3-2) */
+    block.x_min  = -10.0f;  block.x_max  =  10.0f;
+    block.y_min  = -10.0f;  block.y_max  =  10.0f;
+    block.x_scl  =   1.0f;  block.y_scl  =   1.0f;
+    block.x_res  =   1.0f;
+    block.t_min  =   0.0f;  block.t_max  =   6.2832f;
+    block.t_step =   0.1309f;
+
+    /* Zoom factors: 4 (guidebook p. 1-28) */
+    block.zoom_x_fact = 4.0f;
+    block.zoom_y_fact = 4.0f;
+
+    /* Matrix dimensions: 6×6 (guidebook p. 1-28) */
+    for (int m = 0; m < 3; m++) {
+        block.matrix_rows[m] = CALC_MATRIX_MAX_DIM;
+        block.matrix_cols[m] = CALC_MATRIX_MAX_DIM;
+    }
+
+    /* All other fields (variables, equations, stat, mode) remain zeroed:
+     * – calc_variables[27] = 0  → A–Z, θ all zero
+     * – ans = 0
+     * – mode_committed[8] = 0  → all row-0: Normal/Float/Radian/Function/Connected/Sequential/GridOff/Rect
+     * – matrix_data = 0        → all matrix elements zero
+     * – equations/param_x/y = "" (null-terminated by memset)
+     * – stat_list_len = 0      → stat data cleared */
+
+    Persist_ApplyBlock(&block);
+    Persist_Save(&block);
+}
+
 #endif /* HOST_TEST */

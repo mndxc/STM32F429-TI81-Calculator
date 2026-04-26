@@ -163,4 +163,21 @@ PersistBlock_t Persist_BuildBlock(void);
  */
 void Persist_ApplyBlock(const PersistBlock_t *block);
 
+/**
+ * @brief  Factory-reset all calculator state.
+ *
+ * Applies guidebook p. 1-28 "Results of Resetting":
+ *   - All variables A–Z, θ, ANS set to 0
+ *   - All matrix values zeroed; all matrix dimensions set to 6×6
+ *   - All Y= equations and parametric equations erased
+ *   - RANGE set to standard defaults (x=[-10,10], y=[-10,10], scl=1, res=1)
+ *   - MODE set to factory defaults (Normal, Float, Radian, Function, …)
+ *   - Zoom factors set to 4
+ *   - STAT data erased
+ *   Caller is responsible for calling Prgm_Init()+Prgm_Save() to erase programs,
+ *   and srand(0) to reset the rand seed.
+ *   Must be called from RAM (calls Persist_Save internally).
+ */
+void Persist_Reset(void);
+
 #endif /* PERSIST_H */

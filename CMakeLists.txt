@@ -87,6 +87,7 @@ set(APP_SOURCES
     App/Src/ui_draw.c
     App/Src/ui_vars.c
     App/Src/ui_yvars.c
+    App/Src/ui_reset.c
     App/Src/graph_ui.c
     App/Src/graph_ui_range.c
     App/Src/ui_graph_zoom.c

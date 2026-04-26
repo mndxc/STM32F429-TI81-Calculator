@@ -47,6 +47,7 @@
 #  include "ui_draw.h"
 #  include "ui_vars.h"
 #  include "ui_yvars.h"
+#  include "ui_reset.h"
 #  include "graph_ui.h"
 #  include "ui_graph_zoom.h"
 #  include "ui_palette.h"
@@ -856,6 +857,7 @@ void hide_all_screens(void)
     Draw_HideScreen();
     Vars_HideScreen();
     Yvars_HideScreen();
+    Reset_HideScreen();
     hide_prgm_screens();
     Graph_SetVisible(false);
 }
@@ -1208,8 +1210,9 @@ static const ModeEntry_t k_mode_handlers[] = {
     { MODE_PRGM_EXEC_MENU,     handle_prgm_exec_menu    },
     { MODE_PRGM_MODE_NUMBER,   handle_prgm_mode_number  },
     { MODE_PRGM_MODE_GRAPH,    handle_prgm_mode_graph   },
+    { MODE_RESET_CONFIRM,      handle_reset_confirm     },
 };
-_Static_assert(ARRAY_SIZE(k_mode_handlers) == 25,
+_Static_assert(ARRAY_SIZE(k_mode_handlers) == 26,
                "mode handler count mismatch — update k_mode_handlers");
 
 /**
@@ -1266,6 +1269,15 @@ void Execute_Token(Token_t t)
     /*--- TOKEN_MODE: always opens MODE screen from any mode ----------------*/
     if (t == TOKEN_MODE) {
         ui_mode_open();
+        return;
+    }
+
+    /*--- TOKEN_RESET (2nd++): RESET confirmation screen from any mode ------*/
+    if (t == TOKEN_RESET) {
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        Reset_MenuOpen(current_mode);
         return;
     }
 
@@ -1429,6 +1441,7 @@ void StartCalcCoreTask(void const *argument)
     ui_init_draw_screen();
     ui_init_vars_screen();
     ui_init_yvars_screen();
+    ui_init_reset_screen();
     ui_init_prgm_screens();
     cursor_timer = lv_timer_create(cursor_timer_cb, CURSOR_BLINK_MS, NULL);
     ui_update_zoom_display();   /* populate ZOOM labels with initial scroll=0 (defined in graph_ui.c) */
