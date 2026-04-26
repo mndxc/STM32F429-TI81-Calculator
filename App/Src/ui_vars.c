@@ -41,7 +41,7 @@ static const char * const vars_tab_names[VARS_TAB_COUNT] = {
     "XY", "\xCE\xA3", "LR", "DIM", "RNG"
 };
 
-static const uint8_t vars_tab_item_count[VARS_TAB_COUNT] = { 7, 5, 4, 6, 10 };
+static const uint8_t vars_tab_item_count[VARS_TAB_COUNT] = { 7, 5, 4, 7, 10 };
 
 /* Tab 0: XY — statistics summary */
 static const char * const vars_xy_names[7] = {
@@ -68,9 +68,9 @@ static const char * const vars_lr_names[4] = {
     "1:a", "2:b", "3:r", "4:RegEQ"
 };
 
-/* Tab 3: DIM — matrix dimensions */
-static const char * const vars_dim_names[6] = {
-    "1:Arow", "2:Acol", "3:Brow", "4:Bcol", "5:Crow", "6:Ccol"
+/* Tab 3: DIM — matrix dimensions + stat list length */
+static const char * const vars_dim_names[7] = {
+    "1:Arow", "2:Acol", "3:Brow", "4:Bcol", "5:Crow", "6:Ccol", "7:Dim{x}"
 };
 
 /* Tab 4: RNG — window range (10 items; item 10 digit-shortcut is TOKEN_0) */
@@ -157,12 +157,13 @@ static void vars_format_value(uint8_t tab, uint8_t item, char *buf, size_t len)
 
     case 3: /* DIM */
         switch (item) {
-        case 0: v = (float)calc_matrices[0].rows; break;
-        case 1: v = (float)calc_matrices[0].cols; break;
-        case 2: v = (float)calc_matrices[1].rows; break;
-        case 3: v = (float)calc_matrices[1].cols; break;
-        case 4: v = (float)calc_matrices[2].rows; break;
-        case 5: v = (float)calc_matrices[2].cols; break;
+        case 0: v = (float)calc_matrices[0].rows;       break;
+        case 1: v = (float)calc_matrices[0].cols;       break;
+        case 2: v = (float)calc_matrices[1].rows;       break;
+        case 3: v = (float)calc_matrices[1].cols;       break;
+        case 4: v = (float)calc_matrices[2].rows;       break;
+        case 5: v = (float)calc_matrices[2].cols;       break;
+        case 6: v = (float)Stat_GetData()->list_len;    break;
         default: snprintf(buf, len, "0"); return;
         }
         break;
