@@ -350,11 +350,15 @@ static void cmd_ds_lt(const char *line, uint16_t ln)
 
 /* CMD: End
  * Syntax: End
- * Effect: No-op; retained for compatibility — no block structures in this
- *         implementation (Then/Else/While/For removed per TI-81 spec). */
+ * Effect: In a subroutine, returns control to the calling program (pops the
+ *         call frame).  At the top level, terminates the program (like Stop).
+ *         Guidebook p. 8-11. */
 static void cmd_end(const char *line, uint16_t ln)
 {
-    (void)line; (void)ln; /* no-op: no block structures in simplified CTL spec */
+    (void)line; (void)ln;
+    /* Exhaust current program's line counter; prgm_run_loop() will then either
+     * pop the call stack (subroutine return) or finalize execution (top level). */
+    prgm_run_pc = prgm_run_num_lines;
 }
 
 /* CMD: Pause

@@ -589,6 +589,54 @@ static void test_nested_subroutine(void)
 }
 
 /* -------------------------------------------------------------------------
+ * Group 18: End command (6 tests) — guidebook p. 8-11
+ * ---------------------------------------------------------------------- */
+static void test_end_command(void)
+{
+    printf("Group 18: End command\n");
+
+    /* 1. End in top-level terminates (like Stop) */
+    reset_state();
+    run_program("5->A\nEnd\n9->A");
+    CHECK(current_mode == MODE_NORMAL, "end-top: mode NORMAL");
+    CHECK(NEAR(calc_variables['A'-'A'], 5.0f), "end-top: lines after End not run");
+
+    /* 2. End at very end of top-level program — normal completion */
+    reset_state();
+    run_program("3->A\nEnd");
+    CHECK(current_mode == MODE_NORMAL, "end-top-last: mode NORMAL");
+    CHECK(NEAR(calc_variables['A'-'A'], 3.0f), "end-top-last: A=3");
+
+    /* 3. End in subroutine returns control to caller — caller resumes */
+    reset_state();
+    Prgm_SetName(1, "S");
+    Prgm_SetBody(1, "7->B\nEnd\n99->B");
+    run_program("prgm2\n9->C");
+    CHECK(NEAR(calc_variables['B'-'A'], 7.0f), "end-sub: B=7, lines after End not run");
+    CHECK(NEAR(calc_variables['C'-'A'], 9.0f), "end-sub: caller resumes, C=9");
+
+    /* 4. End mid-subroutine: caller's subsequent lines all still execute */
+    reset_state();
+    Prgm_SetName(1, "S");
+    Prgm_SetBody(1, "1->A\nEnd\n2->A");
+    run_program("prgm2\n3->B\n4->C");
+    CHECK(NEAR(calc_variables['A'-'A'], 1.0f), "end-mid-sub: A=1, not overwritten");
+    CHECK(NEAR(calc_variables['B'-'A'], 3.0f), "end-mid-sub: B=3 from caller");
+    CHECK(NEAR(calc_variables['C'-'A'], 4.0f), "end-mid-sub: C=4 from caller");
+
+    /* 5. End in nested subroutine returns one level (not all the way) */
+    reset_state();
+    Prgm_SetName(1, "MID");
+    Prgm_SetName(2, "DEEP");
+    Prgm_SetBody(1, "prgm3\n2->B");
+    Prgm_SetBody(2, "1->A\nEnd\n9->A");
+    run_program("prgm2\n3->C");
+    CHECK(NEAR(calc_variables['A'-'A'], 1.0f), "end-nested: deep End set A=1");
+    CHECK(NEAR(calc_variables['B'-'A'], 2.0f), "end-nested: mid resumes, B=2");
+    CHECK(NEAR(calc_variables['C'-'A'], 3.0f), "end-nested: main resumes, C=3");
+}
+
+/* -------------------------------------------------------------------------
  * main
  * ---------------------------------------------------------------------- */
 
@@ -678,6 +726,7 @@ int main(void)
     test_empty_body();
     test_lookup_slot();
     test_nested_subroutine();
+    test_end_command();
     test_prgm_mode_cmds();
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);

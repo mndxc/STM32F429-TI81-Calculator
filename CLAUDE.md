@@ -31,7 +31,7 @@ Snapshot as of **2026-04-17** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 775 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 10 suites, 787 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, and MenuState_t navigation tests.
 
 ### Scorecard Change Log
 
@@ -54,6 +54,7 @@ Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware valida
 | 2026-04-24 | Testing | A | A | P36–P39 PRGM MODE commands: 17 new cmd handlers (Norm/Sci/Eng/Fix/Float/Rad/Deg + 10 GRAPH), new ui_prgm_mode.c sub-menu (NUMBER/GRAPH tabs), 10 new host assertions; suite grows to 10 suites / 752 assertions; complexity delta: neutral |
 | 2026-04-25 | Testing | A | A | Hyperbolic functions engine: 6 `MATH_FUNC_SINH/COSH/TANH/ASINH/ACOSH/ATANH` tokens, keyword entries, eval cases; 16 new host assertions; suite grows to 10 suites / 771 assertions; complexity delta: neutral |
 | 2026-04-25 | Error handling | A- | A- | [bug] Auto-close trailing `(`: `sy_drain_stack()` now discards unmatched `(` as implicit `)` per guidebook p. 1-9; emits pending function tokens; 4 new host assertions; suite grows to 10 suites / 775 assertions; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | [bug] `End` subroutine return: `cmd_end()` sets `prgm_run_pc = prgm_run_num_lines`, delegating to existing implicit-return machinery; top-level terminates, subroutine pops call frame; 12 new host assertions (Group 18); suite grows to 10 suites / 787 assertions; complexity delta: neutral |
 
 ---
 
@@ -113,8 +114,6 @@ Items are ordered within each tier by estimated difficulty (easiest first). Depe
 #### Easy — self-contained, hours
 
 **[complexity] P29 — DRAW menu complexity follow-up (stat renderer extraction)** — Draw layer extracted to `graph_draw.c`; `Graph_DrawTrace()` split into `graph_draw_trace_param/func` static helpers (118→17 lines); `graph_render_setup()` deduplicated from both render functions; `GRAPH_BUF_ADDR` named constant added. Remaining: stat renderer functions (`Graph_DrawScatter/XYLine/Histogram`, `stat_plot_prepare`, `draw_line_px`) still in `graph.c` (~150 lines, tightly coupled to private canvas state — `graph_render_setup()` now exposed as a hook point if extraction to `graph_stat.c` is pursued). Assess at next code-organisation review. Files: `App/Src/graph.c`.
-
-**[bug] `End` subroutine return** — Guidebook p. 8-11: `End` in a called subroutine returns control to the calling program. `cmd_end()` in `prgm_exec.c` is currently a no-op. Fix: check call stack depth; if non-empty, pop the frame (resume caller); if empty, terminate (equivalent to `Stop`). Files: `App/Src/prgm_exec.c`.
 
 **`Dim{x}` in VARS DIM tab** — VARS DIM menu is missing item 7: `Dim{x}` (guidebook pp. 6-11, 7-11), which returns the number of stat data points. Add a 7th entry that reads `Stat_GetResults()->n`. Files: `App/Src/ui_vars.c`.
 
