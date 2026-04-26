@@ -1177,6 +1177,70 @@ static void test_nderiv(void)
 #undef NEAR_D
 
 /* =========================================================================
+ * Group 5e — Shade( expression pre-compilation (PrepareGraphEquation)
+ *
+ * Validates the expression evaluation half of the Shade( upgrade:
+ * both boundary functions are compiled once then evaluated per-column.
+ * Uses the guidebook p. 5-10 example: lower=X+1, upper=X^3-8*X.
+ * ====================================================================== */
+static void test_shade_expressions(void)
+{
+    printf("[5e] Shade( expression pre-compilation\n");
+    GraphEquation_t eq_lo, eq_hi;
+    CalcResult_t r;
+
+    /* Both expressions compile without error */
+    CHECK(Calc_PrepareGraphEquation("X+1",    0.0f, &eq_lo) == CALC_OK,
+          "Shade lower 'X+1' compiles OK");
+    CHECK(Calc_PrepareGraphEquation("X^3-8*X", 0.0f, &eq_hi) == CALC_OK,
+          "Shade upper 'X^3-8*X' compiles OK");
+
+    /* At X=0: lo=1, hi=0  → lower > upper (no shading here) */
+    r = Calc_EvalGraphEquation(&eq_lo, 0.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 1.0f),  "lower X+1 at x=0 → 1");
+    r = Calc_EvalGraphEquation(&eq_hi, 0.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.0f),  "upper X^3-8X at x=0 → 0");
+
+    /* At X=3: lo=4, hi=27-24=3 → lower > upper (no shading) */
+    r = Calc_EvalGraphEquation(&eq_lo, 3.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 4.0f),  "lower X+1 at x=3 → 4");
+    r = Calc_EvalGraphEquation(&eq_hi, 3.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 3.0f),  "upper X^3-8X at x=3 → 3");
+
+    /* At X=-3: lo=-2, hi=-27+24=-3 → lower > upper (no shading) */
+    r = Calc_EvalGraphEquation(&eq_lo, -3.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, -2.0f), "lower X+1 at x=-3 → -2");
+    r = Calc_EvalGraphEquation(&eq_hi, -3.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, -3.0f), "upper X^3-8X at x=-3 → -3");
+
+    /* At X=4: lo=5, hi=64-32=32 → lower < upper (shaded) */
+    r = Calc_EvalGraphEquation(&eq_lo, 4.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 5.0f),  "lower X+1 at x=4 → 5");
+    r = Calc_EvalGraphEquation(&eq_hi, 4.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 32.0f), "upper X^3-8X at x=4 → 32");
+    CHECK(r.value > Calc_EvalGraphEquation(&eq_lo, 4.0f, false).value,
+          "upper > lower at x=4 (shaded region)");
+
+    /* At X=-4: lo=-3, hi=-64+32=-32 → lower > upper (no shading) */
+    r = Calc_EvalGraphEquation(&eq_hi, -4.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, -32.0f),"upper X^3-8X at x=-4 → -32");
+
+    /* Constant expressions compile and evaluate correctly */
+    GraphEquation_t eq_const;
+    CHECK(Calc_PrepareGraphEquation("3", 0.0f, &eq_const) == CALC_OK,
+          "Shade constant '3' compiles OK");
+    r = Calc_EvalGraphEquation(&eq_const, 99.0f, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 3.0f),
+          "constant '3' evaluates to 3 regardless of X");
+
+    /* Invalid expression: prepare succeeds but evaluation returns an error */
+    GraphEquation_t eq_bad;
+    Calc_PrepareGraphEquation("++", 0.0f, &eq_bad);
+    r = Calc_EvalGraphEquation(&eq_bad, 0.0f, false);
+    CHECK(r.error != CALC_OK, "invalid Shade expression '++' evaluates to error");
+}
+
+/* =========================================================================
  * Group 5d — {x}(n) / {y}(n) stat list element access
  * ====================================================================== */
 
@@ -1268,6 +1332,9 @@ int main(void)
 
     reset_state();
     test_nderiv();
+
+    reset_state();
+    test_shade_expressions();
 
     reset_state();
     test_list_access();

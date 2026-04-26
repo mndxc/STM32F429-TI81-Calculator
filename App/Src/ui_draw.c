@@ -141,6 +141,31 @@ static void draw_menu_select(void)
  * Called by history_enter_evaluate() in calculator_core.c.
  *---------------------------------------------------------------------------*/
 
+/* Extract one raw argument string from *p (depth-aware, stops at top-level
+ * comma or ')').  Trims surrounding whitespace, writes to out, advances *p
+ * past the argument and its trailing comma if present.
+ * Returns true on success, false if the argument is empty or overflows out. */
+static bool shade_extract_str(const char **p, char *out, size_t out_size)
+{
+    while (**p == ' ') (*p)++;
+    const char *start = *p;
+    uint8_t depth = 0;
+    while (**p) {
+        if (**p == '(') { depth++; (*p)++; continue; }
+        if (**p == ')') { if (depth == 0) break; depth--; (*p)++; continue; }
+        if (**p == ',' && depth == 0) break;
+        (*p)++;
+    }
+    const char *end = *p;
+    while (end > start && *(end - 1) == ' ') end--;
+    size_t len = (size_t)(end - start);
+    if (len == 0 || len >= out_size) return false;
+    memcpy(out, start, len);
+    out[len] = '\0';
+    if (**p == ',') (*p)++;
+    return true;
+}
+
 /* Evaluate a sub-expression string [start, end) as a float.
  * Used to evaluate individual arguments of DRAW commands. */
 static float eval_draw_arg(const char *start, const char *end)
@@ -264,12 +289,34 @@ bool try_execute_draw_command(void)
         return true;
     }
 
-    /* Shade(yLow,yHigh) */
+    /* Shade(lowerfunc, upperfunc [, resolution, Xbeg, Xend]) */
     if (strncmp(expr.buf, "Shade(", 6) == 0) {
-        const char *p = expr.buf + 5;
-        float args[2] = {0};
-        if (parse_draw_args(&p, args, 2) >= 2) {
-            Graph_Shade(args[0], args[1], shade_grey);
+        const char *p = expr.buf + 6;   /* point past '(' */
+        char func_lo[64], func_hi[64];
+        if (shade_extract_str(&p, func_lo, sizeof(func_lo)) &&
+            shade_extract_str(&p, func_hi, sizeof(func_hi))) {
+            /* Default optional scalars from graph state */
+            const GraphState_t *gs = Graph_GetState();
+            float scalar_args[3] = { gs->x_res, gs->x_min, gs->x_max };
+            uint8_t ns = 0;
+            while (*p && *p != ')' && ns < 3) {
+                const char *start = p;
+                uint8_t depth = 0;
+                while (*p) {
+                    if (*p == '(') { depth++; p++; continue; }
+                    if (*p == ')') { if (depth == 0) break; depth--; p++; continue; }
+                    if (*p == ',' && depth == 0) break;
+                    p++;
+                }
+                scalar_args[ns++] = eval_draw_arg(start, p);
+                if (*p == ',') p++;
+            }
+            int resolution = (int)scalar_args[0];
+            if (resolution < 1) resolution = 1;
+            if (resolution > 8) resolution = 8;
+            Graph_Shade(func_lo, func_hi, resolution,
+                        scalar_args[1], scalar_args[2],
+                        shade_grey, angle_degrees);
             if (Graph_IsVisible())
                 Graph_Render(angle_degrees);
         }

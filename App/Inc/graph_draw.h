@@ -40,10 +40,27 @@ void Graph_DrawLayerLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1,
 void Graph_DrawF(const char *expr, uint16_t color, bool angle_degrees);
 
 /**
- * @brief Fills the draw layer between y_low and y_high at every pixel column.
- *        y_low and y_high are math-world Y coordinates.
+ * @brief Shades the area between two X-expressions on the draw layer.
+ *
+ * Implements the full TI-81 Shade( specification (guidebook p. 5-8):
+ *   Shade(lowerfunc, upperfunc [, resolution, Xbeg, Xend])
+ *
+ * Both expressions are evaluated per pixel column. Only columns where
+ * lowerfunc < upperfunc are filled. Resolution (1–8) controls fill density:
+ * 1 fills every column, 2 fills every 2nd column, etc. Xbeg/Xend clip the
+ * shaded region. The two boundary curves are also drawn.
+ *
+ * @param lower_expr    Infix expression in X for the lower boundary
+ * @param upper_expr    Infix expression in X for the upper boundary
+ * @param resolution    Fill density 1–8 (1 = every column)
+ * @param x_beg         Left math-world X boundary
+ * @param x_end         Right math-world X boundary
+ * @param fill_color    RGB565 colour for both fill and boundary curves
+ * @param angle_degrees True for degrees, false for radians
  */
-void Graph_Shade(float y_low, float y_high, uint16_t fill_color);
+void Graph_Shade(const char *lower_expr, const char *upper_expr,
+                 int resolution, float x_beg, float x_end,
+                 uint16_t fill_color, bool angle_degrees);
 
 /**
  * @brief Blends the draw layer over dest (graph_buf passed from graph.c).

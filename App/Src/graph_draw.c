@@ -99,12 +99,44 @@ void Graph_DrawF(const char *expr, uint16_t color, bool angle_degrees)
     }
 }
 
-void Graph_Shade(float y_low, float y_high, uint16_t fill_color)
+void Graph_Shade(const char *lower_expr, const char *upper_expr,
+                 int resolution, float x_beg, float x_end,
+                 uint16_t fill_color, bool angle_degrees)
 {
-    if (y_low > y_high) { float tmp = y_low; y_low = y_high; y_high = tmp; }
-    for (int32_t px = 0; px < GRAPH_W; px++) {
-        int32_t py_top = draw_math_y_to_px(y_high);
-        int32_t py_bot = draw_math_y_to_px(y_low);
+    GraphEquation_t lower_eq, upper_eq;
+    if (Calc_PrepareGraphEquation(lower_expr, 0.0f, &lower_eq) != CALC_OK) return;
+    if (Calc_PrepareGraphEquation(upper_expr, 0.0f, &upper_eq) != CALC_OK) return;
+
+    const GraphState_t *gs = Graph_GetState();
+    float x_range = gs->x_max - gs->x_min;
+    if (fabsf(x_range) < 1e-9f) return;
+
+    /* Convert math-world boundaries to pixel columns */
+    if (x_beg > x_end) { float tmp = x_beg; x_beg = x_end; x_end = tmp; }
+    int32_t px_beg = (int32_t)((x_beg - gs->x_min) / x_range * (GRAPH_W - 1));
+    int32_t px_end = (int32_t)((x_end - gs->x_min) / x_range * (GRAPH_W - 1));
+    if (px_beg < 0) px_beg = 0;
+    if (px_end >= GRAPH_W) px_end = GRAPH_W - 1;
+
+    for (int32_t px = px_beg; px <= px_end; px++) {
+        float x = draw_px_to_math_x(px);
+        CalcResult_t r_lo = Calc_EvalGraphEquation(&lower_eq, x, angle_degrees);
+        CalcResult_t r_hi = Calc_EvalGraphEquation(&upper_eq, x, angle_degrees);
+
+        bool lo_valid = (r_lo.error == CALC_OK && !isnan(r_lo.value) && !isinf(r_lo.value));
+        bool hi_valid = (r_hi.error == CALC_OK && !isnan(r_hi.value) && !isinf(r_hi.value));
+
+        /* Draw the two boundary curves at every column */
+        if (lo_valid) Graph_DrawLayerSetPixel(px, draw_math_y_to_px(r_lo.value), fill_color);
+        if (hi_valid) Graph_DrawLayerSetPixel(px, draw_math_y_to_px(r_hi.value), fill_color);
+
+        /* Fill only where lower < upper; respect resolution column spacing */
+        if (!lo_valid || !hi_valid) continue;
+        if (r_lo.value >= r_hi.value) continue;
+        if (resolution > 1 && (px % resolution) != 0) continue;
+
+        int32_t py_top = draw_math_y_to_px(r_hi.value); /* higher Y → lower row */
+        int32_t py_bot = draw_math_y_to_px(r_lo.value);
         if (py_top > py_bot) { int32_t tmp = py_top; py_top = py_bot; py_bot = tmp; }
         if (py_top < 0) py_top = 0;
         if (py_bot >= GRAPH_H) py_bot = GRAPH_H - 1;
