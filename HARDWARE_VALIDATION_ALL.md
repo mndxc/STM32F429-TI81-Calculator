@@ -1,5 +1,6 @@
 # Neo-81 — Full Hardware Validation Checklist
-_Generated 2026-04-18. All features implemented; none yet verified on hardware._
+_Generated 2026-04-18. Updated 2026-04-28 to include all commits through cf931ab._
+_All features implemented; none yet verified on hardware._
 _Mark each test: ✅ PASS  ❌ FAIL  ⚠️ PARTIAL_
 
 ---
@@ -111,9 +112,12 @@ _Validates `2nd+PRGM` draw overlay commands._
 | 5 | Type `PT-Off(2,3)` → ENTER | That pixel cleared | |
 | 6 | Type `PT-Chg(2,3)` → ENTER twice | Pixel toggles: on after first ENTER, off after second | |
 | 7 | Type `DrawF sin(X)` → ENTER | Sine curve drawn as white overlay on graph canvas | |
-| 8 | Type `Shade(-1,1)` → ENTER | Horizontal band between y=−1 and y=1 shaded on graph canvas | |
+| 8 | Type `Shade(-1,1)` → ENTER | Horizontal band between y=−1 and y=1 shaded on graph canvas (constant boundaries) | |
 | 9 | After drawing, press `ZOOM` → `Standard` → return to graph | Draw layer content still visible (persists across re-render) | |
 | 10 | Type `ClrDraw` → ENTER | All drawn content cleared from graph canvas | |
+| 11 | Set window X[-5,5] Y[-5,5] → type `Shade(sin(X),cos(X),2,-3,3)` → ENTER | Shaded region appears only where sin(X) < cos(X) within X[-3,3]; boundary curves drawn; resolution=2 visibly sparser than default | |
+| 12 | Type `Shade(X+1,X^3-8*X)` → ENTER | Shading appears in columns where X+1 < X³−8X; boundary curves drawn (guidebook p. 5-10 example) | |
+| 13 | Type `Shade(sin(X),cos(X),1,-1,1)` → ENTER, then `Shade(sin(X),cos(X),8,-1,1)` → ENTER | Resolution 1 produces denser fill than resolution 8 | |
 
 ---
 
@@ -134,6 +138,10 @@ _Validates statistics data entry, calculations, and graph plots._
 | 8 | DRAW → `3:xyLine` | Points connected by lines on graph canvas | |
 | 9 | DRAW → `1:Hist` | Histogram bars visible on graph canvas | |
 | 10 | `2nd+ON` to save → power-cycle → STAT → DATA → Edit | All 5 data pairs intact | |
+| 11 | DATA → Edit → navigate to row 3 → press RIGHT to reach column 3 (row-select state) | `>` prefix appears before row 3 cursor; pressing INS/DEL applies to whole row | |
+| 12 | With `>` cursor at row 3 → press `2ND+INS` | New row (0,0) inserted before the current row 3; remaining rows shift down; total becomes 6 pairs | |
+| 13 | With `>` cursor at a row → press `DEL` | That row is removed; remaining rows shift up | |
+| 14 | From home screen, after running 1-Var with 5 pairs: type `{x}(1)` → ENTER | Result is the first x-value (1); type `{y}(3)` → ENTER: result is the third y-value (7); type `{x}(6)` → ENTER: DOMAIN ERR (out of bounds) | |
 
 ---
 
@@ -153,13 +161,14 @@ _Validates all 5 tabs of the VARS key menu._
 | 7 | Press `Y=`, move cursor to Y₁= equation field, press `VARS` → XY → `2:x̄` | Value inserted into Y= equation (not home screen) | |
 | 8 | LR tab → select `1:a` | Regression coefficient a=2 inserted | |
 | 9 | LR tab → select `4:RegEQ` | String `aX+b` inserted into expression | |
+| 10 | DIM tab → scroll to item `7:Dim{x}` → select | Current stat list length (5, if 5 pairs were entered) inserted into expression; verify by pressing ENTER and confirming the value matches the pair count | |
 
 ---
 
 ## Section 6 — Y-VARS menu (P32h)
 _Validates `2nd+VARS` equation reference and enable/disable tabs._
 
-**Setup:** Ensure Y₁=X is entered and enabled. Enter Y₂=X² as well.
+**Setup:** Ensure Y₁=X is entered and enabled. Enter Y₂=X² as well. In parametric mode, ensure X₁t=cos(T) / Y₁t=sin(T) is entered.
 
 | # | Test | Expected | Result |
 |---|---|---|---|
@@ -170,11 +179,16 @@ _Validates `2nd+VARS` equation reference and enable/disable tabs._
 | 5 | OFF tab → `1:All-Off` → press `Y=` | All equations show `-` (disabled); no `=` visible | |
 | 6 | ON tab → `2:Y₁-On` → press `Y=` | Y₁ shows `=` (enabled); Y₂–Y₄ remain `-` | |
 | 7 | Y tab → press `1` directly (no UP/DOWN first) | `Y₁` inserted immediately — digit shortcut works without navigating | |
+| 8 | In Func mode: Y tab shows exactly 4 items (Y₁–Y₄); in Param mode: Y tab shows 10 items (Y₁–Y₄ then X₁t, Y₁t, X₂t, Y₂t, X₃t, Y₃t) with scroll indicators (↑↓) appearing once past item 7 | Switch to Param via MODE; re-open Y-VARS → Y tab; confirm 10 items and scroll | |
+| 9 | In Param mode: Y tab → press `6` (digit shortcut for item 6) | `X₁t` string inserted immediately | |
+| 10 | In Param mode: Y tab → scroll down to item `8:Y₂t` → ENTER | `Y₂t` inserted into expression buffer | |
+| 11 | In Param mode: ON tab | 8 items visible: `1:All-On`, `2:Y₁-On`, `3:Y₂-On`, `4:Y₃-On`, `5:Y₄-On`, `6:X₁t-On`, `7:X₂t-On`, `8:X₃t-On` | |
+| 12 | In Param mode: OFF tab → select `6:X₁t-Off` → press `Y=` | X₁t/Y₁t pair shows `-` (disabled); other pairs unaffected | |
 
 ---
 
 ## Section 7 — PRGM system (P10)
-_50 tests. Hardware: STM32F429I-DISC1. Run after flashing latest build._
+_50 tests + 5 new. Hardware: STM32F429I-DISC1. Run after flashing latest build._
 _Mark ✅ / ❌ / ⚠️. See Notes section at end for context on individual tests._
 
 ### Menu & Navigation
@@ -259,6 +273,22 @@ _Mark ✅ / ❌ / ⚠️. See Notes section at end for context on individual tes
 | T36 | ClrHome clears history | Program: `Disp "LINE1"` / `Disp "LINE2"` / `ClrHome` / `Disp "AFTER"` → run | After ClrHome, LINE1 and LINE2 gone; only `AFTER` visible | |
 | T37 | DispGraph switches to graph view | Ensure Y₁=X. Program: `DispGraph` / `Pause` / `DispHome` → run | Graph canvas appears (no lockup); ENTER at Pause switches back to home screen | |
 
+### Executor — End command
+
+| # | Test | Steps | Expected | Result |
+|---|---|---|---|---|
+| T38 | End terminates at top level | Program: `Disp "A"` / `End` / `Disp "B"` → run | `A` appears; `B` does not; `Done` shown (same behaviour as Stop) | |
+| T39 | End returns from subroutine | Slot 2: `Disp "SUB"` / `End`. Slot 1: `Disp "MAIN"` / `prgm2` / `Disp "BACK"` → run slot 1 | History: `MAIN`, `SUB`, `BACK` in order — End in subroutine returns to caller, does not terminate the parent | |
+
+### PRGM MODE sub-menu
+
+| # | Test | Steps | Expected | Result |
+|---|---|---|---|---|
+| T40 | PRGM MODE opens NUMBER tab | In editor → press `MODE` key | PRGM MODE sub-menu opens with `NUMBER` tab active; 7 items: `1:Norm`, `2:Sci`, `3:Eng`, `4:Fix`, `5:Float`, `6:Rad`, `7:Deg`; CLEAR exits | |
+| T41 | PRGM MODE NUMBER item inserts keyword | Select `2:Sci` | `:Sci` inserted into current program line | |
+| T42 | PRGM MODE GRAPH tab | From NUMBER tab, press RIGHT | GRAPH tab active; 10 items: `1:Function`–`9:Rect` with `0:` (10th) requiring scroll; LEFT/RIGHT tab wrap works | |
+| T43 | PRGM MODE executes notation change | Slot 1: `Sci`. Run slot 1 from home. Type `123` → ENTER | Result shows `1.23E2` — Sci mode active; confirm by re-running `Norm` program and checking `123` ENTER → `123` | |
+
 ### Editor Alpha Behaviour
 
 | # | Test | Steps | Expected | Result |
@@ -288,6 +318,156 @@ _Mark ✅ / ❌ / ⚠️. See Notes section at end for context on individual tes
 - CTL menu must have exactly **8 items**. `Then`, `Else`, `While`, `For(`, `Return`, `prgm` must not appear.
 - I/O menu must have exactly **5 items**. `Prompt`, `Output(`, `Menu(` must not appear.
 - T25 label enforcement: single-char limit is enforced at entry in the editor (typing a second char is ignored). This is intentional. If you want to change this to allow multi-char labels with a runtime error, add it to "Next session priorities" in CLAUDE.md.
+- T40–T43: PRGM MODE NUMBER/GRAPH tab numbers listed above; verify via docs/PRGM_COMMANDS.md for full item list.
+
+---
+
+## Section 8 — MODE screen — display and graph modes
+_Validates MODE rows 0, 5, 6, 8 and the free-roaming graph cursor introduced with MODE_GRAPH_FREE_CURSOR._
+
+**Setup:** Start in default state (Normal notation, Func mode, Connected, Sequential, Rect display). Use `2nd+ON` → power-cycle to verify persistence tests.
+
+### Display notation (Sci / Eng / Norm)
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 1 | Press `MODE` → inspect row 0 | Three options shown: `Norm  Sci  Eng`; current selection highlighted | |
+| 2 | Select `Sci` → ENTER → return to home → type `12345` → ENTER | Result shows `1.2345E4` (exactly one digit before decimal point) | |
+| 3 | In Sci mode, type `0.00123` → ENTER | Result shows `1.23E-3` | |
+| 4 | Select `Eng` → ENTER → type `12345` → ENTER | Result shows `12.345E3` (exponent is a multiple of 3) | |
+| 5 | In Eng mode, type `0.00123` → ENTER | Result shows `1.23E-3` | |
+| 6 | Select `Norm` → ENTER → type `0.0005` → ENTER | Result shows `5E-4` (auto-sci threshold: values < 0.001 display in scientific notation) | |
+| 7 | In Norm mode, type `0.001` → ENTER | Result shows `0.001` (threshold is strictly less than 0.001, so 0.001 stays in Norm) | |
+| 8 | Set `Sci` → `2nd+ON` → power-cycle → check home screen with `100` → ENTER | Result shows `1E2` — notation mode persisted | |
+
+### Free-roaming graph cursor
+
+**Setup:** Ensure Y₁=sin(X) is entered and enabled. Set RANGE to ZTrig preset (ZOOM → ZTrig).
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 9 | Press `GRAPH` from home screen | Blinking white crosshair appears at screen centre; `X=` and `Y=` labels below canvas show current math coordinates | |
+| 10 | Press LEFT, RIGHT, UP, DOWN | Crosshair moves one pixel per press; `X=` and `Y=` update with each step; cursor remains visible immediately after each press (blink timer resets) | |
+| 11 | From free-cursor position, press `TRACE` | Cursor snaps to nearest active equation at the current X position; crosshair turns to trace style (green); `X=`/`Y=` show on-curve values | |
+| 12 | While in TRACE mode, press `TRACE` again | Cursor re-snaps to X=x_mid on the same equation — does NOT exit trace mode; no visible glitch | |
+| 13 | While in TRACE mode, press `GRAPH` | Graph re-renders; blinking white free cursor appears at screen centre | |
+| 14 | While in TRACE mode, press a digit key (e.g. `5`) | Trace exits; `5` appears in expression buffer on home screen | |
+| 15 | From `Y=` screen, press `GRAPH` | Blinking free cursor appears (not a static render) | |
+| 16 | From `RANGE` screen, press `GRAPH` | Blinking free cursor appears | |
+| 17 | From `ZOOM` menu, press `GRAPH` | Blinking free cursor appears | |
+| 18 | Navigate to home screen or any menu after graphing | Cursor blink timer stops — no blinking animation occurs when graph canvas is not the active screen | |
+
+### Connected / Dot plot mode (P33h)
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 19 | Press `MODE` → row 5 shows `Connected  Dot` | Both options visible; current selection highlighted | |
+| 20 | Select `Dot` → ENTER → enter Y₁=sin(X) → set ZTrig preset → `GRAPH` | Only individual pixels plotted; no line segments connecting them | |
+| 21 | Select `Connected` → ENTER → re-`GRAPH` (or press GRAPH again) | Interpolated line segments connect the plotted pixels | |
+| 22 | While in Dot mode, select MODE row 4 `Param` → ENTER | Y= layout switches to X₁t/Y₁t (row index bug verified fixed — no mis-routing to Connected/Dot row) | |
+| 23 | Set `Dot` → `2nd+ON` → power-cycle → check MODE row 5 | `Dot` remains selected | |
+
+### Sequential / Simultaneous plot mode (P38h)
+
+**Setup:** Enter Y₁=X and Y₂=X² in Func mode. Set RANGE: Xmin=-5, Xmax=5, Ymin=-5, Ymax=25.
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 24 | Press `MODE` → row 6 shows `Sequential  Simul` | Both options visible | |
+| 25 | Select `Simul` → ENTER → `GRAPH` | Both Y₁ and Y₂ advance across the screen simultaneously — visible interleaving as the graph draws | |
+| 26 | Select `Sequential` → ENTER → `GRAPH` | Y₁=X plots completely first, then Y₂=X² plots | |
+| 27 | Set `Simul` → `2nd+ON` → power-cycle → check MODE row 6 | `Simul` remains selected | |
+
+### Polar coordinate display (P40h)
+
+**Setup:** Return to Rect mode and Func mode. Ensure Y₁=X² is entered.
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 28 | Press `MODE` → row 8 shows `Rect  Pol` | Both options visible | |
+| 29 | Select `Pol` → ENTER → `GRAPH` with Y₁=X² → move free cursor | Readout below canvas shows `R=` and `θ=` instead of `X=` / `Y=` | |
+| 30 | In Pol display mode, press `TRACE` and move LEFT/RIGHT | Trace readout shows `R=` / `θ=` for each step | |
+| 31 | Select `Rect` → ENTER → `GRAPH` | Readout reverts to `X=` / `Y=` | |
+| 32 | Set `Pol` → `2nd+ON` → power-cycle → check MODE row 8 | `Pol` remains selected | |
+| 33 | On home screen (Rad angle mode), type `R>P(-1,0)` → ENTER | Result is `1`; then type `θ` → ENTER: result is `3.14159...` | |
+| 34 | Type `P>R(1,0)` → ENTER | Result is `1`; then type `Y` → ENTER: result is `0` | |
+| 35 | Type `3` → `STO→` → `θ` → ENTER → type `θ` → ENTER | θ variable stores 3; second ENTER returns `3` | |
+
+---
+
+## Section 9 — MATH extensions (HYP tab + nDeriv + expression fixes)
+_Validates hyperbolic functions, numerical derivative, and auto-close trailing parenthesis._
+
+**Setup:** Ensure angle mode is Rad.
+
+### MATH HYP tab
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 1 | Press `MATH` → navigate to `HYP` tab | HYP tab shows 6 items: `sinh(`, `cosh(`, `tanh(`, `asinh(`, `acosh(`, `atanh(` | |
+| 2 | Select `1:sinh(` → type `0` → ENTER | Result is `0` | |
+| 3 | Select `2:cosh(` → type `0` → ENTER | Result is `1` | |
+| 4 | Select `3:tanh(` → type `0` → ENTER | Result is `0` | |
+| 5 | Select `4:asinh(` → type `1` → ENTER | Result ≈ `0.881374` | |
+| 6 | Select `5:acosh(` → type `1` → ENTER | Result is `0` | |
+| 7 | Select `5:acosh(` → type `0` → ENTER | `DOMAIN ERR` (acosh domain is x ≥ 1) | |
+| 8 | Select `6:atanh(` → type `0` → ENTER | Result is `0` | |
+| 9 | Select `6:atanh(` → type `1` → ENTER | `DOMAIN ERR` (atanh domain is |x| < 1) | |
+| 10 | Type `sinh(1)` directly in expression buffer without menu | Result ≈ `1.1752` (confirms keyword tokenizer matches `sinh` before `sin`) | |
+
+### nDeriv(
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 11 | Type `nDeriv(X^2,X,3)` → ENTER | Result ≈ `6` (derivative of X² at X=3 is 2X=6; tolerance ±0.01) | |
+| 12 | Type `nDeriv(sin(X),X,0)` → ENTER | Result ≈ `1` (derivative of sin at 0 is cos(0)=1; tolerance ±0.01) | |
+| 13 | Type `nDeriv(X^3,X,2)` → ENTER | Result ≈ `12` (derivative of X³ at X=2 is 3X²=12; tolerance ±0.01) | |
+
+### Auto-close trailing parenthesis
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 14 | Type `sin(1` (no closing `)`) → ENTER | Result ≈ `0.841471` — unmatched `(` is auto-closed; no SYNTAX ERR | |
+| 15 | Type `(1+2` → ENTER | Result is `3` — leading unmatched `(` auto-closed | |
+| 16 | Type `sin(cos(0` → ENTER | Result ≈ `0.841471` — two unmatched `(` auto-closed in order | |
+
+---
+
+## Section 10 — Matrix row operations (MATRX MATH menu)
+_Validates rowSwap, Row+, \*Row, \*Row+ added to MATRX MATH menu._
+
+**Setup:** Set matrix [A] to a 2×2 matrix with values [[1,2],[3,4]]. (MATRX → EDIT → [A] → set 2 rows, 2 cols → enter values.)
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 1 | Press `MATRX` | MATRX menu opens; navigate to MATH tab | MATH tab shows 6 items: `1:det(`, `2:T`, `3:rowSwap(`, `4:Row+(`, `5:*Row(`, `6:*Row+(` | |
+| 2 | Select `1:det(` → type `[A])` → ENTER | Result is `-2` (det of [[1,2],[3,4]] = 1×4 − 2×3 = −2) | |
+| 3 | Select `2:T` → type `[A])` → ENTER | Result is [[1,3],[2,4]] — transpose of [A] | |
+| 4 | Select `3:rowSwap(` → type `[A],1,2)` → ENTER | Result is [[3,4],[1,2]] — rows 1 and 2 swapped | |
+| 5 | Select `4:Row+(` → type `[A],1,2)` → ENTER | Result is [[1,2],[4,6]] — row 1 added to row 2 | |
+| 6 | Select `5:*Row(` → type `2,[A],1)` → ENTER | Result is [[2,4],[3,4]] — row 1 multiplied by scalar 2 | |
+| 7 | Select `6:*Row+(` → type `2,[A],1,2)` → ENTER | Result is [[1,2],[5,8]] — 2×row 1 added to row 2 | |
+| 8 | All row-op results: original [A] unchanged after evaluating expressions | Press `[A]` → ENTER: still [[1,2],[3,4]] (row-ops return new matrix, do not modify in place) | |
+
+---
+
+## Section 11 — RESET menu
+_Validates `2nd++` (2nd then +) RESET MEMORY confirmation screen per guidebook p. 1-28._
+
+**Setup:** Ensure some data exists before testing reset: enter a stat data pair, name a program, store a value to variable A.
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 1 | Press `2ND` then `+` from home screen | RESET MEMORY screen appears with title `MEMORY`, stat point count (`Sts: N pts`), program count (`Pgm: N stored`), and choices `1:No` / `2:Reset` | |
+| 2 | On RESET screen: press `1` or `CLEAR` | RESET screen closes; returns to previous screen; no data changed | |
+| 3 | Stat count display | Open RESET screen when 5 stat pairs are entered | `Sts: 5 pts` shown | |
+| 4 | Program count display | Open RESET screen when 2 programs are named | `Pgm: 2 stored` shown | |
+| 5 | Press `2` to confirm reset | RESET executes; home screen shows `Mem cleared`; ANS=0 | |
+| 6 | After reset: verify stat cleared | STAT → DATA → Edit | List is empty | |
+| 7 | After reset: verify variables cleared | Type `A` → ENTER | Result is `0` | |
+| 8 | After reset: verify Y= cleared | Press `Y=` | All equations show blank / disabled | |
+| 9 | After reset: verify RANGE defaults | Press `RANGE` | Xmin=-10, Xmax=10, Xscl=1, Ymin=-10, Ymax=10, Yscl=1 | |
+| 10 | `2ND++` accessible from non-home screens | Open STAT menu → press `2ND` then `+` | RESET screen appears (TOKEN_RESET fires from any mode) | |
 
 ---
 
@@ -297,12 +477,16 @@ _Mark ✅ / ❌ / ⚠️. See Notes section at end for context on individual tes
 |---|---|---|---|
 | 1 | Cursor rendering (P28) | 29 | |
 | 2 | Parametric graphing (P35h) | 6 | |
-| 3 | DRAW menu (P29h) | 10 | |
-| 4 | STAT menu (P30h) | 10 | |
-| 5 | VARS menu (P31h) | 9 | |
-| 6 | Y-VARS menu (P32h) | 7 | |
-| 7 | PRGM system (P10) | 50 | |
-| **Total** | | **121** | |
+| 3 | DRAW menu (P29h) | 13 | |
+| 4 | STAT menu (P30h) | 14 | |
+| 5 | VARS menu (P31h) | 10 | |
+| 6 | Y-VARS menu (P32h) | 12 | |
+| 7 | PRGM system (P10) | 55 | |
+| 8 | MODE screen (notation + graph modes + free cursor) | 35 | |
+| 9 | MATH extensions (HYP + nDeriv + auto-close) | 16 | |
+| 10 | Matrix row operations | 8 | |
+| 11 | RESET menu | 10 | |
+| **Total** | | **208** | |
 
 ---
 

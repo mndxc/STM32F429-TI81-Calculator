@@ -1,0 +1,112 @@
+@page {
+  margin: 0.45in 0.5in 0.45in 0.5in;
+  size: letter;
+}
+
+body {
+  font-family: -apple-system, Helvetica Neue, Arial, sans-serif;
+  font-size: 7.5pt;
+  line-height: 1.25;
+  color: #000;
+}
+
+h1 {
+  font-size: 11pt;
+  margin: 0 0 4pt 0;
+  padding: 0;
+}
+
+h2 {
+  font-size: 9pt;
+  margin: 6pt 0 2pt 0;
+  padding: 2pt 0;
+  border-bottom: 1px solid #888;
+  page-break-after: avoid;
+}
+
+h3 {
+  font-size: 8pt;
+  margin: 4pt 0 1pt 0;
+  page-break-after: avoid;
+}
+
+h4 {
+  font-size: 7.5pt;
+  margin: 3pt 0 1pt 0;
+  font-style: italic;
+  page-break-after: avoid;
+}
+
+p {
+  margin: 1pt 0 2pt 0;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 2pt 0 4pt 0;
+  page-break-inside: auto;
+  font-size: 7pt;
+}
+
+thead {
+  background: #e8e8e8;
+}
+
+th {
+  padding: 2pt 4pt;
+  border: 1px solid #bbb;
+  font-weight: bold;
+  font-size: 7pt;
+  text-align: left;
+}
+
+td {
+  padding: 1.5pt 4pt;
+  border: 1px solid #ccc;
+  vertical-align: top;
+}
+
+tr:nth-child(even) {
+  background: #f8f8f8;
+}
+
+code {
+  font-family: Menlo, Courier New, monospace;
+  font-size: 6.5pt;
+  background: #f0f0f0;
+  padding: 0 2pt;
+  border-radius: 2pt;
+}
+
+ul, ol {
+  margin: 1pt 0 2pt 0;
+  padding-left: 14pt;
+}
+
+li {
+  margin: 0;
+  padding: 0;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #bbb;
+  margin: 4pt 0;
+}
+
+em {
+  font-size: 7pt;
+  color: #555;
+}
+
+strong {
+  font-weight: bold;
+}
+
+blockquote {
+  margin: 2pt 0 2pt 10pt;
+  padding: 0;
+  border-left: 2pt solid #ccc;
+  padding-left: 6pt;
+}
