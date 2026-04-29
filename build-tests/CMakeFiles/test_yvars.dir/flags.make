@@ -6,7 +6,7 @@ C_DEFINES =
 
 C_INCLUDES = -I/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc
 
-C_FLAGSarm64 = -std=gnu11 -arch arm64 -Wall -Wextra
+C_FLAGSarm64 = -g -std=gnu11 -arch arm64 -Wall -Wextra
 
-C_FLAGS = -std=gnu11 -arch arm64 -Wall -Wextra
+C_FLAGS = -g -std=gnu11 -arch arm64 -Wall -Wextra
 

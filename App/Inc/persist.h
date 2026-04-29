@@ -27,15 +27,17 @@
 
 #define PERSIST_MAGIC       0xCA1CC0DEU   /* Marker — "calc code" */
 #define PERSIST_VERSION     8U            /* Bumped when STAT_MAX_POINTS raised 99→150 */
-#define PERSIST_FLASH_ADDR  0x080C0000U   /* Sector 10, 128 KB, unused by firmware */
+#define PERSIST_FLASH_ADDR  0x080E0000U   /* Sector 11, 128 KB, unused by firmware */
 #ifndef HOST_TEST
-#  define PERSIST_SECTOR    FLASH_SECTOR_10
+#  define PERSIST_SECTOR    FLASH_SECTOR_11
 #endif
 /* STM32F429 sector map (12 sectors per bank):
  *   Sectors 0-3:  16 KB each  (0x08000000 - 0x0800FFFF)
  *   Sector  4:    64 KB       (0x08010000 - 0x0801FFFF)
  *   Sectors 5-11: 128 KB each (0x08020000 - 0x080FFFFF)
- * Firmware (~684 KB) ends at ~0x080AAFFF; first fully-free sector is Sector 10. */
+ * Firmware (~820 KB as of 2026-04-28) ends at ~0x080C84xx, inside Sector 10.
+ * Linker FLASH region is capped at 896 KB (sectors 0-10) so overflow is caught
+ * at link time; Sector 11 (0x080E0000) is reserved for persist. */
 
 /*---------------------------------------------------------------------------
  * Saved state block

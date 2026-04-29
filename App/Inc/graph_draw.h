@@ -2,7 +2,7 @@
  * @file    graph_draw.h
  * @brief   Draw layer — persistent user-drawn overlay (DRAW menu operations).
  *
- * Owns the draw_buf SDRAM buffer at 0xD0080800.  The draw layer is blended
+ * Owns the draw_buf SDRAM buffer at 0xD0090800.  The draw layer is blended
  * over the equation render at the end of every Graph_Render /
  * Graph_RenderParametric pass via Graph_ApplyDrawLayer().
  */

@@ -57,7 +57,11 @@ MEMORY
 {
 RAM (xrw)      : ORIGIN = 0x20000000, LENGTH = 192K
 CCMRAM (xrw)      : ORIGIN = 0x10000000, LENGTH = 64K
-FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 2048K
+/* Firmware is capped at 896 KB (sectors 0-10, 0x08000000-0x080DFFFF).
+ * Sector 11 (0x080E0000-0x080FFFFF) is reserved for the persist block.
+ * If firmware grows past 896 KB the linker will error — move persist to
+ * the next free sector rather than silently overwriting it. */
+FLASH (rx)      : ORIGIN = 0x8000000, LENGTH = 896K
 /* External SDRAM — 64 MB at 0xD0000000.
  * First 0x70800 bytes are reserved for the three framebuffers placed by
  * fixed pointer in graph.c / app_init.c:

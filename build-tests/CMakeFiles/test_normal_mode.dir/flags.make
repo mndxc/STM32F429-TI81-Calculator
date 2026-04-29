@@ -6,7 +6,7 @@ C_DEFINES =
 
 C_INCLUDES = -I/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc -I/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests -I/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../HW/Keypad
 
-C_FLAGSarm64 = -std=gnu11 -arch arm64 -Wall -Wextra -DHOST_TEST=1
+C_FLAGSarm64 = -g -std=gnu11 -arch arm64 -Wall -Wextra -DHOST_TEST=1
 
-C_FLAGS = -std=gnu11 -arch arm64 -Wall -Wextra -DHOST_TEST=1
+C_FLAGS = -g -std=gnu11 -arch arm64 -Wall -Wextra -DHOST_TEST=1
 

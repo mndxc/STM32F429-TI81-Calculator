@@ -180,22 +180,20 @@ static float px_to_math_y(int32_t py)
  */
 static void draw_axes(void)
 {
-    lv_color_t axis_color = lv_color_hex(COLOR_GREY_MED);
+    uint16_t axis_px = lv_color_to_u16(lv_color_hex(COLOR_GREY_MED));
 
     /* Y axis — vertical line at x=0 */
     if (graph_state.x_min <= 0.0f && graph_state.x_max >= 0.0f) {
         int32_t px = math_x_to_px(0.0f);
-        for (int32_t y = 0; y < GRAPH_H; y++) {
-            lv_canvas_set_px(graph_canvas, px, y, axis_color, LV_OPA_COVER);
-        }
+        for (int32_t y = 0; y < GRAPH_H; y++)
+            graph_buf[y * GRAPH_W + px] = axis_px;
     }
 
     /* X axis — horizontal line at y=0 */
     if (graph_state.y_min <= 0.0f && graph_state.y_max >= 0.0f) {
         int32_t py = math_y_to_px(0.0f);
-        for (int32_t x = 0; x < GRAPH_W; x++) {
-            lv_canvas_set_px(graph_canvas, x, py, axis_color, LV_OPA_COVER);
-        }
+        for (int32_t x = 0; x < GRAPH_W; x++)
+            graph_buf[py * GRAPH_W + x] = axis_px;
     }
 }
 
@@ -205,7 +203,7 @@ static void draw_axes(void)
  */
 static void draw_grid(void)
 {
-    lv_color_t grid_color = lv_color_hex(COLOR_GREY_DARK);
+    uint16_t grid_px = lv_color_to_u16(lv_color_hex(COLOR_GREY_DARK));
 
     /* Anchor at multiples of x_scl/y_scl (same as draw_ticks) so dots stay
      * aligned with tick marks after zooming. */
@@ -218,7 +216,7 @@ static void draw_grid(void)
         for (float gx = gx_start; gx <= graph_state.x_max + 1e-6f; gx += graph_state.x_scl) {
             int32_t px = math_x_to_px(gx);
             if (px < 0 || px >= GRAPH_W) continue;
-            lv_canvas_set_px(graph_canvas, px, py, grid_color, LV_OPA_COVER);
+            graph_buf[py * GRAPH_W + px] = grid_px;
         }
     }
 }
@@ -228,7 +226,7 @@ static void draw_grid(void)
  */
 static void draw_ticks(void)
 {
-    lv_color_t tick_color = lv_color_hex(COLOR_GREY_TICK);
+    uint16_t tick_px = lv_color_to_u16(lv_color_hex(COLOR_GREY_TICK));
     const int32_t TICK_LEN = 3;
 
     /* X axis ticks */
@@ -236,13 +234,21 @@ static void draw_ticks(void)
         int32_t py = math_y_to_px(0.0f);
         for (float x = 0.0f; x <= graph_state.x_max; x += graph_state.x_scl) {
             int32_t px = math_x_to_px(x);
-            for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++)
-                lv_canvas_set_px(graph_canvas, px, py + t, tick_color, LV_OPA_COVER);
+            if (px < 0 || px >= GRAPH_W) continue;
+            for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++) {
+                int32_t ty = py + t;
+                if (ty >= 0 && ty < GRAPH_H)
+                    graph_buf[ty * GRAPH_W + px] = tick_px;
+            }
         }
         for (float x = 0.0f; x >= graph_state.x_min; x -= graph_state.x_scl) {
             int32_t px = math_x_to_px(x);
-            for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++)
-                lv_canvas_set_px(graph_canvas, px, py + t, tick_color, LV_OPA_COVER);
+            if (px < 0 || px >= GRAPH_W) continue;
+            for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++) {
+                int32_t ty = py + t;
+                if (ty >= 0 && ty < GRAPH_H)
+                    graph_buf[ty * GRAPH_W + px] = tick_px;
+            }
         }
     }
 
@@ -251,13 +257,21 @@ static void draw_ticks(void)
         int32_t px = math_x_to_px(0.0f);
         for (float y = 0.0f; y <= graph_state.y_max; y += graph_state.y_scl) {
             int32_t py = math_y_to_px(y);
-            for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++)
-                lv_canvas_set_px(graph_canvas, px + t, py, tick_color, LV_OPA_COVER);
+            if (py < 0 || py >= GRAPH_H) continue;
+            for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++) {
+                int32_t tx = px + t;
+                if (tx >= 0 && tx < GRAPH_W)
+                    graph_buf[py * GRAPH_W + tx] = tick_px;
+            }
         }
         for (float y = 0.0f; y >= graph_state.y_min; y -= graph_state.y_scl) {
             int32_t py = math_y_to_px(y);
-            for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++)
-                lv_canvas_set_px(graph_canvas, px + t, py, tick_color, LV_OPA_COVER);
+            if (py < 0 || py >= GRAPH_H) continue;
+            for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++) {
+                int32_t tx = px + t;
+                if (tx >= 0 && tx < GRAPH_W)
+                    graph_buf[py * GRAPH_W + tx] = tick_px;
+            }
         }
     }
 }
@@ -374,6 +388,9 @@ void Graph_Init(lv_obj_t *parent)
     for (int i = 0; i < GRAPH_NUM_EQ; i++) {
         graph_state.enabled[i] = true;
     }
+
+    /* Zero draw layer so uninitialized SDRAM doesn't appear as drawn pixels */
+    Graph_DrawLayerClear();
 }
 
 void Graph_Render(bool angle_degrees)
@@ -417,7 +434,7 @@ void Graph_Render(bool angle_degrees)
                 }
             }
 
-            lv_color_t curve_color = lv_color_hex(eq_palette[eq]);
+            uint16_t curve_px = lv_color_to_u16(lv_color_hex(eq_palette[eq]));
             int32_t prev_py    = -1;
             int32_t prev_px    = -1;
             bool    prev_valid = false;
@@ -455,11 +472,11 @@ void Graph_Render(bool angle_degrees)
                         if (y_end >= GRAPH_H) y_end = GRAPH_H - 1;
 
                         for (int32_t y = y_start; y <= y_end; y++)
-                            lv_canvas_set_px(graph_canvas, cx, y, curve_color, LV_OPA_COVER);
+                            graph_buf[y * GRAPH_W + cx] = curve_px;
                         last_interp = cur_interp;
                     }
                 } else {
-                    lv_canvas_set_px(graph_canvas, px, py, curve_color, LV_OPA_COVER);
+                    graph_buf[py * GRAPH_W + px] = curve_px;
                 }
 
                 prev_py    = py;
@@ -469,8 +486,8 @@ void Graph_Render(bool angle_degrees)
         }
     } else {
         /* Simultaneous: all curves advance one pixel column at a time */
-        bool       skip[GRAPH_NUM_EQ];
-        lv_color_t colors[GRAPH_NUM_EQ];
+        bool     skip[GRAPH_NUM_EQ];
+        uint16_t colors[GRAPH_NUM_EQ];
         int32_t    prev_py[GRAPH_NUM_EQ], prev_px_s[GRAPH_NUM_EQ];
         bool       prev_valid[GRAPH_NUM_EQ];
 
@@ -493,7 +510,7 @@ void Graph_Render(bool angle_degrees)
                 }
             }
             skip[eq]   = false;
-            colors[eq] = lv_color_hex(eq_palette[eq]);
+            colors[eq] = lv_color_to_u16(lv_color_hex(eq_palette[eq]));
         }
 
         for (int32_t px = 0; px < GRAPH_W; px += step) {
@@ -528,11 +545,11 @@ void Graph_Render(bool angle_degrees)
                         if (y_start < 0) y_start = 0;
                         if (y_end >= GRAPH_H) y_end = GRAPH_H - 1;
                         for (int32_t y = y_start; y <= y_end; y++)
-                            lv_canvas_set_px(graph_canvas, cx, y, colors[eq], LV_OPA_COVER);
+                            graph_buf[y * GRAPH_W + cx] = colors[eq];
                         last_interp = cur_interp;
                     }
                 } else {
-                    lv_canvas_set_px(graph_canvas, px, py, colors[eq], LV_OPA_COVER);
+                    graph_buf[py * GRAPH_W + px] = colors[eq];
                 }
 
                 prev_py[eq]    = py;
@@ -615,7 +632,7 @@ void Graph_RenderParametric(bool angle_degrees)
                 }
             }
 
-            lv_color_t curve_color = lv_color_hex(pair_palette[p]);
+            uint16_t curve_px = lv_color_to_u16(lv_color_hex(pair_palette[p]));
             int32_t prev_px = -1, prev_py = -1;
             bool    prev_valid = false;
 
@@ -647,7 +664,7 @@ void Graph_RenderParametric(bool angle_degrees)
                         int32_t y_lo = prev_py < py ? prev_py : py;
                         int32_t y_hi = prev_py < py ? py : prev_py;
                         for (int32_t y = y_lo; y <= y_hi; y++)
-                            lv_canvas_set_px(graph_canvas, px, y, curve_color, LV_OPA_COVER);
+                            graph_buf[y * GRAPH_W + px] = curve_px;
                     } else {
                         int32_t last = prev_py;
                         for (int32_t cx = prev_px + (span > 0 ? 1 : -1);
@@ -659,12 +676,12 @@ void Graph_RenderParametric(bool angle_degrees)
                             if (y_lo < 0) y_lo = 0;
                             if (y_hi >= GRAPH_H) y_hi = GRAPH_H - 1;
                             for (int32_t y = y_lo; y <= y_hi; y++)
-                                lv_canvas_set_px(graph_canvas, cx, y, curve_color, LV_OPA_COVER);
+                                graph_buf[y * GRAPH_W + cx] = curve_px;
                             last = cur;
                         }
                     }
                 } else {
-                    lv_canvas_set_px(graph_canvas, px, py, curve_color, LV_OPA_COVER);
+                    graph_buf[py * GRAPH_W + px] = curve_px;
                 }
 
                 prev_px    = px;
@@ -674,8 +691,8 @@ void Graph_RenderParametric(bool angle_degrees)
         }
     } else {
         /* Simultaneous: all parametric pairs advance one T step at a time */
-        bool       skip[GRAPH_NUM_PARAM];
-        lv_color_t colors[GRAPH_NUM_PARAM];
+        bool     skip[GRAPH_NUM_PARAM];
+        uint16_t colors[GRAPH_NUM_PARAM];
         int32_t    prev_px_s[GRAPH_NUM_PARAM], prev_py_s[GRAPH_NUM_PARAM];
         bool       prev_valid[GRAPH_NUM_PARAM];
 
@@ -703,7 +720,7 @@ void Graph_RenderParametric(bool angle_degrees)
                 } else { param_postfix_valid[p] = false; continue; }
             }
             skip[p]   = false;
-            colors[p] = lv_color_hex(pair_palette[p]);
+            colors[p] = lv_color_to_u16(lv_color_hex(pair_palette[p]));
         }
 
         for (float t = graph_state.t_min;
@@ -737,7 +754,7 @@ void Graph_RenderParametric(bool angle_degrees)
                         int32_t y_lo = prev_py_s[p] < py ? prev_py_s[p] : py;
                         int32_t y_hi = prev_py_s[p] < py ? py : prev_py_s[p];
                         for (int32_t y = y_lo; y <= y_hi; y++)
-                            lv_canvas_set_px(graph_canvas, px, y, colors[p], LV_OPA_COVER);
+                            graph_buf[y * GRAPH_W + px] = colors[p];
                     } else {
                         int32_t last = prev_py_s[p];
                         for (int32_t cx = prev_px_s[p] + (span > 0 ? 1 : -1);
@@ -749,12 +766,12 @@ void Graph_RenderParametric(bool angle_degrees)
                             if (y_lo < 0) y_lo = 0;
                             if (y_hi >= GRAPH_H) y_hi = GRAPH_H - 1;
                             for (int32_t y = y_lo; y <= y_hi; y++)
-                                lv_canvas_set_px(graph_canvas, cx, y, colors[p], LV_OPA_COVER);
+                                graph_buf[y * GRAPH_W + cx] = colors[p];
                             last = cur;
                         }
                     }
                 } else {
-                    lv_canvas_set_px(graph_canvas, px, py, colors[p], LV_OPA_COVER);
+                    graph_buf[py * GRAPH_W + px] = colors[p];
                 }
 
                 prev_px_s[p]  = px;
@@ -773,17 +790,20 @@ void Graph_RenderParametric(bool angle_degrees)
 
 static void draw_crosshair_px(int32_t px, int32_t py, lv_color_t c)
 {
+    uint16_t pixel = lv_color_to_u16(c);
     const int32_t ARM = 5;
     for (int32_t dx = -ARM; dx <= ARM; dx++) {
         int32_t cx = px + dx;
         if (cx >= 0 && cx < GRAPH_W && py >= 0 && py < GRAPH_H)
-            lv_canvas_set_px(graph_canvas, cx, py, c, LV_OPA_COVER);
+            graph_buf[py * GRAPH_W + cx] = pixel;
     }
     for (int32_t dy = -ARM; dy <= ARM; dy++) {
         int32_t cy = py + dy;
         if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
-            lv_canvas_set_px(graph_canvas, px, cy, c, LV_OPA_COVER);
+            graph_buf[cy * GRAPH_W + px] = pixel;
     }
+    /* Mark canvas dirty once after all pixel writes */
+    lv_obj_invalidate(graph_canvas);
 }
 
 /* Parametric trace helper — draws T=/X=/Y= readouts and crosshair for one
@@ -1050,6 +1070,7 @@ void Graph_DrawZBox(int32_t px, int32_t py,
 static void draw_line_px(int32_t x0, int32_t y0, int32_t x1, int32_t y1,
                          lv_color_t color)
 {
+    uint16_t px_val = lv_color_to_u16(color);
     int32_t dx = x1 - x0, dy = y1 - y0;
     int32_t ax = dx < 0 ? -dx : dx;
     int32_t ay = dy < 0 ? -dy : dy;
@@ -1059,7 +1080,7 @@ static void draw_line_px(int32_t x0, int32_t y0, int32_t x1, int32_t y1,
     int32_t cx = x0, cy = y0;
     while (1) {
         if (cx >= 0 && cx < GRAPH_W && cy >= 0 && cy < GRAPH_H)
-            lv_canvas_set_px(graph_canvas, cx, cy, color, LV_OPA_COVER);
+            graph_buf[cy * GRAPH_W + cx] = px_val;
         if (cx == x1 && cy == y1) break;
         int32_t e2 = 2 * err;
         if (e2 > -ay) { err -= ay; cx += sx; }
@@ -1083,7 +1104,7 @@ void Graph_DrawScatter(const StatData_t *d)
     stat_plot_prepare();
     if (d->list_len == 0) { Graph_SetVisible(true); return; }
 
-    lv_color_t c = lv_color_hex(COLOR_CURVE_Y1);
+    uint16_t c = lv_color_to_u16(lv_color_hex(COLOR_CURVE_Y1));
     for (uint8_t i = 0; i < d->list_len; i++) {
         int32_t px = math_x_to_px(d->list_x[i]);
         int32_t py = math_y_to_px(d->list_y[i]);
@@ -1091,14 +1112,15 @@ void Graph_DrawScatter(const StatData_t *d)
         for (int32_t dx = -1; dx <= 1; dx++) {
             int32_t ex = px + dx;
             if (ex >= 0 && ex < GRAPH_W && py >= 0 && py < GRAPH_H)
-                lv_canvas_set_px(graph_canvas, ex, py, c, LV_OPA_COVER);
+                graph_buf[py * GRAPH_W + ex] = c;
         }
         for (int32_t dy = -1; dy <= 1; dy++) {
             int32_t ey = py + dy;
             if (px >= 0 && px < GRAPH_W && ey >= 0 && ey < GRAPH_H)
-                lv_canvas_set_px(graph_canvas, px, ey, c, LV_OPA_COVER);
+                graph_buf[ey * GRAPH_W + px] = c;
         }
     }
+    lv_obj_invalidate(graph_canvas);
     Graph_SetVisible(true);
 }
 
@@ -1108,6 +1130,7 @@ void Graph_DrawXYLine(const StatData_t *d)
     if (d->list_len == 0) { Graph_SetVisible(true); return; }
 
     lv_color_t c = lv_color_hex(COLOR_CURVE_Y1);
+    uint16_t c16 = lv_color_to_u16(c);
     /* Draw scatter crosses */
     for (uint8_t i = 0; i < d->list_len; i++) {
         int32_t px = math_x_to_px(d->list_x[i]);
@@ -1115,12 +1138,12 @@ void Graph_DrawXYLine(const StatData_t *d)
         for (int32_t dx = -1; dx <= 1; dx++) {
             int32_t ex = px + dx;
             if (ex >= 0 && ex < GRAPH_W && py >= 0 && py < GRAPH_H)
-                lv_canvas_set_px(graph_canvas, ex, py, c, LV_OPA_COVER);
+                graph_buf[py * GRAPH_W + ex] = c16;
         }
         for (int32_t dy = -1; dy <= 1; dy++) {
             int32_t ey = py + dy;
             if (px >= 0 && px < GRAPH_W && ey >= 0 && ey < GRAPH_H)
-                lv_canvas_set_px(graph_canvas, px, ey, c, LV_OPA_COVER);
+                graph_buf[ey * GRAPH_W + px] = c16;
         }
     }
     /* Connect consecutive points */
@@ -1131,6 +1154,7 @@ void Graph_DrawXYLine(const StatData_t *d)
         int32_t y1 = math_y_to_px(d->list_y[i]);
         draw_line_px(x0, y0, x1, y1, c);
     }
+    lv_obj_invalidate(graph_canvas);
     Graph_SetVisible(true);
 }
 
@@ -1160,7 +1184,7 @@ void Graph_DrawHistogram(const StatData_t *d)
     for (int b = 0; b < HIST_BINS; b++)
         if (counts[b] > max_count) max_count = counts[b];
 
-    lv_color_t c = lv_color_hex(COLOR_CURVE_Y1);
+    uint16_t c = lv_color_to_u16(lv_color_hex(COLOR_CURVE_Y1));
     int32_t baseline_py = math_y_to_px(graph_state.y_min);
     if (baseline_py < 0)          baseline_py = 0;
     if (baseline_py >= GRAPH_H)   baseline_py = GRAPH_H - 1;
@@ -1186,11 +1210,12 @@ void Graph_DrawHistogram(const StatData_t *d)
 
         for (int32_t px = x_start; px <= x_end; px++) {
             for (int32_t py = y_top; py <= y_bottom; py++) {
-                lv_canvas_set_px(graph_canvas, px, py, c, LV_OPA_COVER);
+                graph_buf[py * GRAPH_W + px] = c;
             }
         }
     }
 #undef HIST_BINS
+    lv_obj_invalidate(graph_canvas);
     Graph_SetVisible(true);
 }
 

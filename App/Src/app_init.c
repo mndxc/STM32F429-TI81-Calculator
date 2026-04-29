@@ -311,6 +311,14 @@ void App_DefaultTask_Run(void)
     /* 2. Bring up external SDRAM — framebuffer lives here */
     BSP_SDRAM_Init();
 
+    /* ILI9341 power-on reset: the chip needs at least 5 ms after VCC rises
+     * before it can accept SPI commands (datasheet t_POR).  On a true cold
+     * power cycle the STM32 reaches this point in ~30 ms, which is normally
+     * enough, but the ST-Link release timing can cut that close.  A 200 ms
+     * margin guarantees the RGB_INTERFACE command lands on an active chip and
+     * the display switches to LTDC RGB mode reliably. */
+    HAL_Delay(200);
+
     /* Initialise the ILI9341 display controller over SPI.
      * LTDC is disabled at this point (disabled in MX_LTDC_Init after CubeMX
      * config) so the ILI9341 SPI init sequence is not corrupted by garbage

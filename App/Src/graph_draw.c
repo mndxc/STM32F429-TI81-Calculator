@@ -2,7 +2,7 @@
  * @file    graph_draw.c
  * @brief   Draw layer — persistent user-drawn overlay (DRAW menu operations).
  *
- * Owns draw_buf (SDRAM at 0xD0080800) and all Graph_DrawLayer* / Graph_DrawF /
+ * Owns draw_buf (SDRAM at 0xD0090800) and all Graph_DrawLayer* / Graph_DrawF /
  * Graph_Shade operations.  graph.c calls Graph_ApplyDrawLayer(graph_buf) at the
  * end of every render pass so drawn content persists across equation re-renders.
  *
@@ -19,11 +19,11 @@
  * Private state
  *--------------------------------------------------------------------------*/
 
-/* DRAW menu overlay buffer — SDRAM immediately after the LVGL heap gap.
+/* DRAW menu overlay buffer — SDRAM immediately after the LVGL heap.
  * 0x0000 = transparent sentinel; any other value = drawn pixel colour.
  * Memory layout: graph_buf=0xD0025800 (150 KB), graph_buf_clean=0xD004B000
- * (150 KB), LVGL heap=0xD0070800 (64 KB), draw_buf=0xD0080800 (150 KB). */
-static uint16_t * const draw_buf = (uint16_t *)0xD0080800;
+ * (150 KB), LVGL heap=0xD0070800 (128 KB), draw_buf=0xD0090800 (150 KB). */
+static uint16_t * const draw_buf = (uint16_t *)0xD0090800;
 
 /*---------------------------------------------------------------------------
  * Private coordinate helpers
