@@ -16,7 +16,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-04-17** (all INTERFACE_REFACTOR_PLAN items complete; all COUPLING_REFACTOR tasks T1–T11 complete). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-04-30** (all INTERFACE_REFACTOR_PLAN items complete; all COUPLING_REFACTOR tasks T1–T11 complete; T2-A/T2-B/T2-C arch reviews complete). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -63,7 +63,7 @@ Session log and completed features: [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTO
 
 | Area | Est. Done | Notes |
 |---|---|---|
-| MATRIX | ~95% | Variable dimensions 1–6×6 per matrix; scrolling cell editor with dim mode; `det(` and `T` ops in MATRX menu; row operations (RowSwap/Row+/*Row/*Row+) implemented in engine but absent from menu (see backlog); arithmetic (+, −, ×, scalar×matrix) fully evaluated; `det(ANS)` / `[A]+ANS` chains work; persist across power-off; `[A]`/`[B]`/`[C]` cursor/DEL atomicity fixed; matrix tokens blocked in Y= editor |
+| MATRIX | ~100% | Variable dimensions 1–6×6 per matrix; scrolling cell editor with dim mode; `det(` and `T` ops in MATRX menu; row operations (RowSwap/Row+/*Row/*Row+) fully implemented in MATRX MATH menu and engine; arithmetic (+, −, ×, scalar×matrix) fully evaluated; `det(ANS)` / `[A]+ANS` chains work; persist across power-off; `[A]`/`[B]`/`[C]` cursor/DEL atomicity fixed; matrix tokens blocked in Y= editor. Pending: hardware validation (see HARDWARE_VALIDATION_ALL.md Section 10). |
 | PRGM | ~95% | UI (menus, editor, CTL/I/O sub-menus) and executor (`prgm_exec.c`) fully implemented. Supported: `If` (single-line), `Goto/Lbl`, `Disp/Input/ClrHome/Pause/Stop/prgm(subroutine)/STO/IS>(DS</DispHome/DispGraph`. Removed per TI-81 spec: `Then/Else/While/For/Return/Prompt/Output(/Menu(`. Execution model: EXEC inserts `prgmNAME` into expression; ENTER runs and shows `Done`. Remaining: hardware validation (P10). |
 
 ---
@@ -122,7 +122,7 @@ Full test procedures: [docs/HARDWARE_VALIDATION_QUEUE.md](docs/HARDWARE_VALIDATI
 
 | Item | Feature | Relevant files |
 |---|---|---|
-| P28 | cursor_render() refactor | [docs/p28_cursor_manual_tests.md](docs/p28_cursor_manual_tests.md) |
+| P28 | cursor_render() refactor | [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md) Section 1 |
 | P10 | PRGM execution | [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md), App/Src/ui_prgm.c, App/Src/prgm_exec.c |
 | — | Free-cursor + TRACE toggle | App/Src/graph_ui.c, App/Src/graph.c |
 | P33h | Connected/Dot mode | App/Src/graph.c, App/Src/ui_mode.c |

@@ -29,24 +29,6 @@
  *---------------------------------------------------------------------------*/
 
 typedef struct {
-    float   x;          /* Current trace x position */
-    uint8_t eq_idx;     /* Which equation the crosshair is on */
-} TraceState_t;
-
-typedef struct {
-    float       x_math;
-    float       y_math;
-    bool        cursor_visible;
-    lv_timer_t *blink_timer;
-} FreeCursorState_t;
-
-typedef struct {
-    int32_t  px,  py;           /* Current cursor pixel position */
-    int32_t  px1, py1;          /* First corner (valid once corner1_set) */
-    bool     corner1_set;
-} ZBoxState_t;
-
-typedef struct {
     uint8_t  selected;          /* Which Y= row is active */
     uint8_t  cursor_pos;        /* Byte offset of insertion point within the equation */
     bool     on_equal;          /* True if cursor is on the '=' sign */
@@ -74,10 +56,8 @@ static lv_obj_t *yeq_cursor_inner = NULL;
  * State instances
  *---------------------------------------------------------------------------*/
 
-static YeqEditorState_t   s_yeq   = {0};
-static TraceState_t       s_trace = {0};
-static FreeCursorState_t  s_free  = {0};
-static ZBoxState_t        s_zbox  = { .px = GRAPH_W / 2, .py = GRAPH_H / 2 };
+static YeqEditorState_t   s_yeq             = {0};
+static lv_timer_t        *s_free_blink_timer = NULL;
 /* ZoomMenuState_t s_zoom in ui_graph_zoom.c */
 /* RangeEditorState_t s_range and ZoomFactorsState_t s_zf in graph_ui_range.c */
 
@@ -257,16 +237,17 @@ static uint8_t find_first_active_eq(void)
  * zoom_execute_item: moved to ui_graph_zoom.c */
 
 /* Enter ZBox rubber-band selection mode.
- * Kept here (not in ui_graph_zoom.c) because it initialises s_zbox, which is
- * owned by handle_zbox_mode in this file. Declared in calc_internal.h. */
+ * Kept here (not in ui_graph_zoom.c) because it transitions into MODE_GRAPH_ZBOX,
+ * which is owned by handle_zbox_mode in this file. Declared in calc_internal.h. */
 void zoom_enter_zbox(void)
 {
-    s_zbox.px = GRAPH_W / 2; s_zbox.py = GRAPH_H / 2; s_zbox.corner1_set = false;
+    Graph_ResetZBox();
     Calc_SetMode(MODE_GRAPH_ZBOX);
     lvgl_lock();
     Zoom_HideScreen();
     Graph_SetVisible(true);
-    Graph_DrawZBox(s_zbox.px, s_zbox.py, 0, 0, false);
+    const ZBoxState_t *zb = Graph_GetZBoxState();
+    Graph_DrawZBox(zb->px, zb->py, 0, 0, false);
     lvgl_unlock();
 }
 
@@ -369,39 +350,45 @@ void nav_to(CalcMode_t target)
         Graph_Render();
         break;
 
-    case MODE_GRAPH_FREE_CURSOR:
+    case MODE_GRAPH_FREE_CURSOR: {
+        const GraphState_t *gs_fc = Graph_GetState();
+        float fc_x = (gs_fc->x_min + gs_fc->x_max) * 0.5f;
+        float fc_y = (gs_fc->y_min + gs_fc->y_max) * 0.5f;
         Graph_SetActive(true);
         Graph_SetVisible(true);
         Graph_Render();
-        s_free.x_math = (Graph_GetState()->x_min + Graph_GetState()->x_max) * 0.5f;
-        s_free.y_math = (Graph_GetState()->y_min + Graph_GetState()->y_max) * 0.5f;
-        s_free.cursor_visible = true;
-        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math);
-        s_free.blink_timer = lv_timer_create(free_cursor_blink_cb, 500, NULL);
+        Graph_SetFreeCursorPos(fc_x, fc_y);
+        Graph_SetFreeCursorVisible(true);
+        Graph_DrawFreeCursor(fc_x, fc_y);
+        s_free_blink_timer = lv_timer_create(free_cursor_blink_cb, 500, NULL);
         break;
+    }
 
-    case MODE_GRAPH_TRACE:
+    case MODE_GRAPH_TRACE: {
+        const GraphState_t *gs_tr = Graph_GetState();
+        uint8_t eq_idx = 0;
+        float trace_x;
         Graph_SetActive(true);
-        if (Graph_GetState()->param_mode) {
-            /* Find first enabled parametric pair */
-            s_trace.eq_idx = 0;
+        if (gs_tr->param_mode) {
             for (uint8_t i = 0; i < GRAPH_NUM_PARAM; i++) {
-                if (Graph_GetState()->param_enabled[i] &&
-                    strlen(Graph_GetState()->param_x[i]) > 0 &&
-                    strlen(Graph_GetState()->param_y[i]) > 0) {
-                    s_trace.eq_idx = i;
+                if (gs_tr->param_enabled[i] &&
+                    strlen(gs_tr->param_x[i]) > 0 &&
+                    strlen(gs_tr->param_y[i]) > 0) {
+                    eq_idx = i;
                     break;
                 }
             }
-            /* Start trace at midpoint of T range */
-            s_trace.x = (Graph_GetState()->t_min + Graph_GetState()->t_max) * 0.5f;
+            trace_x = (gs_tr->t_min + gs_tr->t_max) * 0.5f;
         } else {
-            s_trace.eq_idx = find_first_active_eq();
-            s_trace.x      = (Graph_GetState()->x_min + Graph_GetState()->x_max) * 0.5f;
+            eq_idx  = find_first_active_eq();
+            trace_x = (gs_tr->x_min + gs_tr->x_max) * 0.5f;
         }
+        Graph_SetTraceEqIdx(eq_idx);
+        Graph_SetTraceX(trace_x);
         Graph_SetVisible(true);
-        Graph_DrawTrace(s_trace.x, s_trace.eq_idx);
+        Graph_DrawTrace(trace_x, eq_idx);
         break;
+    }
 
     case MODE_GRAPH_PARAM_YEQ:
         Graph_SetActive(false);
@@ -694,43 +681,63 @@ bool handle_yeq_mode(Token_t t)
 bool handle_zbox_mode(Token_t t)
 {
     switch (t) {
-    case TOKEN_LEFT:
-        if (s_zbox.px > 0) s_zbox.px--;
+    case TOKEN_LEFT: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py, px1 = zb->px1, py1 = zb->py1;
+        bool cs = zb->corner1_set;
+        if (px > 0) px--;
+        Graph_SetZBoxCursorPos(px, py);
         lvgl_lock();
-        Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set);
+        Graph_DrawZBox(px, py, px1, py1, cs);
         lvgl_unlock();
         return true;
-    case TOKEN_RIGHT:
-        if (s_zbox.px < GRAPH_W - 1) s_zbox.px++;
+    }
+    case TOKEN_RIGHT: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py, px1 = zb->px1, py1 = zb->py1;
+        bool cs = zb->corner1_set;
+        if (px < GRAPH_W - 1) px++;
+        Graph_SetZBoxCursorPos(px, py);
         lvgl_lock();
-        Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set);
+        Graph_DrawZBox(px, py, px1, py1, cs);
         lvgl_unlock();
         return true;
-    case TOKEN_UP:
-        if (s_zbox.py > 0) s_zbox.py--;
+    }
+    case TOKEN_UP: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py, px1 = zb->px1, py1 = zb->py1;
+        bool cs = zb->corner1_set;
+        if (py > 0) py--;
+        Graph_SetZBoxCursorPos(px, py);
         lvgl_lock();
-        Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set);
+        Graph_DrawZBox(px, py, px1, py1, cs);
         lvgl_unlock();
         return true;
-    case TOKEN_DOWN:
-        if (s_zbox.py < GRAPH_H - 1) s_zbox.py++;
+    }
+    case TOKEN_DOWN: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py, px1 = zb->px1, py1 = zb->py1;
+        bool cs = zb->corner1_set;
+        if (py < GRAPH_H - 1) py++;
+        Graph_SetZBoxCursorPos(px, py);
         lvgl_lock();
-        Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set);
+        Graph_DrawZBox(px, py, px1, py1, cs);
         lvgl_unlock();
         return true;
-    case TOKEN_ENTER:
-        if (!s_zbox.corner1_set) {
-            s_zbox.px1         = s_zbox.px;
-            s_zbox.py1         = s_zbox.py;
-            s_zbox.corner1_set = true;
+    }
+    case TOKEN_ENTER: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        if (!zb->corner1_set) {
+            Graph_SetZBoxCorner1(zb->px, zb->py);
+            zb = Graph_GetZBoxState();
             lvgl_lock();
-            Graph_DrawZBox(s_zbox.px, s_zbox.py, s_zbox.px1, s_zbox.py1, s_zbox.corner1_set);
+            Graph_DrawZBox(zb->px, zb->py, zb->px1, zb->py1, zb->corner1_set);
             lvgl_unlock();
         } else {
-            int32_t x_lo = s_zbox.px1 < s_zbox.px ? s_zbox.px1 : s_zbox.px;
-            int32_t x_hi = s_zbox.px1 < s_zbox.px ? s_zbox.px  : s_zbox.px1;
-            int32_t y_lo = s_zbox.py1 < s_zbox.py ? s_zbox.py1 : s_zbox.py;
-            int32_t y_hi = s_zbox.py1 < s_zbox.py ? s_zbox.py  : s_zbox.py1;
+            int32_t x_lo = zb->px1 < zb->px ? zb->px1 : zb->px;
+            int32_t x_hi = zb->px1 < zb->px ? zb->px  : zb->px1;
+            int32_t y_lo = zb->py1 < zb->py ? zb->py1 : zb->py;
+            int32_t y_hi = zb->py1 < zb->py ? zb->py  : zb->py1;
             if (x_hi > x_lo && y_hi > y_lo) {
                 const GraphState_t *gs = Graph_GetState();
                 float x_range   = gs->x_max - gs->x_min;
@@ -743,42 +750,43 @@ bool handle_zbox_mode(Token_t t)
                                 gs->x_scl, gs->y_scl, gs->x_res);
             }
             Calc_SetMode(MODE_NORMAL);
-            s_zbox.corner1_set = false;
+            Graph_ClearZBoxCorner1();
             lvgl_lock();
             Graph_ClearTrace();
             Graph_Render();
             lvgl_unlock();
         }
         return true;
+    }
     case TOKEN_CLEAR:
-        s_zbox.corner1_set = false;
+        Graph_ClearZBoxCorner1();
         Calc_SetMode(MODE_NORMAL);
         lvgl_lock();
         hide_all_screens();
         lvgl_unlock();
         return true;
     case TOKEN_ZOOM:
-        s_zbox.corner1_set = false;
+        Graph_ClearZBoxCorner1();
         nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
     case TOKEN_GRAPH:
-        s_zbox.corner1_set = false;
+        Graph_ClearZBoxCorner1();
         nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
     case TOKEN_Y_EQUALS:
-        s_zbox.corner1_set = false;
+        Graph_ClearZBoxCorner1();
         nav_to(MODE_GRAPH_YEQ);
         return true;
     case TOKEN_RANGE:
-        s_zbox.corner1_set = false;
+        Graph_ClearZBoxCorner1();
         nav_to(MODE_GRAPH_RANGE);
         return true;
     case TOKEN_TRACE:
-        s_zbox.corner1_set = false;
+        Graph_ClearZBoxCorner1();
         nav_to(MODE_GRAPH_TRACE);
         return true;
     default:
-        s_zbox.corner1_set = false;
+        Graph_ClearZBoxCorner1();
         nav_to(MODE_NORMAL);
         return false; /* fall through to main switch */
     }
@@ -793,84 +801,94 @@ bool handle_trace_mode(Token_t t)
     if (step <= 0.0f) step = 0.1309f;
 
     switch (t) {
-    case TOKEN_LEFT:
+    case TOKEN_LEFT: {
+        float x = Graph_GetTraceState()->x;
         if (gs->param_mode) {
-            if (s_trace.x > gs->t_min) s_trace.x -= step;
+            if (x > gs->t_min) x -= step;
         } else {
-            if (s_trace.x > gs->x_min) s_trace.x -= step;
+            if (x > gs->x_min) x -= step;
         }
+        Graph_SetTraceX(x);
         lvgl_lock();
-        Graph_DrawTrace(s_trace.x, s_trace.eq_idx);
+        Graph_DrawTrace(x, Graph_GetTraceState()->eq_idx);
         lvgl_unlock();
         return true;
-    case TOKEN_RIGHT:
+    }
+    case TOKEN_RIGHT: {
+        float x = Graph_GetTraceState()->x;
         if (gs->param_mode) {
-            if (s_trace.x < gs->t_max) s_trace.x += step;
+            if (x < gs->t_max) x += step;
         } else {
-            if (s_trace.x < gs->x_max) s_trace.x += step;
+            if (x < gs->x_max) x += step;
         }
+        Graph_SetTraceX(x);
         lvgl_lock();
-        Graph_DrawTrace(s_trace.x, s_trace.eq_idx);
+        Graph_DrawTrace(x, Graph_GetTraceState()->eq_idx);
         lvgl_unlock();
         return true;
-    case TOKEN_UP:
+    }
+    case TOKEN_UP: {
+        uint8_t eq_idx = Graph_GetTraceState()->eq_idx;
         if (gs->param_mode) {
-            /* Cycle backward through enabled parametric pairs */
             for (uint8_t i = 1; i <= GRAPH_NUM_PARAM; i++) {
-                uint8_t idx = (s_trace.eq_idx + GRAPH_NUM_PARAM - i) % GRAPH_NUM_PARAM;
+                uint8_t idx = (eq_idx + GRAPH_NUM_PARAM - i) % GRAPH_NUM_PARAM;
                 if (gs->param_enabled[idx] &&
                     strlen(gs->param_x[idx]) > 0 &&
                     strlen(gs->param_y[idx]) > 0) {
-                    s_trace.eq_idx = idx;
+                    eq_idx = idx;
                     break;
                 }
             }
         } else {
             for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
-                uint8_t idx = (s_trace.eq_idx + GRAPH_NUM_EQ - i) % GRAPH_NUM_EQ;
+                uint8_t idx = (eq_idx + GRAPH_NUM_EQ - i) % GRAPH_NUM_EQ;
                 if (strlen(gs->equations[idx]) > 0 && gs->enabled[idx]) {
-                    s_trace.eq_idx = idx;
+                    eq_idx = idx;
                     break;
                 }
             }
         }
+        Graph_SetTraceEqIdx(eq_idx);
         lvgl_lock();
-        Graph_DrawTrace(s_trace.x, s_trace.eq_idx);
+        Graph_DrawTrace(Graph_GetTraceState()->x, eq_idx);
         lvgl_unlock();
         return true;
-    case TOKEN_DOWN:
+    }
+    case TOKEN_DOWN: {
+        uint8_t eq_idx = Graph_GetTraceState()->eq_idx;
         if (gs->param_mode) {
             for (uint8_t i = 1; i <= GRAPH_NUM_PARAM; i++) {
-                uint8_t idx = (s_trace.eq_idx + i) % GRAPH_NUM_PARAM;
+                uint8_t idx = (eq_idx + i) % GRAPH_NUM_PARAM;
                 if (gs->param_enabled[idx] &&
                     strlen(gs->param_x[idx]) > 0 &&
                     strlen(gs->param_y[idx]) > 0) {
-                    s_trace.eq_idx = idx;
+                    eq_idx = idx;
                     break;
                 }
             }
         } else {
             for (uint8_t i = 1; i <= GRAPH_NUM_EQ; i++) {
-                uint8_t idx = (s_trace.eq_idx + i) % GRAPH_NUM_EQ;
+                uint8_t idx = (eq_idx + i) % GRAPH_NUM_EQ;
                 if (strlen(gs->equations[idx]) > 0 && gs->enabled[idx]) {
-                    s_trace.eq_idx = idx;
+                    eq_idx = idx;
                     break;
                 }
             }
         }
+        Graph_SetTraceEqIdx(eq_idx);
         lvgl_lock();
-        Graph_DrawTrace(s_trace.x, s_trace.eq_idx);
+        Graph_DrawTrace(Graph_GetTraceState()->x, eq_idx);
         lvgl_unlock();
         return true;
+    }
     case TOKEN_TRACE: {
-        /* Re-snap to centre of viewport on the current equation — original TI-81
-         * does not exit trace when TRACE is pressed again. */
-        if (gs->param_mode)
-            s_trace.x = (gs->t_min + gs->t_max) * 0.5f;
-        else
-            s_trace.x = (gs->x_min + gs->x_max) * 0.5f;
+        /* Re-snap to centre of viewport — TI-81 does not exit trace on TRACE. */
+        float x = gs->param_mode
+                ? (gs->t_min + gs->t_max) * 0.5f
+                : (gs->x_min + gs->x_max) * 0.5f;
+        Graph_SetTraceX(x);
         lvgl_lock();
-        Graph_DrawTrace(s_trace.x, s_trace.eq_idx);
+        Graph_DrawTrace(x, Graph_GetTraceState()->eq_idx);
         lvgl_unlock();
         return true;
     }
@@ -908,9 +926,11 @@ bool handle_trace_mode(Token_t t)
 static void free_cursor_blink_cb(lv_timer_t *t)
 {
     (void)t;
-    s_free.cursor_visible = !s_free.cursor_visible;
-    if (s_free.cursor_visible)
-        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math);
+    const FreeCursorState_t *fc = Graph_GetFreeCursorState();
+    bool visible = !fc->cursor_visible;
+    Graph_SetFreeCursorVisible(visible);
+    if (visible)
+        Graph_DrawFreeCursor(fc->x_math, fc->y_math);
     else
         Graph_EraseFreeCursor();
 }
@@ -918,9 +938,9 @@ static void free_cursor_blink_cb(lv_timer_t *t)
 /* Called under lvgl_lock(). Stops the blink timer and removes cursor pixels. */
 static void free_cursor_stop(void)
 {
-    if (s_free.blink_timer) {
-        lv_timer_delete(s_free.blink_timer);
-        s_free.blink_timer = NULL;
+    if (s_free_blink_timer) {
+        lv_timer_delete(s_free_blink_timer);
+        s_free_blink_timer = NULL;
     }
     Graph_EraseFreeCursor();
 }
@@ -932,59 +952,79 @@ bool handle_free_cursor_mode(Token_t t)
     float ystep = (gs->y_max - gs->y_min) / (float)(GRAPH_H - 1);
 
     switch (t) {
-    case TOKEN_LEFT:
-        if (s_free.x_math > gs->x_min) s_free.x_math -= xstep;
+    case TOKEN_LEFT: {
+        float x = Graph_GetFreeCursorState()->x_math;
+        float y = Graph_GetFreeCursorState()->y_math;
+        if (x > gs->x_min) x -= xstep;
+        Graph_SetFreeCursorPos(x, y);
+        Graph_SetFreeCursorVisible(true);
         lvgl_lock();
-        s_free.cursor_visible = true;
-        if (s_free.blink_timer) lv_timer_reset(s_free.blink_timer);
-        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math);
+        if (s_free_blink_timer) lv_timer_reset(s_free_blink_timer);
+        Graph_DrawFreeCursor(x, y);
         lvgl_unlock();
         return true;
-    case TOKEN_RIGHT:
-        if (s_free.x_math < gs->x_max) s_free.x_math += xstep;
+    }
+    case TOKEN_RIGHT: {
+        float x = Graph_GetFreeCursorState()->x_math;
+        float y = Graph_GetFreeCursorState()->y_math;
+        if (x < gs->x_max) x += xstep;
+        Graph_SetFreeCursorPos(x, y);
+        Graph_SetFreeCursorVisible(true);
         lvgl_lock();
-        s_free.cursor_visible = true;
-        if (s_free.blink_timer) lv_timer_reset(s_free.blink_timer);
-        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math);
+        if (s_free_blink_timer) lv_timer_reset(s_free_blink_timer);
+        Graph_DrawFreeCursor(x, y);
         lvgl_unlock();
         return true;
-    case TOKEN_UP:
-        if (s_free.y_math < gs->y_max) s_free.y_math += ystep;
+    }
+    case TOKEN_UP: {
+        float x = Graph_GetFreeCursorState()->x_math;
+        float y = Graph_GetFreeCursorState()->y_math;
+        if (y < gs->y_max) y += ystep;
+        Graph_SetFreeCursorPos(x, y);
+        Graph_SetFreeCursorVisible(true);
         lvgl_lock();
-        s_free.cursor_visible = true;
-        if (s_free.blink_timer) lv_timer_reset(s_free.blink_timer);
-        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math);
+        if (s_free_blink_timer) lv_timer_reset(s_free_blink_timer);
+        Graph_DrawFreeCursor(x, y);
         lvgl_unlock();
         return true;
-    case TOKEN_DOWN:
-        if (s_free.y_math > gs->y_min) s_free.y_math -= ystep;
+    }
+    case TOKEN_DOWN: {
+        float x = Graph_GetFreeCursorState()->x_math;
+        float y = Graph_GetFreeCursorState()->y_math;
+        if (y > gs->y_min) y -= ystep;
+        Graph_SetFreeCursorPos(x, y);
+        Graph_SetFreeCursorVisible(true);
         lvgl_lock();
-        s_free.cursor_visible = true;
-        if (s_free.blink_timer) lv_timer_reset(s_free.blink_timer);
-        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math);
+        if (s_free_blink_timer) lv_timer_reset(s_free_blink_timer);
+        Graph_DrawFreeCursor(x, y);
         lvgl_unlock();
         return true;
-    case TOKEN_TRACE:
+    }
+    case TOKEN_TRACE: {
         /* Snap crosshair to first active equation at the current X position. */
+        float snap_x = gs->param_mode
+                     ? (gs->t_min + gs->t_max) * 0.5f
+                     : Graph_GetFreeCursorState()->x_math;
         lvgl_lock(); free_cursor_stop(); lvgl_unlock();
-        s_trace.x = gs->param_mode
-                  ? (gs->t_min + gs->t_max) * 0.5f
-                  : s_free.x_math;
-        s_trace.eq_idx = 0;
+        Graph_SetTraceX(snap_x);
+        Graph_SetTraceEqIdx(0);
         nav_to(MODE_GRAPH_TRACE);
         return true;
-    case TOKEN_GRAPH:
+    }
+    case TOKEN_GRAPH: {
         /* Re-render and re-centre cursor (same as entering the graph screen). */
+        float fc_x = (gs->x_min + gs->x_max) * 0.5f;
+        float fc_y = (gs->y_min + gs->y_max) * 0.5f;
         lvgl_lock();
         free_cursor_stop();
-        s_free.x_math = (gs->x_min + gs->x_max) * 0.5f;
-        s_free.y_math = (gs->y_min + gs->y_max) * 0.5f;
+        Graph_SetFreeCursorPos(fc_x, fc_y);
         Graph_Render();
-        s_free.cursor_visible = true;
-        Graph_DrawFreeCursor(s_free.x_math, s_free.y_math);
-        s_free.blink_timer = lv_timer_create(free_cursor_blink_cb, 500, NULL);
+        Graph_SetFreeCursorVisible(true);
+        Graph_DrawFreeCursor(fc_x, fc_y);
+        s_free_blink_timer = lv_timer_create(free_cursor_blink_cb, 500, NULL);
         lvgl_unlock();
         return true;
+    }
     case TOKEN_Y_EQUALS:
         lvgl_lock(); free_cursor_stop(); lvgl_unlock();
         nav_to(MODE_GRAPH_YEQ);

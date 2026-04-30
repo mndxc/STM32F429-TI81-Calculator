@@ -98,6 +98,34 @@ char *Graph_GetParamEquationYBuf(uint8_t pair)
 }
 
 /*---------------------------------------------------------------------------
+ * Cursor state instances and accessor implementations
+ *--------------------------------------------------------------------------*/
+
+static TraceState_t      s_trace = {0};
+static FreeCursorState_t s_free  = {0};
+static ZBoxState_t       s_zbox  = { .px = GRAPH_W / 2, .py = GRAPH_H / 2 };
+
+const TraceState_t *Graph_GetTraceState(void)       { return &s_trace; }
+void Graph_SetTraceX(float x)                        { s_trace.x      = x; }
+void Graph_SetTraceEqIdx(uint8_t idx)                { s_trace.eq_idx = idx; }
+
+const FreeCursorState_t *Graph_GetFreeCursorState(void) { return &s_free; }
+void Graph_SetFreeCursorPos(float x, float y)  { s_free.x_math = x; s_free.y_math = y; }
+void Graph_SetFreeCursorVisible(bool v)        { s_free.cursor_visible = v; }
+
+const ZBoxState_t *Graph_GetZBoxState(void) { return &s_zbox; }
+void Graph_SetZBoxCursorPos(int32_t px, int32_t py) { s_zbox.px = px; s_zbox.py = py; }
+void Graph_SetZBoxCorner1(int32_t px1, int32_t py1)
+{
+    s_zbox.px1 = px1; s_zbox.py1 = py1; s_zbox.corner1_set = true;
+}
+void Graph_ClearZBoxCorner1(void) { s_zbox.corner1_set = false; }
+void Graph_ResetZBox(void)
+{
+    s_zbox.px = GRAPH_W / 2; s_zbox.py = GRAPH_H / 2; s_zbox.corner1_set = false;
+}
+
+/*---------------------------------------------------------------------------
  * Private variables
  *--------------------------------------------------------------------------*/
 

@@ -152,4 +152,42 @@ int32_t Graph_MathXToPx(float x);
 /** Converts math-world Y to canvas pixel row (clamped to [0, GRAPH_H-1]). */
 int32_t Graph_MathYToPx(float y);
 
+/*---------------------------------------------------------------------------
+ * Cursor state types and accessors
+ *
+ * Owned by graph.c; graph_ui.c reads via const pointers and writes via the
+ * named setters below.
+ *--------------------------------------------------------------------------*/
+
+typedef struct {
+    float   x;       /* Current trace x (or t in param mode) position */
+    uint8_t eq_idx;  /* Which equation / parametric pair the crosshair is on */
+} TraceState_t;
+
+typedef struct {
+    float x_math;
+    float y_math;
+    bool  cursor_visible;
+} FreeCursorState_t;
+
+typedef struct {
+    int32_t  px,  py;     /* Current cursor pixel position */
+    int32_t  px1, py1;    /* First corner (valid once corner1_set is true) */
+    bool     corner1_set;
+} ZBoxState_t;
+
+const TraceState_t      *Graph_GetTraceState(void);
+void Graph_SetTraceX(float x);
+void Graph_SetTraceEqIdx(uint8_t idx);
+
+const FreeCursorState_t *Graph_GetFreeCursorState(void);
+void Graph_SetFreeCursorPos(float x, float y);
+void Graph_SetFreeCursorVisible(bool v);
+
+const ZBoxState_t       *Graph_GetZBoxState(void);
+void Graph_SetZBoxCursorPos(int32_t px, int32_t py);
+void Graph_SetZBoxCorner1(int32_t px1, int32_t py1);
+void Graph_ClearZBoxCorner1(void);
+void Graph_ResetZBox(void);
+
 #endif /* GRAPH_MODULE_H */
