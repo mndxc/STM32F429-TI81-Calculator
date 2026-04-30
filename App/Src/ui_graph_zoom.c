@@ -167,7 +167,7 @@ static void zoom_show_graph(void)
     lvgl_lock();
     lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
     Graph_SetVisible(true);
-    Graph_Render(angle_degrees);
+    Graph_Render();
     lvgl_unlock();
 }
 
