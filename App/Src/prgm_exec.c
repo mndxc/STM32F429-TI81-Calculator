@@ -452,7 +452,7 @@ static void cmd_dispgraph(const char *line, uint16_t ln)
     Graph_SetVisible(true);
     lvgl_unlock();
     osDelay(20);  /* let DefaultTask flush the show-graph state before rendering */
-    Graph_Render(angle_degrees);
+    Graph_Render();
 #endif
 }
 

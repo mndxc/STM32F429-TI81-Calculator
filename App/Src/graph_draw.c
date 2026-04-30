@@ -12,6 +12,7 @@
 #include "graph_draw.h"
 #include "graph.h"          /* GRAPH_W, GRAPH_H, Graph_GetState() */
 #include "calc_engine.h"    /* Calc_EvaluateAt, CalcResult_t, CALC_OK */
+#include "calculator_core.h"
 #include <math.h>
 #include <string.h>
 
@@ -88,8 +89,9 @@ void Graph_DrawLayerLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1,
     }
 }
 
-void Graph_DrawF(const char *expr, uint16_t color, bool angle_degrees)
+void Graph_DrawF(const char *expr, uint16_t color)
 {
+    bool angle_degrees = Calc_GetAngleDegrees();
     for (int32_t px = 0; px < GRAPH_W; px++) {
         float x = draw_px_to_math_x(px);
         CalcResult_t r = Calc_EvaluateAt(expr, x, 0.0f, angle_degrees);
@@ -101,8 +103,9 @@ void Graph_DrawF(const char *expr, uint16_t color, bool angle_degrees)
 
 void Graph_Shade(const char *lower_expr, const char *upper_expr,
                  int resolution, float x_beg, float x_end,
-                 uint16_t fill_color, bool angle_degrees)
+                 uint16_t fill_color)
 {
+    bool angle_degrees = Calc_GetAngleDegrees();
     GraphEquation_t lower_eq, upper_eq;
     if (Calc_PrepareGraphEquation(lower_expr, 0.0f, &lower_eq) != CALC_OK) return;
     if (Calc_PrepareGraphEquation(upper_expr, 0.0f, &upper_eq) != CALC_OK) return;

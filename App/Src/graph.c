@@ -7,6 +7,7 @@
 #include "graph_draw.h"
 #include "ui_palette.h"
 #include "calc_engine.h"
+#include "calculator_core.h"
 #include "lvgl.h"
 #include <math.h>
 #include <stdio.h>
@@ -393,13 +394,14 @@ void Graph_Init(lv_obj_t *parent)
     Graph_DrawLayerClear();
 }
 
-void Graph_Render(bool angle_degrees)
+void Graph_Render(void)
 {
     if (graph_canvas == NULL) return;
+    bool angle_degrees = Calc_GetAngleDegrees();
 
     /* Dispatch to parametric renderer when in parametric mode */
     if (graph_state.param_mode) {
-        Graph_RenderParametric(angle_degrees);
+        Graph_RenderParametric();
         return;
     }
 
@@ -587,9 +589,10 @@ void Graph_InvalidateCache(void)
         param_postfix_valid[i] = false;
 }
 
-void Graph_RenderParametric(bool angle_degrees)
+void Graph_RenderParametric(void)
 {
     if (graph_canvas == NULL) return;
+    bool angle_degrees = Calc_GetAngleDegrees();
 
     graph_render_setup();
 
@@ -808,8 +811,9 @@ static void draw_crosshair_px(int32_t px, int32_t py, lv_color_t c)
 
 /* Parametric trace helper — draws T=/X=/Y= readouts and crosshair for one
  * T value on the given pair index.  Called only from Graph_DrawTrace(). */
-static void graph_draw_trace_param(float t, uint8_t pair, bool angle_degrees)
+static void graph_draw_trace_param(float t, uint8_t pair)
 {
+    bool angle_degrees = Calc_GetAngleDegrees();
     char t_buf[16], xv_buf[16], yv_buf[16], label_buf[20];
     format_graph_coord(t, t_buf, sizeof(t_buf));
     snprintf(label_buf, sizeof(label_buf), "T=%s", t_buf);
@@ -870,8 +874,9 @@ static void graph_draw_trace_param(float t, uint8_t pair, bool angle_degrees)
 
 /* Function-mode trace helper — draws X=/Y= readouts and crosshair at x on
  * the given equation index.  Called only from Graph_DrawTrace(). */
-static void graph_draw_trace_func(float x, uint8_t eq_idx, bool angle_degrees)
+static void graph_draw_trace_func(float x, uint8_t eq_idx)
 {
+    bool angle_degrees = Calc_GetAngleDegrees();
     const char *eqstr = graph_state.equations[eq_idx];
     char x_buf[16], y_buf[16], label_buf[20];
 
@@ -916,7 +921,7 @@ static void graph_draw_trace_func(float x, uint8_t eq_idx, bool angle_degrees)
     draw_crosshair_px(px, py, lv_color_hex(0x00FF00));
 }
 
-void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)
+void Graph_DrawTrace(float x, uint8_t eq_idx)
 {
     if (graph_canvas == NULL) return;
 
@@ -924,14 +929,14 @@ void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees)
     if (graph_clean_valid) {
         memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
     } else {
-        Graph_Render(angle_degrees);
+        Graph_Render();
     }
 
     /* Parametric trace: x = t value, eq_idx = pair index (0-2) */
     if (graph_state.param_mode)
-        graph_draw_trace_param(x, eq_idx < GRAPH_NUM_PARAM ? eq_idx : 0, angle_degrees);
+        graph_draw_trace_param(x, eq_idx < GRAPH_NUM_PARAM ? eq_idx : 0);
     else
-        graph_draw_trace_func(x, eq_idx, angle_degrees);
+        graph_draw_trace_func(x, eq_idx);
 }
 
 void Graph_ClearTrace(void)
@@ -941,15 +946,14 @@ void Graph_ClearTrace(void)
     if (graph_lbl_t != NULL) lv_label_set_text(graph_lbl_t, "");
 }
 
-void Graph_DrawFreeCursor(float x, float y, bool angle_degrees)
+void Graph_DrawFreeCursor(float x, float y)
 {
-    (void)angle_degrees;
     if (graph_canvas == NULL) return;
 
     if (graph_clean_valid)
         memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
     else
-        Graph_Render(angle_degrees);
+        Graph_Render();
 
     char coord_buf[16], lbl_buf[20];
     format_graph_coord(x, coord_buf, sizeof(coord_buf));
@@ -974,15 +978,16 @@ void Graph_EraseFreeCursor(void)
 
 void Graph_DrawZBox(int32_t px, int32_t py,
                     int32_t px1, int32_t py1,
-                    bool corner1_set, bool angle_degrees)
+                    bool corner1_set)
 {
     if (graph_canvas == NULL) return;
+    bool angle_degrees = Calc_GetAngleDegrees();
 
     /* Restore the clean frame — avoids a full re-render on every cursor step */
     if (graph_clean_valid) {
         memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
     } else {
-        Graph_Render(angle_degrees);
+        Graph_Render();
     }
 
     /* Precompute RGB565 pixel values — avoids per-pixel LVGL call overhead in the loops */

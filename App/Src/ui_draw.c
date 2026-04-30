@@ -121,7 +121,7 @@ static void draw_menu_select(void)
         /* ClrDraw — immediate: clear layer, re-render if graph was visible */
         Graph_DrawLayerClear();
         if (Graph_IsVisible()) {
-            Graph_Render(angle_degrees);
+            Graph_Render();
         }
         menu_close(TOKEN_DRAW);
         Update_Calculator_Display();
@@ -217,7 +217,7 @@ bool try_execute_draw_command(void)
     if (strcmp(expr.buf, "ClrDraw") == 0) {
         Graph_DrawLayerClear();
         if (Graph_IsVisible())
-            Graph_Render(angle_degrees);
+            Graph_Render();
         return true;
     }
 
@@ -232,7 +232,7 @@ bool try_execute_draw_command(void)
             int32_t py2 = Graph_MathYToPx(args[3]);
             Graph_DrawLayerLine(px1, py1, px2, py2, draw_white);
             if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
+                Graph_Render();
         }
         return true;
     }
@@ -245,7 +245,7 @@ bool try_execute_draw_command(void)
             Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
                                     Graph_MathYToPx(args[1]), draw_white);
             if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
+                Graph_Render();
         }
         return true;
     }
@@ -258,7 +258,7 @@ bool try_execute_draw_command(void)
             Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
                                     Graph_MathYToPx(args[1]), 0x0000);
             if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
+                Graph_Render();
         }
         return true;
     }
@@ -273,7 +273,7 @@ bool try_execute_draw_command(void)
             uint16_t cur = Graph_DrawLayerGetPixel(px, py);
             Graph_DrawLayerSetPixel(px, py, cur ? 0x0000 : draw_white);
             if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
+                Graph_Render();
         }
         return true;
     }
@@ -282,9 +282,9 @@ bool try_execute_draw_command(void)
     if (strncmp(expr.buf, "DrawF ", 6) == 0) {
         const char *expr_part = expr.buf + 6;
         if (strlen(expr_part) > 0) {
-            Graph_DrawF(expr_part, draw_white, angle_degrees);
+            Graph_DrawF(expr_part, draw_white);
             if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
+                Graph_Render();
         }
         return true;
     }
@@ -316,9 +316,9 @@ bool try_execute_draw_command(void)
             if (resolution > 8) resolution = 8;
             Graph_Shade(func_lo, func_hi, resolution,
                         scalar_args[1], scalar_args[2],
-                        shade_grey, angle_degrees);
+                        shade_grey);
             if (Graph_IsVisible())
-                Graph_Render(angle_degrees);
+                Graph_Render();
         }
         return true;
     }

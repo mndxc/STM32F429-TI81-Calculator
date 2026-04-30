@@ -67,7 +67,7 @@ void Graph_Init(lv_obj_t *parent);
  * @brief Renders the current Y= equation onto the canvas.
  *        Uses graph_state for equation, range and scale.
  */
-void Graph_Render(bool angle_degrees);
+void Graph_Render(void);
 
 /**
  * @brief Shows or hides the graph screen.
@@ -79,7 +79,7 @@ void Graph_SetVisible(bool visible);
  *        Updates the X/Y readout label. eq_idx selects which Y= equation to
  *        evaluate for the Y value (0–GRAPH_NUM_EQ-1).
  */
-void Graph_DrawTrace(float x, uint8_t eq_idx, bool angle_degrees);
+void Graph_DrawTrace(float x, uint8_t eq_idx);
 
 /**
  * @brief Clears the X/Y readout label left by Graph_DrawTrace.
@@ -91,7 +91,7 @@ void Graph_ClearTrace(void);
  *        math coordinate (x, y). Updates the X=/Y= readout labels.
  *        White crosshair — distinct from the green trace cursor.
  */
-void Graph_DrawFreeCursor(float x, float y, bool angle_degrees);
+void Graph_DrawFreeCursor(float x, float y);
 
 /**
  * @brief Restores the clean frame without crosshair pixels. Coordinate labels
@@ -104,7 +104,7 @@ void Graph_EraseFreeCursor(void);
  * @brief Renders parametric X(t)/Y(t) pairs onto the canvas.
  *        Dispatched from Graph_Render when graph_state.param_mode is true.
  */
-void Graph_RenderParametric(bool angle_degrees);
+void Graph_RenderParametric(void);
 
 /**
  * @brief Invalidates all per-equation postfix caches so the next render
@@ -122,7 +122,7 @@ void Graph_InvalidateCache(void);
  */
 void Graph_DrawZBox(int32_t px, int32_t py,
                     int32_t px1, int32_t py1,
-                    bool corner1_set, bool angle_degrees);
+                    bool corner1_set);
 
 /**
  * @brief Draws a scatter plot of the stat data list onto the graph canvas.

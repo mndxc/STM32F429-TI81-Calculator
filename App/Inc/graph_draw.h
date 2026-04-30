@@ -37,7 +37,7 @@ void Graph_DrawLayerLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1,
  * @brief Evaluates expr at every pixel column and draws the resulting curve
  *        onto the draw layer.
  */
-void Graph_DrawF(const char *expr, uint16_t color, bool angle_degrees);
+void Graph_DrawF(const char *expr, uint16_t color);
 
 /**
  * @brief Shades the area between two X-expressions on the draw layer.
@@ -60,7 +60,7 @@ void Graph_DrawF(const char *expr, uint16_t color, bool angle_degrees);
  */
 void Graph_Shade(const char *lower_expr, const char *upper_expr,
                  int resolution, float x_beg, float x_end,
-                 uint16_t fill_color, bool angle_degrees);
+                 uint16_t fill_color);
 
 /**
  * @brief Blends the draw layer over dest (graph_buf passed from graph.c).
