@@ -34,33 +34,9 @@
 #define PRGM_NAME_LEN        8          /**< Max program name chars (no null) */
 #define PRGM_BODY_LEN      512          /**< Max program body bytes incl null */
 
-/* Executor limits */
-#define PRGM_CTRL_DEPTH     8           /**< Max nested If/While/For depth */
-#define PRGM_CALL_DEPTH     4           /**< Max subroutine call depth */
-
 /* Editor / execution shared working buffer limits */
 #define PRGM_MAX_LINES     64           /**< Max lines in one program */
 #define PRGM_MAX_LINE_LEN  48           /**< Max chars per line (incl null) */
-
-/*---------------------------------------------------------------------------
- * Execution control-flow types
- *---------------------------------------------------------------------------*/
-
-typedef enum { CF_IF = 0, CF_WHILE, CF_FOR } CtrlType_t;
-
-typedef struct {
-    CtrlType_t  type;
-    uint16_t    origin_line;   /**< While: condition line; For: For( line */
-    float       for_limit;
-    float       for_step;
-    char        for_var;
-} CtrlFrame_t;
-
-typedef struct {
-    uint8_t  idx;        /**< caller program index in g_prgm_store */
-    uint16_t pc;         /**< return address (line after the prgm call) */
-    uint8_t  num_lines;  /**< caller's total line count */
-} CallFrame_t;
 
 /*---------------------------------------------------------------------------
  * FLASH target

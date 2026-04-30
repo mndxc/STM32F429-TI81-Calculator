@@ -28,8 +28,6 @@
 #define PRGM_EDITOR_VISIBLE     7   /* Visible editor rows (matches MENU_VISIBLE_ROWS) */
 /* PRGM_MAX_LINES and PRGM_MAX_LINE_LEN are defined in prgm_exec.h (via ui_prgm.h) */
 
-/* PRGM_CTRL_DEPTH, PRGM_CALL_DEPTH, PRGM_MAX_LINES, PRGM_MAX_LINE_LEN,
- * CtrlType_t, CtrlFrame_t, and CallFrame_t are defined in prgm_exec.h. */
 /* PRGM menu state */
 static lv_obj_t   *ui_prgm_screen            = NULL;
 static uint8_t     prgm_tab                  = 0;   /* 0=EXEC, 1=EDIT, 2=ERASE */

@@ -192,6 +192,15 @@ void Prgm_ClearSlot(uint8_t slot)
  * PRGM executor — moved from ui_prgm.c
  *---------------------------------------------------------------------------*/
 
+/* Executor-private limits and types */
+#define PRGM_CALL_DEPTH  4
+
+typedef struct {
+    uint8_t  idx;       /**< caller program index in g_prgm_store */
+    uint16_t pc;        /**< return address (line after the prgm call) */
+    uint8_t  num_lines; /**< caller's total line count */
+} CallFrame_t;
+
 /* Execution-exclusive state variables */
 static CallFrame_t prgm_call_stack[PRGM_CALL_DEPTH];
 static uint8_t     prgm_call_top      = 0;
