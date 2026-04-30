@@ -886,3 +886,31 @@ void prgm_reset_execution_state(void)
 bool prgm_is_waiting_input(void) { return prgm_waiting_input; }
 char prgm_get_input_var(void)    { return prgm_input_var; }
 void prgm_clear_input_wait(void) { prgm_waiting_input = false; prgm_input_var = 0; }
+
+#ifdef HOST_TEST
+/**
+ * Walk every pair (i, j) where i < j. If entry i is non-exact and its prefix
+ * is a prefix of entry j's prefix, entry i would silently shadow j at runtime.
+ * Returns true when the table is clean; prints a diagnostic and returns false
+ * on the first violation found.
+ */
+bool prgm_cmd_table_validate(void)
+{
+    bool ok = true;
+    size_t n = sizeof(cmd_table) / sizeof(cmd_table[0]);
+    for (size_t i = 0; i < n; i++) {
+        if (cmd_table[i].exact) continue;
+        for (size_t j = i + 1; j < n; j++) {
+            if (strncmp(cmd_table[j].prefix, cmd_table[i].prefix,
+                        cmd_table[i].len) == 0) {
+                fprintf(stderr,
+                        "FAIL: cmd_table[%zu] \"%s\" (non-exact) shadows "
+                        "cmd_table[%zu] \"%s\"\n",
+                        i, cmd_table[i].prefix, j, cmd_table[j].prefix);
+                ok = false;
+            }
+        }
+    }
+    return ok;
+}
+#endif /* HOST_TEST */

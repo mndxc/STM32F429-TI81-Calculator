@@ -29,47 +29,78 @@
  *---------------------------------------------------------------------------*/
 
 /**
- * @brief Calculator input mode — controls which token layer is active.
+ * @brief Calculator input mode — controls which key layer or UI screen is active.
  *
- * MODE_NORMAL: Standard key function
- * MODE_2ND:    2nd function layer (sticky, resets after one keypress)
- * MODE_ALPHA:  Alpha character layer (sticky, resets after one keypress)
+ * Modes are grouped into six categories documented inline below:
+ *   Overlay      — stack over current_mode; revert to it after one key (ALPHA_LOCK: toggle)
+ *   Graph editor — exclusive graph-navigation screens (Y=, RANGE, ZOOM, parametric Y=)
+ *   Graph cursor — live cursor state on the graph canvas
+ *   Modal screen — exclusive UI screen; exits via CLEAR or QUIT
+ *   Program      — PRGM menus, editor, and runtime execution
+ *   Synthetic    — never stored in current_mode; used only for derived rendering state
+ *
+ * Dispatch routing in Execute_Token():
+ *   Overlay modes (2ND, ALPHA, ALPHA_LOCK) fall through to handle_normal_mode().
+ *   MODE_PRGM_RUNNING is special-cased *before* k_mode_handlers[].
+ *   MODE_PRGM_EDITOR and MODE_PRGM_NEW_NAME use ALPHA_LOCK compound conditions *after* the table.
+ *   All other non-overlay modes map 1-to-1 in k_mode_handlers[].
  */
 typedef enum {
+    /* --- Base mode --- */
     MODE_NORMAL,
+
+    /* --- Overlay modes: stack over current_mode; transient (reset after one key) --- */
     MODE_2ND,
     MODE_ALPHA,
-    MODE_ALPHA_LOCK,    /* ALPHA locked — stays active after each keypress */
+    MODE_ALPHA_LOCK,    /* persistent — stays active after each keypress until toggled off */
+
+    /* --- Graph editor / navigation modes: exclusive modal screens (exit via CLEAR or QUIT) --- */
     MODE_GRAPH_YEQ,     /* Y= equation editor active */
     MODE_GRAPH_RANGE,   /* RANGE field editor active */
     MODE_GRAPH_ZOOM,    /* ZOOM preset menu active */
+
+    /* --- Graph cursor modes: live on the graph canvas (exit via non-graph key) --- */
     MODE_GRAPH_TRACE,        /* Trace cursor active on graph */
     MODE_GRAPH_FREE_CURSOR,  /* Free-roaming crosshair on graph canvas; TRACE snaps to curve */
     MODE_GRAPH_ZBOX,    /* ZBox rubber-band zoom active */
+
+    /* --- Modal screens: exclusive UI screens (exit via CLEAR or QUIT) --- */
     MODE_MODE_SCREEN,        /* MODE settings screen active */
     MODE_MATH_MENU,          /* MATH/NUM/HYP/PRB menu active */
     MODE_GRAPH_ZOOM_FACTORS, /* ZOOM FACTORS sub-screen active */
     MODE_TEST_MENU,          /* TEST comparison-operator menu active */
     MODE_MATRIX_MENU,        /* MATRIX/EDIT tabs active */
     MODE_MATRIX_EDIT,        /* Matrix cell editor active */
+
+    /* --- Program execution: PRGM menus, editor, and runtime --- */
     MODE_PRGM_MENU,          /* PRGM EXEC/EDIT/NEW tab selection */
-    MODE_PRGM_EDITOR,        /* Program line editor */
+    MODE_PRGM_EDITOR,        /* Program line editor (ALPHA_LOCK compound; routed after dispatch table) */
     MODE_PRGM_CTL_MENU,      /* PRGM CTL sub-menu (Lbl, Goto, If…) */
     MODE_PRGM_IO_MENU,       /* PRGM I/O sub-menu (Disp, Input…) */
     MODE_PRGM_EXEC_MENU,     /* PRGM EXEC sub-menu (subroutine slot picker) */
-    MODE_PRGM_RUNNING,       /* Program execution in progress */
-    MODE_PRGM_NEW_NAME,      /* Name-entry dialog for new program */
+    MODE_PRGM_RUNNING,       /* Program execution in progress (special-cased before dispatch table) */
+    MODE_PRGM_NEW_NAME,      /* Name-entry dialog (ALPHA_LOCK compound; routed after dispatch table) */
+
+    /* --- Graph editor / navigation modes (continued — added after program cluster) --- */
     MODE_GRAPH_PARAM_YEQ,    /* Parametric X/Y pair editor (6 rows: X₁t..Y₃t) */
+
+    /* --- Modal screens (continued — added incrementally after initial modal group) --- */
     MODE_STAT_MENU,          /* STAT menu (CALC/DRAW/DATA tabs) active */
     MODE_STAT_EDIT,          /* STAT DATA list editor active */
     MODE_STAT_RESULTS,       /* STAT results screen active */
     MODE_DRAW_MENU,          /* DRAW menu (single-list, 7 items) active */
     MODE_VARS_MENU,          /* VARS menu (5-tab: XY/Σ/LR/DIM/RNG) active */
     MODE_YVARS_MENU,         /* Y-VARS menu (3-tab: Y/ON/OFF) active */
+
+    /* --- Program execution (continued — MODE screen sub-menus added later) --- */
     MODE_PRGM_MODE_NUMBER,   /* PRGM MODE NUMBER tab (Norm/Sci/Eng/Fix/Float/Rad/Deg) */
     MODE_PRGM_MODE_GRAPH,    /* PRGM MODE GRAPH tab (Function/Param/Connected/Dot/Sequence/Simul/Grid Off/Grid On/Rect/Polar) */
+
+    /* --- Modal screens (continued) --- */
     MODE_RESET_CONFIRM,      /* RESET confirmation screen (2nd++): 1:No / 2:Reset */
-    MODE_STO,                /* Synthetic: STO pending — cursor shows green 'A'; never set as current_mode */
+
+    /* --- Synthetic: never stored in current_mode; used only for derived rendering --- */
+    MODE_STO,                /* STO pending — cursor shows green 'A'; only passed to cursor_render() */
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------

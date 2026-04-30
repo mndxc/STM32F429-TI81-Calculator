@@ -1166,8 +1166,11 @@ void handle_history_nav(Token_t t)
  *  Returns true if the token was fully handled (Execute_Token should return). */
 typedef bool (*ModeHandler_t)(Token_t);
 
-/** (mode, handler) pair used in k_mode_handlers[]. */
-typedef struct { CalcMode_t mode; ModeHandler_t handler; } ModeEntry_t;
+/** Predicate: returns true when this routing entry should fire for token t. */
+typedef bool (*RoutePred_t)(Token_t);
+
+/** Single routing entry: pred fires → handler called; true return stops dispatch. */
+typedef struct { RoutePred_t pred; ModeHandler_t handler; } RouteEntry_t;
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -1176,44 +1179,174 @@ static bool dispatch_matrix_menu(Token_t t) { return handle_matrix_menu(t, &matr
 static bool dispatch_matrix_edit(Token_t t) { handle_matrix_edit(t); return true; }
 static bool dispatch_stat_menu(Token_t t)   { return handle_stat_menu(t, &stat_menu_state); }
 
-/** Dispatch table used by Execute_Token.  Every single-mode handler lives here
- *  except:
- *    - MODE_PRGM_RUNNING   (always-return special case before the table)
- *    - MODE_PRGM_NEW_NAME  (ALPHA_LOCK compound condition, after the table)
- *    - MODE_PRGM_EDITOR    (ALPHA_LOCK compound condition, after the table)
- *  To add a new mode: append a row and increment the _Static_assert count.
- *  Removing a mode from CalcMode_t causes a link error; removing a row without
- *  updating the count fires the assertion. */
-static const ModeEntry_t k_mode_handlers[] = {
-    { MODE_GRAPH_YEQ,          handle_yeq_mode          },
-    { MODE_GRAPH_RANGE,        handle_range_mode        },
-    { MODE_GRAPH_ZOOM,         handle_zoom_mode         },
-    { MODE_GRAPH_ZOOM_FACTORS, handle_zoom_factors_mode },
-    { MODE_GRAPH_ZBOX,         handle_zbox_mode         },
-    { MODE_GRAPH_TRACE,        handle_trace_mode        },
-    { MODE_GRAPH_FREE_CURSOR,  handle_free_cursor_mode  },
-    { MODE_GRAPH_PARAM_YEQ,    handle_param_yeq_mode    },
-    { MODE_MODE_SCREEN,        handle_mode_screen       },
-    { MODE_MATH_MENU,          handle_math_menu         },
-    { MODE_TEST_MENU,          handle_test_menu         },
-    { MODE_MATRIX_MENU,        dispatch_matrix_menu     },
-    { MODE_MATRIX_EDIT,        dispatch_matrix_edit     },
-    { MODE_STAT_MENU,          dispatch_stat_menu       },
-    { MODE_STAT_EDIT,          handle_stat_edit         },
-    { MODE_STAT_RESULTS,       handle_stat_results      },
-    { MODE_DRAW_MENU,          handle_draw_menu         },
-    { MODE_VARS_MENU,          handle_vars_menu         },
-    { MODE_YVARS_MENU,         handle_yvars_menu        },
-    { MODE_PRGM_MENU,          handle_prgm_menu         },
-    { MODE_PRGM_CTL_MENU,      handle_prgm_ctl_menu     },
-    { MODE_PRGM_IO_MENU,       handle_prgm_io_menu      },
-    { MODE_PRGM_EXEC_MENU,     handle_prgm_exec_menu    },
-    { MODE_PRGM_MODE_NUMBER,   handle_prgm_mode_number  },
-    { MODE_PRGM_MODE_GRAPH,    handle_prgm_mode_graph   },
-    { MODE_RESET_CONFIRM,      handle_reset_confirm     },
+/*---------------------------------------------------------------------------
+ * Route handlers — extracted from the former inline blocks in Execute_Token
+ *---------------------------------------------------------------------------*/
+
+static bool route_token_on(Token_t t)
+{
+    (void)t;
+    bool power_down = (current_mode == MODE_2ND);
+
+    lvgl_lock();
+    lv_obj_t *saving_lbl = lv_label_create(lv_scr_act());
+    lv_label_set_text(saving_lbl, "Saving...");
+    lv_obj_set_style_text_color(saving_lbl, lv_color_hex(COLOR_AMBER), 0);
+    lv_obj_align(saving_lbl, LV_ALIGN_BOTTOM_MID, 0, -6);
+    lvgl_unlock();
+    osDelay(20);
+
+    PersistBlock_t block = Persist_BuildBlock();
+    Persist_Save(&block);
+    Prgm_Save();
+
+    current_mode = MODE_NORMAL;
+    return_mode  = MODE_NORMAL;
+    sto_pending  = false;
+    prgm_reset_execution_state();
+    lvgl_lock();
+    lv_obj_del(saving_lbl);
+    hide_all_screens();
+    ui_update_status_bar();
+    lvgl_unlock();
+
+    if (power_down) {
+        Power_DisplayBlankAndMessage();
+    }
+    return true;
+}
+
+static bool route_token_quit(Token_t t)
+{
+    (void)t;
+    current_mode = MODE_NORMAL;
+    return_mode  = MODE_NORMAL;
+    sto_pending  = false;
+    prgm_reset_execution_state();
+    lvgl_lock();
+    hide_all_screens();
+    ui_update_status_bar();
+    lvgl_unlock();
+    return true;
+}
+
+static bool route_token_mode(Token_t t)  { (void)t; ui_mode_open(); return true; }
+
+static bool route_token_reset(Token_t t)
+{
+    (void)t;
+    lvgl_lock();
+    hide_all_screens();
+    lvgl_unlock();
+    Reset_MenuOpen(current_mode);
+    return true;
+}
+
+/* MODE_PRGM_RUNNING always consumes the token regardless of handler return. */
+static bool route_prgm_running(Token_t t) { handle_prgm_running(t); return true; }
+
+/* Normal-mode fallback: always fires last, always consumes the token. */
+static bool route_normal_mode(Token_t t)  { handle_normal_mode(t);  return true; }
+
+/*---------------------------------------------------------------------------
+ * Route predicates — one per routing condition
+ *---------------------------------------------------------------------------*/
+
+static bool pred_token_on   (Token_t t) { return t == TOKEN_ON;    }
+static bool pred_token_quit (Token_t t) { return t == TOKEN_QUIT;  }
+static bool pred_token_mode (Token_t t) { return t == TOKEN_MODE;  }
+static bool pred_token_reset(Token_t t) { return t == TOKEN_RESET; }
+
+static bool pred_prgm_running        (Token_t t) { (void)t; return current_mode == MODE_PRGM_RUNNING;        }
+static bool pred_mode_graph_yeq      (Token_t t) { (void)t; return current_mode == MODE_GRAPH_YEQ;           }
+static bool pred_mode_graph_range    (Token_t t) { (void)t; return current_mode == MODE_GRAPH_RANGE;         }
+static bool pred_mode_graph_zoom     (Token_t t) { (void)t; return current_mode == MODE_GRAPH_ZOOM;          }
+static bool pred_mode_zoom_factors   (Token_t t) { (void)t; return current_mode == MODE_GRAPH_ZOOM_FACTORS;  }
+static bool pred_mode_graph_zbox     (Token_t t) { (void)t; return current_mode == MODE_GRAPH_ZBOX;          }
+static bool pred_mode_graph_trace    (Token_t t) { (void)t; return current_mode == MODE_GRAPH_TRACE;         }
+static bool pred_mode_free_cursor    (Token_t t) { (void)t; return current_mode == MODE_GRAPH_FREE_CURSOR;   }
+static bool pred_mode_param_yeq      (Token_t t) { (void)t; return current_mode == MODE_GRAPH_PARAM_YEQ;     }
+static bool pred_mode_mode_screen    (Token_t t) { (void)t; return current_mode == MODE_MODE_SCREEN;         }
+static bool pred_mode_math_menu      (Token_t t) { (void)t; return current_mode == MODE_MATH_MENU;           }
+static bool pred_mode_test_menu      (Token_t t) { (void)t; return current_mode == MODE_TEST_MENU;           }
+static bool pred_mode_matrix_menu    (Token_t t) { (void)t; return current_mode == MODE_MATRIX_MENU;         }
+static bool pred_mode_matrix_edit    (Token_t t) { (void)t; return current_mode == MODE_MATRIX_EDIT;         }
+static bool pred_mode_stat_menu      (Token_t t) { (void)t; return current_mode == MODE_STAT_MENU;           }
+static bool pred_mode_stat_edit      (Token_t t) { (void)t; return current_mode == MODE_STAT_EDIT;           }
+static bool pred_mode_stat_results   (Token_t t) { (void)t; return current_mode == MODE_STAT_RESULTS;        }
+static bool pred_mode_draw_menu      (Token_t t) { (void)t; return current_mode == MODE_DRAW_MENU;           }
+static bool pred_mode_vars_menu      (Token_t t) { (void)t; return current_mode == MODE_VARS_MENU;           }
+static bool pred_mode_yvars_menu     (Token_t t) { (void)t; return current_mode == MODE_YVARS_MENU;          }
+static bool pred_mode_prgm_menu      (Token_t t) { (void)t; return current_mode == MODE_PRGM_MENU;           }
+static bool pred_mode_prgm_ctl_menu  (Token_t t) { (void)t; return current_mode == MODE_PRGM_CTL_MENU;       }
+static bool pred_mode_prgm_io_menu   (Token_t t) { (void)t; return current_mode == MODE_PRGM_IO_MENU;        }
+static bool pred_mode_prgm_exec_menu (Token_t t) { (void)t; return current_mode == MODE_PRGM_EXEC_MENU;      }
+static bool pred_mode_prgm_mode_num  (Token_t t) { (void)t; return current_mode == MODE_PRGM_MODE_NUMBER;    }
+static bool pred_mode_prgm_mode_grph (Token_t t) { (void)t; return current_mode == MODE_PRGM_MODE_GRAPH;     }
+static bool pred_mode_reset_confirm  (Token_t t) { (void)t; return current_mode == MODE_RESET_CONFIRM;       }
+
+/* ALPHA_LOCK compounds: route by current_mode or by return_mode when in ALPHA_LOCK. */
+static bool pred_prgm_new_name(Token_t t) {
+    (void)t;
+    return current_mode == MODE_PRGM_NEW_NAME ||
+           (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_NEW_NAME);
+}
+static bool pred_prgm_editor(Token_t t) {
+    (void)t;
+    return current_mode == MODE_PRGM_EDITOR ||
+           (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_EDITOR);
+}
+
+static bool pred_sto_pending(Token_t t) { (void)t; return sto_pending; }
+static bool pred_always     (Token_t t) { (void)t; return true; }
+
+/*---------------------------------------------------------------------------
+ * Unified routing table — every Execute_Token path in dispatch order.
+ * First entry whose pred(t) fires wins; true return value stops dispatch.
+ * To add a new routing path: insert one row. No count to maintain.
+ *---------------------------------------------------------------------------*/
+static const RouteEntry_t k_route_table[] = {
+    /* Global token overrides — highest priority regardless of mode ----------*/
+    { pred_token_on,              route_token_on              },
+    { pred_token_quit,            route_token_quit            },
+    { pred_token_mode,            route_token_mode            },
+    { pred_token_reset,           route_token_reset           },
+    /* Program execution intercept (before per-mode table) ------------------*/
+    { pred_prgm_running,          route_prgm_running          },
+    /* Per-mode handlers -------------------------------------------------------*/
+    { pred_mode_graph_yeq,        handle_yeq_mode             },
+    { pred_mode_graph_range,      handle_range_mode           },
+    { pred_mode_graph_zoom,       handle_zoom_mode            },
+    { pred_mode_zoom_factors,     handle_zoom_factors_mode    },
+    { pred_mode_graph_zbox,       handle_zbox_mode            },
+    { pred_mode_graph_trace,      handle_trace_mode           },
+    { pred_mode_free_cursor,      handle_free_cursor_mode     },
+    { pred_mode_param_yeq,        handle_param_yeq_mode       },
+    { pred_mode_mode_screen,      handle_mode_screen          },
+    { pred_mode_math_menu,        handle_math_menu            },
+    { pred_mode_test_menu,        handle_test_menu            },
+    { pred_mode_matrix_menu,      dispatch_matrix_menu        },
+    { pred_mode_matrix_edit,      dispatch_matrix_edit        },
+    { pred_mode_stat_menu,        dispatch_stat_menu          },
+    { pred_mode_stat_edit,        handle_stat_edit            },
+    { pred_mode_stat_results,     handle_stat_results         },
+    { pred_mode_draw_menu,        handle_draw_menu            },
+    { pred_mode_vars_menu,        handle_vars_menu            },
+    { pred_mode_yvars_menu,       handle_yvars_menu           },
+    { pred_mode_prgm_menu,        handle_prgm_menu            },
+    { pred_mode_prgm_ctl_menu,    handle_prgm_ctl_menu        },
+    { pred_mode_prgm_io_menu,     handle_prgm_io_menu         },
+    { pred_mode_prgm_exec_menu,   handle_prgm_exec_menu       },
+    { pred_mode_prgm_mode_num,    handle_prgm_mode_number     },
+    { pred_mode_prgm_mode_grph,   handle_prgm_mode_graph      },
+    { pred_mode_reset_confirm,    handle_reset_confirm        },
+    /* ALPHA_LOCK compound conditions (route by return_mode) -----------------*/
+    { pred_prgm_new_name,         handle_prgm_new_name        },
+    { pred_prgm_editor,           handle_prgm_editor          },
+    /* STO intercept and normal-mode fallback --------------------------------*/
+    { pred_sto_pending,           handle_sto_pending          },
+    { pred_always,                route_normal_mode           },
 };
-_Static_assert(ARRAY_SIZE(k_mode_handlers) == 26,
-               "mode handler count mismatch — update k_mode_handlers");
 
 /**
  * @brief Processes a single calculator token from the keypad queue.
@@ -1221,88 +1354,11 @@ _Static_assert(ARRAY_SIZE(k_mode_handlers) == 26,
  */
 void Execute_Token(Token_t t)
 {
-    /*--- TOKEN_ON: save state (plain ON) or save + sleep (2nd+ON) ----------*/
-    if (t == TOKEN_ON) {
-        bool power_down = (current_mode == MODE_2ND);
-
-        lvgl_lock();
-        lv_obj_t *saving_lbl = lv_label_create(lv_scr_act());
-        lv_label_set_text(saving_lbl, "Saving...");
-        lv_obj_set_style_text_color(saving_lbl, lv_color_hex(COLOR_AMBER), 0);
-        lv_obj_align(saving_lbl, LV_ALIGN_BOTTOM_MID, 0, -6);
-        lvgl_unlock();
-        osDelay(20);
-
-        PersistBlock_t block = Persist_BuildBlock();
-        Persist_Save(&block);
-        Prgm_Save();
-
-        current_mode       = MODE_NORMAL;
-        return_mode        = MODE_NORMAL;
-        sto_pending        = false;
-        prgm_reset_execution_state();
-        lvgl_lock();
-        lv_obj_del(saving_lbl);
-        hide_all_screens();
-        ui_update_status_bar();
-        lvgl_unlock();
-
-        if (power_down) {
-            Power_DisplayBlankAndMessage();
-        }
-        return;
-    }
-
-    /*--- TOKEN_QUIT: hard exit to main calculator screen ------------------*/
-    if (t == TOKEN_QUIT) {
-        current_mode = MODE_NORMAL;
-        return_mode  = MODE_NORMAL;
-        sto_pending  = false;
-        prgm_reset_execution_state();
-        lvgl_lock();
-        hide_all_screens();
-        ui_update_status_bar();
-        lvgl_unlock();
-        return;
-    }
-
-    /*--- TOKEN_MODE: always opens MODE screen from any mode ----------------*/
-    if (t == TOKEN_MODE) {
-        ui_mode_open();
-        return;
-    }
-
-    /*--- TOKEN_RESET (2nd++): RESET confirmation screen from any mode ------*/
-    if (t == TOKEN_RESET) {
-        lvgl_lock();
-        hide_all_screens();
-        lvgl_unlock();
-        Reset_MenuOpen(current_mode);
-        return;
-    }
-
-    if (current_mode == MODE_PRGM_RUNNING)        { handle_prgm_running(t); return; }
-
-    /*--- Dispatch table: O(n) scan across 22 entries. -----------------------*/
-    for (size_t i = 0; i < ARRAY_SIZE(k_mode_handlers); i++) {
-        if (current_mode == k_mode_handlers[i].mode) {
-            if (k_mode_handlers[i].handler(t)) return;
-            break;
+    for (size_t i = 0; i < ARRAY_SIZE(k_route_table); i++) {
+        if (k_route_table[i].pred(t)) {
+            if (k_route_table[i].handler(t)) return;
         }
     }
-
-    /* F5b: ALPHA_LOCK in name-entry — compound condition, kept outside table. */
-    if (current_mode == MODE_PRGM_NEW_NAME ||
-        (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_NEW_NAME))
-                                                  { if (handle_prgm_new_name(t))      return; }
-    /* A6: ALPHA_LOCK in editor — current_mode stays MODE_ALPHA_LOCK; route by return_mode. */
-    if (current_mode == MODE_PRGM_EDITOR ||
-        (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_EDITOR))
-                                                  { if (handle_prgm_editor(t))        return; }
-
-    if (sto_pending) { if (handle_sto_pending(t)) return; }
-
-    handle_normal_mode(t);
 }
 
 /*---------------------------------------------------------------------------

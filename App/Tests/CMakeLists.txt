@@ -212,6 +212,27 @@ if(COVERAGE)
     target_link_options(test_menu_state PRIVATE --coverage)
 endif()
 
+# --- test_prgm_cmd_table ---
+# Validates cmd_table[] prefix ordering: no non-exact prefix may shadow a later entry.
+
+add_executable(test_prgm_cmd_table
+    test_prgm_cmd_table.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/prgm_exec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_buffer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
+)
+
+# Tests/ directory must be on the path so prgm_exec.c finds prgm_exec_test_stubs.h
+target_include_directories(test_prgm_cmd_table PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_compile_options(test_prgm_cmd_table PRIVATE -Wall -Wextra -DHOST_TEST=1)
+
+if(COVERAGE)
+    target_compile_options(test_prgm_cmd_table PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_prgm_cmd_table PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
@@ -224,3 +245,4 @@ add_test(NAME param             COMMAND test_param)
 add_test(NAME stat              COMMAND test_stat)
 add_test(NAME yvars             COMMAND test_yvars)
 add_test(NAME menu_state        COMMAND test_menu_state)
+add_test(NAME prgm_cmd_table    COMMAND test_prgm_cmd_table)

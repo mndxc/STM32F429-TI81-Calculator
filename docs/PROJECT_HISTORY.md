@@ -207,3 +207,38 @@ The single history archive for this project. Add a Session Log entry after every
 | 2026-04-16 | INTERFACE_REFACTOR_PLAN all 6 items complete. No scorecard dimension changed (all items complexity-neutral; code organisation targets not met: ui_prgm.c 1268 lines vs 1000 target, graph_ui.c 862 lines vs 800 target). Follow-on work logged in CLAUDE.md: MenuState_t retrofit for 5 remaining menus, graph_state accessor layer, PersistBlock_t sub-struct adoption at next version bump. INTERFACE_REFACTOR_PLAN.md retired. Rating 91–93% (unchanged). |
 | 2026-04-16 | COUPLING_REFACTOR T1 complete. `graph_state` encapsulated as static in `graph.c`; all external writes via `Graph_*` accessor functions; `extern GraphState_t graph_state` removed from `app_common.h`. API/header design A → A+. Reviewer: Claude Code (claude-sonnet-4-6). |
 | 2026-04-17 | COUPLING_REFACTOR all 10 tasks complete. All shared internal state encapsulated behind accessor APIs: `graph_state` (T1), `g_prgm_store` (T2), `ans`/`ans_is_matrix` (T3), LVGL screen pointers (T4), `current_mode`/`return_mode` (T5), menu open/close delegation (T6), Execute_Token dispatch table (T7), calc_history extracted (T8), persist logic moved (T9), MenuState_t retrofit for all 6 menu modules (T10). `calc_internal.h` extern block eliminated. `COUPLING_REFACTOR.md` deleted. No scorecard dimension changed from T1 completion (API/header design remains A+). Reviewer: Claude Code (claude-sonnet-4-6). |
+
+---
+
+## Scorecard Change Log
+
+| Date | Dimension | Old | New | Trigger |
+|---|---|---|---|---|
+| 2026-04-03 | Testing | B+ | A | P1 property-based invariant tests + handle_normal_mode coverage added |
+| 2026-04-15 | Code organisation | B | B | ui_prgm.c extracted CTL/IO/EXEC sub-menus → 1652→1276 lines; still over 500-line threshold |
+| 2026-04-16 | API / header design | A | A | ExprBuffer_t wrapper added (Item 2); three raw globals → single struct; complexity delta: neutral |
+| 2026-04-16 | Testing | A | A | MenuState_t helpers added (Item 3); test_menu_state.c 43 assertions; suite grows to 10 suites / 694 assertions; complexity delta: neutral |
+| 2026-04-16 | Code organisation | B | B | ZOOM menu extracted graph_ui.c → ui_graph_zoom.c (1131→862 lines); <800 target missed by 62 lines (zoom_enter_zbox kept in graph_ui.c for s_zbox ownership); complexity delta: neutral |
+| 2026-04-16 | API / header design | A | A+ | COUPLING_REFACTOR T1: graph_state static in graph.c; extern removed from app_common.h; 13 accessors; direct field writes outside graph.c are now compile errors; complexity delta: neutral |
+| 2026-04-16 | API / header design | A+ | A+ | COUPLING_REFACTOR T2: g_prgm_store extern removed from prgm_exec.h; 7 accessors; direct field writes in ui_prgm.c + ui_prgm_exec.c eliminated; complexity delta: neutral |
+| 2026-04-16 | API / header design | A+ | A+ | COUPLING_REFACTOR T3: ans/ans_is_matrix static in calculator_core.c; 4 accessors; format_calc_result signature simplified; complexity delta: neutral |
+| 2026-04-17 | API / header design | A+ | A+ | COUPLING_REFACTOR T4: 16 LVGL screen pointers made static; extern block removed; 25 show/hide one-liners added; complexity delta: neutral |
+| 2026-04-17 | API / header design | A+ | A+ | COUPLING_REFACTOR T5: current_mode/return_mode static in calculator_core.c; 4 accessors; direct writes across 13 files eliminated; complexity delta: neutral |
+| 2026-04-17 | Code organisation | B | B | COUPLING_REFACTOR T8: history ring buffer extracted into calc_history.c (~150 lines); calculator_core.c reduced ~150 lines; complexity delta: neutral |
+| 2026-04-17 | Code organisation | B | B | COUPLING_REFACTOR T9: Persist_BuildBlock/ApplyBlock moved into persist.c; calculator_core.c reduced 1544→1453 lines; complexity delta: neutral |
+| 2026-04-17 | API / header design | A+ | A+ | COUPLING_REFACTOR T11: stat_data/stat_results static in ui_stat.c; 3 accessors added; complexity delta: neutral |
+| 2026-04-24 | Code organisation | B | B | P30 follow-up: ui_stat_edit.c extracted from ui_stat.c (703→367 lines); complexity delta: decrease |
+| 2026-04-24 | Testing | A | A | P36–P39 PRGM MODE commands: 17 cmd handlers, ui_prgm_mode.c, 10 assertions; 752 total; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | Hyperbolic functions: 6 tokens, 16 assertions; 771 total; complexity delta: neutral |
+| 2026-04-25 | Error handling | A- | A- | Auto-close trailing `(`: sy_drain_stack() discards unmatched `(`; 4 assertions; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | `End` subroutine return fix; 12 assertions (Group 18); 787 total; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | nDeriv( numerical derivative; 6 assertions (group 5c); 793 total; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | Stat INS/DEL: CalcStat_InsertRow/DeleteRow; 37 assertions; 830 total; complexity delta: neutral |
+| 2026-04-25 | Testing | A | A | {x}(n)/{y}(n) list-element access; Calc_RegisterStatAccessors(); 13 assertions (group 5d); 831 total; complexity delta: neutral |
+| 2026-04-25 | Code organisation | B | B | Parametric Y-VARS tabs expanded; scroll indicators; complexity delta: neutral |
+| 2026-04-26 | Code organisation | B | B | Dim{x} VARS DIM tab item 7; complexity delta: neutral |
+| 2026-04-26 | Code organisation | B | B | RESET menu (2nd++): ui_reset.c/h, Persist_Reset(), k_mode_handlers[] 25→26; complexity delta: neutral |
+| 2026-04-26 | Testing | A | A | Shade( full argument set: 5-arg form, per-column eval, boundary curves, clip region; 15 assertions (group 5e); 846 total; complexity delta: neutral |
+| 2026-04-30 | Testing | A | A | T1-A arch review: prgm_cmd_table_validate() + test_prgm_cmd_table.c; 847 total; complexity delta: neutral |
+| 2026-04-30 | Documentation | A- | A- | T1-B arch review: CalcMode_t topology documented in app_common.h; comment-only change; complexity delta: neutral |
+| 2026-04-30 | Function complexity | B | B | T2-A arch review: Execute_Token flattened into k_route_table[] (35 RouteEntry_t rows); ModeEntry_t/k_mode_handlers[] removed; _Static_assert removed; 6 route_* wrappers + 31 pred_* predicates; Execute_Token body is a 4-line loop; all 11 host suites / 847 assertions pass; complexity delta: decrease |

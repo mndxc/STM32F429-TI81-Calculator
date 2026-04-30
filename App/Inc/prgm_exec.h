@@ -236,4 +236,16 @@ char prgm_get_input_var(void);
  */
 void prgm_clear_input_wait(void);
 
+#ifdef HOST_TEST
+/**
+ * @brief  Validate cmd_table[] prefix ordering.
+ *
+ * Walks every pair (i, j) where i < j. If entry i is non-exact and its
+ * prefix is a prefix of entry j's prefix, i would silently shadow j.
+ * Prints a diagnostic to stderr and returns false on any violation.
+ * Available only in HOST_TEST builds; call from test_prgm_cmd_table.c.
+ */
+bool prgm_cmd_table_validate(void);
+#endif /* HOST_TEST */
+
 #endif /* PRGM_EXEC_H */
