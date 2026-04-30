@@ -395,6 +395,9 @@ static inline bool try_execute_draw_command(void)    { return false; }
 extern char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
 extern uint8_t prgm_edit_num_lines;
 
+static inline const char *Prgm_GetLine(uint8_t ln)  { return prgm_edit_lines[ln]; }
+static inline uint8_t     Prgm_GetNumLines(void)    { return prgm_edit_num_lines; }
+
 /* prgm_parse_from_store / prgm_slot_id_str / prgm_slot_is_used:
  * identical to the versions in prgm_exec_test_stubs.h (static inline, no conflict) */
 static inline void prgm_parse_from_store(uint8_t idx)

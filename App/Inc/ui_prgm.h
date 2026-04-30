@@ -25,9 +25,9 @@
 bool Prgm_IsEditorScreenVisible(void);
 bool Prgm_IsNewScreenVisible(void);
 
-/* Shared editor working buffer — also used by the execution engine */
-extern char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
-extern uint8_t prgm_edit_num_lines;
+/* Accessors for the editor working buffer — used by the execution engine */
+const char *Prgm_GetLine(uint8_t ln);
+uint8_t     Prgm_GetNumLines(void);
 
 /* Helpers used by both the editor and the execution engine */
 void prgm_parse_from_store(uint8_t idx);

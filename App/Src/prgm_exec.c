@@ -281,8 +281,8 @@ static void cmd_goto(const char *line, uint16_t ln)
     char lbl = line[5]; /* single-character label only */
     if (lbl == '\0') { prgm_run_active = false; return; }
     for (uint16_t i = 0; i < (uint16_t)prgm_run_num_lines; i++) {
-        if (strncmp(prgm_edit_lines[i], "Lbl ", 4) == 0 &&
-            prgm_edit_lines[i][4] == lbl) {
+        if (strncmp(Prgm_GetLine(i), "Lbl ", 4) == 0 &&
+            Prgm_GetLine(i)[4] == lbl) {
             prgm_run_pc = i + 1;
             return;
         }
@@ -408,7 +408,7 @@ static void cmd_prgm_call(const char *line, uint16_t ln)
         prgm_call_top++;
         prgm_run_idx       = (uint8_t)idx;
         prgm_parse_from_store((uint8_t)idx);
-        prgm_run_num_lines = prgm_edit_num_lines;
+        prgm_run_num_lines = Prgm_GetNumLines();
         prgm_run_pc        = 0;
     }
 }
@@ -746,7 +746,7 @@ static const CmdEntry_t cmd_table[] = {
 /** Execute the program line at index @p ln. prgm_run_pc is already ln+1. */
 static void prgm_execute_line(uint16_t ln)
 {
-    const char *line = prgm_edit_lines[ln];
+    const char *line = Prgm_GetLine(ln);
 
     for (size_t i = 0; i < sizeof(cmd_table) / sizeof(cmd_table[0]); i++) {
         const CmdEntry_t *e = &cmd_table[i];
@@ -871,7 +871,7 @@ void prgm_run_start(uint8_t idx)
     prgm_input_var     = 0;
     ExprBuffer_Clear(&expr);
     prgm_parse_from_store(idx);
-    prgm_run_num_lines = prgm_edit_num_lines;
+    prgm_run_num_lines = Prgm_GetNumLines();
     Calc_SetMode(MODE_PRGM_RUNNING);
 #ifndef HOST_TEST
     lvgl_lock();

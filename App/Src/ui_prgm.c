@@ -60,15 +60,18 @@ static uint8_t     prgm_edit_idx             = 0;   /* which program is being ed
 static uint8_t     prgm_edit_line            = 0;   /* current line (0-based) */
 static uint8_t     prgm_edit_scroll          = 0;   /* first visible line */
 static uint8_t     prgm_edit_col             = 0;   /* cursor byte-offset within current line */
-uint8_t            prgm_edit_num_lines       = 0;   /* total lines in active program */
+static uint8_t     prgm_edit_num_lines       = 0;   /* total lines in active program */
 static lv_obj_t   *prgm_edit_title_lbl       = NULL;
 static lv_obj_t   *prgm_edit_line_labels[PRGM_EDITOR_VISIBLE];
 static lv_obj_t   *prgm_edit_scroll_up       = NULL;
 static lv_obj_t   *prgm_edit_scroll_down     = NULL;
 static lv_obj_t   *prgm_edit_cursor_box      = NULL;
 static lv_obj_t   *prgm_edit_cursor_inner    = NULL;
-/* Working line buffer for active program — plain .bss; shared with prgm_exec.c */
-char               prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
+/* Working line buffer for active program — plain .bss */
+static char        prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
+
+const char *Prgm_GetLine(uint8_t ln)     { return prgm_edit_lines[ln]; }
+uint8_t     Prgm_GetNumLines(void)       { return prgm_edit_num_lines; }
 
 /* PRGM runtime Menu( screen — shown during program execution */
 static lv_obj_t   *ui_prgm_menu_screen         = NULL;

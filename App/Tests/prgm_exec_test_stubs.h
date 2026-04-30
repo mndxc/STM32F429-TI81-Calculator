@@ -89,6 +89,9 @@ extern ExprBuffer_t expr;   /* .buf = expression string, .len = length, .cursor 
 extern char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
 extern uint8_t prgm_edit_num_lines;
 
+static inline const char *Prgm_GetLine(uint8_t ln)  { return prgm_edit_lines[ln]; }
+static inline uint8_t     Prgm_GetNumLines(void)    { return prgm_edit_num_lines; }
+
 /*---------------------------------------------------------------------------
  * prgm_parse_from_store — inline stub: split the stored body for @p idx
  * on '\n' into prgm_edit_lines[] and set prgm_edit_num_lines.
