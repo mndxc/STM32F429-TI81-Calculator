@@ -361,6 +361,16 @@ static inline CalcMode_t math_menu_close(void)       { return MODE_NORMAL; }
 static inline CalcMode_t test_menu_close(void)       { return MODE_NORMAL; }
 
 /*---------------------------------------------------------------------------
+ * ui_reset.h replacement
+ *---------------------------------------------------------------------------*/
+
+static inline void Reset_ShowScreen(void) {}
+static inline void Reset_HideScreen(void) {}
+static inline void ui_init_reset_screen(void)        {}
+static inline void Reset_MenuOpen(CalcMode_t r)      { (void)r; current_mode = MODE_RESET_CONFIRM; }
+static inline bool handle_reset_confirm(Token_t t)   { (void)t; return false; }
+
+/*---------------------------------------------------------------------------
  * ui_draw.h replacement
  *---------------------------------------------------------------------------*/
 
