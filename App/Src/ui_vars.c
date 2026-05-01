@@ -23,6 +23,8 @@
 #include "ui_vars.h"
 #include "menu_state.h"
 #include "ui_shared.h"
+#include "calc_engine.h"
+#include "calculator_core.h"
 #include "graph.h"
 #include "ui_stat.h"
 #include "calc_stat.h"
