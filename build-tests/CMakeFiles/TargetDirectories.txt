@@ -11,6 +11,7 @@
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_prgm_cmd_table.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_parse_eval.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_mode_topology.dir
+/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test_graph_render.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/test.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/edit_cache.dir
 /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles/rebuild_cache.dir
