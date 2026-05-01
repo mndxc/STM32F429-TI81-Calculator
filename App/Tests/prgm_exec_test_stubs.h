@@ -11,8 +11,8 @@
  *   - Inline implementations of prgm_parse_from_store, prgm_slot_is_used,
  *     prgm_slot_id_str, and format_calc_result
  *
- * All LVGL / Graph / UI calls in prgm_exec.c are inside #ifndef HOST_TEST
- * guards and are never compiled in, so no LVGL stubs are needed here.
+ * All LVGL / Graph / UI calls in prgm_exec.c go through PrgmOutput_t
+ * callbacks registered via Prgm_SetOutput(); no LVGL stubs are needed here.
  */
 
 #ifndef PRGM_EXEC_TEST_STUBS_H

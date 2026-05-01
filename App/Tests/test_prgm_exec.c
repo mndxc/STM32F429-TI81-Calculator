@@ -50,6 +50,35 @@ uint8_t prgm_edit_num_lines = 0;
 ProgramStore_t g_prgm_store;
 
 /* -------------------------------------------------------------------------
+ * Test output callbacks (PrgmOutput_t)
+ *
+ * disp_text: records into history[] via the stub CalcHistory_Commit so that
+ *   existing assertions on history[].expression / history_count still work.
+ * prog_done: no-op — tests verify program completion via current_mode.
+ * clr_home / disp_graph / show_home / input_ready: no-op in tests.
+ * ---------------------------------------------------------------------- */
+
+static void test_disp_text(const char *expr, const char *result)
+{
+    CalcHistory_Commit(expr, result, false, 0, 0, 0);
+}
+
+static void test_prog_done(void)   {}
+static void test_clr_home(void)    {}
+static void test_disp_graph(void)  {}
+static void test_show_home(void)   {}
+static void test_input_ready(void) {}
+
+static const PrgmOutput_t k_test_output = {
+    .disp_text   = test_disp_text,
+    .prog_done   = test_prog_done,
+    .clr_home    = test_clr_home,
+    .disp_graph  = test_disp_graph,
+    .show_home   = test_show_home,
+    .input_ready = test_input_ready,
+};
+
+/* -------------------------------------------------------------------------
  * Test infrastructure
  * ---------------------------------------------------------------------- */
 
@@ -88,6 +117,7 @@ static void reset_state(void)
     for (uint8_t s = 0; s < PRGM_MAX_PROGRAMS; s++) Prgm_ClearSlot(s);
     memset(prgm_edit_lines, 0, sizeof(prgm_edit_lines));
     prgm_edit_num_lines = 0;
+    Prgm_SetOutput(&k_test_output);
 }
 
 /**

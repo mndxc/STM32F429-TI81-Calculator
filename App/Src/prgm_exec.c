@@ -15,11 +15,6 @@
 #ifdef HOST_TEST
 #  include "prgm_exec_test_stubs.h"
 #else
-/*
- * Embedded-only UI dependencies.  In host builds these are replaced by
- * prgm_exec_test_stubs.h so the execution engine remains testable without
- * hardware or LVGL.
- */
 #  include "ui_prgm.h"
 #  include "calc_internal.h"
 #  include "graph.h"
@@ -28,6 +23,14 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+/*---------------------------------------------------------------------------
+ * Output callback table — set once by Prgm_Init (embedded) or
+ * Prgm_SetOutput (host tests).  All executor I/O goes through s_out.
+ *---------------------------------------------------------------------------*/
+static const PrgmOutput_t *s_out = NULL;
+
+void Prgm_SetOutput(const PrgmOutput_t *out) { s_out = out; }
 
 #ifndef HOST_TEST
 /*---------------------------------------------------------------------------
@@ -86,11 +89,65 @@ static void prgm_write_block(const ProgramFlashBlock_t *block)
 }
 
 /*---------------------------------------------------------------------------
+ * Hardware output callbacks (embedded builds only)
+ *---------------------------------------------------------------------------*/
+
+static void hw_disp_text(const char *expr, const char *result)
+{
+    CalcHistory_Commit(expr, result, false, 0, 0, 0);
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
+}
+
+static void hw_prog_done(void)
+{
+    CalcHistory_Commit("", "Done", false, 0, 0, 0);
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
+}
+
+static void hw_clr_home(void)
+{
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
+}
+
+static void hw_disp_graph(void)
+{
+    lvgl_lock();
+    hide_all_screens();
+    Graph_SetVisible(true);
+    lvgl_unlock();
+    osDelay(20);
+    Graph_Render();
+}
+
+static void hw_show_home(void)
+{
+    lvgl_lock();
+    hide_all_screens();
+    ui_refresh_display();
+    lvgl_unlock();
+}
+
+static void hw_input_ready(void)
+{
+    Update_Calculator_Display();
+}
+
+static const PrgmOutput_t k_hw_output = {
+    .disp_text   = hw_disp_text,
+    .prog_done   = hw_prog_done,
+    .clr_home    = hw_clr_home,
+    .disp_graph  = hw_disp_graph,
+    .show_home   = hw_show_home,
+    .input_ready = hw_input_ready,
+};
+
+/*---------------------------------------------------------------------------
  * Public API
  *---------------------------------------------------------------------------*/
 
 void Prgm_Init(void)
 {
+    s_out = &k_hw_output;
     memset(&g_prgm_store, 0, sizeof(g_prgm_store));
     Prgm_Load();
 }
@@ -420,9 +477,7 @@ static void cmd_clrhome(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
     CalcHistory_Clear();
-#ifndef HOST_TEST
-    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
-#endif
+    if (s_out) s_out->clr_home();
 }
 
 /* CMD: DispHome
@@ -431,12 +486,7 @@ static void cmd_clrhome(const char *line, uint16_t ln)
 static void cmd_disphome(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
-#ifndef HOST_TEST
-    lvgl_lock();
-    hide_all_screens();
-    ui_refresh_display();
-    lvgl_unlock();
-#endif
+    if (s_out) s_out->show_home();
 }
 
 /* CMD: DispGraph
@@ -446,14 +496,7 @@ static void cmd_disphome(const char *line, uint16_t ln)
 static void cmd_dispgraph(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
-#ifndef HOST_TEST
-    lvgl_lock();
-    hide_all_screens();
-    Graph_SetVisible(true);
-    lvgl_unlock();
-    osDelay(20);  /* let DefaultTask flush the show-graph state before rendering */
-    Graph_Render();
-#endif
+    if (s_out) s_out->disp_graph();
 }
 
 
@@ -475,18 +518,15 @@ static void cmd_disp(const char *line, uint16_t ln)
         char disp_expr[MAX_EXPR_LEN];
         memcpy(disp_expr, s, len);
         disp_expr[len] = '\0';
-        CalcHistory_Commit(disp_expr, "", false, 0, 0, 0);
+        if (s_out) s_out->disp_text(disp_expr, "");
     } else {
         /* Variable or expression: right-aligned in result row */
         char disp_buf[MAX_RESULT_LEN];
         CalcResult_t r = Calc_Evaluate(arg, Calc_GetAns(), Calc_GetAnsIsMatrix(),
                                        angle_degrees);
         format_calc_result(&r, disp_buf, MAX_RESULT_LEN);
-        CalcHistory_Commit("", disp_buf, false, 0, 0, 0);
+        if (s_out) s_out->disp_text("", disp_buf);
     }
-#ifndef HOST_TEST
-    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
-#endif
 }
 
 /* CMD: Input
@@ -503,13 +543,10 @@ static void cmd_input(const char *line, uint16_t ln)
     /* Original TI-81: always show just "?" — variable name not displayed */
     char prompt[4];
     snprintf(prompt, sizeof(prompt), "?");
-    CalcHistory_Commit(prompt, "", false, 0, 0, 0);
+    if (s_out) s_out->disp_text(prompt, "");
     ExprBuffer_Clear(&expr);
     prgm_waiting_input = true;
-#ifndef HOST_TEST
-    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
-    Update_Calculator_Display();
-#endif
+    if (s_out) s_out->input_ready();
 }
 
 
@@ -834,10 +871,7 @@ restart:
     if (!prgm_run_active) {
         /* Stop/Return/Goto-abort: program ended before last line */
         Calc_SetMode(MODE_NORMAL);
-#ifndef HOST_TEST
-        CalcHistory_Commit("", "Done", false, 0, 0, 0);
-        lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
-#endif
+        if (s_out) s_out->prog_done();
         return;
     }
 
@@ -854,10 +888,7 @@ restart:
     /* Program done */
     prgm_run_active = false;
     Calc_SetMode(MODE_NORMAL);
-#ifndef HOST_TEST
-    CalcHistory_Commit("", "Done", false, 0, 0, 0);
-    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
-#endif
+    if (s_out) s_out->prog_done();
 }
 
 /** Initialise executor state and start running program @p idx. */
@@ -873,12 +904,7 @@ void prgm_run_start(uint8_t idx)
     prgm_parse_from_store(idx);
     prgm_run_num_lines = Prgm_GetNumLines();
     Calc_SetMode(MODE_PRGM_RUNNING);
-#ifndef HOST_TEST
-    lvgl_lock();
-    hide_all_screens();
-    ui_refresh_display();
-    lvgl_unlock();
-#endif
+    if (s_out) s_out->show_home();
     prgm_run_loop();
 }
 

@@ -86,6 +86,48 @@ _Static_assert(sizeof(ProgramStore_t) % 4 == 0,
                "ProgramStore_t must be a multiple of 4 bytes");
 
 /*---------------------------------------------------------------------------
+ * Output callback interface
+ *
+ * All I/O that the executor produces goes through a PrgmOutput_t instance.
+ * Hardware builds register k_hw_output (defined in prgm_exec.c) at Prgm_Init
+ * time.  Host-test builds call Prgm_SetOutput() with a buffer-backed struct
+ * so tests can assert on actual output without LVGL or RTOS stubs.
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief  Output callbacks injected into the executor.
+ *
+ * Every function pointer must be non-NULL when registered via Prgm_SetOutput().
+ *
+ *  disp_text   — Disp "<str>", Disp <expr>, Input prompt: commits one
+ *                expression/result pair and refreshes the history display.
+ *  prog_done   — End of program (normal or Stop): shows "Done" and refreshes.
+ *  clr_home    — ClrHome display refresh (CalcHistory_Clear() is still called
+ *                unconditionally by cmd_clrhome; this fires afterward).
+ *  disp_graph  — DispGraph: switches to the graph screen and renders.
+ *  show_home   — DispHome and program start: switches to the home screen.
+ *  input_ready — Input: refreshes the expression-buffer display after the
+ *                "?" prompt has been committed.
+ */
+typedef struct {
+    void (*disp_text)(const char *expr, const char *result);
+    void (*prog_done)(void);
+    void (*clr_home)(void);
+    void (*disp_graph)(void);
+    void (*show_home)(void);
+    void (*input_ready)(void);
+} PrgmOutput_t;
+
+/**
+ * @brief  Register the active output callbacks.
+ *
+ * Must be called before prgm_run_start().  In embedded builds, Prgm_Init()
+ * calls this internally with the hardware callback table; host-test builds
+ * call it directly with a test-owned struct.
+ */
+void Prgm_SetOutput(const PrgmOutput_t *out);
+
+/*---------------------------------------------------------------------------
  * Public API
  *---------------------------------------------------------------------------*/
 
