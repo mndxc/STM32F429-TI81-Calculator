@@ -14,7 +14,7 @@
 
 #include "ui_stat.h"
 #include "calc_stat.h"
-#include "calc_internal.h"
+#include "ui_shared.h"
 #include "ui_palette.h"
 #include <stdio.h>
 #include <string.h>

@@ -8,7 +8,7 @@
  *
  * Supported CTL commands: Lbl, Goto, If, IS>(, DS<(, Pause, End, Stop.
  */
-#include "calc_internal.h"
+#include "ui_shared.h"
 #include "ui_prgm.h"
 #include "ui_prgm_ctl.h"
 #include "ui_palette.h"

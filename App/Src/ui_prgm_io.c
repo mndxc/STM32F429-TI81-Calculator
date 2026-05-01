@@ -8,7 +8,7 @@
  *
  * Supported I/O commands: Disp, Input, DispHome, DispGraph, ClrHome.
  */
-#include "calc_internal.h"
+#include "ui_shared.h"
 #include "ui_prgm.h"
 #include "ui_prgm_io.h"
 #include "ui_palette.h"

@@ -16,7 +16,9 @@
  */
 
 #include "ui_draw.h"
-#include "calc_internal.h"
+#include "ui_shared.h"
+#include "calculator_core.h"
+#include "calc_engine.h"
 #include "graph.h"
 #include "graph_draw.h"
 #include "ui_palette.h"
@@ -177,7 +179,7 @@ static float eval_draw_arg(const char *start, const char *end)
     if (len == 0 || len >= sizeof(buf)) return 0.0f;
     memcpy(buf, start, len);
     buf[len] = '\0';
-    CalcResult_t r = Calc_Evaluate(buf, Calc_GetAns(), Calc_GetAnsIsMatrix(), angle_degrees);
+    CalcResult_t r = Calc_Evaluate(buf, Calc_GetAns(), Calc_GetAnsIsMatrix(), Calc_GetAngleDegrees());
     return (r.error == CALC_OK && !r.has_matrix) ? r.value : 0.0f;
 }
 
@@ -214,7 +216,7 @@ bool try_execute_draw_command(void)
     const uint16_t shade_grey  = 0x8410; /* mid-grey 50 % */
 
     /* ClrDraw */
-    if (strcmp(expr.buf, "ClrDraw") == 0) {
+    if (strcmp(Calc_GetExprBuf(), "ClrDraw") == 0) {
         Graph_DrawLayerClear();
         if (Graph_IsVisible())
             Graph_Render();
@@ -222,8 +224,8 @@ bool try_execute_draw_command(void)
     }
 
     /* Line(x1,y1,x2,y2) */
-    if (strncmp(expr.buf, "Line(", 5) == 0) {
-        const char *p = expr.buf + 4;
+    if (strncmp(Calc_GetExprBuf(), "Line(", 5) == 0) {
+        const char *p = Calc_GetExprBuf() + 4;
         float args[4] = {0};
         if (parse_draw_args(&p, args, 4) == 4) {
             int32_t px1 = Graph_MathXToPx(args[0]);
@@ -238,8 +240,8 @@ bool try_execute_draw_command(void)
     }
 
     /* PT-On(x,y) */
-    if (strncmp(expr.buf, "PT-On(", 6) == 0) {
-        const char *p = expr.buf + 5;
+    if (strncmp(Calc_GetExprBuf(), "PT-On(", 6) == 0) {
+        const char *p = Calc_GetExprBuf() + 5;
         float args[2] = {0};
         if (parse_draw_args(&p, args, 2) >= 2) {
             Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
@@ -251,8 +253,8 @@ bool try_execute_draw_command(void)
     }
 
     /* PT-Off(x,y) */
-    if (strncmp(expr.buf, "PT-Off(", 7) == 0) {
-        const char *p = expr.buf + 6;
+    if (strncmp(Calc_GetExprBuf(), "PT-Off(", 7) == 0) {
+        const char *p = Calc_GetExprBuf() + 6;
         float args[2] = {0};
         if (parse_draw_args(&p, args, 2) >= 2) {
             Graph_DrawLayerSetPixel(Graph_MathXToPx(args[0]),
@@ -264,8 +266,8 @@ bool try_execute_draw_command(void)
     }
 
     /* PT-Chg(x,y) */
-    if (strncmp(expr.buf, "PT-Chg(", 7) == 0) {
-        const char *p = expr.buf + 6;
+    if (strncmp(Calc_GetExprBuf(), "PT-Chg(", 7) == 0) {
+        const char *p = Calc_GetExprBuf() + 6;
         float args[2] = {0};
         if (parse_draw_args(&p, args, 2) >= 2) {
             int32_t px = Graph_MathXToPx(args[0]);
@@ -279,8 +281,8 @@ bool try_execute_draw_command(void)
     }
 
     /* DrawF <expr> */
-    if (strncmp(expr.buf, "DrawF ", 6) == 0) {
-        const char *expr_part = expr.buf + 6;
+    if (strncmp(Calc_GetExprBuf(), "DrawF ", 6) == 0) {
+        const char *expr_part = Calc_GetExprBuf() + 6;
         if (strlen(expr_part) > 0) {
             Graph_DrawF(expr_part, draw_white);
             if (Graph_IsVisible())
@@ -290,8 +292,8 @@ bool try_execute_draw_command(void)
     }
 
     /* Shade(lowerfunc, upperfunc [, resolution, Xbeg, Xend]) */
-    if (strncmp(expr.buf, "Shade(", 6) == 0) {
-        const char *p = expr.buf + 6;   /* point past '(' */
+    if (strncmp(Calc_GetExprBuf(), "Shade(", 6) == 0) {
+        const char *p = Calc_GetExprBuf() + 6;   /* point past '(' */
         char func_lo[64], func_hi[64];
         if (shade_extract_str(&p, func_lo, sizeof(func_lo)) &&
             shade_extract_str(&p, func_hi, sizeof(func_hi))) {

@@ -179,6 +179,8 @@ CalcMode_t  Calc_GetMode(void)                  { return current_mode; }
 CalcMode_t  Calc_GetReturnMode(void)            { return return_mode; }
 bool        Calc_GetAngleDegrees(void)          { return angle_degrees; }
 void        Calc_SetAngleDegrees(bool degrees)  { angle_degrees = degrees; }
+const char *Calc_GetExprBuf(void)               { return expr.buf; }
+void        Calc_ResetInputState(void)          { sto_pending = false; ExprBuffer_Clear(&expr); }
 
 /*---------------------------------------------------------------------------
  * Forward declarations for helpers defined later in this file

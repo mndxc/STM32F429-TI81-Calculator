@@ -9,7 +9,7 @@
  */
 
 #include "ui_stat.h"
-#include "calc_internal.h"
+#include "ui_shared.h"
 #include "calc_stat.h"
 #include "graph.h"
 #include "ui_palette.h"

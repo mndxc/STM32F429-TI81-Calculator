@@ -52,6 +52,19 @@ CalcMode_t  Calc_GetReturnMode(void);
 bool Calc_GetAngleDegrees(void);
 void Calc_SetAngleDegrees(bool degrees);
 
+/*
+ * Expression buffer read accessor — returns expr.buf as a const pointer.
+ * Used by ui_draw.c to inspect the current expression without including
+ * calc_internal.h.
+ */
+const char *Calc_GetExprBuf(void);
+
+/*
+ * Input state reset — sets sto_pending = false and clears the expression
+ * buffer.  Used by ui_reset.c after a full memory clear.
+ */
+void Calc_ResetInputState(void);
+
 #ifdef HOST_TEST
 /**
  * @brief Validate CalcMode_t routing topology.

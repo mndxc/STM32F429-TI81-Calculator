@@ -17,7 +17,7 @@
 
 #include "ui_yvars.h"
 #include "menu_state.h"
-#include "calc_internal.h"
+#include "ui_shared.h"
 #include "graph.h"
 #include "ui_palette.h"
 #include <string.h>

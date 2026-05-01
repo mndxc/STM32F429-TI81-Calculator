@@ -14,7 +14,8 @@
  */
 
 #include "ui_reset.h"
-#include "calc_internal.h"
+#include "ui_shared.h"
+#include "calculator_core.h"
 #include "persist.h"
 #include "prgm_exec.h"
 #include "ui_stat.h"
@@ -140,9 +141,8 @@ static void reset_confirm_and_apply(void)
     srand(0);
 
     /* Return to home screen, showing "Mem cleared" */
-    sto_pending = false;
+    Calc_ResetInputState();
     prgm_reset_execution_state();
-    ExprBuffer_Clear(&expr);
     CalcHistory_Commit("", "Mem cleared", false, 0, 0, 0);
 
     Calc_SetMode(MODE_NORMAL);

@@ -7,7 +7,7 @@
  *
  * Guidebook: pp. 8-16, 8-18 — "Setting Modes from a Program".
  */
-#include "calc_internal.h"
+#include "ui_shared.h"
 #include "ui_prgm.h"
 #include "ui_prgm_mode.h"
 #include "ui_palette.h"

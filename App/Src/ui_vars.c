@@ -22,7 +22,7 @@
 
 #include "ui_vars.h"
 #include "menu_state.h"
-#include "calc_internal.h"
+#include "ui_shared.h"
 #include "graph.h"
 #include "ui_stat.h"
 #include "calc_stat.h"

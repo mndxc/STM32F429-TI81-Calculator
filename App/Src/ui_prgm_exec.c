@@ -9,7 +9,7 @@
  * The EXEC sub-menu is a subroutine slot picker (37 slots: 1–9, 0, A–Z, θ)
  * shown when PRGM→EXEC is pressed from inside the program editor.
  */
-#include "calc_internal.h"
+#include "ui_shared.h"
 #include "ui_prgm.h"
 #include "ui_prgm_exec.h"
 #include "ui_palette.h"
