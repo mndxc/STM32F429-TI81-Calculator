@@ -10,6 +10,8 @@
 
 #include "ui_stat.h"
 #include "ui_shared.h"
+#include "calc_engine.h"
+#include "calculator_core.h"
 #include "calc_stat.h"
 #include "graph.h"
 #include "ui_palette.h"

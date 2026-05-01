@@ -14,6 +14,8 @@
 
 #include "ui_stat.h"
 #include "calc_stat.h"
+#include "calc_engine.h"
+#include "calculator_core.h"
 #include "ui_shared.h"
 #include "ui_palette.h"
 #include <stdio.h>
