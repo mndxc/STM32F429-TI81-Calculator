@@ -52,4 +52,18 @@ CalcMode_t  Calc_GetReturnMode(void);
 bool Calc_GetAngleDegrees(void);
 void Calc_SetAngleDegrees(bool degrees);
 
+#ifdef HOST_TEST
+/**
+ * @brief Validate CalcMode_t routing topology.
+ *
+ * Walk every value in [0, MODE_COUNT) and assert each appears in exactly one of:
+ *   (a) k_route_table[] — a non-fallback predicate fires when current_mode == mode, or
+ *   (b) known_special_cases[] — modes intentionally handled outside per-mode dispatch.
+ *
+ * Also checks that known_special_cases[] contains no out-of-range values.
+ * Available only in HOST_TEST builds; call from test_mode_topology.c.
+ */
+bool calc_mode_topology_validate(void);
+#endif /* HOST_TEST */
+
 #endif /* CALCULATOR_CORE_H */

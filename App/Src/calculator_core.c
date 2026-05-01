@@ -1552,3 +1552,96 @@ void StartCalcCoreTask(void const *argument)
         }
     }
 }
+
+#ifdef HOST_TEST
+/*---------------------------------------------------------------------------
+ * Routing topology validator — HOST_TEST only
+ *---------------------------------------------------------------------------*/
+
+/**
+ * @brief Validate that every CalcMode_t value is covered by the routing table.
+ *
+ * Each mode in [0, MODE_COUNT) must appear in exactly one of:
+ *   (a) k_route_table[] — a non-fallback pred fires when current_mode == mode
+ *       (uses TOKEN_ENTER as a neutral token; sto_pending and return_mode at
+ *        their default values so only mode-based predicates can fire), or
+ *   (b) known_special_cases[] — modes intentionally handled by the fallback.
+ *
+ * The last table entry (pred_always → route_normal_mode) is the fallback and is
+ * excluded from the "dedicated entry" check.
+ *
+ * Adding a 32nd mode without updating either the table or known_special_cases
+ * causes this function to return false and print a diagnostic.
+ */
+bool calc_mode_topology_validate(void)
+{
+    static const CalcMode_t known_special_cases[] = {
+        MODE_NORMAL,      /* base mode: no dedicated entry; falls to handle_normal_mode */
+        MODE_2ND,         /* overlay: no dedicated entry; falls to handle_normal_mode */
+        MODE_ALPHA,       /* overlay: no dedicated entry; falls to handle_normal_mode */
+        MODE_ALPHA_LOCK,  /* compound preds (pred_prgm_new_name/pred_prgm_editor) cover
+                           * the ALPHA_LOCK+return_mode sub-cases; base case falls through */
+        MODE_STO,         /* synthetic: never stored in current_mode */
+    };
+    static const size_t n_special =
+        sizeof(known_special_cases) / sizeof(known_special_cases[0]);
+
+    /* Neutral token: does not match TOKEN_ON, TOKEN_QUIT, TOKEN_MODE, TOKEN_RESET */
+    const Token_t neutral = TOKEN_ENTER;
+
+    /* Save and reset state so predicates see a clean baseline */
+    CalcMode_t saved_mode = current_mode;
+    CalcMode_t saved_ret  = return_mode;
+    bool       saved_sto  = sto_pending;
+    return_mode = MODE_NORMAL;
+    sto_pending = false;
+
+    bool ok = true;
+
+    /* 1. Every mode must be in the route table XOR known_special_cases */
+    for (int m = 0; m < MODE_COUNT; m++) {
+        CalcMode_t mode = (CalcMode_t)m;
+        current_mode = mode;
+
+        /* Check for a dedicated (non-fallback) routing entry.
+         * The last table entry is pred_always — skip it. */
+        bool has_dedicated = false;
+        for (size_t i = 0; i < ARRAY_SIZE(k_route_table) - 1; i++) {
+            if (k_route_table[i].pred(neutral)) {
+                has_dedicated = true;
+                break;
+            }
+        }
+
+        bool is_special = false;
+        for (size_t j = 0; j < n_special; j++) {
+            if (known_special_cases[j] == mode) {
+                is_special = true;
+                break;
+            }
+        }
+
+        if (has_dedicated && is_special) {
+            printf("  FAIL mode %d: in both route table and known_special_cases\n", m);
+            ok = false;
+        } else if (!has_dedicated && !is_special) {
+            printf("  FAIL mode %d: no routing entry and not in known_special_cases\n", m);
+            ok = false;
+        }
+    }
+
+    /* 2. No stale (out-of-range) entries in known_special_cases */
+    for (size_t j = 0; j < n_special; j++) {
+        if ((int)known_special_cases[j] >= MODE_COUNT) {
+            printf("  FAIL known_special_cases[%zu] = %d is out of range [0, MODE_COUNT)\n",
+                   j, (int)known_special_cases[j]);
+            ok = false;
+        }
+    }
+
+    current_mode = saved_mode;
+    return_mode  = saved_ret;
+    sto_pending  = saved_sto;
+    return ok;
+}
+#endif /* HOST_TEST */

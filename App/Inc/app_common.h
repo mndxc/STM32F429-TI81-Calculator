@@ -101,6 +101,8 @@ typedef enum {
 
     /* --- Synthetic: never stored in current_mode; used only for derived rendering --- */
     MODE_STO,                /* STO pending — cursor shows green 'A'; only passed to cursor_render() */
+
+    MODE_COUNT,              /* sentinel — keep last; used by calc_mode_topology_validate() */
 } CalcMode_t;
 
 /*---------------------------------------------------------------------------
@@ -111,7 +113,7 @@ typedef enum {
 #define GRAPH_NUM_PARAM 3   /* Number of simultaneous parametric X/Y pairs */
 
 /*
- * GraphState_t — ownership and mutation rules
+ * GraphState_t — ownership and mutation rules (updated post-T2-C)
  *
  * graph_state is defined (static) in graph.c.  External callers must use
  * Graph_GetState() (read-only pointer) or the write accessors declared in
@@ -119,34 +121,55 @@ typedef enum {
  * must happen under lvgl_lock() because they are followed immediately by
  * LVGL label/display updates in the same critical section.
  *
+ * Cursor overlay state (s_trace, s_free, s_zbox) is NOT part of GraphState_t.
+ * It lives as separate statics in graph.c and is exposed via
+ * Graph_GetTraceState() / Graph_GetFreeCursorState() / Graph_GetZBoxState().
+ * graph_ui.c reads cursor state only through those accessors.
+ *
  * Field ownership by module:
  *
- *   equations[]/enabled[]    — Written via Graph_GetEquationBuf() / Graph_SetEquationEnabled()
- *                              by graph_ui.c (Y= editor), ui_param_yeq.c (parametric editor),
- *                              ui_yvars.c (ON/OFF tab actions).
- *                              Read by graph.c (render), calculator_core.c (save/load).
+ *   equations[]/enabled[]      — Written via Graph_GetEquationBuf() / Graph_SetEquationEnabled()
+ *                                by graph_ui.c (Y= editor), ui_param_yeq.c (parametric editor),
+ *                                ui_yvars.c (ON/OFF tab actions).
+ *                                Read by graph.c (render), graph_ui.c (display labels),
+ *                                calculator_core.c (persist).
+ *                                Valid in all modes; only rendered when param_mode=false.
  *
- *   xmin/xmax/ymin/ymax      — Written via Graph_SetWindow() by graph_ui_range.c (RANGE editor),
- *                              ui_graph_zoom.c (ZOOM preset actions), graph_ui.c (ZBox commit).
- *                              Read by graph.c (render), calculator_core.c (save/load).
+ *   x_min/x_max/y_min/y_max    — Written via Graph_SetWindow() by graph_ui_range.c (RANGE editor),
+ *   x_scl/y_scl/x_res            ui_graph_zoom.c (ZOOM preset and factor actions),
+ *                                graph_ui.c (ZBox ENTER commit).
+ *                                Read by graph.c (render), graph_draw.c (coordinate helpers),
+ *                                graph_ui.c (trace/cursor math), calculator_core.c (persist).
+ *                                Valid in all modes.
  *
- *   tmin/tmax/tstep          — Written via Graph_SetParamWindow() by graph_ui_range.c
- *                              (parametric RANGE editor).  Read by graph.c (parametric render).
+ *   param_x[]/param_y[]        — Written by ui_param_yeq.c directly into the buffers returned
+ *   param_enabled[]              by Graph_GetParamEquationXBuf() / Graph_GetParamEquationYBuf().
+ *                                param_enabled[] written via Graph_SetParamEnabled() by ui_param_yeq.c.
+ *                                Read by graph.c (parametric render), graph_ui.c (trace/cursor skip).
+ *                                Valid in all modes; only rendered when param_mode=true.
  *
- *   param_mode               — Written via Graph_SetParamMode() by ui_mode.c (MODE screen row 4).
- *                              Read by all graph modules to branch behaviour.
+ *   t_min/t_max/t_step         — Written via Graph_SetParamWindow() by graph_ui_range.c
+ *                                (parametric RANGE editor).
+ *                                Read by graph.c (parametric render), graph_ui.c (trace step).
+ *                                Only meaningful when param_mode=true.
  *
- *   plot_sequential          — Written via Graph_SetSequentialMode() by ui_mode.c (MODE screen row 6).
- *                              Read by graph.c.
+ *   param_mode                 — Written via Graph_SetParamMode() by ui_mode.c (MODE screen row 4).
+ *                                Read by all graph modules to branch behaviour.
  *
- *   grid_on                  — Written via Graph_SetGridOn() by ui_mode.c (MODE screen row 7).
- *                              Read by graph.c.
+ *   plot_connected             — Written via Graph_SetConnectedMode() by ui_mode.c (MODE screen row 5).
+ *                                Read by graph.c (connect adjacent valid pixels with a line segment).
  *
- *   polar_display            — Written via Graph_SetPolarDisplay() by ui_mode.c (MODE screen row 8).
- *                              Read by graph.c (cursor and trace readout format).
+ *   plot_sequential            — Written via Graph_SetSequentialMode() by ui_mode.c (MODE screen row 6).
+ *                                Read by graph.c.
  *
- *   active                   — Written via Graph_SetActive() by graph_ui.c (GRAPH key handler).
- *                              Read by calculator_core.c, graph.c.
+ *   grid_on                    — Written via Graph_SetGridOn() by ui_mode.c (MODE screen row 7).
+ *                                Read by graph.c.
+ *
+ *   polar_display              — Written via Graph_SetPolarDisplay() by ui_mode.c (MODE screen row 8).
+ *                                Read by graph.c (cursor and trace coordinate readout format).
+ *
+ *   active                     — Written via Graph_SetActive() by graph_ui.c (GRAPH key handler).
+ *                                Read by calculator_core.c, graph.c.
  *
  * Adding a new graph feature: add its fields here with their owning module,
  * then update docs/TECHNICAL.md "State Ownership" section.
@@ -158,33 +181,33 @@ typedef enum {
  * Initialised to ZStandard defaults (±10 range).
  */
 typedef struct {
-    char    equations[GRAPH_NUM_EQ][64]; /* Y= equation strings in terms of x */
-    bool    enabled[GRAPH_NUM_EQ];       /* True if equation is plotted */
-    float   x_min;          /* Left edge of graph window */
-    float   x_max;          /* Right edge of graph window */
-    float   y_min;          /* Bottom edge of graph window */
-    float   y_max;          /* Top edge of graph window */
-    float   x_scl;          /* X axis tick spacing */
-    float   y_scl;          /* Y axis tick spacing */
-    float   x_res;          /* Graph resolution (1 = evaluate at every pixel column) */
-    bool    active;         /* True when in graph mode */
-    bool    grid_on;        /* True when grid dots are enabled (MODE row 7) */
+    char    equations[GRAPH_NUM_EQ][64]; /* Y= strings; written by graph_ui.c/ui_yvars.c via Graph_GetEquationBuf() */
+    bool    enabled[GRAPH_NUM_EQ];       /* Plot enable flags; written via Graph_SetEquationEnabled() */
+    float   x_min;          /* Left edge of window; written via Graph_SetWindow() */
+    float   x_max;          /* Right edge of window; written via Graph_SetWindow() */
+    float   y_min;          /* Bottom edge of window; written via Graph_SetWindow() */
+    float   y_max;          /* Top edge of window; written via Graph_SetWindow() */
+    float   x_scl;          /* X axis tick spacing; written via Graph_SetWindow() */
+    float   y_scl;          /* Y axis tick spacing; written via Graph_SetWindow() */
+    float   x_res;          /* Render step (1–8 pixel columns per sample); written via Graph_SetWindow() */
+    bool    active;         /* True when graph display is visible; written via Graph_SetActive() by graph_ui.c */
+    bool    grid_on;        /* Grid dots enabled; written via Graph_SetGridOn() (MODE row 7) */
 
-    /* Parametric equation pairs — X₁t/Y₁t, X₂t/Y₂t, X₃t/Y₃t */
-    char    param_x[GRAPH_NUM_PARAM][64];   /* X(t) equation strings */
-    char    param_y[GRAPH_NUM_PARAM][64];   /* Y(t) equation strings */
-    bool    param_enabled[GRAPH_NUM_PARAM]; /* Pair enable flags */
+    /* Parametric equation pairs — X₁t/Y₁t, X₂t/Y₂t, X₃t/Y₃t; only rendered when param_mode=true */
+    char    param_x[GRAPH_NUM_PARAM][64];   /* X(t) strings; written by ui_param_yeq.c via Graph_GetParamEquationXBuf() */
+    char    param_y[GRAPH_NUM_PARAM][64];   /* Y(t) strings; written by ui_param_yeq.c via Graph_GetParamEquationYBuf() */
+    bool    param_enabled[GRAPH_NUM_PARAM]; /* Pair enable flags; written via Graph_SetParamEnabled() by ui_param_yeq.c */
 
-    /* T range — default 0 to 2π in π/24 steps */
-    float   t_min;
-    float   t_max;
-    float   t_step;
+    /* T range — default 0 to 2π in π/24 steps; only meaningful when param_mode=true */
+    float   t_min;   /* Written via Graph_SetParamWindow() by graph_ui_range.c */
+    float   t_max;   /* Written via Graph_SetParamWindow() by graph_ui_range.c */
+    float   t_step;  /* Written via Graph_SetParamWindow() by graph_ui_range.c */
 
-    /* Mode flags — driven by MODE rows 4, 5, 6, and 8 */
-    bool    param_mode;       /* false=function (Y=), true=parametric (X/Y pairs) */
-    bool    plot_connected;   /* true=Connected (lines), false=Dot (pixels only) */
-    bool    plot_sequential;  /* true=Sequential, false=Simultaneous — MODE row 6 */
-    bool    polar_display;    /* true=Pol (show R/θ at cursor), false=Rect (X/Y) — MODE row 8 */
+    /* Mode flags — driven by MODE screen rows 4–8; written by ui_mode.c via Graph_Set*() */
+    bool    param_mode;       /* false=function (Y=), true=parametric (X/Y pairs); Graph_SetParamMode() */
+    bool    plot_connected;   /* true=Connected (line segments), false=Dot (pixels only); Graph_SetConnectedMode() (MODE row 5) */
+    bool    plot_sequential;  /* true=Sequential, false=Simultaneous; Graph_SetSequentialMode() (MODE row 6) */
+    bool    polar_display;    /* true=Pol (R/θ readout), false=Rect (X/Y); Graph_SetPolarDisplay() (MODE row 8) */
 } GraphState_t;
 
 

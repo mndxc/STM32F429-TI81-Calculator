@@ -248,6 +248,35 @@ if(COVERAGE)
     target_link_options(test_parse_eval PRIVATE --coverage)
 endif()
 
+# --- test_mode_topology ---
+# Validates CalcMode_t routing topology: every mode value appears in exactly
+# one of k_route_table[] (non-fallback pred fires) or known_special_cases[].
+
+add_executable(test_mode_topology
+    test_mode_topology.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_history.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calculator_core.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_mode.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_input.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_buffer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/prgm_exec.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad/keypad_map.c
+)
+
+target_include_directories(test_mode_topology PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad
+)
+
+target_compile_options(test_mode_topology PRIVATE -Wall -Wextra -DHOST_TEST=1)
+
+if(COVERAGE)
+    target_compile_options(test_mode_topology PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_mode_topology PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
@@ -262,3 +291,4 @@ add_test(NAME yvars             COMMAND test_yvars)
 add_test(NAME menu_state        COMMAND test_menu_state)
 add_test(NAME prgm_cmd_table    COMMAND test_prgm_cmd_table)
 add_test(NAME parse_eval        COMMAND test_parse_eval)
+add_test(NAME mode_topology     COMMAND test_mode_topology)
