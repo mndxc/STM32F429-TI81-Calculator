@@ -8,7 +8,12 @@
 #include "ui_palette.h"
 #include "calc_engine.h"
 #include "calculator_core.h"
-#include "lvgl.h"
+#ifndef HOST_TEST
+#  include "lvgl.h"
+#else
+   /* Remaining LVGL stubs (lv_obj_t already defined by graph.h HOST_TEST guard) */
+#  include "graph_render_test_stubs.h"
+#endif
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -129,16 +134,21 @@ void Graph_ResetZBox(void)
  * Private variables
  *--------------------------------------------------------------------------*/
 
-/* SDRAM base address for graph pixel buffers — two consecutive GRAPH_W × GRAPH_H
- * RGB565 frames (graph_buf and graph_buf_clean) are reserved starting here.
- * See linker/BSP memory map; FLASH_SECTOR_10 is at 0x080C0000 (unrelated). */
-#define GRAPH_BUF_ADDR 0xD0025800UL
-
-/* Pixel buffer for the canvas — RGB565, one uint16_t per pixel */
-static uint16_t * const graph_buf       = (uint16_t *)GRAPH_BUF_ADDR;
-
-/* Clean-frame cache for trace: SDRAM immediately after graph_buf */
-static uint16_t * const graph_buf_clean = (uint16_t *)(GRAPH_BUF_ADDR + (size_t)GRAPH_W * GRAPH_H * 2);
+/* Pixel buffer for the canvas — RGB565, one uint16_t per pixel.
+ * Embedded: two consecutive 150 KB frames in SDRAM starting at GRAPH_BUF_ADDR.
+ * HOST_TEST: static arrays in BSS (no hardware address). */
+#ifndef HOST_TEST
+#  define GRAPH_BUF_ADDR 0xD0025800UL
+   static uint16_t * const graph_buf       = (uint16_t *)GRAPH_BUF_ADDR;
+   static uint16_t * const graph_buf_clean = (uint16_t *)(GRAPH_BUF_ADDR + (size_t)GRAPH_W * GRAPH_H * 2);
+#else
+   static uint16_t graph_buf_storage[GRAPH_H * GRAPH_W];
+   static uint16_t graph_buf_clean_storage[GRAPH_H * GRAPH_W];
+   static uint16_t * const graph_buf       = graph_buf_storage;
+   static uint16_t * const graph_buf_clean = graph_buf_clean_storage;
+   /* Test-only accessor — lets test_graph_render.c read pixel values. */
+   const uint16_t *Graph_GetTestBuf(void) { return graph_buf; }
+#endif
 static bool graph_clean_valid = false;
 
 
@@ -357,7 +367,11 @@ static void format_graph_coord(float val, char *buf, size_t len)
  */
 static void graph_render_setup(void)
 {
+#ifndef HOST_TEST
     lv_canvas_fill_bg(graph_canvas, lv_color_hex(COLOR_BLACK), LV_OPA_COVER);
+#else
+    memset(graph_buf, 0, (size_t)GRAPH_W * GRAPH_H * sizeof(uint16_t));
+#endif
     if (graph_state.grid_on) draw_grid();
     draw_axes();
     draw_ticks();
@@ -424,7 +438,9 @@ void Graph_Init(lv_obj_t *parent)
 
 void Graph_Render(void)
 {
+#ifndef HOST_TEST
     if (graph_canvas == NULL) return;
+#endif
     bool angle_degrees = Calc_GetAngleDegrees();
 
     /* Dispatch to parametric renderer when in parametric mode */
@@ -619,7 +635,9 @@ void Graph_InvalidateCache(void)
 
 void Graph_RenderParametric(void)
 {
+#ifndef HOST_TEST
     if (graph_canvas == NULL) return;
+#endif
     bool angle_degrees = Calc_GetAngleDegrees();
 
     graph_render_setup();

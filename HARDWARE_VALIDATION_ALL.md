@@ -12,6 +12,14 @@ _Mark each test: ✅ PASS  ❌ FAIL  ⚠️ PARTIAL_
 - [ ] Flash to board; power-cycle (USB unplug/replug — not just SWD reset)
 
 ---
+Manual Notes:
+The INS button is not accessed using a 2nd key press. it is a standalone key with no second function.
+Trace values display have what appears to be an overlap of a LVGL item on top of the X= values. it looks like a small rectangle that has no data inside of it slightly opaque over valid numbers from the trace.
+Some menus are buggy like the Parametric mode RANGE menu. Reexamine how menus work to refactor a full scale solution. They should be flexible enough to scroll as needed, and wrap to other side of screen when using tabs. For example the PRGM menu tab wrap
+When using STO> key pressing the button: X|T doesn't place the letter in the input area in the same manner as using ALPHA X
+In Y= menu the toggle of the equal sign to enable and disable the function from graphing is not easy to see. compare against the original calculator system and recommend options to improve visibility and align with original.
+The text entry cursor still seems to be buggy. Sometimes there is no cursor at all like in the MODE menu, highlighting is sometimes helpful but not preferred. Compare against original calculator functionality and make recommendations to align with that spec and improve from current status. Reexamine cursor processes to propose a refactor to unify across whole calculator user experience.
+---
 
 ## Section 1 — Cursor rendering (P28)
 _Verifies `cursor_render()` refactor produces zero visible behaviour change across all 7 editors._
@@ -30,6 +38,12 @@ _Verifies `cursor_render()` refactor produces zero visible behaviour change acro
 | 8 | Press `2ND+INS` | Cursor changes to underscore style | |
 | 9 | Press `2ND+INS` again | Cursor returns to full-height block | |
 
+---
+Manual Notes:
+Tasks 1-9 above pass
+---
+
+
 ### Y= editor
 
 | # | Action | Expected | Result |
@@ -40,6 +54,12 @@ _Verifies `cursor_render()` refactor produces zero visible behaviour change acro
 | 13 | Press `2ND+INS` | Cursor changes to underscore style | |
 | 14 | Press `2ND+INS` again | Cursor returns to block | |
 
+---
+Manual Notes:
+Tasks 10-14 above pass with the universal note again that the INS button does not need 2nd key
+---
+
+
 ### RANGE editor
 
 | # | Action | Expected | Result |
@@ -47,6 +67,12 @@ _Verifies `cursor_render()` refactor produces zero visible behaviour change acro
 | 15 | Press `RANGE` | Cursor blinks in Xmin field | |
 | 16 | Press `2ND+INS` | Cursor changes to underscore style | |
 | 17 | Press `2ND+INS` again | Cursor returns to block | |
+---
+Manual Notes:
+Tasks 15-17 above pass
+---
+
+
 
 ### ZOOM FACTORS editor
 
@@ -55,6 +81,12 @@ _Verifies `cursor_render()` refactor produces zero visible behaviour change acro
 | 18 | `ZOOM` → Select Factors | Cursor blinks in XFact field | |
 | 19 | Press `2ND+INS` | Cursor changes to underscore style | |
 | 20 | Press `2ND+INS` again | Cursor returns to block | |
+---
+Manual Notes:
+Tasks 18-20 above pass
+---
+
+
 
 ### Matrix editor — insert mode must NOT change cursor shape
 
@@ -64,6 +96,13 @@ _Verifies `cursor_render()` refactor produces zero visible behaviour change acro
 | 22 | Press `2ND+INS` | Cursor shape does **not** change | |
 | 23 | Press `2ND` | Cursor turns amber with `^` | |
 | 24 | Press `ALPHA` | Cursor turns green with `A` | |
+---
+Manual Notes:
+Tasks 21, 23 above pass
+Task 22 fails
+Task 24 doesn't work as expected
+---
+
 
 ### PRGM name entry — insert mode must NOT change cursor shape
 
@@ -71,6 +110,12 @@ _Verifies `cursor_render()` refactor produces zero visible behaviour change acro
 |---|---|---|---|
 | 25 | `PRGM` → EDIT → empty slot → ENTER | Cursor blinks in name field; full-height block | |
 | 26 | Press `2ND+INS` | Cursor shape does **not** change | |
+---
+Manual Notes:
+Task 25 above pass
+Task 26 i don't understand what is meant in this test
+---
+
 
 ### PRGM line editor
 
@@ -79,8 +124,12 @@ _Verifies `cursor_render()` refactor produces zero visible behaviour change acro
 | 27 | `PRGM` → EDIT → select a program | Cursor blinks on program line | |
 | 28 | Press `2ND+INS` | Cursor changes to underscore style | |
 | 29 | Press `2ND+INS` again | Cursor returns to block | |
+---
+Manual Notes:
+Tasks 27-29 above pass
+---
 
-**P28 sign-off:** all 29 pass → delete `docs/p28_cursor_manual_tests.md`, add row to `docs/PROJECT_HISTORY.md`.
+
 
 ---
 
@@ -95,6 +144,16 @@ _Validates MODE→Param mode end-to-end._
 | 4 | Press `RANGE` while in param mode | Exactly 9 fields shown: Tmin, Tmax, Tstep, Xmin, Xmax, Xscl, Ymin, Ymax, Yscl | |
 | 5 | Press `TRACE` and use LEFT/RIGHT | Readout shows `T=` / `X=` / `Y=` (not just `X=`/`Y=`) | |
 | 6 | `2nd+ON` to save → power-cycle → enter param Y= | X₁t/Y₁t equations intact | |
+---
+Manual Notes:
+Tasks 1-2 above pass
+Task 3 fails. 
+Bug: the Range screen in Param mode does not scroll to allow user to see all values. 
+Task 4 fails. The screen only displays the values that fit on screen. ending with Ymin and doesn't allow scrolling.
+Task 5 fails. was unable to get anything to display on graph.
+Tas 6 fails.
+---
+
 
 ---
 
@@ -118,6 +177,16 @@ _Validates `2nd+PRGM` draw overlay commands._
 | 11 | Set window X[-5,5] Y[-5,5] → type `Shade(sin(X),cos(X),2,-3,3)` → ENTER | Shaded region appears only where sin(X) < cos(X) within X[-3,3]; boundary curves drawn; resolution=2 visibly sparser than default | |
 | 12 | Type `Shade(X+1,X^3-8*X)` → ENTER | Shading appears in columns where X+1 < X³−8X; boundary curves drawn (guidebook p. 5-10 example) | |
 | 13 | Type `Shade(sin(X),cos(X),1,-1,1)` → ENTER, then `Shade(sin(X),cos(X),8,-1,1)` → ENTER | Resolution 1 produces denser fill than resolution 8 | |
+---
+Manual Notes:
+Task 1 above pass
+Task 2 clears but does not show Done on screen when complete
+Task 3 pass
+Tasks 4-13 pass 
+Bug: Zoom or graph scale change does not impact items that have been added to the graph via DRAW menu. 
+
+---
+
 
 ---
 
@@ -142,6 +211,20 @@ _Validates statistics data entry, calculations, and graph plots._
 | 12 | With `>` cursor at row 3 → press `2ND+INS` | New row (0,0) inserted before the current row 3; remaining rows shift down; total becomes 6 pairs | |
 | 13 | With `>` cursor at a row → press `DEL` | That row is removed; remaining rows shift up | |
 | 14 | From home screen, after running 1-Var with 5 pairs: type `{x}(1)` → ENTER | Result is the first x-value (1); type `{y}(3)` → ENTER: result is the third y-value (7); type `{x}(6)` → ENTER: DOMAIN ERR (out of bounds) | |
+---
+Manual Notes:
+Tasks 1-2 above pass
+Task 3 fails to display the character of the x with the bar above it properly. Also the display fails to fit on the screen.
+Task 4 fails if task 3 isn't done prior to task 4.
+Tasks 5-6 pass.
+Task 7 fail. It seems to properly display data points for about 1 second then the screen clears.
+Task 8-9 fail. The both freeze up the calculator. interestingly even though the buttons cease responding the heartbeat led still works and the green led which toggles with each key press still function.
+Task 10 fail
+Task 11 pass according to test instruction description but the interaction is not desirable. the location where keypad input will go is ambiguous on the highlighted line.
+Task 12-14 pass
+
+---
+
 
 ---
 
@@ -162,6 +245,15 @@ _Validates all 5 tabs of the VARS key menu._
 | 8 | LR tab → select `1:a` | Regression coefficient a=2 inserted | |
 | 9 | LR tab → select `4:RegEQ` | String `aX+b` inserted into expression | |
 | 10 | DIM tab → scroll to item `7:Dim{x}` → select | Current stat list length (5, if 5 pairs were entered) inserted into expression; verify by pressing ENTER and confirming the value matches the pair count | |
+---
+Manual Notes:
+Tasks 1-2 above pass
+Tasks 3-4 fail
+Tasks 5-7 pass
+Tasks 8-9 fail
+Task 10 pass
+---
+
 
 ---
 
@@ -184,6 +276,16 @@ _Validates `2nd+VARS` equation reference and enable/disable tabs._
 | 10 | In Param mode: Y tab → scroll down to item `8:Y₂t` → ENTER | `Y₂t` inserted into expression buffer | |
 | 11 | In Param mode: ON tab | 8 items visible: `1:All-On`, `2:Y₁-On`, `3:Y₂-On`, `4:Y₃-On`, `5:Y₄-On`, `6:X₁t-On`, `7:X₂t-On`, `8:X₃t-On` | |
 | 12 | In Param mode: OFF tab → select `6:X₁t-Off` → press `Y=` | X₁t/Y₁t pair shows `-` (disabled); other pairs unaffected | |
+---
+Manual Notes:
+Tasks 1-2 above pass
+Task 3 fail. Produces a full lock up. Both the red heartbeat LED stops and the green key toggling led stops.
+Tasks 4-7 pass
+Task 8 fail. the menu looks exactly the same in both Func and Param modes
+Task 9 pass (note there was an error in the instruction, the digit shortcut 6 refers to Y1t)
+Tasks 10-11 pass
+Task 12 fail
+---
 
 ---
 

@@ -277,6 +277,31 @@ if(COVERAGE)
     target_link_options(test_mode_topology PRIVATE --coverage)
 endif()
 
+# --- test_graph_render ---
+# End-to-end graph render integration test (F3): Graph_Render() → Calc_Parse/Eval.
+# HOST_TEST redirects SDRAM pixel buffers to in-memory arrays; graph.c and
+# graph_draw.c are compiled for the first time in host builds.
+
+add_executable(test_graph_render
+    test_graph_render.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/graph.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/graph_draw.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+)
+
+# Tests/ (for graph_render_test_stubs.h) and HW/Keypad (for keypad_map.h via app_common.h)
+target_include_directories(test_graph_render PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad
+)
+
+target_compile_options(test_graph_render PRIVATE -Wall -Wextra -DHOST_TEST=1)
+
+if(COVERAGE)
+    target_compile_options(test_graph_render PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_graph_render PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
@@ -292,3 +317,4 @@ add_test(NAME menu_state        COMMAND test_menu_state)
 add_test(NAME prgm_cmd_table    COMMAND test_prgm_cmd_table)
 add_test(NAME parse_eval        COMMAND test_parse_eval)
 add_test(NAME mode_topology     COMMAND test_mode_topology)
+add_test(NAME graph_render      COMMAND test_graph_render)

@@ -6,7 +6,16 @@
 #define GRAPH_MODULE_H
 
 #include "app_common.h"   /* GraphState_t, StatData_t */
-#include "lvgl.h"
+#ifndef HOST_TEST
+#  include "lvgl.h"
+#else
+   /* Minimal type stub — full stubs are in graph_render_test_stubs.h (included
+    * by graph.c); graph.h only needs lv_obj_t for the Graph_Init signature. */
+#  ifndef LV_OBJ_T_DEFINED
+#    define LV_OBJ_T_DEFINED
+     typedef struct lv_obj_s { int dummy; } lv_obj_t;
+#  endif
+#endif
 #include <stdbool.h>
 #include <stddef.h>
 

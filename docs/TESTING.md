@@ -15,7 +15,7 @@ Run these commands from the **repo root** (the directory containing `CMakeLists.
 ```bash
 cmake -S App/Tests -B build-tests
 cmake --build build-tests
-ctest --test-dir build-tests   # runs all 12 suites (950 assertions total)
+ctest --test-dir build-tests   # runs all 14 suites (964 assertions total)
 ```
 
 Or run individual suites:
@@ -32,6 +32,8 @@ Or run individual suites:
 ./build-tests/test_menu_state         # MenuState_t navigation helpers (43 tests)
 ./build-tests/test_prgm_cmd_table     # PRGM cmd_table prefix-ordering guard (16 tests)
 ./build-tests/test_parse_eval         # Calc_Parse + Calc_Eval unified API — T3-B (103 tests)
+./build-tests/test_mode_topology      # CalcMode_t routing topology — F2 (45 tests)
+./build-tests/test_graph_render       # Graph render integration — F3 (13 tests)
 ```
 
 ### Test Executables
@@ -48,6 +50,8 @@ Or run individual suites:
 10. **test_menu_state**: Validates `MenuState_t` navigation helpers — `MoveUp/Down` boundary behaviour, `PrevTab/NextTab` reset, `DigitToIndex` mapping, and `AbsoluteIndex`.
 11. **test_prgm_cmd_table**: Validates `prgm_cmd_table_validate()` — cmd_table[] prefix-ordering invariant and command dispatch verification.
 12. **test_parse_eval**: Validates `Calc_Parse` + `Calc_Eval` unified API (T3-B) — equivalence to `Calc_Evaluate`, `ParsedExpr_t` reuse, parametric T substitution, nDeriv nested field population, two-`ParsedExpr_t` nDeriv independence (no shared static cross-contamination), parse-error propagation, and equivalence to `Calc_PrepareGraphEquation`.
+13. **test_mode_topology**: Validates `CalcMode_t` routing topology (F2) — every mode value appears in exactly one of the route table or the known-special-cases list; no mode is silently unhandled.
+14. **test_graph_render**: End-to-end integration test for the graph render pipeline (F3). Compiles `graph.c` and `graph_draw.c` under HOST_TEST (SDRAM buffers redirected to in-memory arrays); asserts correct RGB565 pixel values at computed canvas coordinates for constant equations, validates cache invalidation on equation change, and confirms disabled/malformed equations draw nothing.
 
 ### Adding a New Test
 

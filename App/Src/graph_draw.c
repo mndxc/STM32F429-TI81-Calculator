@@ -20,11 +20,17 @@
  * Private state
  *--------------------------------------------------------------------------*/
 
-/* DRAW menu overlay buffer — SDRAM immediately after the LVGL heap.
- * 0x0000 = transparent sentinel; any other value = drawn pixel colour.
+/* DRAW menu overlay buffer.
+ * Embedded: SDRAM immediately after the LVGL heap (see memory layout comment).
+ * HOST_TEST: static array in BSS so graph_draw.c links for host tests.
  * Memory layout: graph_buf=0xD0025800 (150 KB), graph_buf_clean=0xD004B000
  * (150 KB), LVGL heap=0xD0070800 (128 KB), draw_buf=0xD0090800 (150 KB). */
+#ifndef HOST_TEST
 static uint16_t * const draw_buf = (uint16_t *)0xD0090800;
+#else
+static uint16_t draw_buf_storage[GRAPH_H * GRAPH_W];
+static uint16_t * const draw_buf = draw_buf_storage;
+#endif
 
 /*---------------------------------------------------------------------------
  * Private coordinate helpers
