@@ -1233,7 +1233,7 @@ bool handle_prgm_running(Token_t t)
             if (input_var != 0) {
                 /* Evaluate and store to the target variable */
                 CalcResult_t r = Calc_Evaluate(expr.buf, Calc_GetAns(),
-                                               Calc_GetAnsIsMatrix(), angle_degrees);
+                                               Calc_GetAnsIsMatrix(), Calc_GetAngleDegrees());
                 char res_buf[MAX_RESULT_LEN];
                 format_calc_result(&r, res_buf, MAX_RESULT_LEN);
                 if (r.error == CALC_OK && !r.has_matrix) {

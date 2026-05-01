@@ -25,7 +25,7 @@
  *
  * These files form a single logical "super-module" split purely to keep
  * individual translation units at a manageable size.  They share calculator
- * state (insert_mode, cursor_visible, angle_degrees, sto_pending, expr) and
+ * state (insert_mode, cursor_visible, sto_pending, expr) and
  * LVGL object pointers as if they were one file.
  *
  * Modules outside this set must NOT include this header.  Use ui_shared.h
@@ -52,7 +52,6 @@ extern bool         cursor_visible;
 /* ans and ans_is_matrix are now private to calculator_core.c.
  * Use Calc_GetAns() / Calc_SetAnsScalar() / Calc_SetAnsMatrix()
  * declared in calculator_core.h (included above). */
-extern bool angle_degrees;
 extern bool sto_pending;
 
 /* Shared UI functions (super-module only — not in ui_shared.h) */

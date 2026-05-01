@@ -128,7 +128,7 @@ bool handle_sto_pending(Token_t t)
         uint8_t var_idx = t - TOKEN_A;
 
         CalcResult_t result = Calc_Evaluate(expr.buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                            angle_degrees);
+                                            Calc_GetAngleDegrees());
 
         char result_str[MAX_RESULT_LEN];
         char expr_hist[MAX_EXPR_LEN + 4];  /* expression + "->A\0" */
@@ -158,7 +158,7 @@ bool handle_sto_pending(Token_t t)
     } else if (t == TOKEN_THETA) {
         sto_pending = false;
         CalcResult_t result = Calc_Evaluate(expr.buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                            angle_degrees);
+                                            Calc_GetAngleDegrees());
         char result_str[MAX_RESULT_LEN];
         char expr_hist[MAX_EXPR_LEN + 6];
         snprintf(expr_hist, sizeof(expr_hist), "%s->\xCE\xB8", expr.buf);  /* ->θ */

@@ -355,7 +355,7 @@ static void cmd_if(const char *line, uint16_t ln)
 {
     (void)ln;
     CalcResult_t r = Calc_Evaluate(line + 3, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                   angle_degrees);
+                                   Calc_GetAngleDegrees());
     bool cond = (r.error == CALC_OK && !r.has_matrix && r.value != 0.0f);
     if (!cond)
         prgm_run_pc++; /* single-line If: skip one statement */
@@ -391,7 +391,7 @@ static void cmd_is_gt(const char *line, uint16_t ln)
     char var, val_buf[MAX_EXPR_LEN];
     if (!parse_incdec_args(line, 4, &var, val_buf)) return;
     CalcResult_t r = Calc_Evaluate(val_buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                   angle_degrees);
+                                   Calc_GetAngleDegrees());
     if (r.error != CALC_OK || r.has_matrix) return;
     calc_variables[var - 'A'] += 1.0f;
     if (calc_variables[var - 'A'] > r.value)
@@ -406,7 +406,7 @@ static void cmd_ds_lt(const char *line, uint16_t ln)
     char var, val_buf[MAX_EXPR_LEN];
     if (!parse_incdec_args(line, 4, &var, val_buf)) return;
     CalcResult_t r = Calc_Evaluate(val_buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                   angle_degrees);
+                                   Calc_GetAngleDegrees());
     if (r.error != CALC_OK || r.has_matrix) return;
     calc_variables[var - 'A'] -= 1.0f;
     if (calc_variables[var - 'A'] < r.value)
@@ -523,7 +523,7 @@ static void cmd_disp(const char *line, uint16_t ln)
         /* Variable or expression: right-aligned in result row */
         char disp_buf[MAX_RESULT_LEN];
         CalcResult_t r = Calc_Evaluate(arg, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                       angle_degrees);
+                                       Calc_GetAngleDegrees());
         format_calc_result(&r, disp_buf, MAX_RESULT_LEN);
         if (s_out) s_out->disp_text("", disp_buf);
     }
@@ -806,7 +806,7 @@ static void prgm_execute_line(uint16_t ln)
             const char *varname = sto_arrow + 2;
             if (*varname >= 'A' && *varname <= 'Z') {
                 CalcResult_t r = Calc_Evaluate(left, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                               angle_degrees);
+                                               Calc_GetAngleDegrees());
                 if (r.error == CALC_OK && !r.has_matrix) {
                     calc_variables[*varname - 'A'] = r.value;
                     Calc_SetAnsScalar(r.value);
@@ -815,7 +815,7 @@ static void prgm_execute_line(uint16_t ln)
                        (unsigned char)varname[1] == 0xB8u) {
                 /* STO → θ (U+03B8, UTF-8: CE B8) */
                 CalcResult_t r = Calc_Evaluate(left, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                               angle_degrees);
+                                               Calc_GetAngleDegrees());
                 if (r.error == CALC_OK && !r.has_matrix) {
                     calc_variables[26] = r.value;
                     Calc_SetAnsScalar(r.value);
@@ -828,7 +828,7 @@ static void prgm_execute_line(uint16_t ln)
     /* General expression line — evaluate and update ANS */
     {
         CalcResult_t r = Calc_Evaluate(line, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                       angle_degrees);
+                                       Calc_GetAngleDegrees());
         if (r.error == CALC_OK) {
             if (!r.has_matrix)
                 Calc_SetAnsScalar(r.value);

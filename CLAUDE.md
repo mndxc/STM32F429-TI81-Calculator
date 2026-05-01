@@ -16,7 +16,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-05-01** (all INTERFACE_REFACTOR_PLAN items complete; all COUPLING_REFACTOR tasks T1–T11 complete; T2-A/T2-B/T2-C arch reviews complete; T3-A PrgmOutput_t callback seam complete; T3-B Calc_Parse/Calc_Eval split complete; F2 CalcMode_t topology enforcement complete; F3 graph render integration test complete). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-05-01** (all INTERFACE_REFACTOR_PLAN items complete; all COUPLING_REFACTOR tasks T1–T11 complete; all architecture review items complete: T1-A cmd_table prefix-ordering guard, T1-B CalcMode_t topology comments, T2-A/T2-B/T2-C arch reviews, T3-A PrgmOutput_t callback seam, T3-B Calc_Parse/Calc_Eval split, F1 calc_internal.h narrowed, F2 CalcMode_t topology enforcement, F3 graph render integration test, F4 GraphState_t ownership annotations). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|

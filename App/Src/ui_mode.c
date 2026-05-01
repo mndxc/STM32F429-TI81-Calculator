@@ -184,7 +184,7 @@ bool handle_mode_screen(Token_t t)
         if (s_mode.row_selected == 1)
             Calc_SetDecimalMode(s_mode.committed[1]);
         if (s_mode.row_selected == 2)
-            angle_degrees = (s_mode.committed[2] == 1);
+            Calc_SetAngleDegrees(s_mode.committed[2] == 1);
         if (s_mode.row_selected == 3) {
             Graph_SetParamMode(s_mode.committed[3] == 1);
             Graph_InvalidateCache();
