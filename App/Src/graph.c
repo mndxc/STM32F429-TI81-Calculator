@@ -149,13 +149,13 @@ static lv_obj_t *graph_lbl_y   = NULL;  /* Y= readout, bottom-right of canvas */
 static lv_obj_t *graph_lbl_t   = NULL;  /* T= readout, bottom-center (param mode) */
 
 /* Per-equation postfix cache — avoids re-parsing on every pixel column */
-static GraphEquation_t eq_postfix[GRAPH_NUM_EQ];
-static char            eq_postfix_str[GRAPH_NUM_EQ][64];
-static bool            eq_postfix_valid[GRAPH_NUM_EQ];
+static ParsedExpr_t eq_postfix[GRAPH_NUM_EQ];
+static char         eq_postfix_str[GRAPH_NUM_EQ][64];
+static bool         eq_postfix_valid[GRAPH_NUM_EQ];
 
 /* Per-pair parametric postfix caches */
-static GraphEquation_t param_postfix_x[GRAPH_NUM_PARAM];
-static GraphEquation_t param_postfix_y[GRAPH_NUM_PARAM];
+static ParsedExpr_t param_postfix_x[GRAPH_NUM_PARAM];
+static ParsedExpr_t param_postfix_y[GRAPH_NUM_PARAM];
 static char            param_postfix_x_str[GRAPH_NUM_PARAM][64];
 static char            param_postfix_y_str[GRAPH_NUM_PARAM][64];
 static bool            param_postfix_valid[GRAPH_NUM_PARAM];
@@ -454,7 +454,7 @@ void Graph_Render(void)
 
             if (!eq_postfix_valid[eq] ||
                 strncmp(eqstr, eq_postfix_str[eq], sizeof(eq_postfix_str[eq])) != 0) {
-                if (Calc_PrepareGraphEquation(eqstr, 0.0f, &eq_postfix[eq]) == CALC_OK) {
+                if (Calc_Parse(eqstr, 0.0f, false, false, &eq_postfix[eq]) == CALC_OK) {
                     strncpy(eq_postfix_str[eq], eqstr, sizeof(eq_postfix_str[eq]) - 1);
                     eq_postfix_str[eq][sizeof(eq_postfix_str[eq]) - 1] = '\0';
                     eq_postfix_valid[eq] = true;
@@ -474,7 +474,7 @@ void Graph_Render(void)
                           (float)px / (float)(GRAPH_W - 1) *
                           (graph_state.x_max - graph_state.x_min);
 
-                CalcResult_t r = Calc_EvalGraphEquation(&eq_postfix[eq], x, angle_degrees);
+                CalcResult_t r = Calc_Eval(&eq_postfix[eq], x, 0.0f, angle_degrees);
 
                 if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
                     prev_valid = false;
@@ -530,7 +530,7 @@ void Graph_Render(void)
             if (strlen(eqstr) == 0 || !graph_state.enabled[eq]) continue;
             if (!eq_postfix_valid[eq] ||
                 strncmp(eqstr, eq_postfix_str[eq], sizeof(eq_postfix_str[eq])) != 0) {
-                if (Calc_PrepareGraphEquation(eqstr, 0.0f, &eq_postfix[eq]) == CALC_OK) {
+                if (Calc_Parse(eqstr, 0.0f, false, false, &eq_postfix[eq]) == CALC_OK) {
                     strncpy(eq_postfix_str[eq], eqstr, sizeof(eq_postfix_str[eq]) - 1);
                     eq_postfix_str[eq][sizeof(eq_postfix_str[eq]) - 1] = '\0';
                     eq_postfix_valid[eq] = true;
@@ -551,7 +551,7 @@ void Graph_Render(void)
             for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
                 if (skip[eq]) continue;
 
-                CalcResult_t r = Calc_EvalGraphEquation(&eq_postfix[eq], x, angle_degrees);
+                CalcResult_t r = Calc_Eval(&eq_postfix[eq], x, 0.0f, angle_degrees);
 
                 if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
                     prev_valid[eq] = false;
@@ -643,7 +643,7 @@ void Graph_RenderParametric(void)
 
             if (!param_postfix_valid[p] ||
                 strncmp(xstr, param_postfix_x_str[p], sizeof(param_postfix_x_str[p])) != 0) {
-                if (Calc_PrepareParamEquation(xstr, 0.0f, &param_postfix_x[p]) == CALC_OK) {
+                if (Calc_Parse(xstr, 0.0f, false, true, &param_postfix_x[p]) == CALC_OK) {
                     strncpy(param_postfix_x_str[p], xstr, sizeof(param_postfix_x_str[p]) - 1);
                     param_postfix_x_str[p][sizeof(param_postfix_x_str[p]) - 1] = '\0';
                 } else {
@@ -653,7 +653,7 @@ void Graph_RenderParametric(void)
             }
             if (!param_postfix_valid[p] ||
                 strncmp(ystr, param_postfix_y_str[p], sizeof(param_postfix_y_str[p])) != 0) {
-                if (Calc_PrepareParamEquation(ystr, 0.0f, &param_postfix_y[p]) == CALC_OK) {
+                if (Calc_Parse(ystr, 0.0f, false, true, &param_postfix_y[p]) == CALC_OK) {
                     strncpy(param_postfix_y_str[p], ystr, sizeof(param_postfix_y_str[p]) - 1);
                     param_postfix_y_str[p][sizeof(param_postfix_y_str[p]) - 1] = '\0';
                     param_postfix_valid[p] = true;
@@ -671,8 +671,8 @@ void Graph_RenderParametric(void)
                  t <= graph_state.t_max + t_step * 0.5f;
                  t += t_step) {
 
-                CalcResult_t rx = Calc_EvalParamEquation(&param_postfix_x[p], t, angle_degrees);
-                CalcResult_t ry = Calc_EvalParamEquation(&param_postfix_y[p], t, angle_degrees);
+                CalcResult_t rx = Calc_Eval(&param_postfix_x[p], calc_variables['X' - 'A'], t, angle_degrees);
+                CalcResult_t ry = Calc_Eval(&param_postfix_y[p], calc_variables['X' - 'A'], t, angle_degrees);
 
                 if (rx.error != CALC_OK || ry.error != CALC_OK ||
                     isnan(rx.value) || isinf(rx.value) ||
@@ -737,14 +737,14 @@ void Graph_RenderParametric(void)
             if (strlen(xstr) == 0 || strlen(ystr) == 0 || !graph_state.param_enabled[p]) continue;
             if (!param_postfix_valid[p] ||
                 strncmp(xstr, param_postfix_x_str[p], sizeof(param_postfix_x_str[p])) != 0) {
-                if (Calc_PrepareParamEquation(xstr, 0.0f, &param_postfix_x[p]) == CALC_OK) {
+                if (Calc_Parse(xstr, 0.0f, false, true, &param_postfix_x[p]) == CALC_OK) {
                     strncpy(param_postfix_x_str[p], xstr, sizeof(param_postfix_x_str[p]) - 1);
                     param_postfix_x_str[p][sizeof(param_postfix_x_str[p]) - 1] = '\0';
                 } else { param_postfix_valid[p] = false; continue; }
             }
             if (!param_postfix_valid[p] ||
                 strncmp(ystr, param_postfix_y_str[p], sizeof(param_postfix_y_str[p])) != 0) {
-                if (Calc_PrepareParamEquation(ystr, 0.0f, &param_postfix_y[p]) == CALC_OK) {
+                if (Calc_Parse(ystr, 0.0f, false, true, &param_postfix_y[p]) == CALC_OK) {
                     strncpy(param_postfix_y_str[p], ystr, sizeof(param_postfix_y_str[p]) - 1);
                     param_postfix_y_str[p][sizeof(param_postfix_y_str[p]) - 1] = '\0';
                     param_postfix_valid[p] = true;
@@ -761,8 +761,8 @@ void Graph_RenderParametric(void)
             for (uint8_t p = 0; p < GRAPH_NUM_PARAM; p++) {
                 if (skip[p]) continue;
 
-                CalcResult_t rx = Calc_EvalParamEquation(&param_postfix_x[p], t, angle_degrees);
-                CalcResult_t ry = Calc_EvalParamEquation(&param_postfix_y[p], t, angle_degrees);
+                CalcResult_t rx = Calc_Eval(&param_postfix_x[p], calc_variables['X' - 'A'], t, angle_degrees);
+                CalcResult_t ry = Calc_Eval(&param_postfix_y[p], calc_variables['X' - 'A'], t, angle_degrees);
 
                 if (rx.error != CALC_OK || ry.error != CALC_OK ||
                     isnan(rx.value) || isinf(rx.value) ||
@@ -856,8 +856,8 @@ static void graph_draw_trace_param(float t, uint8_t pair)
         return;
     }
 
-    CalcResult_t rx = Calc_EvalParamEquation(&param_postfix_x[pair], t, angle_degrees);
-    CalcResult_t ry = Calc_EvalParamEquation(&param_postfix_y[pair], t, angle_degrees);
+    CalcResult_t rx = Calc_Eval(&param_postfix_x[pair], calc_variables['X' - 'A'], t, angle_degrees);
+    CalcResult_t ry = Calc_Eval(&param_postfix_y[pair], calc_variables['X' - 'A'], t, angle_degrees);
 
     if (rx.error != CALC_OK || isnan(rx.value) || isinf(rx.value)) {
         lv_label_set_text(graph_lbl_x, "X=undef");

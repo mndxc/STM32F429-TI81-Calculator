@@ -15,7 +15,7 @@ Run these commands from the **repo root** (the directory containing `CMakeLists.
 ```bash
 cmake -S App/Tests -B build-tests
 cmake --build build-tests
-ctest --test-dir build-tests   # runs all 10 suites (831 assertions total)
+ctest --test-dir build-tests   # runs all 12 suites (950 assertions total)
 ```
 
 Or run individual suites:
@@ -30,6 +30,8 @@ Or run individual suites:
 ./build-tests/test_stat               # Statistical calculations (39 tests)
 ./build-tests/test_yvars              # Y-VARS calc_engine integration (20 tests)
 ./build-tests/test_menu_state         # MenuState_t navigation helpers (43 tests)
+./build-tests/test_prgm_cmd_table     # PRGM cmd_table prefix-ordering guard (16 tests)
+./build-tests/test_parse_eval         # Calc_Parse + Calc_Eval unified API — T3-B (103 tests)
 ```
 
 ### Test Executables
@@ -44,6 +46,8 @@ Or run individual suites:
 8.  **test_stat**: Validates `calc_stat.c` — 1-Var statistics, LinReg (including variable storage and Pearson r), LnReg, ExpReg, SortX, SortY, Clear, and degenerate/empty-input guards.
 9.  **test_yvars**: Validates `Calc_RegisterYEquations`, Y₁–Y₄ tokenization, evaluation, and reentrancy guard.
 10. **test_menu_state**: Validates `MenuState_t` navigation helpers — `MoveUp/Down` boundary behaviour, `PrevTab/NextTab` reset, `DigitToIndex` mapping, and `AbsoluteIndex`.
+11. **test_prgm_cmd_table**: Validates `prgm_cmd_table_validate()` — cmd_table[] prefix-ordering invariant and command dispatch verification.
+12. **test_parse_eval**: Validates `Calc_Parse` + `Calc_Eval` unified API (T3-B) — equivalence to `Calc_Evaluate`, `ParsedExpr_t` reuse, parametric T substitution, nDeriv nested field population, two-`ParsedExpr_t` nDeriv independence (no shared static cross-contamination), parse-error propagation, and equivalence to `Calc_PrepareGraphEquation`.
 
 ### Adding a New Test
 

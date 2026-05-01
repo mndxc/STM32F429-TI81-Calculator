@@ -233,6 +233,21 @@ if(COVERAGE)
     target_link_options(test_prgm_cmd_table PRIVATE --coverage)
 endif()
 
+# --- test_parse_eval ---
+# Calc_Parse + Calc_Eval unified API (T3-B); pure engine test — no LVGL/HAL/RTOS.
+
+add_executable(test_parse_eval
+    test_parse_eval.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+)
+
+target_compile_options(test_parse_eval PRIVATE -Wall -Wextra)
+
+if(COVERAGE)
+    target_compile_options(test_parse_eval PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_parse_eval PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
@@ -246,3 +261,4 @@ add_test(NAME stat              COMMAND test_stat)
 add_test(NAME yvars             COMMAND test_yvars)
 add_test(NAME menu_state        COMMAND test_menu_state)
 add_test(NAME prgm_cmd_table    COMMAND test_prgm_cmd_table)
+add_test(NAME parse_eval        COMMAND test_parse_eval)

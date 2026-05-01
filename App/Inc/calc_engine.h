@@ -139,6 +139,21 @@ typedef struct {
     uint8_t     matrix_idx;     /* Index into calc_matrices[] when has_matrix is true */
 } CalcResult_t;
 
+/**
+ * @brief Pre-parsed expression ready for repeated evaluation.
+ *
+ * Produced by Calc_Parse(); consumed by Calc_Eval(). Separates the
+ * tokenize+shunting-yard pass (done once per equation) from the RPN
+ * evaluation pass (done once per call or 240× per graph render column).
+ *
+ * The @c nested field holds the inner expression compiled from nDeriv()'s
+ * first argument. Its count is 0 when the expression contains no nDeriv().
+ */
+typedef struct {
+    GraphEquation_t postfix;   /* shunting-yard output */
+    GraphEquation_t nested;    /* nDeriv inner expression, if any */
+} ParsedExpr_t;
+
 /*---------------------------------------------------------------------------
  * Variable storage
  *--------------------------------------------------------------------------*/
@@ -300,5 +315,42 @@ CalcError_t Calc_PrepareParamEquation(const char *expr, float ans,
  */
 CalcResult_t Calc_EvalParamEquation(const GraphEquation_t *eq, float t_val,
                                     bool angle_degrees);
+
+/**
+ * @brief Tokenizes, applies implicit multiplication, and shunting-yards an
+ *        infix expression into a @c ParsedExpr_t ready for Calc_Eval().
+ *
+ * Separates the parse pass from the evaluation pass so callers that evaluate
+ * the same expression repeatedly (e.g. 240 pixel columns per graph render)
+ * avoid re-parsing on every call.
+ *
+ * If the expression contains @c nDeriv(), the inner sub-expression is
+ * compiled into @c out->nested; otherwise @c out->nested.count is 0.
+ *
+ * @param expr           Null-terminated infix expression
+ * @param ans            ANS value substituted for "ANS" tokens
+ * @param ans_is_matrix  True when ANS holds a matrix slot index
+ * @param param_mode     True to tokenize 'T'/'t' as MATH_VAR_T (parametric)
+ * @param out            Output ParsedExpr_t — must not be NULL
+ * @return               CALC_OK or an error code
+ */
+CalcError_t Calc_Parse(const char *expr, float ans, bool ans_is_matrix,
+                       bool param_mode, ParsedExpr_t *out);
+
+/**
+ * @brief Evaluates a pre-parsed expression at specific x and t coordinates.
+ *
+ * No string parsing or shunting-yard conversion — pure RPN evaluation.
+ * Unifies the function-graph (x_val varies, t_val=0) and parametric-graph
+ * (x_val=stored X, t_val varies) cases under one call.
+ *
+ * @param parsed         ParsedExpr_t produced by Calc_Parse()
+ * @param x_val          Value substituted for MATH_VAR_X tokens
+ * @param t_val          Value substituted for MATH_VAR_T tokens (0 for function mode)
+ * @param angle_degrees  True for degrees, false for radians
+ * @return               CalcResult_t containing value or error
+ */
+CalcResult_t Calc_Eval(const ParsedExpr_t *parsed, float x_val, float t_val,
+                       bool angle_degrees);
 
 #endif /* CALC_ENGINE_H */
