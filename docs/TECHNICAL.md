@@ -43,6 +43,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_vars.c                   VARS menu UI — 5-tab (XY/Σ/LR/DIM/RNG) value-insert menu (extracted module; MenuState_t proof-of-concept)
     ui_yvars.c                  Y-VARS menu UI — 3-tab (Y/ON/OFF) equation-reference insert and enable/disable menu (extracted module)
     ui_param_yeq.c              Parametric Y= editor screen (X₁t/Y₁t … X₃t/Y₃t; extracted module)
+    ui_reset.c                  RESET confirmation screen (2nd++) — memory usage display, 1:No / 2:Reset handler
   Inc/
     app_init.h                  App_RTOS_Init() and App_DefaultTask_Run() declarations
     app_common.h                Shared types, handles and function declarations
@@ -74,6 +75,8 @@ App/                            ← Custom application code (never touched by Cu
     ui_vars.h                   VARS menu UI interface (MenuState_t, handler protos)
     ui_yvars.h                  Y-VARS menu UI interface (YVarsMenuState_t, handler protos)
     ui_param_yeq.h              Parametric Y= editor interface (param_yeq_init_screen, handler)
+    ui_reset.h                  RESET screen interface (Reset_MenuOpen, Reset_HideScreen, handle_reset_confirm)
+    ui_shared.h                 Lightweight shared UI constants used by modules outside the calc super-module
     ui_palette.h                Named colour constants (COLOR_BLACK, COLOR_YELLOW, etc.)
   Fonts/
     JetBrainsMono-Regular.ttf        Source font (Apache 2.0)
