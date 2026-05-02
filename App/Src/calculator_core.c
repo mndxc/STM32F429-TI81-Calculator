@@ -1164,19 +1164,24 @@ void handle_history_nav(Token_t t)
  * Execute_Token dispatch infrastructure
  *---------------------------------------------------------------------------*/
 
-/** Function pointer type for per-mode token handlers.
- *  Returns true if the token was fully handled (Execute_Token should return). */
-typedef bool (*ModeHandler_t)(Token_t);
+typedef bool (*ModeHandler_fn)(Token_t);
+typedef bool (*ModePredicate_fn)(Token_t);
 
-/** Predicate: returns true when this routing entry should fire for token t. */
-typedef bool (*RoutePred_t)(Token_t);
-
-/** Single routing entry: pred fires → handler called; true return stops dispatch. */
-typedef struct { RoutePred_t pred; ModeHandler_t handler; } RouteEntry_t;
+/**
+ * Registers one routing path in Execute_Token's dispatch table.
+ * If pred is NULL, the entry fires when current_mode == mode.
+ * If pred is non-NULL, pred(t) is called instead of the mode comparison.
+ * The final table entry uses pred_always (always returns true) as the fallback.
+ */
+typedef struct {
+    CalcMode_t       mode;    /* primary mode this entry handles */
+    ModePredicate_fn pred;    /* if non-NULL, overrides mode comparison */
+    ModeHandler_fn   handler;
+} ModeRegistration_t;
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
-/* Thin wrappers for handlers whose signatures differ from ModeHandler_t. */
+/* Thin wrappers for handlers whose signatures differ from ModeHandler_fn. */
 static bool dispatch_matrix_menu(Token_t t) { return handle_matrix_menu(t, &matrix_menu_state); }
 static bool dispatch_matrix_edit(Token_t t) { handle_matrix_edit(t); return true; }
 static bool dispatch_stat_menu(Token_t t)   { return handle_stat_menu(t, &stat_menu_state); }
@@ -1251,43 +1256,17 @@ static bool route_prgm_running(Token_t t) { handle_prgm_running(t); return true;
 static bool route_normal_mode(Token_t t)  { handle_normal_mode(t);  return true; }
 
 /*---------------------------------------------------------------------------
- * Route predicates — one per routing condition
+ * Route predicates — used for token-based, compound, and state conditions.
+ * Simple mode-based entries use pred = NULL and rely on the mode field.
  *---------------------------------------------------------------------------*/
 
+/* Token overrides — fire regardless of current mode */
 static bool pred_token_on   (Token_t t) { return t == TOKEN_ON;    }
 static bool pred_token_quit (Token_t t) { return t == TOKEN_QUIT;  }
 static bool pred_token_mode (Token_t t) { return t == TOKEN_MODE;  }
 static bool pred_token_reset(Token_t t) { return t == TOKEN_RESET; }
 
-static bool pred_prgm_running        (Token_t t) { (void)t; return current_mode == MODE_PRGM_RUNNING;        }
-static bool pred_mode_graph_yeq      (Token_t t) { (void)t; return current_mode == MODE_GRAPH_YEQ;           }
-static bool pred_mode_graph_range    (Token_t t) { (void)t; return current_mode == MODE_GRAPH_RANGE;         }
-static bool pred_mode_graph_zoom     (Token_t t) { (void)t; return current_mode == MODE_GRAPH_ZOOM;          }
-static bool pred_mode_zoom_factors   (Token_t t) { (void)t; return current_mode == MODE_GRAPH_ZOOM_FACTORS;  }
-static bool pred_mode_graph_zbox     (Token_t t) { (void)t; return current_mode == MODE_GRAPH_ZBOX;          }
-static bool pred_mode_graph_trace    (Token_t t) { (void)t; return current_mode == MODE_GRAPH_TRACE;         }
-static bool pred_mode_free_cursor    (Token_t t) { (void)t; return current_mode == MODE_GRAPH_FREE_CURSOR;   }
-static bool pred_mode_param_yeq      (Token_t t) { (void)t; return current_mode == MODE_GRAPH_PARAM_YEQ;     }
-static bool pred_mode_mode_screen    (Token_t t) { (void)t; return current_mode == MODE_MODE_SCREEN;         }
-static bool pred_mode_math_menu      (Token_t t) { (void)t; return current_mode == MODE_MATH_MENU;           }
-static bool pred_mode_test_menu      (Token_t t) { (void)t; return current_mode == MODE_TEST_MENU;           }
-static bool pred_mode_matrix_menu    (Token_t t) { (void)t; return current_mode == MODE_MATRIX_MENU;         }
-static bool pred_mode_matrix_edit    (Token_t t) { (void)t; return current_mode == MODE_MATRIX_EDIT;         }
-static bool pred_mode_stat_menu      (Token_t t) { (void)t; return current_mode == MODE_STAT_MENU;           }
-static bool pred_mode_stat_edit      (Token_t t) { (void)t; return current_mode == MODE_STAT_EDIT;           }
-static bool pred_mode_stat_results   (Token_t t) { (void)t; return current_mode == MODE_STAT_RESULTS;        }
-static bool pred_mode_draw_menu      (Token_t t) { (void)t; return current_mode == MODE_DRAW_MENU;           }
-static bool pred_mode_vars_menu      (Token_t t) { (void)t; return current_mode == MODE_VARS_MENU;           }
-static bool pred_mode_yvars_menu     (Token_t t) { (void)t; return current_mode == MODE_YVARS_MENU;          }
-static bool pred_mode_prgm_menu      (Token_t t) { (void)t; return current_mode == MODE_PRGM_MENU;           }
-static bool pred_mode_prgm_ctl_menu  (Token_t t) { (void)t; return current_mode == MODE_PRGM_CTL_MENU;       }
-static bool pred_mode_prgm_io_menu   (Token_t t) { (void)t; return current_mode == MODE_PRGM_IO_MENU;        }
-static bool pred_mode_prgm_exec_menu (Token_t t) { (void)t; return current_mode == MODE_PRGM_EXEC_MENU;      }
-static bool pred_mode_prgm_mode_num  (Token_t t) { (void)t; return current_mode == MODE_PRGM_MODE_NUMBER;    }
-static bool pred_mode_prgm_mode_grph (Token_t t) { (void)t; return current_mode == MODE_PRGM_MODE_GRAPH;     }
-static bool pred_mode_reset_confirm  (Token_t t) { (void)t; return current_mode == MODE_RESET_CONFIRM;       }
-
-/* ALPHA_LOCK compounds: route by current_mode or by return_mode when in ALPHA_LOCK. */
+/* ALPHA_LOCK compounds: also fire when current_mode == ALPHA_LOCK + matching return_mode. */
 static bool pred_prgm_new_name(Token_t t) {
     (void)t;
     return current_mode == MODE_PRGM_NEW_NAME ||
@@ -1304,50 +1283,52 @@ static bool pred_always     (Token_t t) { (void)t; return true; }
 
 /*---------------------------------------------------------------------------
  * Unified routing table — every Execute_Token path in dispatch order.
- * First entry whose pred(t) fires wins; true return value stops dispatch.
- * To add a new routing path: insert one row. No count to maintain.
+ * If pred is NULL, the entry fires when current_mode == mode.
+ * If pred is non-NULL, pred(t) determines whether the entry fires.
+ * First matching entry whose handler returns true stops dispatch.
+ * To add a new mode: insert one { .mode = MODE_XXX, .pred = NULL, .handler = yyy } row.
  *---------------------------------------------------------------------------*/
-static const RouteEntry_t k_route_table[] = {
+static const ModeRegistration_t k_route_table[] = {
     /* Global token overrides — highest priority regardless of mode ----------*/
-    { pred_token_on,              route_token_on              },
-    { pred_token_quit,            route_token_quit            },
-    { pred_token_mode,            route_token_mode            },
-    { pred_token_reset,           route_token_reset           },
+    { MODE_NORMAL,             pred_token_on,    route_token_on          },
+    { MODE_NORMAL,             pred_token_quit,  route_token_quit        },
+    { MODE_NORMAL,             pred_token_mode,  route_token_mode        },
+    { MODE_NORMAL,             pred_token_reset, route_token_reset       },
     /* Program execution intercept (before per-mode table) ------------------*/
-    { pred_prgm_running,          route_prgm_running          },
-    /* Per-mode handlers -------------------------------------------------------*/
-    { pred_mode_graph_yeq,        handle_yeq_mode             },
-    { pred_mode_graph_range,      handle_range_mode           },
-    { pred_mode_graph_zoom,       handle_zoom_mode            },
-    { pred_mode_zoom_factors,     handle_zoom_factors_mode    },
-    { pred_mode_graph_zbox,       handle_zbox_mode            },
-    { pred_mode_graph_trace,      handle_trace_mode           },
-    { pred_mode_free_cursor,      handle_free_cursor_mode     },
-    { pred_mode_param_yeq,        handle_param_yeq_mode       },
-    { pred_mode_mode_screen,      handle_mode_screen          },
-    { pred_mode_math_menu,        handle_math_menu            },
-    { pred_mode_test_menu,        handle_test_menu            },
-    { pred_mode_matrix_menu,      dispatch_matrix_menu        },
-    { pred_mode_matrix_edit,      dispatch_matrix_edit        },
-    { pred_mode_stat_menu,        dispatch_stat_menu          },
-    { pred_mode_stat_edit,        handle_stat_edit            },
-    { pred_mode_stat_results,     handle_stat_results         },
-    { pred_mode_draw_menu,        handle_draw_menu            },
-    { pred_mode_vars_menu,        handle_vars_menu            },
-    { pred_mode_yvars_menu,       handle_yvars_menu           },
-    { pred_mode_prgm_menu,        handle_prgm_menu            },
-    { pred_mode_prgm_ctl_menu,    handle_prgm_ctl_menu        },
-    { pred_mode_prgm_io_menu,     handle_prgm_io_menu         },
-    { pred_mode_prgm_exec_menu,   handle_prgm_exec_menu       },
-    { pred_mode_prgm_mode_num,    handle_prgm_mode_number     },
-    { pred_mode_prgm_mode_grph,   handle_prgm_mode_graph      },
-    { pred_mode_reset_confirm,    handle_reset_confirm        },
-    /* ALPHA_LOCK compound conditions (route by return_mode) -----------------*/
-    { pred_prgm_new_name,         handle_prgm_new_name        },
-    { pred_prgm_editor,           handle_prgm_editor          },
+    { MODE_PRGM_RUNNING,       NULL,             route_prgm_running      },
+    /* Per-mode handlers — pred = NULL; fires when current_mode == mode ------*/
+    { MODE_GRAPH_YEQ,          NULL,             handle_yeq_mode         },
+    { MODE_GRAPH_RANGE,        NULL,             handle_range_mode       },
+    { MODE_GRAPH_ZOOM,         NULL,             handle_zoom_mode        },
+    { MODE_GRAPH_ZOOM_FACTORS, NULL,             handle_zoom_factors_mode },
+    { MODE_GRAPH_ZBOX,         NULL,             handle_zbox_mode        },
+    { MODE_GRAPH_TRACE,        NULL,             handle_trace_mode       },
+    { MODE_GRAPH_FREE_CURSOR,  NULL,             handle_free_cursor_mode },
+    { MODE_GRAPH_PARAM_YEQ,    NULL,             handle_param_yeq_mode   },
+    { MODE_MODE_SCREEN,        NULL,             handle_mode_screen      },
+    { MODE_MATH_MENU,          NULL,             handle_math_menu        },
+    { MODE_TEST_MENU,          NULL,             handle_test_menu        },
+    { MODE_MATRIX_MENU,        NULL,             dispatch_matrix_menu    },
+    { MODE_MATRIX_EDIT,        NULL,             dispatch_matrix_edit    },
+    { MODE_STAT_MENU,          NULL,             dispatch_stat_menu      },
+    { MODE_STAT_EDIT,          NULL,             handle_stat_edit        },
+    { MODE_STAT_RESULTS,       NULL,             handle_stat_results     },
+    { MODE_DRAW_MENU,          NULL,             handle_draw_menu        },
+    { MODE_VARS_MENU,          NULL,             handle_vars_menu        },
+    { MODE_YVARS_MENU,         NULL,             handle_yvars_menu       },
+    { MODE_PRGM_MENU,          NULL,             handle_prgm_menu        },
+    { MODE_PRGM_CTL_MENU,      NULL,             handle_prgm_ctl_menu    },
+    { MODE_PRGM_IO_MENU,       NULL,             handle_prgm_io_menu     },
+    { MODE_PRGM_EXEC_MENU,     NULL,             handle_prgm_exec_menu   },
+    { MODE_PRGM_MODE_NUMBER,   NULL,             handle_prgm_mode_number },
+    { MODE_PRGM_MODE_GRAPH,    NULL,             handle_prgm_mode_graph  },
+    { MODE_RESET_CONFIRM,      NULL,             handle_reset_confirm    },
+    /* ALPHA_LOCK compound conditions (also fire when ALPHA_LOCK+return_mode) */
+    { MODE_PRGM_NEW_NAME,      pred_prgm_new_name, handle_prgm_new_name },
+    { MODE_PRGM_EDITOR,        pred_prgm_editor,   handle_prgm_editor   },
     /* STO intercept and normal-mode fallback --------------------------------*/
-    { pred_sto_pending,           handle_sto_pending          },
-    { pred_always,                route_normal_mode           },
+    { MODE_NORMAL,             pred_sto_pending, handle_sto_pending      },
+    { MODE_NORMAL,             pred_always,      route_normal_mode       },
 };
 
 /**
@@ -1357,9 +1338,9 @@ static const RouteEntry_t k_route_table[] = {
 void Execute_Token(Token_t t)
 {
     for (size_t i = 0; i < ARRAY_SIZE(k_route_table); i++) {
-        if (k_route_table[i].pred(t)) {
-            if (k_route_table[i].handler(t)) return;
-        }
+        const ModeRegistration_t *e = &k_route_table[i];
+        bool fires = e->pred ? e->pred(t) : (current_mode == e->mode);
+        if (fires && e->handler(t)) return;
     }
 }
 
@@ -1606,10 +1587,12 @@ bool calc_mode_topology_validate(void)
         current_mode = mode;
 
         /* Check for a dedicated (non-fallback) routing entry.
-         * The last table entry is pred_always — skip it. */
+         * The last table entry uses pred_always — skip it. */
         bool has_dedicated = false;
         for (size_t i = 0; i < ARRAY_SIZE(k_route_table) - 1; i++) {
-            if (k_route_table[i].pred(neutral)) {
+            const ModeRegistration_t *e = &k_route_table[i];
+            bool fires = e->pred ? e->pred(neutral) : (current_mode == e->mode);
+            if (fires) {
                 has_dedicated = true;
                 break;
             }

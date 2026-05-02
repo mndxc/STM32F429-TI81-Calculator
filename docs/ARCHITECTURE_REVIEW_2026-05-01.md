@@ -341,11 +341,11 @@ Items are ordered within each opportunity by dependency — prerequisites first.
 
 **Prerequisite reading:** `test_mode_topology.c` — understand how it validates the dispatch table. The `ModeRegistration_t` struct must be compatible with whatever static analysis the topology test does.
 
-- [ ] **5-A** Define `ModeRegistration_t` (mode + pred + handler) in `app_common.h` or in a new `mode_registration.h` included by `calculator_core.c`. Add a comment noting that `pred == NULL` means "always match."
-- [ ] **5-B** Rewrite `k_route_table[]` in `calculator_core.c` as an array of `ModeRegistration_t`. Preserve all existing entries exactly — this is a pure rename/restructure with no behavioural change.
-- [ ] **5-C** Update the dispatcher loop to use the struct fields (`entry.pred`, `entry.handler`) instead of positional tuple access.
-- [ ] **5-D** Run `test_mode_topology.c` — it must pass unchanged (no new modes, no removals).
-- [ ] **5-E** Run full host test suite.
+- [x] **5-A** [done 2026-05-01] `ModeRegistration_t` (mode + pred + handler) defined file-locally in `calculator_core.c`. `pred == NULL` means "fires when current_mode == mode" (documented in struct comment).
+- [x] **5-B** [done 2026-05-01] `k_route_table[]` rewritten as array of `ModeRegistration_t`. 27 `pred_mode_xxx`/`pred_prgm_running` one-liners eliminated; simple mode entries use `pred = NULL`.
+- [x] **5-C** [done 2026-05-01] Dispatcher loop updated: `fires = e->pred ? e->pred(t) : (current_mode == e->mode)`.
+- [x] **5-D** [done 2026-05-01] `test_mode_topology` passes unchanged.
+- [x] **5-E** [done 2026-05-01] Full host test suite 14/14, 964 assertions.
 - [ ] **5-F** (Optional follow-up) Assess whether each module should declare its own `ModeRegistration_t g_xxx_registration` constant in its `.c` file, and `calculator_core.c` aggregates them by including a thin per-module registration header. This would reduce the four-file edit cost to a one-file change. Only worth doing if a new mode is being added soon — do not restructure speculatively.
 
 ---

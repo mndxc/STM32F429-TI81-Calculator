@@ -90,10 +90,6 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 Items are ordered so prerequisites come before the items that depend on them; within a dependency tier, easiest first.
 
-#### Easy — self-contained, hours
-
-**[refactor] Arch-5 — Name the mode registration concept in `k_route_table[]`** — `calculator_core.c` contains a 30+ entry dispatch table where each entry is an implicit tuple (mode, predicate, handler). Introduce a `ModeRegistration_t` struct and rewrite the table as an array of named structs. Pure rename/restructure; no behavioural change. Prerequisite: read `test_mode_topology.c` first — the test must pass unchanged. Full task list: [docs/ARCHITECTURE_REVIEW_2026-05-01.md](docs/ARCHITECTURE_REVIEW_2026-05-01.md) Opportunity 5. File: [App/Src/calculator_core.c](App/Src/calculator_core.c).
-
 #### Medium — approximately one session each
 
 **[refactor] Arch-2 — Break graph editor circular include chain** — `graph_ui.c`, `graph_ui_range.c`, and `ui_graph_zoom.c` form a mutual-include cycle via cursor struct definitions in `graph_ui.h`. Move `TraceState_t`, `FreeCursorState_t`, `ZBoxState_t` into `graph.h`/`graph.c` (which already owns `GraphState_t`); update includes in all three files. Prerequisite for "Graph_HandleKey() unified entry point" (Large section below). Full task list and gotchas (guard name, pointer accessors): [docs/ARCHITECTURE_REVIEW_2026-05-01.md](docs/ARCHITECTURE_REVIEW_2026-05-01.md) Opportunity 2.
