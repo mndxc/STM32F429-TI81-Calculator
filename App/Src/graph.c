@@ -1115,6 +1115,14 @@ void Graph_DrawZBox(int32_t px, int32_t py,
 
 /*---------------------------------------------------------------------------
  * STAT plot helpers (Graph_DrawScatter / XYLine / Histogram)
+ *
+ * These live in graph.c rather than a separate graph_stat.c because they are
+ * the main render pass: they clear graph_canvas, redraw axes/ticks, and write
+ * directly into graph_buf.  Contrast with graph_draw.c, which owns a separate
+ * overlay buffer composited onto graph_buf at render time — a clean seam.
+ * Extraction here would require exposing graph_canvas, graph_buf, and the
+ * private axes/ticks helpers (3-4 new API seams) for ~155 lines of savings,
+ * which is not worth the coupling surface added.
  *---------------------------------------------------------------------------*/
 
 /** Bresenham line between two canvas pixel coordinates. */

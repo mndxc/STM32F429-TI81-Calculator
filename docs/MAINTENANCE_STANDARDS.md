@@ -23,6 +23,7 @@
 | `docs/TROUBLESHOOTING.md` | Troubleshooting steps for common build, flash, and runtime issues |
 | `docs/PCB_DESIGN.md` | Custom PCB design notes (paused) |
 | `docs/Datasheets/TI81Guidebook.md` | **Behavioral spec — read-only.** The authoritative reference for every TI-81 feature. Never edit. Consult before planning any feature work. |
+| `docs/ARCHITECTURE_REVIEW_2026-05-01.md` | Tick off completed to-do items; update when Scorecard dimensions change as a result |
 | `App/Tests/test_persist_roundtrip.c` | Hardcoded `PersistBlock_t` size assertion — must match `persist.h` |
 | `scripts/check_sync.sh` | Hard-coded file paths and grep patterns — update when doc structure changes |
 | `scripts/update_test_counts.sh` | Suite executable names — update when a new test executable is added |
@@ -53,8 +54,8 @@ When a rating changes: add a row here, update the table above, and add a Milesto
 | RTOS integration | All new LVGL calls inside mutex | LVGL call outside mutex; deadlock in timer callback |
 | Error handling | New error paths return `CalcError_t` | Silent failures; out-of-bounds without check |
 | Naming conventions | New names follow `Module_VerbNoun()` pattern | New inconsistent prefixes or abbreviations |
-| Code organisation | Modules extracted cleanly; files stay under ~500 lines | Files grow past 500 lines without extraction plan |
-| Function complexity | Functions stay under 100 lines | New over-100-line functions without follow-up plan |
+| Code organisation | Each file has one clear, bounded responsibility; coupling to shared mutable state decreases; modules are independently compilable | A file gains a second unrelated responsibility; a new circular dependency is introduced; a module gains a dependency that flows against the layer direction |
+| Function complexity | Long functions are flat dispatch (wide, not deep); new functions have a single entry concern | New functions with deeply nested conditionals (depth > 3) or multiple independent responsibilities; a dispatch table grows past ~30 entries without a redesign plan |
 | Magic numbers / constants | New colours/limits go to named constants in `ui_palette.h` | Inline hex literals or magic numbers in new code |
 | Testing | New property tests; coverage increases | Test count drops; new logic with no host test |
 
@@ -91,15 +92,21 @@ If `increase`: immediately add one or more `[complexity]` items to `CLAUDE.md` "
 
 ### What counts as a complexity increase
 
-- A file grows by more than ~100 lines without a corresponding extraction or removal elsewhere
+- A file gains a second unrelated responsibility (not just grows in lines)
+- A module gains a dependency that flows against the layer direction (e.g. a lower layer includes an upper layer)
+- A new circular include is introduced
 - A new module is added without a clear, bounded responsibility
-- New global or shared state is introduced
-- A function exceeds ~80–100 lines
-- A new conditional branch is added to an already-large switch or if-chain
+- New global or shared mutable state is introduced
+- A function contains deeply nested conditionals (depth > 3) rather than flat dispatch
+- A new conditional branch is added to an already-large switch or if-chain without a dispatch-table redesign plan
 - A workaround or special-case is added rather than fixing the underlying model
+
+Line count is a *signal*, not a goal. A flat 1500-line dispatch table may be fine; a 300-line function with deep nesting and shared state is not.
 
 ### What counts as paying down complexity
 
+- Reducing the number of translation units that depend on shared mutable state (e.g. narrowing `calc_internal.h`)
+- Breaking a circular include chain
 - Extracting a cohesive group of functions into a new module (following the `ui_matrix.c` / `expr_util.c` pattern)
 - Replacing magic numbers or colours with named constants
 - Reducing a large switch to a dispatch table or handler chain
@@ -404,7 +411,7 @@ Also run manually after any major feature, before adding a new module, or when t
 
 ### Phase 1 — Structural scan (delegate to an Explore agent)
 
-> For each `App/Src/*.c` file report: total line count, function names and approximate line counts, functions exceeding 80–100 lines, and obvious code smells (magic numbers, duplicated patterns, large switch statements). Also report: redundant headers, test coverage gaps, docs folder contents. Return a ranked hotspot table.
+> For each `App/Src/*.c` file report: total line count, function names and approximate line counts, and functions with deep nesting (conditional depth > 3) or multiple independent responsibilities. Flag: shared mutable state exposed via headers, circular includes, modules that depend on a higher layer, dispatch tables over ~30 entries, and obvious code smells (magic numbers, duplicated patterns). Also report: redundant headers, test coverage gaps, docs folder contents. Return a ranked hotspot table ordered by coupling risk, not line count.
 
 ### Phase 2 — Direct reads of key files
 
