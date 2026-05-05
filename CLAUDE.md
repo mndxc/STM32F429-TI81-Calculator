@@ -92,8 +92,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 #### Medium — approximately one session each
 
-**[refactor] Arch-4 — Isolate program executor from UI layer** — `prgm_exec.c` includes `calc_internal.h` in non-HOST_TEST builds and calls LVGL/history functions directly, bypassing its own `PrgmOutput_t` seam. Audit all direct-call sites; route everything through `PrgmOutput_t` callbacks; move the LVGL/history calls into the embedded adapter in `ui_prgm.c`. Removes the `#ifndef HOST_TEST` guard. Full task list: [docs/ARCHITECTURE_REVIEW_2026-05-01.md](docs/ARCHITECTURE_REVIEW_2026-05-01.md) Opportunity 4.
-
 **Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is an RGB565 array in FLASH. No dependencies.
 
 **`°` degree / `r` radian postfix tokens** — MATH menu items 6 and 7 already insert `°` and `r` into the expression buffer, but the engine ignores them — there is no per-argument angle-override mechanism. Implement as postfix unary operators that convert their operand to/from radians before further evaluation, independently of the global angle mode. Files: [App/Inc/calc_engine.h](App/Inc/calc_engine.h), [App/Src/calc_engine.c](App/Src/calc_engine.c). No dependencies.

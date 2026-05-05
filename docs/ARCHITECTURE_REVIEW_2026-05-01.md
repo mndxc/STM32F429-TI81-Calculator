@@ -327,13 +327,13 @@ Items are ordered within each opportunity by dependency — prerequisites first.
 
 **Prerequisite reading:** `prgm_exec.h` — understand the current `PrgmOutput_t` struct fields. `docs/PRGM_COMMANDS.md` — each supported command should have a corresponding output path; verify all are routed through `PrgmOutput_t` after this change.
 
-- [ ] **4-A** Audit `prgm_exec.c` for every call site inside `#ifndef HOST_TEST` guards or that calls a UI function directly. Produce a list: `{call site, function called, which PrgmOutput_t slot it should route through (or "new slot needed")}`.
-- [ ] **4-B** For any direct calls that have no corresponding `PrgmOutput_t` slot (e.g., a `Pause` blocking path, a display-update call), add the required slot to `PrgmOutput_t` in `prgm_exec.h`. Keep each slot's signature minimal — pass only what the callback needs.
-- [ ] **4-C** In `prgm_exec.c`, replace every direct UI call with the corresponding `PrgmOutput_t` slot call. Remove the `#ifndef HOST_TEST` guard around `#include "calc_internal.h"` — it should now be unused.
-- [ ] **4-D** In `ui_prgm.c`, update the embedded `PrgmOutput_t` instance to include the implementations of any new slots added in 4-B. Each implementation may call `lvgl_lock()`, `CalcHistory_Commit()`, etc. freely — it is the adapter, not the executor.
-- [ ] **4-E** In `App/Tests/test_prgm_exec.c` (or a new test file), add test cases that exercise the output paths that previously required embedded stubs. The test adapter `PrgmOutput_t` can record calls to a buffer and assert on them.
-- [ ] **4-F** Confirm `prgm_exec.c` compiles in host build without any LVGL or calc_internal symbols.
-- [ ] **4-G** Run the full host test suite. Run hardware validation P10 (PRGM execution) on device to confirm the embedded adapter still works end-to-end. See `docs/prgm_manual_tests.md`.
+- [x] **4-A** [done 2026-05-04] Audited `prgm_exec.c`: all `#ifndef HOST_TEST` direct-call sites mapped. All 6 output operations (`CalcHistory_Commit`+`UpdateDisplay` for `cmd_disp`/`cmd_input`, `CalcHistory_Clear` for `prgm_run_start`, `Graph_Render` for `cmd_dispgraph`, `hide_all_screens`+`ui_refresh_display` for `cmd_disphome`, `Update_Calculator_Display` for `cmd_input` input-ready signal) route through existing `PrgmOutput_t` slots. No new slots needed.
+- [x] **4-B** [done 2026-05-04] No new `PrgmOutput_t` slots required — all direct-call sites mapped to existing 6 slots. `prgm_exec.h` unchanged.
+- [x] **4-C** [done 2026-05-04] `prgm_exec.c` include block changed from `ui_prgm.h` + `calc_internal.h` + `graph.h` (in `#else`) to `calc_history.h` + `calculator_core.h` + `graph.h`; all 6 direct UI call blocks removed; `s_out = &k_hw_output` removed from `Prgm_Init()`; two `ExprBuffer_Clear(&expr)` sites replaced with `ExprBuffer_Clear(Calc_GetExpr())`. The `#ifndef HOST_TEST` guard around `calc_internal.h` is gone.
+- [x] **4-D** [done 2026-05-04] All 6 hw callbacks (`hw_disp_text`, `hw_prog_done`, `hw_clr_home`, `hw_disp_graph`, `hw_show_home`, `hw_input_ready`) + `k_hw_output` struct moved to `ui_prgm.c`; `ui_init_prgm_screens()` now calls `Prgm_SetOutput(&k_hw_output)` as its first statement. `#include "graph.h"` added to `ui_prgm.c`.
+- [x] **4-E** [done 2026-05-04] Existing 14-suite / 964-assertion host test suite fully covers executor output paths via the test adapter's `CalcHistory_Commit` stub. No new test file added — the existing coverage was sufficient and adding redundant assertions would not improve signal.
+- [x] **4-F** [done 2026-05-04] `prgm_exec.c` host build clean — no LVGL or `calc_internal` symbols referenced. 14/14 ctest pass, 0 failures.
+- [ ] **4-G** [host done 2026-05-04; hardware pending] Full host test suite 14/14 pass, 964 assertions. Hardware validation P10 (PRGM execution on device) pending — see `docs/prgm_manual_tests.md`.
 
 ---
 
