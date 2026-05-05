@@ -68,7 +68,7 @@ void zoom_enter_zbox(void);
 
 void ui_refresh_display(void);
 void ui_output_row(uint8_t row_1based, const char *text);
-void format_calc_result(const CalcResult_t *r, char *buf, int buf_size);
+/* format_calc_result is declared in calculator_core.h (included above via calculator_core.h) */
 void handle_history_nav(Token_t t);      /* sub-handler for history/cursor nav keys */
 
 #endif /* APP_CALC_INTERNAL_H */

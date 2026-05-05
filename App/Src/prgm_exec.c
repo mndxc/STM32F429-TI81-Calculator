@@ -15,8 +15,8 @@
 #ifdef HOST_TEST
 #  include "prgm_exec_test_stubs.h"
 #else
-#  include "ui_prgm.h"
-#  include "calc_internal.h"
+#  include "calc_history.h"
+#  include "calculator_core.h"
 #  include "graph.h"
 #endif
 #include "calc_engine.h"
@@ -89,65 +89,11 @@ static void prgm_write_block(const ProgramFlashBlock_t *block)
 }
 
 /*---------------------------------------------------------------------------
- * Hardware output callbacks (embedded builds only)
- *---------------------------------------------------------------------------*/
-
-static void hw_disp_text(const char *expr, const char *result)
-{
-    CalcHistory_Commit(expr, result, false, 0, 0, 0);
-    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
-}
-
-static void hw_prog_done(void)
-{
-    CalcHistory_Commit("", "Done", false, 0, 0, 0);
-    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
-}
-
-static void hw_clr_home(void)
-{
-    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
-}
-
-static void hw_disp_graph(void)
-{
-    lvgl_lock();
-    hide_all_screens();
-    Graph_SetVisible(true);
-    lvgl_unlock();
-    osDelay(20);
-    Graph_Render();
-}
-
-static void hw_show_home(void)
-{
-    lvgl_lock();
-    hide_all_screens();
-    ui_refresh_display();
-    lvgl_unlock();
-}
-
-static void hw_input_ready(void)
-{
-    Update_Calculator_Display();
-}
-
-static const PrgmOutput_t k_hw_output = {
-    .disp_text   = hw_disp_text,
-    .prog_done   = hw_prog_done,
-    .clr_home    = hw_clr_home,
-    .disp_graph  = hw_disp_graph,
-    .show_home   = hw_show_home,
-    .input_ready = hw_input_ready,
-};
-
-/*---------------------------------------------------------------------------
  * Public API
  *---------------------------------------------------------------------------*/
 
 void Prgm_Init(void)
 {
-    s_out = &k_hw_output;
     memset(&g_prgm_store, 0, sizeof(g_prgm_store));
     Prgm_Load();
 }
@@ -544,7 +490,7 @@ static void cmd_input(const char *line, uint16_t ln)
     char prompt[4];
     snprintf(prompt, sizeof(prompt), "?");
     if (s_out) s_out->disp_text(prompt, "");
-    ExprBuffer_Clear(&expr);
+    ExprBuffer_Clear(Calc_GetExpr());
     prgm_waiting_input = true;
     if (s_out) s_out->input_ready();
 }
@@ -900,7 +846,7 @@ void prgm_run_start(uint8_t idx)
     prgm_run_active    = false;
     prgm_waiting_input = false;
     prgm_input_var     = 0;
-    ExprBuffer_Clear(&expr);
+    ExprBuffer_Clear(Calc_GetExpr());
     prgm_parse_from_store(idx);
     prgm_run_num_lines = Prgm_GetNumLines();
     Calc_SetMode(MODE_PRGM_RUNNING);

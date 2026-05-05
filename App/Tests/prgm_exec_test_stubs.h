@@ -188,6 +188,7 @@ static inline void  Calc_SetAnsScalar(float value)  { ans = value; ans_is_matrix
 static inline void  Calc_SetAnsMatrix(float idx)    { ans = idx;   ans_is_matrix = true;  }
 static inline float Calc_GetAns(void)               { return ans; }
 static inline bool  Calc_GetAnsIsMatrix(void)       { return ans_is_matrix; }
+static inline ExprBuffer_t *Calc_GetExpr(void)      { return &expr; }
 
 /*---------------------------------------------------------------------------
  * format_calc_result — simplified version for host tests.

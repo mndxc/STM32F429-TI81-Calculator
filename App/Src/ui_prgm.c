@@ -20,6 +20,7 @@
 #include "calc_internal.h"
 #include "prgm_exec.h"
 #include "calc_engine.h"
+#include "graph.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -1145,8 +1146,63 @@ void ui_prgm_menu_hide(void)
         lv_obj_add_flag(ui_prgm_menu_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
+/*---------------------------------------------------------------------------
+ * Embedded PrgmOutput_t adapter — translates executor callbacks into LVGL/
+ * graph calls.  Registered via Prgm_SetOutput() in ui_init_prgm_screens().
+ *---------------------------------------------------------------------------*/
+
+static void hw_disp_text(const char *expr, const char *result)
+{
+    CalcHistory_Commit(expr, result, false, 0, 0, 0);
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
+}
+
+static void hw_prog_done(void)
+{
+    CalcHistory_Commit("", "Done", false, 0, 0, 0);
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
+}
+
+static void hw_clr_home(void)
+{
+    lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
+}
+
+static void hw_disp_graph(void)
+{
+    lvgl_lock();
+    hide_all_screens();
+    Graph_SetVisible(true);
+    lvgl_unlock();
+    osDelay(20);
+    Graph_Render();
+}
+
+static void hw_show_home(void)
+{
+    lvgl_lock();
+    hide_all_screens();
+    ui_refresh_display();
+    lvgl_unlock();
+}
+
+static void hw_input_ready(void)
+{
+    Update_Calculator_Display();
+}
+
+static const PrgmOutput_t k_hw_output = {
+    .disp_text   = hw_disp_text,
+    .prog_done   = hw_prog_done,
+    .clr_home    = hw_clr_home,
+    .disp_graph  = hw_disp_graph,
+    .show_home   = hw_show_home,
+    .input_ready = hw_input_ready,
+};
+
 void ui_init_prgm_screens(void)
 {
+    Prgm_SetOutput(&k_hw_output);
     ui_init_prgm_screen();
     ui_init_prgm_new_screen();
     ui_init_prgm_menu_screen();

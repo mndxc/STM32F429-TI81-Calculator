@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include "app_common.h"  /* CalcMode_t */
 #include "expr_util.h"   /* ExprBuffer_t */
+#include "calc_engine.h" /* CalcResult_t — needed for format_calc_result */
 
 /*
  * ANS getter/setter API.
@@ -82,6 +83,13 @@ void          Calc_SetCursorVisible(bool v);
 bool          Calc_GetStoPending(void);
 void          Calc_SetStoPending(bool v);
 ExprBuffer_t *Calc_GetExpr(void);
+
+/*
+ * Result formatting — formats a CalcResult_t for display and updates ANS.
+ * Defined in calculator_core.c; declared here so prgm_exec.c can call it
+ * without pulling in the full calc_internal.h super-module header.
+ */
+void format_calc_result(const CalcResult_t *r, char *buf, int buf_size);
 
 #ifdef HOST_TEST
 /**
