@@ -106,7 +106,11 @@ extern const uint32_t TI81_LookupTable_Size;
 static lv_obj_t *disp_rows[DISP_ROW_COUNT]; /* Full-width text rows (Montserrat 24) */
 
 /* Cursor blink state */
+#ifdef HOST_TEST
 bool        cursor_visible = true;
+#else
+static bool cursor_visible = true;
+#endif
 static lv_timer_t *cursor_timer   = NULL;
 static lv_obj_t   *cursor_box     = NULL;  /* Filled-block cursor rectangle */
 static lv_obj_t   *cursor_inner   = NULL;  /* Character label inside cursor_box */
@@ -115,9 +119,14 @@ static lv_obj_t   *cursor_inner   = NULL;  /* Character label inside cursor_box 
 static lv_style_t style_bg;
 
 /* Calculator state */
+#ifdef HOST_TEST
 ExprBuffer_t expr;   /* .buf = expression string, .len = byte length, .cursor = insertion point */
+bool         insert_mode = false; /* false=overwrite (default), true=insert */
+#else
+static ExprBuffer_t expr;   /* .buf = expression string, .len = byte length, .cursor = insertion point */
+static bool         insert_mode = false; /* false=overwrite (default), true=insert */
+#endif
 static uint8_t      expr_chars_per_row = 22; /* Chars that fit on one display row; set at init */
-bool         insert_mode            = false; /* false=overwrite (default), true=insert */
 #ifdef HOST_TEST
 /* In test builds, current_mode and return_mode remain non-static so test code
  * can observe and set them directly via the extern declarations in the stubs header. */
@@ -138,7 +147,11 @@ bool  ans_is_matrix = false;
 static float ans          = 0.0f;
 static bool  ans_is_matrix = false; /* true when ans holds a matrix slot index */
 #endif
+#ifdef HOST_TEST
 bool                sto_pending    = false;  /* True after STO — next alpha stores ans */
+#else
+static bool         sto_pending    = false;  /* True after STO — next alpha stores ans */
+#endif
 
 /* History ring buffer state is now private to calc_history.c.
  * Use CalcHistory_* accessors (declared in calc_history.h, included above). */
@@ -181,6 +194,18 @@ bool        Calc_GetAngleDegrees(void)          { return angle_degrees; }
 void        Calc_SetAngleDegrees(bool degrees)  { angle_degrees = degrees; }
 const char *Calc_GetExprBuf(void)               { return expr.buf; }
 void        Calc_ResetInputState(void)          { sto_pending = false; ExprBuffer_Clear(&expr); }
+
+/*---------------------------------------------------------------------------
+ * Expression editor state getter/setter API (declared in calculator_core.h)
+ *---------------------------------------------------------------------------*/
+
+bool          Calc_GetInsertMode(void)      { return insert_mode; }
+void          Calc_SetInsertMode(bool v)    { insert_mode = v; }
+bool          Calc_GetCursorVisible(void)   { return cursor_visible; }
+void          Calc_SetCursorVisible(bool v) { cursor_visible = v; }
+bool          Calc_GetStoPending(void)      { return sto_pending; }
+void          Calc_SetStoPending(bool v)    { sto_pending = v; }
+ExprBuffer_t *Calc_GetExpr(void)            { return &expr; }
 
 /*---------------------------------------------------------------------------
  * Forward declarations for helpers defined later in this file

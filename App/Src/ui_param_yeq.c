@@ -173,14 +173,14 @@ void param_yeq_cursor_update(void)
     if (s_param_yeq.on_equal) {
         cursor_render(param_cursor_box, param_cursor_inner,
                       ui_lbl_param_equal[s_param_yeq.selected], 0,
-                      cursor_visible, Calc_GetMode(), insert_mode);
+                      Calc_GetCursorVisible(), Calc_GetMode(), Calc_GetInsertMode());
     } else {
         if (ui_lbl_param_eq[s_param_yeq.selected] == NULL) return;
         const char *txt = lv_label_get_text(ui_lbl_param_eq[s_param_yeq.selected]);
         uint32_t glyph_pos = ExprUtil_Utf8ByteToGlyph(txt, s_param_yeq.cursor_pos);
         cursor_render(param_cursor_box, param_cursor_inner,
                       ui_lbl_param_eq[s_param_yeq.selected], glyph_pos,
-                      cursor_visible, Calc_GetMode(), insert_mode);
+                      Calc_GetCursorVisible(), Calc_GetMode(), Calc_GetInsertMode());
     }
 }
 
@@ -217,7 +217,7 @@ bool handle_param_yeq_mode(Token_t t)
         return true;
 
     case TOKEN_INS:
-        insert_mode = !insert_mode;
+        Calc_SetInsertMode(!Calc_GetInsertMode());
         lvgl_lock(); param_yeq_cursor_update(); lvgl_unlock();
         return true;
 

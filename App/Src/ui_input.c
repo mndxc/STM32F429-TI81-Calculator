@@ -53,7 +53,8 @@ static void handle_normal_graph_nav(Token_t t);
 
 static void expr_prepend_ans_if_empty(void)
 {
-    ExprUtil_PrependAns(expr.buf, &expr.len, &expr.cursor, MAX_EXPR_LEN);
+    ExprBuffer_t *e = Calc_GetExpr();
+    ExprUtil_PrependAns(e->buf, &e->len, &e->cursor, MAX_EXPR_LEN);
 }
 
 /**
@@ -65,7 +66,8 @@ static void expr_prepend_ans_if_empty(void)
  */
 static void expr_insert_char(char c)
 {
-    ExprUtil_InsertChar(expr.buf, &expr.len, &expr.cursor, MAX_EXPR_LEN, insert_mode, c);
+    ExprBuffer_t *e = Calc_GetExpr();
+    ExprUtil_InsertChar(e->buf, &e->len, &e->cursor, MAX_EXPR_LEN, Calc_GetInsertMode(), c);
 }
 
 /**
@@ -73,7 +75,8 @@ static void expr_insert_char(char c)
  */
 void expr_insert_str(const char *s)
 {
-    ExprUtil_InsertStr(expr.buf, &expr.len, &expr.cursor, MAX_EXPR_LEN, s);
+    ExprBuffer_t *e = Calc_GetExpr();
+    ExprUtil_InsertStr(e->buf, &e->len, &e->cursor, MAX_EXPR_LEN, s);
 }
 
 /**
@@ -81,7 +84,7 @@ void expr_insert_str(const char *s)
  */
 void expr_delete_at_cursor(void)
 {
-    ExprBuffer_Delete(&expr);
+    ExprBuffer_Delete(Calc_GetExpr());
 }
 
 /*---------------------------------------------------------------------------
@@ -122,17 +125,18 @@ static void handle_arithmetic_op(Token_t t)
 
 bool handle_sto_pending(Token_t t)
 {
+    ExprBuffer_t *e = Calc_GetExpr();
     if (t >= TOKEN_A && t <= TOKEN_Z) {
-        sto_pending = false;
+        Calc_SetStoPending(false);
         static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         uint8_t var_idx = t - TOKEN_A;
 
-        CalcResult_t result = Calc_Evaluate(expr.buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+        CalcResult_t result = Calc_Evaluate(e->buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
                                             Calc_GetAngleDegrees());
 
         char result_str[MAX_RESULT_LEN];
         char expr_hist[MAX_EXPR_LEN + 4];  /* expression + "->A\0" */
-        snprintf(expr_hist, sizeof(expr_hist), "%s->%c", expr.buf, var_names[var_idx]);
+        snprintf(expr_hist, sizeof(expr_hist), "%s->%c", e->buf, var_names[var_idx]);
 
         if (result.error != CALC_OK) {
             strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
@@ -147,7 +151,7 @@ bool handle_sto_pending(Token_t t)
         }
 
         CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-        ExprBuffer_Clear(&expr);
+        ExprBuffer_Clear(e);
         CalcHistory_ResetRecallOffset();
 
         lvgl_lock();
@@ -156,12 +160,12 @@ bool handle_sto_pending(Token_t t)
         lvgl_unlock();
         return true;
     } else if (t == TOKEN_THETA) {
-        sto_pending = false;
-        CalcResult_t result = Calc_Evaluate(expr.buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+        Calc_SetStoPending(false);
+        CalcResult_t result = Calc_Evaluate(e->buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
                                             Calc_GetAngleDegrees());
         char result_str[MAX_RESULT_LEN];
         char expr_hist[MAX_EXPR_LEN + 6];
-        snprintf(expr_hist, sizeof(expr_hist), "%s->\xCE\xB8", expr.buf);  /* ->θ */
+        snprintf(expr_hist, sizeof(expr_hist), "%s->\xCE\xB8", e->buf);  /* ->θ */
         if (result.error != CALC_OK) {
             strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
             result_str[MAX_RESULT_LEN - 1] = '\0';
@@ -174,7 +178,7 @@ bool handle_sto_pending(Token_t t)
             Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
         }
         CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-        ExprBuffer_Clear(&expr);
+        ExprBuffer_Clear(e);
         CalcHistory_ResetRecallOffset();
         lvgl_lock();
         CalcHistory_UpdateDisplay();
@@ -182,14 +186,14 @@ bool handle_sto_pending(Token_t t)
         lvgl_unlock();
         return true;
     } else if (t == TOKEN_CLEAR || t == TOKEN_2ND || t == TOKEN_ALPHA) {
-        sto_pending = false;
+        Calc_SetStoPending(false);
         lvgl_lock();
         ui_update_status_bar();
         lvgl_unlock();
         return true;
     }
     /* Any other key cancels STO silently and falls through */
-    sto_pending = false;
+    Calc_SetStoPending(false);
     lvgl_lock();
     ui_update_status_bar();
     lvgl_unlock();
@@ -255,17 +259,17 @@ static void handle_clear_key(void)
         lvgl_unlock();
         return;
     }
-    ExprBuffer_Clear(&expr);
+    ExprBuffer_Clear(Calc_GetExpr());
     Update_Calculator_Display();
 }
 
 static void handle_sto_key(void)
 {
-    if (expr.len == 0) {
+    if (Calc_GetExpr()->len == 0) {
         expr_prepend_ans_if_empty();
         Update_Calculator_Display();
     }
-    sto_pending = true;
+    Calc_SetStoPending(true);
     lvgl_lock();
     ui_update_status_bar();
     lvgl_unlock();
@@ -306,7 +310,7 @@ void handle_normal_mode(Token_t t)
     case TOKEN_CLEAR:               handle_clear_key();          break;
     case TOKEN_DEL:                 expr_delete_at_cursor();
                                     Update_Calculator_Display(); break;
-    case TOKEN_INS:                 insert_mode = !insert_mode;
+    case TOKEN_INS:                 Calc_SetInsertMode(!Calc_GetInsertMode());
                                     Update_Calculator_Display(); break;
     case TOKEN_MODE:                ui_mode_open();              break;
     case TOKEN_MATH:                menu_open(TOKEN_MATH,  MODE_NORMAL); break;

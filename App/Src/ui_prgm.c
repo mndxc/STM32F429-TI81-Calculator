@@ -378,7 +378,7 @@ void prgm_new_cursor_update(void)
     if (prgm_new_cursor_box == NULL || prgm_new_title_lbl == NULL) return;
     cursor_render(prgm_new_cursor_box, prgm_new_cursor_inner,
                   prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor),
-                  cursor_visible, Calc_GetMode(), false);
+                  Calc_GetCursorVisible(), Calc_GetMode(), false);
 }
 
 /* Positions the editor cursor box on the current line. */
@@ -394,7 +394,7 @@ void prgm_editor_cursor_update(void)
     /* +1 for the ":" prefix rendered in the label */
     cursor_render(prgm_edit_cursor_box, prgm_edit_cursor_inner,
                   lbl, (uint32_t)(prgm_edit_col + 1),
-                  cursor_visible, Calc_GetMode(), insert_mode);
+                  Calc_GetCursorVisible(), Calc_GetMode(), Calc_GetInsertMode());
 }
 
 /* Updates all PRGM editor line labels, scroll indicators, and cursor.
@@ -450,7 +450,7 @@ static void ui_update_prgm_new_display(void)
     lv_label_set_text(prgm_new_title_lbl, buf);
     cursor_render(prgm_new_cursor_box, prgm_new_cursor_inner,
                   prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor),
-                  cursor_visible, Calc_GetMode(), false);
+                  Calc_GetCursorVisible(), Calc_GetMode(), false);
 }
 
 /* Adjusts editor scroll to keep prgm_edit_line visible. */
@@ -557,7 +557,7 @@ static void prgm_open_editor(uint8_t idx)
     prgm_edit_scroll     = 0;
     prgm_edit_col        = 0;
     prgm_parse_from_store(idx);
-    insert_mode  = false;  /* D1: editor always opens in overwrite mode */
+    Calc_SetInsertMode(false);  /* D1: editor always opens in overwrite mode */
     Calc_SetMode(MODE_PRGM_EDITOR);
     lvgl_lock();
     lv_obj_add_flag(ui_prgm_screen,     LV_OBJ_FLAG_HIDDEN);
@@ -623,10 +623,11 @@ static void enter_exec_tab(int abs_pos)
     char slot_id[3];
     prgm_slot_id_str((uint8_t)abs_pos, slot_id);
     const char *uname = Prgm_GetName((uint8_t)abs_pos);
-    snprintf(expr.buf, MAX_EXPR_LEN, "prgm%s",
+    ExprBuffer_t *e = Calc_GetExpr();
+    snprintf(e->buf, MAX_EXPR_LEN, "prgm%s",
              uname[0] != '\0' ? uname : slot_id);
-    expr.len    = (uint8_t)strlen(expr.buf);
-    expr.cursor = expr.len;
+    e->len    = (uint8_t)strlen(e->buf);
+    e->cursor = e->len;
     CalcMode_t exec_ret = prgm_return_mode;
     prgm_return_mode   = MODE_NORMAL;
     prgm_tab           = 0;
@@ -1032,7 +1033,7 @@ bool handle_prgm_editor(Token_t t)
         prgm_editor_handle_del_clear(t);
         return true;
     case TOKEN_INS:
-        insert_mode = !insert_mode;
+        Calc_SetInsertMode(!Calc_GetInsertMode());
         lvgl_lock(); prgm_editor_cursor_update(); lvgl_unlock();
         return true;
     case TOKEN_TEST:
@@ -1228,11 +1229,12 @@ CalcMode_t prgm_menu_close(void) {
 bool handle_prgm_running(Token_t t)
 {
     if (prgm_is_waiting_input()) {
+        ExprBuffer_t *e = Calc_GetExpr();
         if (t == TOKEN_ENTER) {
             char input_var = prgm_get_input_var();
             if (input_var != 0) {
                 /* Evaluate and store to the target variable */
-                CalcResult_t r = Calc_Evaluate(expr.buf, Calc_GetAns(),
+                CalcResult_t r = Calc_Evaluate(e->buf, Calc_GetAns(),
                                                Calc_GetAnsIsMatrix(), Calc_GetAngleDegrees());
                 char res_buf[MAX_RESULT_LEN];
                 format_calc_result(&r, res_buf, MAX_RESULT_LEN);
@@ -1241,9 +1243,9 @@ bool handle_prgm_running(Token_t t)
                     /* ans already updated by format_calc_result */
                 }
                 /* Append expression + result to history */
-                CalcHistory_Commit(expr.buf, res_buf, false, 0, 0, 0);
+                CalcHistory_Commit(e->buf, res_buf, false, 0, 0, 0);
             }
-            ExprBuffer_Clear(&expr);
+            ExprBuffer_Clear(e);
             prgm_clear_input_wait();
             lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
             prgm_run_loop();  /* resume execution */
@@ -1255,8 +1257,8 @@ bool handle_prgm_running(Token_t t)
             return true;
         }
         if (t == TOKEN_CLEAR) {
-            if (expr.len > 0) {
-                ExprBuffer_Clear(&expr);
+            if (e->len > 0) {
+                ExprBuffer_Clear(e);
                 Update_Calculator_Display();
             } else {
                 /* Abort on CLEAR with empty expression */
@@ -1292,7 +1294,7 @@ bool handle_prgm_running(Token_t t)
     /* Not waiting for input — abort on CLEAR, consume everything else */
     if (t == TOKEN_CLEAR) {
         prgm_reset_execution_state();
-        ExprBuffer_Clear(&expr);
+        ExprBuffer_Clear(Calc_GetExpr());
         Calc_SetMode(MODE_NORMAL);
         lvgl_lock(); ui_refresh_display(); lvgl_unlock();
         return true;

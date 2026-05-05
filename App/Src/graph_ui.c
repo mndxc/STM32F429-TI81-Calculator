@@ -187,14 +187,14 @@ void yeq_cursor_update(void)
     if (s_yeq.on_equal) {
         cursor_render(yeq_cursor_box, yeq_cursor_inner,
                       ui_lbl_yeq_equal[s_yeq.selected], 0,
-                      cursor_visible, Calc_GetMode(), insert_mode);
+                      Calc_GetCursorVisible(), Calc_GetMode(), Calc_GetInsertMode());
     } else {
         if (ui_lbl_yeq_eq[s_yeq.selected] == NULL) return;
         const char *txt = lv_label_get_text(ui_lbl_yeq_eq[s_yeq.selected]);
         uint32_t glyph_pos = ExprUtil_Utf8ByteToGlyph(txt, s_yeq.cursor_pos);
         cursor_render(yeq_cursor_box, yeq_cursor_inner,
                       ui_lbl_yeq_eq[s_yeq.selected], glyph_pos,
-                      cursor_visible, Calc_GetMode(), insert_mode);
+                      Calc_GetCursorVisible(), Calc_GetMode(), Calc_GetInsertMode());
     }
 }
 
@@ -449,7 +449,7 @@ static bool yeq_cursor_move(Token_t t)
         }
         break;
     case TOKEN_INS:
-        insert_mode = !insert_mode;
+        Calc_SetInsertMode(!Calc_GetInsertMode());
         break;
     default:
         return false;
@@ -613,7 +613,7 @@ static bool handle_yeq_insertion(Token_t t)
         size_t slen = strlen(append);
         uint8_t eq_len_u8 = (uint8_t)eq_len;
         if (slen == 1) {
-            ExprUtil_InsertChar(eq, &eq_len_u8, &s_yeq.cursor_pos, 63, insert_mode, append[0]);
+            ExprUtil_InsertChar(eq, &eq_len_u8, &s_yeq.cursor_pos, 63, Calc_GetInsertMode(), append[0]);
         } else if (eq_len_u8 + (uint8_t)slen < 63) {
             ExprUtil_InsertStr(eq, &eq_len_u8, &s_yeq.cursor_pos, 63, append);
         } else {

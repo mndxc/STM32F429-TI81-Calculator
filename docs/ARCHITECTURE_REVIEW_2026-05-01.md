@@ -279,13 +279,13 @@ Items are ordered within each opportunity by dependency — prerequisites first.
 
 **Prerequisite reading:** CLAUDE.md gotcha #21 (cursor_render STO synthesis) — the `sto_pending` getter/setter must preserve the synthesis rule. CLAUDE.md gotcha #13 (UTF-8 cursor integrity) — `expr` cursor state must stay consistent through the getter.
 
-- [ ] **1-A** In `calculator_core.c`, change `insert_mode`, `cursor_visible`, `sto_pending`, `expr` from `extern`-declared to `static`.
-- [ ] **1-B** Add `Calc_GetInsertMode()`, `Calc_SetInsertMode()`, `Calc_GetCursorVisible()`, `Calc_SetCursorVisible()`, `Calc_GetStoPending()`, `Calc_SetStoPending()`, and `Calc_GetExpr()` (returns `ExprBuffer_t *`) to `calculator_core.h` and implement in `calculator_core.c`.
-- [ ] **1-C** Remove the four `extern` declarations from `calc_internal.h`.
-- [ ] **1-D** Update each of the 11 callers (graph_ui.c, graph_ui_range.c, ui_graph_zoom.c, ui_param_yeq.c, ui_matrix.c, ui_math_menu.c, ui_prgm.c, ui_prgm_ctl.c, ui_prgm_io.c, ui_input.c, ui_mode.c) — replace direct extern access with the new getter/setter calls.
-- [ ] **1-E** Verify that `cursor_render()` callers still pass the `sto_pending ? MODE_STO : current_mode` synthesis (see CLAUDE.md gotcha #21) — the setter call site should not change this logic.
-- [ ] **1-F** Build with `-Werror`; fix any "implicit extern" warnings that surface previously-hidden direct-access sites.
-- [ ] **1-G** Run full host test suite (`ctest` in `App/Tests/build/`) — all 14 suites should pass unchanged.
+- [x] **1-A** [done 2026-05-04] In `calculator_core.c`, change `insert_mode`, `cursor_visible`, `sto_pending`, `expr` from `extern`-declared to `static` (with `#ifdef HOST_TEST` guard matching the `ans`/`current_mode` pattern so test externs still compile).
+- [x] **1-B** [done 2026-05-04] Added `Calc_GetInsertMode()`, `Calc_SetInsertMode()`, `Calc_GetCursorVisible()`, `Calc_SetCursorVisible()`, `Calc_GetStoPending()`, `Calc_SetStoPending()`, and `Calc_GetExpr()` (returns `ExprBuffer_t *`) to `calculator_core.h` (with new `expr_util.h` include) and implemented in `calculator_core.c`.
+- [x] **1-C** [done 2026-05-04] Removed the four `extern` declarations from `calc_internal.h`; updated the state comment to list the full getter/setter API.
+- [x] **1-D** [done 2026-05-04] Updated all callers with direct access: `graph_ui.c` (3 sites), `graph_ui_range.c` (5 sites), `ui_param_yeq.c` (3 sites), `ui_matrix.c` (4 sites), `ui_prgm.c` (10 sites), `ui_input.c` (14 sites). Remaining 5 callers (`ui_graph_zoom.c`, `ui_math_menu.c`, `ui_mode.c`, `ui_prgm_ctl.c`, `ui_prgm_io.c`) had no direct usages.
+- [x] **1-E** [done 2026-05-04] STO synthesis (`sto_pending ? MODE_STO : current_mode`) stays in `calculator_core.c` using the owner's direct static access; all overlay callers pass `Calc_GetMode()` directly and correctly cannot be in STO state.
+- [x] **1-F** [done 2026-05-04] Host build clean; all 6 warnings are pre-existing LVGL stub noise, not new `-Wunused` regressions.
+- [x] **1-G** [done 2026-05-04] Host test suite: 14/14 suites pass, 0 failures.
 - [ ] **1-H** (Follow-up, separate session) Assess whether `calc_internal.h` is still needed once the four externs are removed. If its remaining value is only re-exporting other headers, replace each consumer's `#include "calc_internal.h"` with targeted includes of what it actually needs, and delete `calc_internal.h`. This is a complexity decrease.
 
 ---

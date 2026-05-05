@@ -336,7 +336,7 @@ void range_cursor_update(void)
                       + s_range.cursor;
     cursor_render(range_cursor_box, range_cursor_inner,
                   ui_lbl_range_rows[s_range.field], char_pos,
-                  cursor_visible, Calc_GetMode(), insert_mode);
+                  Calc_GetCursorVisible(), Calc_GetMode(), Calc_GetInsertMode());
 }
 
 /*---------------------------------------------------------------------------
@@ -423,7 +423,7 @@ void zoom_factors_cursor_update(void)
                       + s_zf.cursor;
     cursor_render(zoom_factors_cursor_box, zoom_factors_cursor_inner,
                   ui_lbl_zoom_factors_rows[s_zf.field], char_pos,
-                  cursor_visible, Calc_GetMode(), insert_mode);
+                  Calc_GetCursorVisible(), Calc_GetMode(), Calc_GetInsertMode());
 }
 
 /*---------------------------------------------------------------------------
@@ -472,7 +472,7 @@ static bool field_editor_handle(Token_t t, const FieldEditor_t *fe)
     switch (t) {
     case TOKEN_0 ... TOKEN_9: {
         char ch = (char)((t - TOKEN_0) + '0');
-        if (!insert_mode && *cursor < *len) {
+        if (!Calc_GetInsertMode() && *cursor < *len) {
             buf[(*cursor)++] = ch;
         } else if (*len < fe->cap - 1) {
             memmove(&buf[*cursor + 1], &buf[*cursor], *len - *cursor + 1);
@@ -485,7 +485,7 @@ static bool field_editor_handle(Token_t t, const FieldEditor_t *fe)
     case TOKEN_DECIMAL:
         if (strchr(buf, '.') == NULL) {
             char ch = '.';
-            if (!insert_mode && *cursor < *len) {
+            if (!Calc_GetInsertMode() && *cursor < *len) {
                 buf[(*cursor)++] = ch;
             } else if (*len < fe->cap - 1) {
                 memmove(&buf[*cursor + 1], &buf[*cursor], *len - *cursor + 1);
@@ -514,7 +514,7 @@ static bool field_editor_handle(Token_t t, const FieldEditor_t *fe)
         (*cursor)++;
         break;
     case TOKEN_INS:
-        insert_mode = !insert_mode;
+        Calc_SetInsertMode(!Calc_GetInsertMode());
         break;
     default:
         return false;

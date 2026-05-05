@@ -15,6 +15,7 @@
 
 #include <stdbool.h>
 #include "app_common.h"  /* CalcMode_t */
+#include "expr_util.h"   /* ExprBuffer_t */
 
 /*
  * ANS getter/setter API.
@@ -64,6 +65,23 @@ const char *Calc_GetExprBuf(void);
  * buffer.  Used by ui_reset.c after a full memory clear.
  */
 void Calc_ResetInputState(void);
+
+/*
+ * Expression editor state getter/setter API.
+ *
+ * Rules:
+ *   - Calc_GetExpr() returns a pointer to the live buffer; callers may mutate
+ *     through it.  Do not cache the pointer across a Calc_ResetInputState() call.
+ *   - All modules outside calculator_core.c must use these accessors — never
+ *     access insert_mode, cursor_visible, sto_pending, or expr directly.
+ */
+bool          Calc_GetInsertMode(void);
+void          Calc_SetInsertMode(bool v);
+bool          Calc_GetCursorVisible(void);
+void          Calc_SetCursorVisible(bool v);
+bool          Calc_GetStoPending(void);
+void          Calc_SetStoPending(bool v);
+ExprBuffer_t *Calc_GetExpr(void);
 
 #ifdef HOST_TEST
 /**

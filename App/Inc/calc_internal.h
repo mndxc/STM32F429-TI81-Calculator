@@ -44,15 +44,15 @@
 #include "ui_math_menu.h" /* ui_math_screen, ui_test_screen, math/test menu open/close/handlers */
 
 /* Global Calculator States */
-/* current_mode and return_mode are now private to calculator_core.c.
- * Use Calc_GetMode() / Calc_SetMode() / Calc_GetReturnMode() / Calc_SetReturnMode()
- * declared in calculator_core.h (included above). */
-extern bool         insert_mode;
-extern bool         cursor_visible;
-/* ans and ans_is_matrix are now private to calculator_core.c.
- * Use Calc_GetAns() / Calc_SetAnsScalar() / Calc_SetAnsMatrix()
- * declared in calculator_core.h (included above). */
-extern bool sto_pending;
+/* current_mode, return_mode, insert_mode, cursor_visible, sto_pending, ans,
+ * ans_is_matrix, and expr are all private to calculator_core.c.
+ * Use the getter/setter API declared in calculator_core.h (included above):
+ *   Calc_GetMode() / Calc_SetMode() / Calc_GetReturnMode() / Calc_SetReturnMode()
+ *   Calc_GetAns() / Calc_SetAnsScalar() / Calc_SetAnsMatrix()
+ *   Calc_GetInsertMode() / Calc_SetInsertMode()
+ *   Calc_GetCursorVisible() / Calc_SetCursorVisible()
+ *   Calc_GetStoPending() / Calc_SetStoPending()
+ *   Calc_GetExpr() */
 
 /* Shared UI functions (super-module only — not in ui_shared.h) */
 void cursor_render(lv_obj_t *box, lv_obj_t *inner, lv_obj_t *parent_label,
@@ -65,8 +65,6 @@ void zoom_enter_zbox(void);
 
 /* HISTORY_LINE_COUNT, MAX_RESULT_LEN, MATRIX_RING_COUNT, HistoryEntry_t, and
  * the CalcHistory_* API are now in calc_history.h (included above). */
-
-extern ExprBuffer_t expr;   /* expression buffer: .buf, .len, .cursor */
 
 void ui_refresh_display(void);
 void ui_output_row(uint8_t row_1based, const char *text);

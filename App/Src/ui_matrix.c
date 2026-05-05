@@ -60,7 +60,7 @@ void matrix_edit_cursor_update(void)
         uint32_t char_pos = (matrix_edit_dim_field == 0) ? 4u : 6u;
         cursor_render(matrix_edit_cursor_box, matrix_edit_cursor_inner,
                       matrix_edit_title_lbl, char_pos,
-                      cursor_visible, Calc_GetMode(), false);
+                      Calc_GetCursorVisible(), Calc_GetMode(), false);
     } else {
         int vis_idx = (int)matrix_edit_cursor - (int)matrix_edit_scroll;
         if (vis_idx < 0 || vis_idx >= 7) {
@@ -70,7 +70,7 @@ void matrix_edit_cursor_update(void)
         uint32_t char_pos = 4u + (uint32_t)matrix_edit_val_cursor;
         cursor_render(matrix_edit_cursor_box, matrix_edit_cursor_inner,
                       matrix_list_labels[vis_idx], char_pos,
-                      cursor_visible, Calc_GetMode(), false);
+                      Calc_GetCursorVisible(), Calc_GetMode(), false);
     }
 }
 
@@ -434,7 +434,7 @@ void handle_matrix_edit(Token_t t)
     switch (t) {
     case TOKEN_0 ... TOKEN_9: {
         char ch = (char)((t - TOKEN_0) + '0');
-        if (!insert_mode && matrix_edit_val_cursor < matrix_edit_len) {
+        if (!Calc_GetInsertMode() && matrix_edit_val_cursor < matrix_edit_len) {
             matrix_edit_buf[matrix_edit_val_cursor++] = ch;
         } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
             memmove(&matrix_edit_buf[matrix_edit_val_cursor + 1],
@@ -449,7 +449,7 @@ void handle_matrix_edit(Token_t t)
     case TOKEN_DECIMAL: {
         if (strchr(matrix_edit_buf, '.') == NULL) {
             char ch = '.';
-            if (!insert_mode && matrix_edit_val_cursor < matrix_edit_len) {
+            if (!Calc_GetInsertMode() && matrix_edit_val_cursor < matrix_edit_len) {
                 matrix_edit_buf[matrix_edit_val_cursor++] = ch;
             } else if (matrix_edit_len < (uint8_t)(sizeof(matrix_edit_buf) - 1)) {
                 memmove(&matrix_edit_buf[matrix_edit_val_cursor + 1],
