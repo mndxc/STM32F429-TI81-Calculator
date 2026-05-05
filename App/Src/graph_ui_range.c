@@ -15,9 +15,7 @@
 #include "graph_ui_range.h"
 #include "calc_internal.h"
 #include "graph.h"
-#include "graph_ui.h"       /* zoom_menu_reset() */
-#include "ui_graph_zoom.h"  /* Zoom_ShowScreen() */
-#include "ui_graph_zoom.h"  /* ui_update_zoom_display() */
+#include "ui_graph_zoom.h"  /* zoom_menu_reset(), Zoom_ShowScreen(), ui_update_zoom_display() */
 #include "ui_palette.h"
 #include "lvgl.h"
 #include <stdio.h>

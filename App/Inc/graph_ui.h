@@ -7,8 +7,6 @@
  *
  * RANGE and ZOOM FACTORS screens are in graph_ui_range.h / graph_ui_range.c.
  * ZOOM menu is in ui_graph_zoom.h / ui_graph_zoom.c.
- * Including this header also pulls in graph_ui_range.h and ui_param_yeq.h
- * via the includes below.
  */
 
 #ifndef APP_GRAPH_UI_H
@@ -16,7 +14,6 @@
 
 #include "app_common.h"
 #include "ui_param_yeq.h"
-#include "graph_ui_range.h"
 #include "lvgl.h"
 #include <stdbool.h>
 
