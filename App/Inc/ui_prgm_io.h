@@ -2,10 +2,7 @@
  * @file    ui_prgm_io.h
  * @brief   PRGM I/O sub-menu — state, LVGL init, display-update, and token handler.
  *
- * Extracted from ui_prgm.c. Part of the calculator UI super-module; include
- * calc_internal.h before this header in translation units that need full shared
- * state context.  This header is self-contained for callers that only need the
- * public API.
+ * Extracted from ui_prgm.c. Part of the calculator UI super-module.
  *
  * Consumers: ui_prgm.c (init, submenu tab-switch), calculator_core.c (dispatcher).
  */

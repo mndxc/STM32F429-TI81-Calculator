@@ -3,7 +3,6 @@
  * @brief   RANGE field editor and ZOOM FACTORS editor screens.
  *
  * Extracted from graph_ui.c; part of the calculator UI super-module.
- * Include calc_internal.h before this header in .c files that need it.
  */
 
 #ifndef APP_GRAPH_UI_RANGE_H

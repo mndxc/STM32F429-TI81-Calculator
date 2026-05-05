@@ -49,15 +49,14 @@ CalcMode_t  Calc_GetReturnMode(void);
 
 /*
  * Angle mode accessor — used by persist.c to restore angle mode without
- * pulling in calc_internal.h (which carries LVGL dependencies).
+ * used by persist.c without pulling in LVGL-dependent headers.
  */
 bool Calc_GetAngleDegrees(void);
 void Calc_SetAngleDegrees(bool degrees);
 
 /*
  * Expression buffer read accessor — returns expr.buf as a const pointer.
- * Used by ui_draw.c to inspect the current expression without including
- * calc_internal.h.
+ * Used by ui_draw.c to inspect the current expression.
  */
 const char *Calc_GetExprBuf(void);
 
@@ -87,9 +86,17 @@ ExprBuffer_t *Calc_GetExpr(void);
 /*
  * Result formatting — formats a CalcResult_t for display and updates ANS.
  * Defined in calculator_core.c; declared here so prgm_exec.c can call it
- * without pulling in the full calc_internal.h super-module header.
+ * without pulling in LVGL-dependent headers.
  */
 void format_calc_result(const CalcResult_t *r, char *buf, int buf_size);
+
+/*
+ * Super-module internal display/nav functions — defined in calculator_core.c,
+ * called by other UI super-module files (graph_ui.c, ui_prgm.c, etc.).
+ */
+void ui_refresh_display(void);
+void ui_output_row(uint8_t row_1based, const char *text);
+void handle_history_nav(Token_t t);
 
 #ifdef HOST_TEST
 /**

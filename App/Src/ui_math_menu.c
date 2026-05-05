@@ -3,14 +3,15 @@
  * @brief   MATH (MATH/NUM/HYP/PRB) and TEST menu UI.
  *
  * Extracted from calculator_core.c (UI super-module Phase 3).
- * Includes calc_internal.h as a full super-module member.
+ * Part of the calculator UI super-module.
  */
 
 #include "ui_math_menu.h"
 #include "menu_state.h"
 #include <stdio.h>
 #ifndef HOST_TEST
-#  include "calc_internal.h"
+#  include "ui_shared.h"
+#  include "calculator_core.h"
 #  include "ui_prgm.h"
 #  include "graph_ui.h"
 #  include "ui_palette.h"

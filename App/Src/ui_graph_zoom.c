@@ -10,10 +10,13 @@
  *
  * Cross-module call: zoom_execute_item() case 1 calls zoom_enter_zbox() which
  * is defined in graph_ui.c (it resets s_zbox, owned by the ZBox handler).
- * The declaration is in calc_internal.h.
+ * The declaration is in graph_ui.h.
  */
 
-#include "calc_internal.h"
+#include "ui_shared.h"
+#include "calculator_core.h"
+#include "calc_engine.h"
+#include "graph_ui.h"
 #include "ui_graph_zoom.h"
 #include "graph.h"
 #include "graph_ui_range.h"

@@ -2,12 +2,9 @@
  * @file    ui_mode.h
  * @brief   MODE settings screen — state, init, display, and token handler.
  *
- * Extracted from calculator_core.c. Part of the UI super-module:
- * include calc_internal.h before this file in translation units that need
- * the full shared-state context; this header is self-contained for callers
- * that only need the type definitions and the public API.
- *
- * Consumers: calculator_core.c (via calc_internal.h), ui_mode.c itself.
+ * Extracted from calculator_core.c. Part of the UI super-module.
+ * Self-contained — callers include this directly alongside ui_shared.h
+ * and calculator_core.h as needed.
  */
 
 #ifndef UI_MODE_H

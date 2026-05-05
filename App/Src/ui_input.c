@@ -2,7 +2,7 @@
  * @file    ui_input.c
  * @brief   Normal-mode expression input handlers extracted from calculator_core.c.
  *
- * Part of the UI super-module; may include calc_internal.h freely.
+ * Part of the UI super-module.
  *
  * Functions moved here from calculator_core.c:
  *   expr_prepend_ans_if_empty, expr_insert_char, expr_insert_str,
@@ -23,7 +23,10 @@
 #  include "calculator_core_test_stubs.h"
 #  include "calculator_core.h"
 #else
-#  include "calc_internal.h"   /* includes calculator_core.h */
+#  include "ui_shared.h"
+#  include "calculator_core.h"
+#  include "calc_history.h"
+#  include "calc_engine.h"
 #  include "ui_mode.h"
 #  include "graph.h"
 #endif

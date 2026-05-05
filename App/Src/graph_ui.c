@@ -13,7 +13,8 @@
 #include "graph_ui_range.h"
 #include "ui_param_yeq.h"
 #include "ui_graph_zoom.h"
-#include "calc_internal.h"
+#include "ui_shared.h"
+#include "calculator_core.h"
 #include "app_common.h"
 #include "graph.h"
 #include "expr_util.h"
@@ -238,7 +239,7 @@ static uint8_t find_first_active_eq(void)
 
 /* Enter ZBox rubber-band selection mode.
  * Kept here (not in ui_graph_zoom.c) because it transitions into MODE_GRAPH_ZBOX,
- * which is owned by handle_zbox_mode in this file. Declared in calc_internal.h. */
+ * which is owned by handle_zbox_mode in this file. Declared in graph_ui.h. */
 void zoom_enter_zbox(void)
 {
     Graph_ResetZBox();

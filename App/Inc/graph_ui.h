@@ -51,6 +51,11 @@ void graph_ui_yeq_insert(const char *ins);
 void graph_ui_sync_yeq_labels(void);
 
 /*---------------------------------------------------------------------------
+ * ZBox entry — defined in graph_ui.c; called from ui_graph_zoom.c
+ *---------------------------------------------------------------------------*/
+void zoom_enter_zbox(void);
+
+/*---------------------------------------------------------------------------
  * Token handler functions (called from Execute_Token dispatcher)
  *---------------------------------------------------------------------------*/
 bool handle_yeq_mode(Token_t t);

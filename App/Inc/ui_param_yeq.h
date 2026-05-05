@@ -3,7 +3,6 @@
  * @brief   Parametric Y= editor screen (X₁t/Y₁t … X₃t/Y₃t).
  *
  * Extracted from graph_ui.c; part of the calculator UI super-module.
- * Include calc_internal.h before this header in .c files that need it.
  */
 #ifndef APP_UI_PARAM_YEQ_H
 #define APP_UI_PARAM_YEQ_H

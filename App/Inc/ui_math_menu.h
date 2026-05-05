@@ -3,8 +3,7 @@
  * @brief   MATH (MATH/NUM/HYP/PRB) and TEST menu UI — initialization,
  *          display-update, and token handler declarations.
  *
- * Both menus are part of the calculator UI super-module and share state
- * via calc_internal.h (which includes this header).
+ * Both menus are part of the calculator UI super-module.
  */
 
 #ifndef APP_UI_MATH_MENU_H

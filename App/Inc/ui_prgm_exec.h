@@ -7,8 +7,7 @@
  * the CTL/I/O/EXEC sub-menu set.
  *
  * Extracted alongside CTL and I/O sub-menus (Item 1 of INTERFACE_REFACTOR_PLAN.md).
- * Part of the calculator UI super-module; include calc_internal.h before this
- * header in translation units that need full shared-state context.
+ * Part of the calculator UI super-module.
  *
  * Consumers: ui_prgm.c (init, submenu tab-switch), calculator_core.c (dispatcher).
  */

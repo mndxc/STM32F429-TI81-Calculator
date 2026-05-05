@@ -2,12 +2,10 @@
  * @file    ui_shared.h
  * @brief   Lightweight shared UI constants and utility declarations.
  *
- * UI modules outside the calc super-module include this header instead of
- * calc_internal.h.  It exposes layout constants, fonts, and utility functions
- * but NOT the raw calc state variables (insert_mode, cursor_visible,
- * sto_pending, expr).  Modules that need those variables remain on
- * calc_internal.h, which includes this header so that constants are not
- * duplicated.
+ * Shared UI constants, utility declarations, and cursor-rendering helpers for
+ * all calculator UI modules.  Replaces the former calc_internal.h re-export
+ * umbrella — each module now includes this header directly together with
+ * whatever targeted headers it needs (calculator_core.h, calc_history.h, etc.).
  */
 
 #ifndef APP_UI_SHARED_H
@@ -51,5 +49,11 @@ void       menu_insert_text(const char *ins, CalcMode_t *ret_mode);
 /* Tab/scroll navigation */
 void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
               uint8_t tab_count, bool left, void (*update)(void));
+
+/* Cursor rendering — shared across all expression-editor screens */
+void cursor_box_create(lv_obj_t *parent, bool start_hidden,
+                       lv_obj_t **out_box, lv_obj_t **out_inner);
+void cursor_render(lv_obj_t *box, lv_obj_t *inner, lv_obj_t *parent_label,
+                   uint32_t glyph_pos, bool visible, CalcMode_t mode, bool insert);
 
 #endif /* APP_UI_SHARED_H */

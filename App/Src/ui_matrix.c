@@ -1,6 +1,7 @@
 #include "ui_matrix.h"
 #include "ui_palette.h"
-#include "calc_internal.h"
+#include "ui_shared.h"
+#include "calculator_core.h"
 #include "calc_engine.h"
 #include <stdio.h>
 #include <stdlib.h>

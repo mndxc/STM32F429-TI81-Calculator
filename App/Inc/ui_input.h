@@ -2,8 +2,7 @@
  * @file    ui_input.h
  * @brief   Normal-mode expression input handlers and expression buffer utilities.
  *
- * Extracted from calculator_core.c.  Part of the UI super-module; ui_input.c
- * may include calc_internal.h freely.
+ * Extracted from calculator_core.c.  Part of the UI super-module.
  *
  * Public API exposed here:
  *   expr_delete_at_cursor — backspace helper called by ui_prgm.c as well

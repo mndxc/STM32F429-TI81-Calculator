@@ -4,7 +4,6 @@
  *
  * Extracted from graph_ui.c (INTERFACE_REFACTOR_PLAN Item 4); part of the
  * calculator UI super-module.
- * Include calc_internal.h before this header in .c files that need it.
  */
 
 #ifndef UI_GRAPH_ZOOM_H

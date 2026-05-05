@@ -2,8 +2,7 @@
  * @file    ui_mode.c
  * @brief   MODE settings screen — state, LVGL init, display, and token handler.
  *
- * Extracted from calculator_core.c. Part of the UI super-module; may include
- * calc_internal.h freely.
+ * Extracted from calculator_core.c. Part of the UI super-module.
  *
  * Rows and their committed[] index meanings:
  *   Row 0: Normal / Sci / Eng       (output format)
@@ -24,7 +23,8 @@
 #  include "calculator_core_test_stubs.h"
 #  include <string.h>
 #else
-#  include "calc_internal.h"
+#  include "ui_shared.h"
+#  include "calculator_core.h"
 #  include "graph.h"
 #  include "ui_palette.h"
 #endif

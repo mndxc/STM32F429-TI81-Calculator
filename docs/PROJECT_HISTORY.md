@@ -6,6 +6,7 @@ The single history archive for this project. Add a Session Log entry after every
 
 ## Session Log
 
+- 2026-05-04 (Arch-1-H): Deleted `calc_internal.h`. Rehomed 6 declarations: `cursor_render`/`cursor_box_create` → `ui_shared.h`; `ui_refresh_display`/`ui_output_row`/`handle_history_nav` → `calculator_core.h`; `zoom_enter_zbox` → `graph_ui.h` (redundant `graph_ui_yeq_insert` declaration removed). Replaced all 10 `#include "calc_internal.h"` sites (6 unconditional, 4 conditional `#else` blocks) with targeted includes. Cleaned stale `calc_internal.h` doc-comments across 14 files. 14/14 ctest pass, 964 assertions. Complexity delta: decrease.
 - 2026-03-20: PRGM UI polish, colour palette extraction (`ui_palette.h`), PRGM module extraction to `ui_prgm.c`
 - 2026-03-21: `expr_util.c` extraction (9 pure functions), 301-test host suite, persist round-trip tests, HAL guards in `persist.c`, full quality review pass
 - 2026-03-21 (Session 6): `graph_ui.c` extraction (P2), float printf runtime guard (P8), FLASH sector map docs (P16)
@@ -124,6 +125,7 @@ The single history archive for this project. Add a Session Log entry after every
 
 | Item | Summary | Date |
 |---|---|---|
+| Arch-1-H Remove `calc_internal.h` | Deleted the umbrella re-export header. Declarations rehomed: `cursor_render`/`cursor_box_create` → `ui_shared.h`; `ui_refresh_display`/`ui_output_row`/`handle_history_nav` → `calculator_core.h`; `zoom_enter_zbox` → `graph_ui.h`. All 10 include sites replaced with targeted includes. 14/14 ctest pass, 964 assertions; complexity delta: decrease | 2026-05-04 |
 | Arch-4 Isolate program executor from UI layer | All direct LVGL/history calls removed from `prgm_exec.c`; hw callbacks + `k_hw_output` moved to `ui_prgm.c`; `calc_internal.h` include replaced with targeted `calc_history.h` + `calculator_core.h`; `format_calc_result` declaration moved to `calculator_core.h`; `Calc_GetExpr()` stub added to test stubs; `PrgmOutput_t` seam is now a real two-adapter seam; 14/14 ctest pass, 964 assertions; complexity delta: decrease | 2026-05-04 |
 | Arch-3 Generic Menu Screen module | New `ui_menu_screen.h`/`ui_menu_screen.c`; `MenuScreenDesc_t` + `MenuScreen_t`; four PRGM sub-menu files rewritten as descriptor + thin wrappers; total boilerplate removed ~780 lines; EXEC uses dynamic `get_label` + `on_extra` letter shortcuts; external API preserved, `ui_prgm.c` unchanged; 14/14 ctest pass, 964 assertions; complexity delta: decrease | 2026-05-04 |
 | Arch-2 circular include chain | Removed `#include "graph_ui_range.h"` from `graph_ui.h`; removed stale `#include "graph_ui.h"` from `graph_ui_range.c`; collapsed duplicate `ui_graph_zoom.h` include; all three graph editor files now independent callers of `graph.h`; 14/14 ctest pass, 964 assertions; complexity delta: decrease | 2026-05-04 |

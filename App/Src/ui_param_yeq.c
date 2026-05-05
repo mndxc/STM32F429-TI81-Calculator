@@ -2,14 +2,15 @@
  * @file    ui_param_yeq.c
  * @brief   Parametric Y= editor screen (X₁t/Y₁t … X₃t/Y₃t).
  *
- * Extracted from graph_ui.c.  Part of the calculator UI super-module —
- * includes calc_internal.h for shared state and LVGL helpers.
+ * Extracted from graph_ui.c.  Part of the calculator UI super-module.
  *
  * Public surface: param_yeq_init_screen, param_yeq_nav_enter,
  *                 param_yeq_cursor_update, handle_param_yeq_mode.
  */
 #include "ui_param_yeq.h"
-#include "calc_internal.h"
+#include "ui_shared.h"
+#include "calculator_core.h"
+#include "calc_engine.h"
 #include "graph.h"
 #include "graph_ui.h"       /* nav_to, ui_update_status_bar */
 #include "expr_util.h"
