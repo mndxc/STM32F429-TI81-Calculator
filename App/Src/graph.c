@@ -10,6 +10,10 @@
 #include "calculator_core.h"
 #ifndef HOST_TEST
 #  include "lvgl.h"
+   /* UI handler headers — only available in embedded builds */
+#  include "graph_ui.h"
+#  include "graph_ui_range.h"
+#  include "ui_graph_zoom.h"
 #else
    /* Remaining LVGL stubs (lv_obj_t already defined by graph.h HOST_TEST guard) */
 #  include "graph_render_test_stubs.h"
@@ -1299,3 +1303,24 @@ int32_t Graph_MathYToPx(float y)
     if (py >= GRAPH_H) py = GRAPH_H - 1;
     return py;
 }
+
+/*---------------------------------------------------------------------------
+ * Unified graph-mode key dispatcher
+ *--------------------------------------------------------------------------*/
+
+#ifndef HOST_TEST
+bool Graph_HandleKey(Token_t t)
+{
+    switch (Calc_GetMode()) {
+    case MODE_GRAPH_YEQ:          return handle_yeq_mode(t);
+    case MODE_GRAPH_RANGE:        return handle_range_mode(t);
+    case MODE_GRAPH_ZOOM:         return handle_zoom_mode(t);
+    case MODE_GRAPH_ZOOM_FACTORS: return handle_zoom_factors_mode(t);
+    case MODE_GRAPH_ZBOX:         return handle_zbox_mode(t);
+    case MODE_GRAPH_TRACE:        return handle_trace_mode(t);
+    case MODE_GRAPH_FREE_CURSOR:  return handle_free_cursor_mode(t);
+    case MODE_GRAPH_PARAM_YEQ:    return handle_param_yeq_mode(t);
+    default:                      return false;
+    }
+}
+#endif /* HOST_TEST */

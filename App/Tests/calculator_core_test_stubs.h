@@ -477,7 +477,12 @@ static inline void ui_init_graph_screens(void)      {}
 static inline void ui_update_range_display(void)    {}
 static inline void graph_ui_sync_yeq_labels(void)   {}
 
-/* graph mode handlers — called from Execute_Token (compiled in HOST_TEST) */
+/* Graph_HandleKey — unified dispatcher called from Execute_Token (graph.c, not compiled in HOST_TEST) */
+static inline bool Graph_HandleKey(Token_t t) { (void)t; return false; }
+
+/* Individual graph mode handler stubs — no longer called by calculator_core.c
+ * directly (routed via Graph_HandleKey), but kept here in case any test
+ * includes them transitively. */
 static inline bool handle_yeq_mode(Token_t t)          { (void)t; return false; }
 static inline bool handle_range_mode(Token_t t)        { (void)t; return false; }
 static inline bool handle_zoom_mode(Token_t t)         { (void)t; return false; }

@@ -63,7 +63,7 @@ graph TD
     subgraph "UI Logic (Embedded Only)"
         CC["calculator_core.c (Dispatcher)"]
         GUI["graph_ui.c / graph_ui_range.c / ui_graph_zoom.c / ui_param_yeq.c / ui_matrix.c / ui_math_menu.c / ui_prgm.c (+ ui_prgm_ctl.c / ui_prgm_io.c / ui_prgm_exec.c / ui_prgm_mode.c) / ui_stat.c / ui_draw.c / ui_vars.c"]
-        G["graph.c + graph_draw.c (Renderer + Draw Layer)"]
+        G["graph.c + graph_draw.c (Renderer + Draw Layer + Graph_HandleKey dispatcher)"]
     end
 
     HW_K --> CC
@@ -78,7 +78,7 @@ graph TD
 
 `Core/` (CubeMX-generated) is a dependency of everything but is never modified by hand.
 
-**Note on `prgm_exec.c` layer membership:** In host builds `prgm_exec.c` is pure Application Core — it has no UI dependencies and is fully testable without hardware. In embedded builds it gains a conditional dependency on `calc_internal.h` (part of the UI super-module) so it can call `handle_normal_mode()` after evaluating a program expression line. The `#ifndef HOST_TEST` guard at the include site is what preserves host-testability. `calculator_core.c` is also host-testable via `calculator_core_test_stubs.h` (see `App/Tests/test_normal_mode.c`).
+**Note on `prgm_exec.c` layer membership:** In both host and embedded builds `prgm_exec.c` is pure Application Core — it has no UI dependencies and is fully testable without hardware. The Arch-4 session (2026-05-04) removed all conditional UI-layer blocks from `prgm_exec.c`; the `PrgmOutput_t` callback seam in `prgm_exec.h` is the adapter boundary. `calculator_core.c` is also host-testable via `calculator_core_test_stubs.h` (see `App/Tests/test_normal_mode.c`).
 
 ---
 

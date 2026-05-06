@@ -1305,6 +1305,19 @@ static bool pred_prgm_editor(Token_t t) {
            (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_EDITOR);
 }
 
+/* Graph sub-modes — all routed through Graph_HandleKey in graph.c. */
+static bool pred_graph_mode(Token_t t) {
+    (void)t;
+    return current_mode == MODE_GRAPH_YEQ          ||
+           current_mode == MODE_GRAPH_RANGE         ||
+           current_mode == MODE_GRAPH_ZOOM          ||
+           current_mode == MODE_GRAPH_ZOOM_FACTORS  ||
+           current_mode == MODE_GRAPH_ZBOX          ||
+           current_mode == MODE_GRAPH_TRACE         ||
+           current_mode == MODE_GRAPH_FREE_CURSOR   ||
+           current_mode == MODE_GRAPH_PARAM_YEQ;
+}
+
 static bool pred_sto_pending(Token_t t) { (void)t; return sto_pending; }
 static bool pred_always     (Token_t t) { (void)t; return true; }
 
@@ -1323,15 +1336,8 @@ static const ModeRegistration_t k_route_table[] = {
     { MODE_NORMAL,             pred_token_reset, route_token_reset       },
     /* Program execution intercept (before per-mode table) ------------------*/
     { MODE_PRGM_RUNNING,       NULL,             route_prgm_running      },
-    /* Per-mode handlers — pred = NULL; fires when current_mode == mode ------*/
-    { MODE_GRAPH_YEQ,          NULL,             handle_yeq_mode         },
-    { MODE_GRAPH_RANGE,        NULL,             handle_range_mode       },
-    { MODE_GRAPH_ZOOM,         NULL,             handle_zoom_mode        },
-    { MODE_GRAPH_ZOOM_FACTORS, NULL,             handle_zoom_factors_mode },
-    { MODE_GRAPH_ZBOX,         NULL,             handle_zbox_mode        },
-    { MODE_GRAPH_TRACE,        NULL,             handle_trace_mode       },
-    { MODE_GRAPH_FREE_CURSOR,  NULL,             handle_free_cursor_mode },
-    { MODE_GRAPH_PARAM_YEQ,    NULL,             handle_param_yeq_mode   },
+    /* Graph sub-modes — single entry; Graph_HandleKey in graph.c dispatches. */
+    { MODE_NORMAL,             pred_graph_mode,  Graph_HandleKey         },
     { MODE_MODE_SCREEN,        NULL,             handle_mode_screen      },
     { MODE_MATH_MENU,          NULL,             handle_math_menu        },
     { MODE_TEST_MENU,          NULL,             handle_test_menu        },

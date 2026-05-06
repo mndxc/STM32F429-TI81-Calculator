@@ -161,6 +161,18 @@ int32_t Graph_MathXToPx(float x);
 /** Converts math-world Y to canvas pixel row (clamped to [0, GRAPH_H-1]). */
 int32_t Graph_MathYToPx(float y);
 
+/**
+ * @brief Unified graph-mode key dispatcher.
+ *
+ * Single entry point called by Execute_Token for all graph sub-modes.
+ * Reads the current CalcMode_t and delegates to the appropriate per-mode
+ * handler (handle_yeq_mode, handle_trace_mode, etc.).  Owns the full
+ * round-trip: mode check → handler → optional re-render.
+ *
+ * Not compiled in HOST_TEST builds (graph_ui.h / lvgl.h unavailable there).
+ */
+bool Graph_HandleKey(Token_t t);
+
 /*---------------------------------------------------------------------------
  * Cursor state types and accessors
  *

@@ -19,7 +19,7 @@ App/                            ← Custom application code (never touched by Cu
     calc_history.c              History ring buffer — s_history[], CalcHistory_Commit/Clear/RecallUp/Down/Get* (no LVGL; CalcHistory_UpdateDisplay defined in calculator_core.c)
     expr_util.c                 Pure expression-buffer helpers (UTF-8, insert, delete, cursor)
     expr_buffer.c               ExprBuffer_t stateful wrapper (Insert/Delete/Left/Right/Clear)
-    graph.c                     Graph canvas, axes, tick marks, curve renderer, STAT plot renderers
+    graph.c                     Graph canvas, axes, tick marks, curve renderer, STAT plot renderers, Graph_HandleKey() graph-mode key dispatcher
     graph_draw.c                Draw layer — persistent user-drawn overlay (DRAW menu; SDRAM 0xD0080800)
     graph_ui.c                  Graph screen UI and handlers (Y=, TRACE, ZBox)
     graph_ui_range.c            RANGE field editor and ZOOM FACTORS editor screens (extracted from graph_ui.c)
