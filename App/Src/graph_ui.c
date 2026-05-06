@@ -1095,26 +1095,48 @@ bool handle_trace_mode(Token_t t)
     switch (t) {
     case TOKEN_LEFT: {
         float x = Graph_GetTraceState()->x;
+        bool need_render = false;
         if (gs->param_mode) {
             if (x > gs->t_min) x -= step;
+        } else if (x > gs->x_min) {
+            x -= step;
         } else {
-            if (x > gs->x_min) x -= step;
+            /* Guidebook p. 3-10: pan viewport left by half the window width. */
+            float pan  = (gs->x_max - gs->x_min) * 0.5f;
+            float xmin = gs->x_min - pan, xmax = gs->x_max - pan;
+            float ymin = gs->y_min, ymax = gs->y_max;
+            float xscl = gs->x_scl, yscl = gs->y_scl, xres = gs->x_res;
+            x -= step;
+            Graph_SetWindow(xmin, xmax, ymin, ymax, xscl, yscl, xres);
+            need_render = true;
         }
         Graph_SetTraceX(x);
         lvgl_lock();
+        if (need_render) Graph_Render();
         Graph_DrawTrace(x, Graph_GetTraceState()->eq_idx);
         lvgl_unlock();
         return true;
     }
     case TOKEN_RIGHT: {
         float x = Graph_GetTraceState()->x;
+        bool need_render = false;
         if (gs->param_mode) {
             if (x < gs->t_max) x += step;
+        } else if (x < gs->x_max) {
+            x += step;
         } else {
-            if (x < gs->x_max) x += step;
+            /* Guidebook p. 3-10: pan viewport right by half the window width. */
+            float pan  = (gs->x_max - gs->x_min) * 0.5f;
+            float xmin = gs->x_min + pan, xmax = gs->x_max + pan;
+            float ymin = gs->y_min, ymax = gs->y_max;
+            float xscl = gs->x_scl, yscl = gs->y_scl, xres = gs->x_res;
+            x += step;
+            Graph_SetWindow(xmin, xmax, ymin, ymax, xscl, yscl, xres);
+            need_render = true;
         }
         Graph_SetTraceX(x);
         lvgl_lock();
+        if (need_render) Graph_Render();
         Graph_DrawTrace(x, Graph_GetTraceState()->eq_idx);
         lvgl_unlock();
         return true;
