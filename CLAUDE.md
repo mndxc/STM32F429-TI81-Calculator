@@ -108,7 +108,7 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 **`Input` no-argument graph-exploration mode** — Guidebook p. 8-13: `Input` with no variable argument suspends the program, activates the free graph cursor, and resumes when ENTER is pressed. `cmd_input()` in `prgm_exec.c` currently always requires a variable. Implement: detect the no-argument form; switch to `MODE_GRAPH_FREE_CURSOR`; block the prgm_exec task on a new semaphore; release the semaphore from the graph cursor's ENTER handler. Files: [App/Src/prgm_exec.c](App/Src/prgm_exec.c), [App/Src/graph_ui.c](App/Src/graph_ui.c). *Recommended after Graph_HandleKey refactor.*
 
-**Interactive on-graph DRAW** — Guidebook pp. 5-2, 5-5/5-6: from a visible graph, `2nd+DRAW` → select `Line(`/`PT-On(`/`PT-Off(`/`PT-Chg(` → move a crosshair cursor to the first point (ENTER), then the second (ENTER) — all done visually on the canvas. Currently all DRAW commands require pre-typed coordinate argument lists in the expression buffer. Implement: after selecting a compatible DRAW command, enter `MODE_GRAPH_ZOOM_CURSOR` (the cursor-pick state machine, now implemented), collect 1–2 graph coordinates, then call the existing draw function with those coordinates. Files: [App/Src/graph_ui.c](App/Src/graph_ui.c), [App/Src/ui_draw.c](App/Src/ui_draw.c). *Hard prerequisite met (ZOOM cursor-pick mode shipped 2026-05-05). Recommended after Graph_HandleKey refactor (also done).*
+**[complexity] graph_ui.c over 500-line threshold** — `graph_ui.c` now exceeds 500 lines after the addition of `handle_draw_cursor_mode` and `draw_enter_cursor_pick`. The interactive-DRAW cursor handler (~110 lines) could be extracted to a new `ui_graph_draw.c` module, following the `ui_graph_zoom.c` pattern. Prerequisite: none. File: [App/Src/graph_ui.c](App/Src/graph_ui.c).
 
 #### Hardware validation — no new code, test on device
 
@@ -123,6 +123,7 @@ Full test procedures: [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md).
 | P35h | Parametric graphing | App/Src/graph_ui.c, App/Src/graph.c, App/Src/calculator_core.c |
 | P38h | Sequential/Simultaneous | App/Src/graph.c, App/Src/ui_mode.c |
 | P40h | Polar coordinate display | App/Src/graph.c, App/Src/ui_mode.c, App/Src/calc_engine.c, App/Src/ui_input.c |
+| — | Interactive DRAW cursor-pick | App/Src/graph_ui.c, App/Src/ui_draw.c, App/Src/graph.c |
 | P29h | DRAW menu | App/Src/ui_draw.c, App/Src/graph.c, App/Src/calculator_core.c |
 | P30h | STAT | App/Src/ui_stat.c, App/Src/calc_stat.c, App/Src/graph.c |
 | P31h | VARS menu | App/Src/ui_vars.c, App/Inc/ui_vars.h |
