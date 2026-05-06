@@ -64,6 +64,7 @@ typedef enum {
     MODE_GRAPH_FREE_CURSOR,  /* Free-roaming crosshair on graph canvas; TRACE snaps to curve */
     MODE_GRAPH_ZBOX,         /* ZBox rubber-band zoom active */
     MODE_GRAPH_ZOOM_CURSOR,  /* Single-point cursor-pick for Zoom In/Out/Integer */
+    MODE_GRAPH_DRAW_CURSOR,  /* Interactive cursor-pick for DRAW Line(/PT-On(/PT-Off(/PT-Chg( */
 
     /* --- Modal screens: exclusive UI screens (exit via CLEAR or QUIT) --- */
     MODE_MODE_SCREEN,        /* MODE settings screen active */

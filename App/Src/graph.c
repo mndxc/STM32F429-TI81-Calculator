@@ -1117,6 +1117,53 @@ void Graph_DrawZBox(int32_t px, int32_t py,
     }
 }
 
+void Graph_DrawLineCursor(int32_t px, int32_t py,
+                          bool has_preview, int32_t px1, int32_t py1)
+{
+    if (graph_canvas == NULL) return;
+
+    if (graph_clean_valid) {
+        memcpy(graph_buf, graph_buf_clean, (size_t)GRAPH_W * GRAPH_H * 2);
+    } else {
+        Graph_Render();
+    }
+
+    uint16_t line_px = lv_color_to_u16(lv_color_hex(COLOR_WHITE));
+    uint16_t cur_px  = lv_color_to_u16(lv_color_hex(COLOR_YELLOW));
+
+    if (has_preview) {
+        int32_t dx = px - px1, dy = py - py1;
+        int32_t ax = dx < 0 ? -dx : dx;
+        int32_t ay = dy < 0 ? -dy : dy;
+        int32_t sx = dx >= 0 ? 1 : -1;
+        int32_t sy = dy >= 0 ? 1 : -1;
+        int32_t err = ax - ay;
+        int32_t cx = px1, cy = py1;
+        while (1) {
+            if (cx >= 0 && cx < GRAPH_W && cy >= 0 && cy < GRAPH_H)
+                graph_buf[cy * GRAPH_W + cx] = line_px;
+            if (cx == px && cy == py) break;
+            int32_t e2 = 2 * err;
+            if (e2 > -ay) { err -= ay; cx += sx; }
+            if (e2 <  ax) { err += ax; cy += sy; }
+        }
+    }
+
+    const int32_t ARM = 4;
+    for (int32_t d = -ARM; d <= ARM; d++) {
+        int32_t cx = px + d;
+        if (cx >= 0 && cx < GRAPH_W && py >= 0 && py < GRAPH_H)
+            graph_buf[py * GRAPH_W + cx] = cur_px;
+    }
+    for (int32_t d = -ARM; d <= ARM; d++) {
+        int32_t cy = py + d;
+        if (cy >= 0 && cy < GRAPH_H && px >= 0 && px < GRAPH_W)
+            graph_buf[cy * GRAPH_W + px] = cur_px;
+    }
+
+    lv_obj_invalidate(graph_canvas);
+}
+
 /*---------------------------------------------------------------------------
  * STAT plot helpers (Graph_DrawScatter / XYLine / Histogram)
  *
@@ -1318,6 +1365,7 @@ bool Graph_HandleKey(Token_t t)
     case MODE_GRAPH_ZOOM_FACTORS: return handle_zoom_factors_mode(t);
     case MODE_GRAPH_ZBOX:         return handle_zbox_mode(t);
     case MODE_GRAPH_ZOOM_CURSOR:  return handle_zoom_cursor_mode(t);
+    case MODE_GRAPH_DRAW_CURSOR:  return handle_draw_cursor_mode(t);
     case MODE_GRAPH_TRACE:        return handle_trace_mode(t);
     case MODE_GRAPH_FREE_CURSOR:  return handle_free_cursor_mode(t);
     case MODE_GRAPH_PARAM_YEQ:    return handle_param_yeq_mode(t);

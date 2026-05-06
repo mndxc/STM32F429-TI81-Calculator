@@ -16,6 +16,7 @@
  */
 
 #include "ui_draw.h"
+#include "graph_ui.h"
 #include "ui_shared.h"
 #include "calculator_core.h"
 #include "calc_engine.h"
@@ -114,6 +115,17 @@ void ui_update_draw_display(void)
  * Token Handler
  *---------------------------------------------------------------------------*/
 
+/* Returns true when the DRAW menu was opened from an on-graph mode, meaning
+ * the user wants interactive cursor-pick rather than expression-buffer insertion. */
+static bool is_graph_context(CalcMode_t m)
+{
+    return m == MODE_GRAPH_FREE_CURSOR
+        || m == MODE_GRAPH_TRACE
+        || m == MODE_GRAPH_ZBOX
+        || m == MODE_GRAPH_ZOOM_CURSOR
+        || m == MODE_GRAPH_DRAW_CURSOR;
+}
+
 /** Execute or insert the item at draw_menu_state.cursor. */
 static void draw_menu_select(void)
 {
@@ -130,7 +142,16 @@ static void draw_menu_select(void)
         return;
     }
 
-    /* Items 2–7: insert text then close menu */
+    /* Items 2–5 (Line(, PT-On(, PT-Off(, PT-Chg(): enter interactive cursor-pick
+     * when the menu was opened from a graph canvas mode (guidebook p. 5-2/5-5/5-6).
+     * op encoding: item 1→op 2 (Line(), item 2→op 3 (PT-On(), etc. */
+    if (item <= 4 && is_graph_context(draw_menu_state.return_mode)) {
+        draw_enter_cursor_pick((uint8_t)(item + 1));
+        return;
+    }
+
+    /* All other cases (items 6–7, or items 2–5 from expression editor):
+     * insert token text and return to the calling editor. */
     const char *ins = draw_item_insert[item];
     lvgl_lock();
     lv_obj_add_flag(ui_draw_screen, LV_OBJ_FLAG_HIDDEN);

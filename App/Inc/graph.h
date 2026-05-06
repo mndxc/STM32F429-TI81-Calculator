@@ -134,6 +134,14 @@ void Graph_DrawZBox(int32_t px, int32_t py,
                     bool corner1_set);
 
 /**
+ * @brief Restore the clean frame, draw an optional preview line from (px1,py1)
+ *        to (px,py), then draw the cursor crosshair at (px,py).
+ *        Used by handle_draw_cursor_mode for Line( second-pick preview.
+ */
+void Graph_DrawLineCursor(int32_t px, int32_t py,
+                          bool has_preview, int32_t px1, int32_t py1);
+
+/**
  * @brief Draws a scatter plot of the stat data list onto the graph canvas.
  *        Each point is rendered as a 3×3 cross.
  *        Calls Graph_SetVisible(true) to display the canvas.

@@ -61,12 +61,22 @@ void zoom_enter_zbox(void);
 void zoom_enter_cursor_pick(uint8_t op);
 
 /*---------------------------------------------------------------------------
+ * DRAW cursor-pick entry — defined in graph_ui.c; called from ui_draw.c
+ *---------------------------------------------------------------------------*/
+/** Enter interactive cursor-pick mode for an on-graph DRAW operation.
+ *  op: 2=Line(, 3=PT-On(, 4=PT-Off(, 5=PT-Chg(
+ *  Line( requires two ENTER picks (start → end); PT ops require one ENTER per point.
+ *  Press GRAPH to exit back to free-cursor mode. */
+void draw_enter_cursor_pick(uint8_t op);
+
+/*---------------------------------------------------------------------------
  * Token handler functions (called from Execute_Token dispatcher)
  *---------------------------------------------------------------------------*/
 bool handle_yeq_mode(Token_t t);
 /* handle_zoom_mode declared in ui_graph_zoom.h */
 bool handle_zbox_mode(Token_t t);
 bool handle_zoom_cursor_mode(Token_t t);
+bool handle_draw_cursor_mode(Token_t t);
 bool handle_trace_mode(Token_t t);
 bool handle_free_cursor_mode(Token_t t);
 

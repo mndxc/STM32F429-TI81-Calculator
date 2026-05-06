@@ -325,6 +325,7 @@ Current Unicode ranges: ASCII (0x20–0x7E), °²³¹, ȳ (U+0233), Σθπσ (Gr
 | `MODE_STAT_EDIT`           | STAT DATA list editor (x,y pair entry)                  |
 | `MODE_STAT_RESULTS`        | STAT calculation results readout                        |
 | `MODE_DRAW_MENU`           | DRAW 7-item menu (`2nd+PRGM`): ClrDraw, Line(, PT-On/Off/Chg(, DrawF, Shade( |
+| `MODE_GRAPH_DRAW_CURSOR`   | Interactive cursor-pick for on-graph DRAW (Line(, PT-On/Off/Chg() — two ENTERs for Line(, one per point for PT ops |
 | `MODE_VARS_MENU`           | VARS 5-tab menu (XY/Σ/LR/DIM/RNG) — inserts current variable value           |
 
 Pressing 2nd or ALPHA a second time cancels the modifier (toggle). `STO→` sets

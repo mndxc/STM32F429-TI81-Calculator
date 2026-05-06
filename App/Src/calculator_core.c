@@ -1314,6 +1314,7 @@ static bool pred_graph_mode(Token_t t) {
            current_mode == MODE_GRAPH_ZOOM_FACTORS  ||
            current_mode == MODE_GRAPH_ZBOX          ||
            current_mode == MODE_GRAPH_ZOOM_CURSOR   ||
+           current_mode == MODE_GRAPH_DRAW_CURSOR   ||
            current_mode == MODE_GRAPH_TRACE         ||
            current_mode == MODE_GRAPH_FREE_CURSOR   ||
            current_mode == MODE_GRAPH_PARAM_YEQ;

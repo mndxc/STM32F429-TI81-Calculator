@@ -13,10 +13,12 @@
 #include "graph_ui_range.h"
 #include "ui_param_yeq.h"
 #include "ui_graph_zoom.h"
+#include "ui_draw.h"
 #include "ui_shared.h"
 #include "calculator_core.h"
 #include "app_common.h"
 #include "graph.h"
+#include "graph_draw.h"
 #include "expr_util.h"
 #include "calc_engine.h"
 #include "ui_palette.h"
@@ -271,6 +273,33 @@ void zoom_enter_cursor_pick(uint8_t op)
     Graph_Render();
     const ZBoxState_t *zb = Graph_GetZBoxState();
     Graph_DrawZBox(zb->px, zb->py, 0, 0, false);
+    lvgl_unlock();
+}
+
+/*---------------------------------------------------------------------------
+ * DRAW cursor-pick state and entry function
+ *---------------------------------------------------------------------------*/
+
+typedef struct {
+    uint8_t op;           /* 2=Line(, 3=PT-On(, 4=PT-Off(, 5=PT-Chg( */
+    bool    first_picked; /* Line( only: first point already picked */
+    int32_t px1, py1;     /* pixel coords of first picked point */
+} DrawCursorState_t;
+
+static DrawCursorState_t s_draw_cursor;
+
+void draw_enter_cursor_pick(uint8_t op)
+{
+    s_draw_cursor.op           = op;
+    s_draw_cursor.first_picked = false;
+    Graph_ResetZBox();
+    Calc_SetMode(MODE_GRAPH_DRAW_CURSOR);
+    lvgl_lock();
+    Draw_HideScreen();
+    Graph_SetVisible(true);
+    Graph_Render();
+    const ZBoxState_t *zb = Graph_GetZBoxState();
+    Graph_DrawLineCursor(zb->px, zb->py, false, 0, 0);
     lvgl_unlock();
 }
 
@@ -924,6 +953,127 @@ bool handle_zoom_cursor_mode(Token_t t)
         return true;
     case TOKEN_TRACE:
         nav_to(MODE_GRAPH_TRACE);
+        return true;
+    default:
+        Calc_SetMode(MODE_NORMAL);
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return false;
+    }
+}
+
+bool handle_draw_cursor_mode(Token_t t)
+{
+    const uint16_t draw_white = 0xFFFF;
+
+    switch (t) {
+    case TOKEN_LEFT: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+        if (px > 0) px--;
+        Graph_SetZBoxCursorPos(px, py);
+        lvgl_lock();
+        Graph_DrawLineCursor(px, py,
+            s_draw_cursor.op == 2 && s_draw_cursor.first_picked,
+            s_draw_cursor.px1, s_draw_cursor.py1);
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_RIGHT: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+        if (px < GRAPH_W - 1) px++;
+        Graph_SetZBoxCursorPos(px, py);
+        lvgl_lock();
+        Graph_DrawLineCursor(px, py,
+            s_draw_cursor.op == 2 && s_draw_cursor.first_picked,
+            s_draw_cursor.px1, s_draw_cursor.py1);
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_UP: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+        if (py > 0) py--;
+        Graph_SetZBoxCursorPos(px, py);
+        lvgl_lock();
+        Graph_DrawLineCursor(px, py,
+            s_draw_cursor.op == 2 && s_draw_cursor.first_picked,
+            s_draw_cursor.px1, s_draw_cursor.py1);
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_DOWN: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+        if (py < GRAPH_H - 1) py++;
+        Graph_SetZBoxCursorPos(px, py);
+        lvgl_lock();
+        Graph_DrawLineCursor(px, py,
+            s_draw_cursor.op == 2 && s_draw_cursor.first_picked,
+            s_draw_cursor.px1, s_draw_cursor.py1);
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_ENTER: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+
+        if (s_draw_cursor.op == 2) { /* Line( — two picks */
+            if (!s_draw_cursor.first_picked) {
+                s_draw_cursor.first_picked = true;
+                s_draw_cursor.px1 = px;
+                s_draw_cursor.py1 = py;
+            } else {
+                Graph_DrawLayerLine(s_draw_cursor.px1, s_draw_cursor.py1,
+                                    px, py, draw_white);
+                s_draw_cursor.first_picked = false;
+                lvgl_lock();
+                Graph_Render();
+                Graph_DrawLineCursor(px, py, false, 0, 0);
+                lvgl_unlock();
+            }
+        } else { /* PT-On(, PT-Off(, PT-Chg( — one pick per point */
+            if (s_draw_cursor.op == 3) {
+                Graph_DrawLayerSetPixel(px, py, draw_white);
+            } else if (s_draw_cursor.op == 4) {
+                Graph_DrawLayerSetPixel(px, py, 0x0000);
+            } else {
+                uint16_t cur = Graph_DrawLayerGetPixel(px, py);
+                Graph_DrawLayerSetPixel(px, py, cur ? 0x0000 : draw_white);
+            }
+            lvgl_lock();
+            Graph_Render();
+            Graph_DrawLineCursor(px, py, false, 0, 0);
+            lvgl_unlock();
+        }
+        return true;
+    }
+    case TOKEN_GRAPH:
+        nav_to(MODE_GRAPH_FREE_CURSOR);
+        return true;
+    case TOKEN_CLEAR:
+        Calc_SetMode(MODE_NORMAL);
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return true;
+    case TOKEN_ZOOM:
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    case TOKEN_Y_EQUALS:
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_TRACE:
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    case TOKEN_DRAW:
+        menu_open(TOKEN_DRAW, MODE_GRAPH_FREE_CURSOR);
         return true;
     default:
         Calc_SetMode(MODE_NORMAL);
