@@ -48,8 +48,13 @@ static int g_fail = 0;
 static void fill_block(PersistBlock_t *b)
 {
     memset(b, 0, sizeof(*b));
-    b->magic   = PERSIST_MAGIC;
-    b->version = PERSIST_VERSION;
+    b->magic      = PERSIST_MAGIC;
+    b->version    = PERSIST_VERSION;
+    b->graph_ver  = GRAPH_PERSIST_VERSION;
+    b->stat_ver   = STAT_PERSIST_VERSION;
+    b->matrix_ver = MATRIX_PERSIST_VERSION;
+    b->prgm_ver   = PRGM_PERSIST_VERSION;
+    b->mode_ver   = MODE_PERSIST_VERSION;
 
     /* Variables A–Z: A=1.0, B=2.0, … Z=26.0 */
     for (int i = 0; i < 26; i++)
@@ -57,39 +62,40 @@ static void fill_block(PersistBlock_t *b)
 
     b->ans = 42.5f;
 
-    /* MODE selections: Float(0), Degree(1), etc. */
-    b->mode_committed[0] = 0;  /* Normal */
-    b->mode_committed[1] = 0;  /* Float */
-    b->mode_committed[2] = 1;  /* Degree */
-    b->mode_committed[6] = 1;  /* Grid on */
+    /* MODE section: Float(0), Degree(1), etc. */
+    b->mode.committed[0] = 0;  /* Normal */
+    b->mode.committed[1] = 0;  /* Float */
+    b->mode.committed[2] = 1;  /* Degree */
+    b->mode.committed[6] = 1;  /* Grid on (stored in committed for MODE row 6) */
+    b->mode.grid_on = 1;
 
-    b->zoom_x_fact = 4.0f;
-    b->zoom_y_fact = 4.0f;
+    /* Graph section */
+    b->graph.zoom_x_fact = 4.0f;
+    b->graph.zoom_y_fact = 4.0f;
 
-    strncpy(b->equations[0], "sin(X)", 63);
-    strncpy(b->equations[1], "cos(X)", 63);
+    strncpy(b->graph.equations[0], "sin(X)", 63);
+    strncpy(b->graph.equations[1], "cos(X)", 63);
 
-    b->x_min = -10.0f;
-    b->x_max =  10.0f;
-    b->y_min =  -6.5f;
-    b->y_max =   6.5f;
-    b->x_scl =   1.0f;
-    b->y_scl =   1.0f;
-    b->x_res =   1.0f;
-    b->grid_on = 1;
+    b->graph.x_min = -10.0f;
+    b->graph.x_max =  10.0f;
+    b->graph.y_min =  -6.5f;
+    b->graph.y_max =   6.5f;
+    b->graph.x_scl =   1.0f;
+    b->graph.y_scl =   1.0f;
+    b->graph.x_res =   1.0f;
 
-    /* Matrices [A] and [B]: 2×2 identity */
-    b->matrix_rows[0] = 2;  b->matrix_cols[0] = 2;
-    b->matrix_data[0][0] = 1.0f; b->matrix_data[0][1] = 0.0f;
-    b->matrix_data[0][2] = 0.0f; b->matrix_data[0][3] = 1.0f;
+    /* Matrix section: [A] 2×2 identity, [B] 3×3 sequential, [C] 1×1 */
+    b->matrix.rows[0] = 2;  b->matrix.cols[0] = 2;
+    b->matrix.data[0][0] = 1.0f; b->matrix.data[0][1] = 0.0f;
+    b->matrix.data[0][2] = 0.0f; b->matrix.data[0][3] = 1.0f;
 
-    b->matrix_rows[1] = 3;  b->matrix_cols[1] = 3;
+    b->matrix.rows[1] = 3;  b->matrix.cols[1] = 3;
     for (int r = 0; r < 3; r++)
         for (int c = 0; c < 3; c++)
-            b->matrix_data[1][r * CALC_MATRIX_MAX_DIM + c] = (float)(r * 3 + c + 1);
+            b->matrix.data[1][r * CALC_MATRIX_MAX_DIM + c] = (float)(r * 3 + c + 1);
 
-    b->matrix_rows[2] = 1;  b->matrix_cols[2] = 1;
-    b->matrix_data[2][0] = 7.0f;
+    b->matrix.rows[2] = 1;  b->matrix.cols[2] = 1;
+    b->matrix.data[2][0] = 7.0f;
 
     /* Stamp checksum last */
     b->checksum = Persist_Checksum(b);
@@ -162,7 +168,7 @@ static void test_validate_invalid(void)
 
     /* Corrupt equation string */
     fill_block(&b);
-    b.equations[0][0] ^= 0x01;
+    b.graph.equations[0][0] ^= 0x01;
     EXPECT_FALSE(Persist_Validate(&b), "corrupted equation fails checksum");
 
     /* All-zeros block (blank FLASH simulation) */
@@ -205,30 +211,30 @@ static void test_field_roundtrip(void)
         EXPECT_EQ(g, e, "ans round-trip");
     }
 
-    /* MODE */
-    EXPECT_EQ(b.mode_committed[2], 1, "mode_committed[2] (Degree)");
-    EXPECT_EQ(b.mode_committed[6], 1, "mode_committed[6] (Grid on)");
+    /* MODE section */
+    EXPECT_EQ(b.mode.committed[2], 1, "mode.committed[2] (Degree)");
+    EXPECT_EQ(b.mode.committed[6], 1, "mode.committed[6] (Grid on)");
+    EXPECT_EQ(b.mode.grid_on, 1, "mode.grid_on");
 
-    /* Graph state */
-    EXPECT_EQ(b.grid_on, 1, "grid_on");
-    EXPECT_EQ(strcmp(b.equations[0], "sin(X)"), 0, "equation[0]");
-    EXPECT_EQ(strcmp(b.equations[1], "cos(X)"), 0, "equation[1]");
+    /* Graph section */
+    EXPECT_EQ(strcmp(b.graph.equations[0], "sin(X)"), 0, "graph.equations[0]");
+    EXPECT_EQ(strcmp(b.graph.equations[1], "cos(X)"), 0, "graph.equations[1]");
 
-    /* Matrix dimensions */
-    EXPECT_EQ(b.matrix_rows[0], 2, "matrix[0] rows");
-    EXPECT_EQ(b.matrix_cols[0], 2, "matrix[0] cols");
-    EXPECT_EQ(b.matrix_rows[1], 3, "matrix[1] rows");
-    EXPECT_EQ(b.matrix_rows[2], 1, "matrix[2] rows");
+    /* Matrix section */
+    EXPECT_EQ(b.matrix.rows[0], 2, "matrix.rows[0]");
+    EXPECT_EQ(b.matrix.cols[0], 2, "matrix.cols[0]");
+    EXPECT_EQ(b.matrix.rows[1], 3, "matrix.rows[1]");
+    EXPECT_EQ(b.matrix.rows[2], 1, "matrix.rows[2]");
 
     /* Matrix [A] identity values */
     {
         float v;
-        memcpy(&v, &b.matrix_data[0][0], 4);
-        EXPECT_EQ((int)v, 1, "matrix[0][0][0] = 1 (identity)");
-        memcpy(&v, &b.matrix_data[0][3], 4);
-        EXPECT_EQ((int)v, 1, "matrix[0][1][1] = 1 (identity)");
-        memcpy(&v, &b.matrix_data[0][1], 4);
-        EXPECT_EQ((int)v, 0, "matrix[0][0][1] = 0 (identity)");
+        memcpy(&v, &b.matrix.data[0][0], 4);
+        EXPECT_EQ((int)v, 1, "matrix.data[0][0][0] = 1 (identity)");
+        memcpy(&v, &b.matrix.data[0][3], 4);
+        EXPECT_EQ((int)v, 1, "matrix.data[0][1][1] = 1 (identity)");
+        memcpy(&v, &b.matrix.data[0][1], 4);
+        EXPECT_EQ((int)v, 0, "matrix.data[0][0][1] = 0 (identity)");
     }
 }
 
@@ -243,17 +249,13 @@ static void test_block_properties(void)
     /* Block must be a multiple of 4 bytes (for word-aligned FLASH writes) */
     EXPECT_EQ(sizeof(PersistBlock_t) % 4, 0, "PersistBlock_t size multiple of 4");
 
-    /* Expected total size: 2472 bytes.
-     * Grew from 864 → 1264 in PERSIST_VERSION 5 when parametric fields were
-     * added: param_x[3][64]=192, param_y[3][64]=192, param_enabled[3]=3,
-     * param_mode=1, t_min+t_max+t_step=12, plus alignment padding.
-     * Grew from 1264 → 2060 in PERSIST_VERSION 6 when STAT fields were
-     * added: stat_list_x[99]=396, stat_list_y[99]=396, stat_list_len=1,
-     * _stat_pad[3]=3.
-     * Grew from 2060 → 2472 in PERSIST_VERSION 8 when STAT_MAX_POINTS
-     * raised 99→150: stat_list_x[150]=600, stat_list_y[150]=600 (+412 B
-     * including compiler tail-padding). */
-    EXPECT_EQ((int)sizeof(PersistBlock_t), 2472, "PersistBlock_t is 2472 bytes");
+    /* Expected total size: 2488 bytes.
+     * History: flat layout grew 864→1264 (v5), 1264→2060 (v6), 2060→2472 (v8).
+     * v9: adopted sub-struct layout (GraphPersist_t 696 B, StatPersist_t 1204 B,
+     * MatrixPersist_t 440 B, PrgmPersist_t 4 B, ModePersist_t 12 B) plus 16 B
+     * header (magic + version + 5 sub-versions) and 116 B top-level fields
+     * (calc_variables[27]=108, ans=4, checksum=4). Total: 16+2356+116 = 2488 B. */
+    EXPECT_EQ((int)sizeof(PersistBlock_t), 2488, "PersistBlock_t is 2488 bytes");
 }
 
 /* -------------------------------------------------------------------------- */

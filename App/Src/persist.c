@@ -115,9 +115,14 @@ bool Persist_Save(const PersistBlock_t *in)
     PersistBlock_t block;
     memcpy(&block, in, sizeof(block));
 
-    block.magic    = PERSIST_MAGIC;
-    block.version  = PERSIST_VERSION;
-    block.checksum = Persist_Checksum(&block);
+    block.magic      = PERSIST_MAGIC;
+    block.version    = PERSIST_VERSION;
+    block.graph_ver  = GRAPH_PERSIST_VERSION;
+    block.stat_ver   = STAT_PERSIST_VERSION;
+    block.matrix_ver = MATRIX_PERSIST_VERSION;
+    block.prgm_ver   = PRGM_PERSIST_VERSION;
+    block.mode_ver   = MODE_PERSIST_VERSION;
+    block.checksum   = Persist_Checksum(&block);
 
     HAL_FLASH_Unlock();
     persist_erase_sector();
@@ -166,49 +171,58 @@ PersistBlock_t Persist_BuildBlock(void)
 
     memcpy(out.calc_variables, calc_variables, sizeof(calc_variables));
     out.ans = Calc_GetAns();
-    memcpy(out.mode_committed, s_mode.committed, sizeof(s_mode.committed));
-    out.zoom_x_fact = graph_ui_get_zoom_x_fact();
-    out.zoom_y_fact = graph_ui_get_zoom_y_fact();
 
-    /* Graph state — copy fields individually (skip active) */
+    /* Sub-section versions — kept current so Persist_Load can validate */
+    out.graph_ver  = GRAPH_PERSIST_VERSION;
+    out.stat_ver   = STAT_PERSIST_VERSION;
+    out.matrix_ver = MATRIX_PERSIST_VERSION;
+    out.prgm_ver   = PRGM_PERSIST_VERSION;
+    out.mode_ver   = MODE_PERSIST_VERSION;
+
+    /* MODE section */
+    memcpy(out.mode.committed, s_mode.committed, sizeof(s_mode.committed));
+
+    /* Graph section — copy fields individually (skip active) */
     const GraphState_t *gs = Graph_GetState();
+    out.graph.zoom_x_fact = graph_ui_get_zoom_x_fact();
+    out.graph.zoom_y_fact = graph_ui_get_zoom_y_fact();
     for (int i = 0; i < GRAPH_NUM_EQ; i++) {
-        memcpy(out.equations[i], Graph_GetEquationBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
+        memcpy(out.graph.equations[i], Graph_GetEquationBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
+        out.graph.enabled[i] = gs->enabled[i] ? 1u : 0u;
     }
-    out.x_min   = gs->x_min;
-    out.x_max   = gs->x_max;
-    out.y_min   = gs->y_min;
-    out.y_max   = gs->y_max;
-    out.x_scl   = gs->x_scl;
-    out.y_scl   = gs->y_scl;
-    out.x_res   = gs->x_res;
-    out.grid_on = gs->grid_on ? 1u : 0u;
-    for (int i = 0; i < 4; i++) out.enabled[i] = gs->enabled[i] ? 1u : 0u;
+    out.graph.x_min = gs->x_min;
+    out.graph.x_max = gs->x_max;
+    out.graph.y_min = gs->y_min;
+    out.graph.y_max = gs->y_max;
+    out.graph.x_scl = gs->x_scl;
+    out.graph.y_scl = gs->y_scl;
+    out.graph.x_res = gs->x_res;
+    out.mode.grid_on = gs->grid_on ? 1u : 0u;
 
-    /* Matrices [A], [B], [C] — save dimensions and flatten 6×6 data arrays */
+    /* Graph — parametric equations and T range */
+    for (int i = 0; i < GRAPH_NUM_PARAM; i++) {
+        memcpy(out.graph.param_x[i], Graph_GetParamEquationXBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
+        memcpy(out.graph.param_y[i], Graph_GetParamEquationYBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
+        out.graph.param_enabled[i] = gs->param_enabled[i] ? 1u : 0u;
+    }
+    out.graph.param_mode = gs->param_mode ? 1u : 0u;
+    out.graph.t_min  = gs->t_min;
+    out.graph.t_max  = gs->t_max;
+    out.graph.t_step = gs->t_step;
+
+    /* Matrix section — dimensions and flattened 6×6 data arrays */
     for (int m = 0; m < 3; m++) {
-        out.matrix_rows[m] = calc_matrices[m].rows;
-        out.matrix_cols[m] = calc_matrices[m].cols;
-        memcpy(out.matrix_data[m], calc_matrices[m].data,
+        out.matrix.rows[m] = calc_matrices[m].rows;
+        out.matrix.cols[m] = calc_matrices[m].cols;
+        memcpy(out.matrix.data[m], calc_matrices[m].data,
                CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM * sizeof(float));
     }
 
-    /* Parametric equations and T range */
-    for (int i = 0; i < GRAPH_NUM_PARAM; i++) {
-        memcpy(out.param_x[i], Graph_GetParamEquationXBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
-        memcpy(out.param_y[i], Graph_GetParamEquationYBuf((uint8_t)i), GRAPH_EQUATION_BUF_LEN);
-        out.param_enabled[i] = gs->param_enabled[i] ? 1u : 0u;
-    }
-    out.param_mode = gs->param_mode ? 1u : 0u;
-    out.t_min  = gs->t_min;
-    out.t_max  = gs->t_max;
-    out.t_step = gs->t_step;
-
-    /* STAT data list */
+    /* STAT section */
     const StatData_t *sd = Stat_GetData();
-    memcpy(out.stat_list_x, sd->list_x, STAT_MAX_POINTS * sizeof(float));
-    memcpy(out.stat_list_y, sd->list_y, STAT_MAX_POINTS * sizeof(float));
-    out.stat_list_len = sd->list_len;
+    memcpy(out.stat.list_x, sd->list_x, STAT_MAX_POINTS * sizeof(float));
+    memcpy(out.stat.list_y, sd->list_y, STAT_MAX_POINTS * sizeof(float));
+    out.stat.list_len = sd->list_len;
 
     return out;
 }
@@ -223,62 +237,63 @@ void Persist_ApplyBlock(const PersistBlock_t *block)
 {
     memcpy(calc_variables, block->calc_variables, sizeof(calc_variables));
     Calc_SetAnsScalar(block->ans);
-    memcpy(s_mode.committed, block->mode_committed, sizeof(s_mode.committed));
+    memcpy(s_mode.committed, block->mode.committed, sizeof(s_mode.committed));
     for (int i = 0; i < MODE_ROW_COUNT; i++) s_mode.cursor[i] = s_mode.committed[i];
 
-    /* Re-derive state computed from s_mode.committed */
-    Calc_SetNotationMode(block->mode_committed[0]);
-    Calc_SetDecimalMode(block->mode_committed[1]);
-    Calc_SetAngleDegrees(block->mode_committed[2] == 1);
+    /* Re-derive state computed from mode.committed */
+    Calc_SetNotationMode(block->mode.committed[0]);
+    Calc_SetDecimalMode(block->mode.committed[1]);
+    Calc_SetAngleDegrees(block->mode.committed[2] == 1);
 
-    graph_ui_set_zoom_facts(block->zoom_x_fact, block->zoom_y_fact);
+    graph_ui_set_zoom_facts(block->graph.zoom_x_fact, block->graph.zoom_y_fact);
 
     /* Restore graph state — leave active = false */
     for (int i = 0; i < GRAPH_NUM_EQ; i++) {
-        memcpy(Graph_GetEquationBuf((uint8_t)i), block->equations[i], GRAPH_EQUATION_BUF_LEN);
+        memcpy(Graph_GetEquationBuf((uint8_t)i), block->graph.equations[i], GRAPH_EQUATION_BUF_LEN);
+        Graph_SetEquationEnabled((uint8_t)i, (block->graph.enabled[i] != 0));
     }
-    Graph_SetWindow(block->x_min, block->x_max, block->y_min, block->y_max,
-                    block->x_scl, block->y_scl, block->x_res);
-    Graph_SetGridOn(block->grid_on != 0);
-    Graph_SetConnectedMode(block->mode_committed[4] == 0);
-    Graph_SetSequentialMode(block->mode_committed[5] == 0);
-    Graph_SetPolarDisplay(block->mode_committed[7] == 1);
-    for (int i = 0; i < 4; i++) Graph_SetEquationEnabled((uint8_t)i, (block->enabled[i] != 0));
+    Graph_SetWindow(block->graph.x_min, block->graph.x_max,
+                    block->graph.y_min, block->graph.y_max,
+                    block->graph.x_scl, block->graph.y_scl, block->graph.x_res);
+    Graph_SetGridOn(block->mode.grid_on != 0);
+    Graph_SetConnectedMode(block->mode.committed[4] == 0);
+    Graph_SetSequentialMode(block->mode.committed[5] == 0);
+    Graph_SetPolarDisplay(block->mode.committed[7] == 1);
 
     /* Restore matrices [A], [B], [C] — dimensions and 6×6 data */
     for (int m = 0; m < 3; m++) {
-        uint8_t rows = block->matrix_rows[m];
-        uint8_t cols = block->matrix_cols[m];
+        uint8_t rows = block->matrix.rows[m];
+        uint8_t cols = block->matrix.cols[m];
         /* Clamp to valid range in case of corrupt data */
         calc_matrices[m].rows = (rows >= 1 && rows <= CALC_MATRIX_MAX_DIM) ? rows : 3;
         calc_matrices[m].cols = (cols >= 1 && cols <= CALC_MATRIX_MAX_DIM) ? cols : 3;
-        memcpy(calc_matrices[m].data, block->matrix_data[m],
+        memcpy(calc_matrices[m].data, block->matrix.data[m],
                CALC_MATRIX_MAX_DIM * CALC_MATRIX_MAX_DIM * sizeof(float));
     }
 
     /* Restore parametric equations and T range */
     for (int i = 0; i < GRAPH_NUM_PARAM; i++) {
         char *px = Graph_GetParamEquationXBuf((uint8_t)i);
-        memcpy(px, block->param_x[i], GRAPH_EQUATION_BUF_LEN);
+        memcpy(px, block->graph.param_x[i], GRAPH_EQUATION_BUF_LEN);
         px[GRAPH_EQUATION_BUF_LEN - 1] = '\0';
         char *py = Graph_GetParamEquationYBuf((uint8_t)i);
-        memcpy(py, block->param_y[i], GRAPH_EQUATION_BUF_LEN);
+        memcpy(py, block->graph.param_y[i], GRAPH_EQUATION_BUF_LEN);
         py[GRAPH_EQUATION_BUF_LEN - 1] = '\0';
-        Graph_SetParamEnabled((uint8_t)i, (block->param_enabled[i] != 0));
+        Graph_SetParamEnabled((uint8_t)i, (block->graph.param_enabled[i] != 0));
     }
-    Graph_SetParamMode(block->param_mode != 0);
-    Graph_SetParamWindow(block->t_min, block->t_max,
-                         (block->t_step > 0.0f) ? block->t_step : 0.1309f);
+    Graph_SetParamMode(block->graph.param_mode != 0);
+    Graph_SetParamWindow(block->graph.t_min, block->graph.t_max,
+                         (block->graph.t_step > 0.0f) ? block->graph.t_step : 0.1309f);
     /* Re-sync MODE screen cursor for row 3 (Function|Param) */
-    s_mode.cursor[3]    = (block->param_mode != 0) ? 1u : 0u;
+    s_mode.cursor[3]    = (block->graph.param_mode != 0) ? 1u : 0u;
     s_mode.committed[3] = s_mode.cursor[3];
 
     /* Restore STAT data list */
     StatData_t sd;
-    memcpy(sd.list_x, block->stat_list_x, STAT_MAX_POINTS * sizeof(float));
-    memcpy(sd.list_y, block->stat_list_y, STAT_MAX_POINTS * sizeof(float));
-    sd.list_len = (block->stat_list_len <= STAT_MAX_POINTS)
-                  ? block->stat_list_len : 0u;
+    memcpy(sd.list_x, block->stat.list_x, STAT_MAX_POINTS * sizeof(float));
+    memcpy(sd.list_y, block->stat.list_y, STAT_MAX_POINTS * sizeof(float));
+    sd.list_len = (block->stat.list_len <= STAT_MAX_POINTS)
+                  ? block->stat.list_len : 0u;
     Stat_SetData(&sd);
 }
 
@@ -294,21 +309,21 @@ void Persist_Reset(void)
     memset(&block, 0, sizeof(block));
 
     /* RANGE: standard defaults (guidebook p. 1-28, p. 3-2) */
-    block.x_min  = -10.0f;  block.x_max  =  10.0f;
-    block.y_min  = -10.0f;  block.y_max  =  10.0f;
-    block.x_scl  =   1.0f;  block.y_scl  =   1.0f;
-    block.x_res  =   1.0f;
-    block.t_min  =   0.0f;  block.t_max  =   6.2832f;
-    block.t_step =   0.1309f;
+    block.graph.x_min  = -10.0f;  block.graph.x_max  =  10.0f;
+    block.graph.y_min  = -10.0f;  block.graph.y_max  =  10.0f;
+    block.graph.x_scl  =   1.0f;  block.graph.y_scl  =   1.0f;
+    block.graph.x_res  =   1.0f;
+    block.graph.t_min  =   0.0f;  block.graph.t_max  =   6.2832f;
+    block.graph.t_step =   0.1309f;
 
     /* Zoom factors: 4 (guidebook p. 1-28) */
-    block.zoom_x_fact = 4.0f;
-    block.zoom_y_fact = 4.0f;
+    block.graph.zoom_x_fact = 4.0f;
+    block.graph.zoom_y_fact = 4.0f;
 
     /* Matrix dimensions: 6×6 (guidebook p. 1-28) */
     for (int m = 0; m < 3; m++) {
-        block.matrix_rows[m] = CALC_MATRIX_MAX_DIM;
-        block.matrix_cols[m] = CALC_MATRIX_MAX_DIM;
+        block.matrix.rows[m] = CALC_MATRIX_MAX_DIM;
+        block.matrix.cols[m] = CALC_MATRIX_MAX_DIM;
     }
 
     /* All other fields (variables, equations, stat, mode) remain zeroed:

@@ -823,88 +823,58 @@ Adding a new graph field: update this table and the ownership comment block in `
 
 ---
 
-## Persist Migration Design
+## Persist Layout
 
-> **Status: Design only — adopt at the next planned version bump. Do not implement until a new
-> feature requires adding persist fields.**
+> **Status: Sub-struct layout implemented in PERSIST_VERSION 9 (2026-05-05).  See
+> `App/Inc/persist.h` for the authoritative struct definitions.**
 
-### Current layout (PERSIST_VERSION 6)
+### Version history
 
-`PersistBlock_t` is a single flat 2,060-byte struct. Every new feature appends fields and increments
-the global `PERSIST_VERSION`. A change to STAT fields therefore forces re-migration of graph fields
-even though those fields are unchanged. The migration `switch` in `Persist_Load()` is one monolithic
-block that must handle all fields simultaneously.
+| Version | Size   | Key change |
+|---|---|---|
+| 1–4 | ≤864 B | Initial flat layout — variables, RANGE, equations |
+| 5   | 1264 B | Parametric fields added |
+| 6   | 2060 B | STAT data list (99 points) |
+| 7   | —      | Reserved (no layout change) |
+| 8   | 2472 B | STAT_MAX_POINTS raised 99→150 |
+| 9   | 2488 B | Sub-struct layout adopted (GraphPersist_t / StatPersist_t / MatrixPersist_t / PrgmPersist_t / ModePersist_t) plus per-section version fields |
 
-### Proposed sub-struct layout
+### Current layout (PERSIST_VERSION 9, 2488 B)
 
-```c
-/* Proposed PersistBlock_t — adopt at next version bump */
-typedef struct {
-    uint32_t magic;      /* PERSIST_MAGIC unchanged                          */
-    uint16_t version;    /* Global layout version — increment on any change  */
+`PersistBlock_t` uses five typed sub-structs plus per-section version fields:
 
-    /* Per-section sub-versions allow independent migration paths:            */
-    uint16_t graph_ver;
-    uint16_t stat_ver;
-    uint16_t matrix_ver;
-    uint16_t prgm_ver;
-    uint16_t mode_ver;
-
-    GraphPersist_t    graph;    /* Y= equations, RANGE, ZOOM, parametric, enabled[] */
-    StatPersist_t     stat;     /* x/y data lists and list length                    */
-    MatrixPersist_t   matrix;   /* dims and cell data for [A][B][C]                  */
-    PrgmPersist_t     prgm;     /* reserved — PRGM state lives in sector 11          */
-    ModePersist_t     mode;     /* mode_committed[], grid_on                         */
-
-    /* Top-level fields that span subsystems: */
-    float    calc_variables[26]; /* A–Z */
-    float    ans;
-
-    uint32_t checksum;   /* CRC32 of all bytes above                         */
-} PersistBlock_t;
 ```
-
-### Proposed sub-struct field assignments
-
-| Sub-struct | Fields from current PersistBlock_t |
-|---|---|
-| `GraphPersist_t` | `zoom_x_fact`, `zoom_y_fact`, `equations[4][64]`, `enabled[4]`, `x_min/x_max/y_min/y_max/x_scl/y_scl/x_res`, `param_x/y[][64]`, `param_enabled[]`, `param_mode`, `t_min/t_max/t_step` |
-| `StatPersist_t` | `stat_list_x[]`, `stat_list_y[]`, `stat_list_len` |
-| `MatrixPersist_t` | `matrix_rows[3]`, `matrix_cols[3]`, `matrix_data[3][36]` |
-| `PrgmPersist_t` | Reserved / empty — programs are in FLASH sector 11 via `prgm_exec.c` |
-| `ModePersist_t` | `mode_committed[8]`, `grid_on` |
+Header (16 B): magic, version, graph_ver, stat_ver, matrix_ver, prgm_ver, mode_ver
+GraphPersist_t  graph   (696 B)  — zoom facts, Y= equations, RANGE, parametric, T range
+StatPersist_t   stat   (1204 B)  — x/y data lists and list length
+MatrixPersist_t matrix  (440 B)  — dims and cell data for [A][B][C]
+PrgmPersist_t   prgm      (4 B)  — reserved (programs live in prgm_exec.c FLASH sector)
+ModePersist_t   mode     (12 B)  — mode_committed[8], grid_on
+Top-level      (116 B)           — calc_variables[27], ans, checksum
+```
 
 ### Migration behaviour
 
-The `Persist_Load()` switch becomes a series of per-section switches keyed on `<section>_ver`:
+`Persist_Load()` validates `magic`, `version`, and XOR checksum.  A version mismatch discards the
+block and uses defaults.  Per-section versions (`graph_ver`, `stat_ver`, etc.) are available for
+**future** independent migration paths:
 
 ```c
-// Pseudocode for the new migration path
+// Future pattern — add per-section migration functions when a sub-struct gains new fields
 if (block.graph_ver < GRAPH_PERSIST_VERSION) { migrate_graph(&block); }
 if (block.stat_ver  < STAT_PERSIST_VERSION)  { migrate_stat(&block);  }
-// ...
 ```
 
-A firmware that only adds a STAT field increments `stat_ver` (and the global `version`) but does
-not alter the graph migration path. Old firmware loading a newer block can still read the graph
-fields unchanged.
+A firmware bump that only adds a STAT field increments `stat_ver` (and the global `version`) but
+leaves the graph migration path untouched.  This pattern avoids the old monolithic switch where a
+STAT change forced re-migration of graph fields.
 
-### Adoption constraint
+### v8 → v9 migration note
 
-This layout must be adopted **atomically at a planned version bump** — not incrementally. Partial
-migration (moving some fields but not others) produces a layout that is incompatible with both the
-old and the new format. When the next feature requires a `PERSIST_VERSION` bump, adopt the full
-sub-struct layout in the same commit.
-
-Implementation order when the time comes:
-1. Define the five sub-structs in `App/Inc/persist.h`.
-2. Replace the flat `PersistBlock_t` body with the five sub-struct members plus top-level fields.
-3. Update `Persist_BuildBlock` / `Persist_ApplyBlock` in `persist.c` to pack/unpack
-   via sub-struct fields.
-4. Replace the monolithic migration `switch` in `Persist_Load()` with per-section switches.
-5. Increment `PERSIST_VERSION` and add a migration case for each sub-struct from the previous
-   flat version to the new sub-struct layout.
-6. Update `test_persist_roundtrip.c` size assertion and `check_sync.sh`-tracked version.
+The v8 flat layout is structurally incompatible with the v9 sub-struct layout.  On first boot after
+flashing v9 firmware, a v8 FLASH block fails the `version` check and is discarded — the calculator
+starts with factory defaults.  No data-preserving migration was implemented for this one-time
+structural transition; the sub-section migration infrastructure is for future incremental bumps.
 
 ---
 
