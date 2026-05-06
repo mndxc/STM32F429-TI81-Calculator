@@ -51,9 +51,14 @@ void graph_ui_yeq_insert(const char *ins);
 void graph_ui_sync_yeq_labels(void);
 
 /*---------------------------------------------------------------------------
- * ZBox entry — defined in graph_ui.c; called from ui_graph_zoom.c
+ * ZBox and zoom cursor-pick entry — defined in graph_ui.c; called from ui_graph_zoom.c
  *---------------------------------------------------------------------------*/
 void zoom_enter_zbox(void);
+
+/** Enter single-point cursor-pick mode for Zoom In (op=1), Zoom Out (op=2), or Integer (op=3).
+ *  Shows the graph canvas with a crosshair cursor; ENTER commits the zoom centred on the
+ *  picked point (ENTER again re-zooms at the same pixel). Arrow keys move the cursor. */
+void zoom_enter_cursor_pick(uint8_t op);
 
 /*---------------------------------------------------------------------------
  * Token handler functions (called from Execute_Token dispatcher)
@@ -61,6 +66,7 @@ void zoom_enter_zbox(void);
 bool handle_yeq_mode(Token_t t);
 /* handle_zoom_mode declared in ui_graph_zoom.h */
 bool handle_zbox_mode(Token_t t);
+bool handle_zoom_cursor_mode(Token_t t);
 bool handle_trace_mode(Token_t t);
 bool handle_free_cursor_mode(Token_t t);
 

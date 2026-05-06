@@ -62,7 +62,8 @@ typedef enum {
     /* --- Graph cursor modes: live on the graph canvas (exit via non-graph key) --- */
     MODE_GRAPH_TRACE,        /* Trace cursor active on graph */
     MODE_GRAPH_FREE_CURSOR,  /* Free-roaming crosshair on graph canvas; TRACE snaps to curve */
-    MODE_GRAPH_ZBOX,    /* ZBox rubber-band zoom active */
+    MODE_GRAPH_ZBOX,         /* ZBox rubber-band zoom active */
+    MODE_GRAPH_ZOOM_CURSOR,  /* Single-point cursor-pick for Zoom In/Out/Integer */
 
     /* --- Modal screens: exclusive UI screens (exit via CLEAR or QUIT) --- */
     MODE_MODE_SCREEN,        /* MODE settings screen active */

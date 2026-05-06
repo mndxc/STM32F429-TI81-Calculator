@@ -252,6 +252,28 @@ void zoom_enter_zbox(void)
     lvgl_unlock();
 }
 
+/* Which zoom operation the cursor-pick mode was entered for. */
+static uint8_t s_zoom_cursor_op = 0;
+
+/* Enter single-point cursor-pick mode for Zoom In (op=1), Zoom Out (op=2), or
+ * Integer (op=3).  Reuses the ZBox pixel cursor state (px, py) and draw call for
+ * the crosshair; corner1_set is always false so no rectangle is drawn.
+ * Kept here (not in ui_graph_zoom.c) because it transitions into
+ * MODE_GRAPH_ZOOM_CURSOR, which is owned by handle_zoom_cursor_mode below. */
+void zoom_enter_cursor_pick(uint8_t op)
+{
+    s_zoom_cursor_op = op;
+    Graph_ResetZBox();  /* px = GRAPH_W/2, py = GRAPH_H/2, corner1_set = false */
+    Calc_SetMode(MODE_GRAPH_ZOOM_CURSOR);
+    lvgl_lock();
+    Zoom_HideScreen();
+    Graph_SetVisible(true);
+    Graph_Render();
+    const ZBoxState_t *zb = Graph_GetZBoxState();
+    Graph_DrawZBox(zb->px, zb->py, 0, 0, false);
+    lvgl_unlock();
+}
+
 /*---------------------------------------------------------------------------
  * RANGE editor helpers: range_commit_field, range_update_highlight
  * moved to graph_ui_range.c
@@ -790,6 +812,125 @@ bool handle_zbox_mode(Token_t t)
         Graph_ClearZBoxCorner1();
         nav_to(MODE_NORMAL);
         return false; /* fall through to main switch */
+    }
+}
+
+bool handle_zoom_cursor_mode(Token_t t)
+{
+    switch (t) {
+    case TOKEN_LEFT: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+        if (px > 0) px--;
+        Graph_SetZBoxCursorPos(px, py);
+        lvgl_lock();
+        Graph_DrawZBox(px, py, 0, 0, false);
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_RIGHT: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+        if (px < GRAPH_W - 1) px++;
+        Graph_SetZBoxCursorPos(px, py);
+        lvgl_lock();
+        Graph_DrawZBox(px, py, 0, 0, false);
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_UP: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+        if (py > 0) py--;
+        Graph_SetZBoxCursorPos(px, py);
+        lvgl_lock();
+        Graph_DrawZBox(px, py, 0, 0, false);
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_DOWN: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+        if (py < GRAPH_H - 1) py++;
+        Graph_SetZBoxCursorPos(px, py);
+        lvgl_lock();
+        Graph_DrawZBox(px, py, 0, 0, false);
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_ENTER: {
+        const ZBoxState_t *zb = Graph_GetZBoxState();
+        int32_t px = zb->px, py = zb->py;
+        const GraphState_t *gs = Graph_GetState();
+        float x_range = gs->x_max - gs->x_min;
+        float y_range = gs->y_max - gs->y_min;
+        float cx = gs->x_min + (float)px / (float)(GRAPH_W - 1) * x_range;
+        float cy = gs->y_max - (float)py / (float)(GRAPH_H - 1) * y_range;
+        switch (s_zoom_cursor_op) {
+        case 1: { /* Zoom In — shrink window around picked centre */
+            float xf = 1.0f / graph_ui_get_zoom_x_fact();
+            float yf = 1.0f / graph_ui_get_zoom_y_fact();
+            float xh = x_range * xf / 2.0f;
+            float yh = y_range * yf / 2.0f;
+            Graph_SetWindow(cx - xh, cx + xh, cy - yh, cy + yh,
+                            gs->x_scl, gs->y_scl, gs->x_res);
+            break;
+        }
+        case 2: { /* Zoom Out — expand window around picked centre */
+            float xf = graph_ui_get_zoom_x_fact();
+            float yf = graph_ui_get_zoom_y_fact();
+            float xh = x_range * xf / 2.0f;
+            float yh = y_range * yf / 2.0f;
+            Graph_SetWindow(cx - xh, cx + xh, cy - yh, cy + yh,
+                            gs->x_scl, gs->y_scl, gs->x_res);
+            break;
+        }
+        case 3: { /* Integer — centre on nearest integer; same window size as ZInteger preset */
+            float cx_i = (float)(int)(cx + (cx >= 0.0f ? 0.5f : -0.5f));
+            float cy_i = (float)(int)(cy + (cy >= 0.0f ? 0.5f : -0.5f));
+            Graph_SetWindow(cx_i - 159.5f, cx_i + 159.5f,
+                            cy_i - 109.5f, cy_i + 109.5f,
+                            10.0f, 10.0f, gs->x_res);
+            break;
+        }
+        default: break;
+        }
+        /* Re-render with new window; cursor stays at same pixel — guidebook says
+         * pressing ENTER again zooms further at the same point. */
+        lvgl_lock();
+        Graph_Render();
+        Graph_DrawZBox(px, py, 0, 0, false);
+        lvgl_unlock();
+        return true;
+    }
+    case TOKEN_CLEAR:
+        Calc_SetMode(MODE_NORMAL);
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return true;
+    case TOKEN_ZOOM:
+        zoom_menu_reset();
+        nav_to(MODE_GRAPH_ZOOM);
+        return true;
+    case TOKEN_GRAPH:
+        nav_to(MODE_GRAPH_FREE_CURSOR);
+        return true;
+    case TOKEN_Y_EQUALS:
+        nav_to(MODE_GRAPH_YEQ);
+        return true;
+    case TOKEN_RANGE:
+        nav_to(MODE_GRAPH_RANGE);
+        return true;
+    case TOKEN_TRACE:
+        nav_to(MODE_GRAPH_TRACE);
+        return true;
+    default:
+        Calc_SetMode(MODE_NORMAL);
+        lvgl_lock();
+        hide_all_screens();
+        lvgl_unlock();
+        return false;
     }
 }
 

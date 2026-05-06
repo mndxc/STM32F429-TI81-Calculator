@@ -8,9 +8,9 @@
  * All LVGL calls must be made under lvgl_lock()/lvgl_unlock() except from
  * cursor_timer_cb (which runs inside lv_task_handler — mutex already held).
  *
- * Cross-module call: zoom_execute_item() case 1 calls zoom_enter_zbox() which
- * is defined in graph_ui.c (it resets s_zbox, owned by the ZBox handler).
- * The declaration is in graph_ui.h.
+ * Cross-module calls: zoom_execute_item() calls functions defined in graph_ui.c
+ * and declared in graph_ui.h — zoom_enter_zbox() (case 1) and
+ * zoom_enter_cursor_pick() (cases 2, 3, 8).
  */
 
 #include "ui_shared.h"
@@ -174,19 +174,6 @@ static void zoom_show_graph(void)
     lvgl_unlock();
 }
 
-/* Scale the graph window by (xf, yf) around its centre.
- * xf < 1 zooms in on X; xf > 1 zooms out. Same convention for yf. */
-static void zoom_scale_view(float xf, float yf)
-{
-    const GraphState_t *gs = Graph_GetState();
-    float xc = (gs->x_min + gs->x_max) * 0.5f;
-    float yc = (gs->y_min + gs->y_max) * 0.5f;
-    float xh = (gs->x_max - gs->x_min) * xf / 2.0f;
-    float yh = (gs->y_max - gs->y_min) * yf / 2.0f;
-    Graph_SetWindow(xc - xh, xc + xh, yc - yh, yc + yh,
-                    gs->x_scl, gs->y_scl, gs->x_res);
-}
-
 /* Open the Zoom Factors editor screen. */
 static void zoom_enter_factors(void)
 {
@@ -227,9 +214,6 @@ static void apply_zoom_preset(uint8_t preset)
             }
         }
         break;
-    case 5: /* ZInteger */
-        Graph_SetWindow(-160.0f, 159.0f, -110.0f, 109.0f, 10.0f, 10.0f, gs->x_res);
-        break;
     default:
         Graph_SetWindow(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 1.0f, gs->x_res);
         break;
@@ -241,15 +225,13 @@ static void zoom_execute_item(uint8_t item_num)
     zoom_menu_reset();
     switch (item_num) {
     case 1: zoom_enter_zbox();                                            break;
-    case 2: zoom_scale_view(1.0f / graph_ui_get_zoom_x_fact(), 1.0f / graph_ui_get_zoom_y_fact());
-            zoom_show_graph();                                            break;
-    case 3: zoom_scale_view(graph_ui_get_zoom_x_fact(), graph_ui_get_zoom_y_fact());
-            zoom_show_graph();                                            break;
+    case 2: zoom_enter_cursor_pick(1);                                    break; /* Zoom In */
+    case 3: zoom_enter_cursor_pick(2);                                    break; /* Zoom Out */
     case 4: zoom_enter_factors();                                         break;
     case 5: apply_zoom_preset(4); zoom_show_graph();                     break;
     case 6: apply_zoom_preset(1); zoom_show_graph();                     break;
     case 7: apply_zoom_preset(2); zoom_show_graph();                     break;
-    case 8: apply_zoom_preset(5); zoom_show_graph();                     break;
+    case 8: zoom_enter_cursor_pick(3);                                    break; /* Integer */
     default:
         Calc_SetMode(MODE_NORMAL);
         lvgl_lock(); lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN); lvgl_unlock();

@@ -1317,6 +1317,7 @@ bool Graph_HandleKey(Token_t t)
     case MODE_GRAPH_ZOOM:         return handle_zoom_mode(t);
     case MODE_GRAPH_ZOOM_FACTORS: return handle_zoom_factors_mode(t);
     case MODE_GRAPH_ZBOX:         return handle_zbox_mode(t);
+    case MODE_GRAPH_ZOOM_CURSOR:  return handle_zoom_cursor_mode(t);
     case MODE_GRAPH_TRACE:        return handle_trace_mode(t);
     case MODE_GRAPH_FREE_CURSOR:  return handle_free_cursor_mode(t);
     case MODE_GRAPH_PARAM_YEQ:    return handle_param_yeq_mode(t);
