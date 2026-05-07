@@ -106,8 +106,11 @@ _Static_assert(sizeof(ProgramStore_t) % 4 == 0,
  *                unconditionally by cmd_clrhome; this fires afterward).
  *  disp_graph  — DispGraph: switches to the graph screen and renders.
  *  show_home   — DispHome and program start: switches to the home screen.
- *  input_ready — Input: refreshes the expression-buffer display after the
- *                "?" prompt has been committed.
+ *  input_ready — Input <var>: refreshes the expression-buffer display after
+ *                the "?" prompt has been committed.
+ *  input_graph — Input (no arg): activates the graph free-moving cursor;
+ *                suspends execution until ENTER stores X/Y and resumes
+ *                (guidebook p. 8-13).  May be NULL in host-test builds.
  */
 typedef struct {
     void (*disp_text)(const char *expr, const char *result);
@@ -116,6 +119,7 @@ typedef struct {
     void (*disp_graph)(void);
     void (*show_home)(void);
     void (*input_ready)(void);
+    void (*input_graph)(void);
 } PrgmOutput_t;
 
 /**

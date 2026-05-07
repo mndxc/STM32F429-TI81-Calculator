@@ -355,6 +355,19 @@ void graph_ui_yeq_insert(const char *ins)
 /* Forward declaration — defined after handle_trace_mode. */
 static void free_cursor_blink_cb(lv_timer_t *t);
 
+/* Callbacks registered by Graph_StartPrgmInput() for the no-arg Input command.
+ * Both are NULL unless a program is currently suspended at a graph-input step. */
+static GraphFreeCursorEnterCb_t s_prgm_enter_cb = NULL;
+static GraphFreeCursorAbortCb_t s_prgm_abort_cb = NULL;
+
+void Graph_StartPrgmInput(GraphFreeCursorEnterCb_t on_enter,
+                          GraphFreeCursorAbortCb_t on_abort)
+{
+    s_prgm_enter_cb = on_enter;
+    s_prgm_abort_cb = on_abort;
+    nav_to(MODE_GRAPH_FREE_CURSOR);
+}
+
 /*---------------------------------------------------------------------------
  * nav_to — navigates to a graph-related screen from any current mode
  *---------------------------------------------------------------------------*/
@@ -1352,6 +1365,33 @@ bool handle_free_cursor_mode(Token_t t)
         zoom_menu_reset();
         nav_to(MODE_GRAPH_ZOOM);
         return true;
+    case TOKEN_ENTER:
+        if (s_prgm_enter_cb) {
+            /* Resume program with current cursor coordinates (guidebook p. 8-13).
+             * Rectangular mode stores X/Y; Polar mode (R/θ) is a future extension. */
+            float x = Graph_GetFreeCursorState()->x_math;
+            float y = Graph_GetFreeCursorState()->y_math;
+            lvgl_lock(); free_cursor_stop(); lvgl_unlock();
+            GraphFreeCursorEnterCb_t cb = s_prgm_enter_cb;
+            s_prgm_enter_cb = NULL;
+            s_prgm_abort_cb = NULL;
+            cb(x, y);
+            return true;
+        }
+        /* No program waiting — fall through to normal mode exit. */
+        /* FALLTHROUGH */
+    case TOKEN_CLEAR:
+        if (s_prgm_abort_cb) {
+            /* Abort program on CLEAR during graph-input (same as CLEAR elsewhere). */
+            lvgl_lock(); free_cursor_stop(); hide_all_screens(); lvgl_unlock();
+            GraphFreeCursorAbortCb_t cb = s_prgm_abort_cb;
+            s_prgm_enter_cb = NULL;
+            s_prgm_abort_cb = NULL;
+            cb();
+            return true;
+        }
+        /* No program waiting — fall through to normal mode exit. */
+        /* FALLTHROUGH */
     default:
         Calc_SetMode(MODE_NORMAL);
         lvgl_lock();

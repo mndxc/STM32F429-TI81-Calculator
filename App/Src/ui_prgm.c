@@ -25,6 +25,7 @@
 #include "prgm_exec.h"
 #include "calc_engine.h"
 #include "graph.h"
+#include "graph_ui.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -1195,6 +1196,40 @@ static void hw_input_ready(void)
     Update_Calculator_Display();
 }
 
+/* Called when the user presses ENTER after exploring the graph via a no-arg
+ * Input command.  Stores cursor (X, Y) into the corresponding calc variables,
+ * returns to the home screen, and resumes program execution. */
+static void prgm_graph_resume(float x, float y)
+{
+    calc_variables['X' - 'A'] = x;
+    calc_variables['Y' - 'A'] = y;
+    lvgl_lock();
+    hide_all_screens();
+    ui_refresh_display();
+    lvgl_unlock();
+    Calc_SetMode(MODE_PRGM_RUNNING);
+    prgm_clear_input_wait();
+    prgm_run_loop();
+}
+
+/* Called when the user presses CLEAR during graph-exploration Input.
+ * Aborts the program and returns to the home screen in normal mode. */
+static void prgm_graph_abort(void)
+{
+    prgm_reset_execution_state();
+    ExprBuffer_Clear(Calc_GetExpr());
+    Calc_SetMode(MODE_NORMAL);
+    lvgl_lock();
+    hide_all_screens();
+    ui_refresh_display();
+    lvgl_unlock();
+}
+
+static void hw_input_graph(void)
+{
+    Graph_StartPrgmInput(prgm_graph_resume, prgm_graph_abort);
+}
+
 static const PrgmOutput_t k_hw_output = {
     .disp_text   = hw_disp_text,
     .prog_done   = hw_prog_done,
@@ -1202,6 +1237,7 @@ static const PrgmOutput_t k_hw_output = {
     .disp_graph  = hw_disp_graph,
     .show_home   = hw_show_home,
     .input_ready = hw_input_ready,
+    .input_graph = hw_input_graph,
 };
 
 void ui_init_prgm_screens(void)

@@ -98,8 +98,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 **Error display format and Goto Error** — Guidebook pp. 1-26, B-4: errors should display as `ERROR nn type` (19 numbered codes with labels MATH/SYNTAX/MEMORY/RANGE/ZOOM/BREAK/PRGM/INVALID). The error screen must offer `<Goto Error>` (re-opens the expression editor with the cursor at the fault byte offset returned by `Calc_Evaluate()`) and `<Quit>` (clears to Home). Current implementation uses ad-hoc strings with no codes or navigation. Work: (1) map `CalcError_t` values to TI-81 numbered strings; (2) new error-display screen/mode with the two-option menu; (3) Goto Error state that re-opens the expression editor at the fault offset. Files: [App/Src/calculator_core.c](App/Src/calculator_core.c), [App/Src/ui_input.c](App/Src/ui_input.c), [App/Src/calc_engine.c](App/Src/calc_engine.c). No prerequisites.
 
-**`Input` no-argument graph-exploration mode** — Guidebook p. 8-13: `Input` with no variable argument suspends the program, activates the free graph cursor, and resumes when ENTER is pressed. `cmd_input()` in `prgm_exec.c` currently always requires a variable. Implement: detect the no-argument form; switch to `MODE_GRAPH_FREE_CURSOR`; block the prgm_exec task on a new semaphore; release the semaphore from the graph cursor's ENTER handler. Files: [App/Src/prgm_exec.c](App/Src/prgm_exec.c), [App/Src/graph_ui.c](App/Src/graph_ui.c). *Recommended after Graph_HandleKey refactor.*
-
 #### Hardware validation — no new code, test on device
 
 Full test procedures: [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md).
@@ -109,6 +107,7 @@ Full test procedures: [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md).
 | P28 | cursor_render() refactor | [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md) Section 1 |
 | P10 | PRGM execution | [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md), App/Src/ui_prgm.c, App/Src/prgm_exec.c |
 | — | Free-cursor + TRACE toggle | App/Src/graph_ui.c, App/Src/graph.c |
+| — | `Input` no-arg graph exploration | App/Src/prgm_exec.c, App/Src/graph_ui.c, App/Src/ui_prgm.c |
 | P33h | Connected/Dot mode | App/Src/graph.c, App/Src/ui_mode.c |
 | P35h | Parametric graphing | App/Src/graph_ui.c, App/Src/graph.c, App/Src/calculator_core.c |
 | P38h | Sequential/Simultaneous | App/Src/graph.c, App/Src/ui_mode.c |

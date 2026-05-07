@@ -476,17 +476,26 @@ static void cmd_disp(const char *line, uint16_t ln)
 }
 
 /* CMD: Input
- * Syntax: Input <A-Z>
- * Effect: Displays "?" prompt, clears the expression buffer, and suspends
- *         execution waiting for the user to type a value and press ENTER.
- *         The entered value is stored in the specified variable. */
+ * Syntax: Input         (no argument) or Input <A-Z>
+ * Effect (no arg):  Activates the graph free-moving cursor; calc_variables X
+ *                   and Y are updated as the cursor moves; execution resumes
+ *                   when ENTER is pressed (guidebook p. 8-13).
+ * Effect (with var): Displays "?" prompt, clears the expression buffer, and
+ *                   suspends execution waiting for a value followed by ENTER.
+ *                   The entered value is stored in the specified variable. */
 static void cmd_input(const char *line, uint16_t ln)
 {
     (void)ln;
     const char *arg = line + 6;
     char var = (*arg >= 'A' && *arg <= 'Z') ? *arg : 0;
     prgm_input_var = var;
-    /* Original TI-81: always show just "?" — variable name not displayed */
+    if (var == 0) {
+        /* No-argument form: graph-exploration mode */
+        prgm_waiting_input = true;
+        if (s_out && s_out->input_graph) s_out->input_graph();
+        return;
+    }
+    /* Variable-argument form: text input */
     char prompt[4];
     snprintf(prompt, sizeof(prompt), "?");
     if (s_out) s_out->disp_text(prompt, "");
