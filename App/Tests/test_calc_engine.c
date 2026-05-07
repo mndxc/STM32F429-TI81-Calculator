@@ -1306,6 +1306,55 @@ static void test_list_access(void)
 }
 
 /* =========================================================================
+ * Group [5f] — ° and r angle-override postfix operators (guidebook p. 2-3/2-5)
+ * ====================================================================== */
+static void test_angle_postfix(void)
+{
+    printf("[5f] Degree (\xC2\xB0) and radian (r) angle-override postfix\n");
+    CalcResult_t r;
+
+    /* Guidebook example: sin 45° in RAD mode → sin(π/4) ≈ 0.7071 */
+    r = Calc_Evaluate("sin(45\xC2\xB0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.70710678f), "sin(45deg) in RAD mode ≈ 0.7071");
+
+    /* Same expression in DEG mode — ° is a no-op; still sin(45°) ≈ 0.7071 */
+    r = Calc_Evaluate("sin(45\xC2\xB0)", 0, false, true);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.70710678f), "sin(45deg) in DEG mode ≈ 0.7071");
+
+    /* Guidebook example: sin 2r in DEG mode → sin(2 radians) ≈ 0.9093 */
+    r = Calc_Evaluate("sin(2r)", 0, false, true);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.90929743f), "sin(2r) in DEG mode ≈ 0.9093");
+
+    /* Same expression in RAD mode — r is a no-op; still sin(2) ≈ 0.9093 */
+    r = Calc_Evaluate("sin(2r)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 0.90929743f), "sin(2r) in RAD mode ≈ 0.9093");
+
+    /* cos(180°) must equal -1 regardless of angle mode */
+    r = Calc_Evaluate("cos(180\xC2\xB0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, -1.0f), "cos(180deg) in RAD mode = -1");
+    r = Calc_Evaluate("cos(180\xC2\xB0)", 0, false, true);
+    CHECK(r.error == CALC_OK && NEAR(r.value, -1.0f), "cos(180deg) in DEG mode = -1");
+
+    /* cos(pi r) = cos(π radians) = -1 regardless of mode */
+    r = Calc_Evaluate("cos(3.14159265r)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, -1.0f), "cos(pi r) in RAD mode = -1");
+    r = Calc_Evaluate("cos(3.14159265r)", 0, false, true);
+    CHECK(r.error == CALC_OK && NEAR(r.value, -1.0f), "cos(pi r) in DEG mode = -1");
+
+    /* Non-trig use: 90° as a standalone value in RAD mode → π/2 */
+    r = Calc_Evaluate("90\xC2\xB0", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 3.14159265f / 2.0f), "90deg standalone in RAD = pi/2");
+
+    /* Non-trig use: 90° as a standalone value in DEG mode → 90 (no-op) */
+    r = Calc_Evaluate("90\xC2\xB0", 0, false, true);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 90.0f), "90deg standalone in DEG = 90");
+
+    /* Arithmetic: 90° + 90° in RAD mode → π/2 + π/2 = π */
+    r = Calc_Evaluate("90\xC2\xB0+90\xC2\xB0", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 3.14159265f), "90deg+90deg in RAD = pi");
+}
+
+/* =========================================================================
  * main
  * ====================================================================== */
 int main(void)
@@ -1326,6 +1375,9 @@ int main(void)
 
     reset_state();
     test_trig_degrees();
+
+    reset_state();
+    test_angle_postfix();
 
     reset_state();
     test_hyp_functions();

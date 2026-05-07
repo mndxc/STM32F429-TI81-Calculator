@@ -16,7 +16,7 @@ Use `/update-project` to trigger a full sync. All open work items live in "Next 
 
 ## Quality Scorecard
 
-Snapshot as of **2026-05-01** (all INTERFACE_REFACTOR_PLAN items complete; all COUPLING_REFACTOR tasks T1–T11 complete; all architecture review items complete: T1-A cmd_table prefix-ordering guard, T1-B CalcMode_t topology comments, T2-A/T2-B/T2-C arch reviews, T3-A PrgmOutput_t callback seam, T3-B Calc_Parse/Calc_Eval split, F1 calc_internal.h narrowed, F2 CalcMode_t topology enforcement, F3 graph render integration test, F4 GraphState_t ownership annotations). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
+Snapshot as of **2026-05-05** (all INTERFACE_REFACTOR_PLAN items complete; all COUPLING_REFACTOR tasks T1–T11 complete; all architecture review Opportunities 1–5 complete: T1-A cmd_table prefix-ordering guard, T1-B CalcMode_t topology comments, T2-A/T2-B/T2-C arch reviews, T3-A PrgmOutput_t callback seam, T3-B Calc_Parse/Calc_Eval split, F1 calc_internal.h narrowed, F2 CalcMode_t topology enforcement, F3 graph render integration test, F4 GraphState_t ownership annotations, Opp-1 expr editor state encapsulated, Opp-2 graph circular include broken, Opp-3 MenuScreen_t generic driver extracted, Opp-4 prgm_exec UI seam completed, Opp-5 ModeRegistration_t named). Grading criteria (what causes each dimension to rise or fall) are defined in [docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md). When a rating changes: update this table, then add a Milestone Reviews entry to `docs/PROJECT_HISTORY.md`.
 
 | Dimension | Rating |
 |---|---|
@@ -31,7 +31,7 @@ Snapshot as of **2026-05-01** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 14 suites, 964 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), and graph render integration test (F3).
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 14 suites, 975 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), and graph render integration test (F3).
 
 Full scorecard change history: [docs/PROJECT_HISTORY.md — Scorecard Change Log](docs/PROJECT_HISTORY.md).
 
@@ -92,10 +92,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 #### Medium — approximately one session each
 
-**Startup splash image** — Display a bitmap or splash screen on boot before the calculator UI initialises. LVGL supports image objects natively; asset format is an RGB565 array in FLASH. No dependencies.
-
-**`°` degree / `r` radian postfix tokens** — MATH menu items 6 and 7 already insert `°` and `r` into the expression buffer, but the engine ignores them — there is no per-argument angle-override mechanism. Implement as postfix unary operators that convert their operand to/from radians before further evaluation, independently of the global angle mode. Files: [App/Inc/calc_engine.h](App/Inc/calc_engine.h), [App/Src/calc_engine.c](App/Src/calc_engine.c). No dependencies.
-
 #### Large — multi-session or architectural
 
 **Error display format and Goto Error** — Guidebook pp. 1-26, B-4: errors should display as `ERROR nn type` (19 numbered codes with labels MATH/SYNTAX/MEMORY/RANGE/ZOOM/BREAK/PRGM/INVALID). The error screen must offer `<Goto Error>` (re-opens the expression editor with the cursor at the fault byte offset returned by `Calc_Evaluate()`) and `<Quit>` (clears to Home). Current implementation uses ad-hoc strings with no codes or navigation. Work: (1) map `CalcError_t` values to TI-81 numbered strings; (2) new error-display screen/mode with the two-option menu; (3) Goto Error state that re-opens the expression editor at the fault offset. Files: [App/Src/calculator_core.c](App/Src/calculator_core.c), [App/Src/ui_input.c](App/Src/ui_input.c), [App/Src/calc_engine.c](App/Src/calc_engine.c). No prerequisites.
@@ -103,8 +99,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 **STO → matrix / matrix element / Y= slot** — `handle_sto_pending()` only recognises scalar variables A–Z and θ. Guidebook defines three additional STO targets: `STO→[A]` (copy result into a matrix slot), `STO→[A](r,c)` (store a scalar into a specific matrix element), `STO→Yn` (store an expression string into a Y= slot for programmatic equation definition). Each requires a distinct parser path in `handle_sto_pending()`; matrix-copy also needs a `CalcMatrix_t` copy accessor. Files: [App/Src/ui_input.c](App/Src/ui_input.c), [App/Src/ui_matrix.c](App/Src/ui_matrix.c), [App/Src/graph_ui.c](App/Src/graph_ui.c). No prerequisites.
 
 **`Input` no-argument graph-exploration mode** — Guidebook p. 8-13: `Input` with no variable argument suspends the program, activates the free graph cursor, and resumes when ENTER is pressed. `cmd_input()` in `prgm_exec.c` currently always requires a variable. Implement: detect the no-argument form; switch to `MODE_GRAPH_FREE_CURSOR`; block the prgm_exec task on a new semaphore; release the semaphore from the graph cursor's ENTER handler. Files: [App/Src/prgm_exec.c](App/Src/prgm_exec.c), [App/Src/graph_ui.c](App/Src/graph_ui.c). *Recommended after Graph_HandleKey refactor.*
-
-**[complexity] graph_ui.c over 500-line threshold** — `graph_ui.c` now exceeds 500 lines after the addition of `handle_draw_cursor_mode` and `draw_enter_cursor_pick`. The interactive-DRAW cursor handler (~110 lines) could be extracted to a new `ui_graph_draw.c` module, following the `ui_graph_zoom.c` pattern. Prerequisite: none. File: [App/Src/graph_ui.c](App/Src/graph_ui.c).
 
 #### Hardware validation — no new code, test on device
 

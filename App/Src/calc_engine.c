@@ -431,6 +431,19 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
         return CALC_OK;
     }
 
+    /* r — radian postfix (guidebook p. 2-3/2-5: "interprets arg as radians").
+       Must be after the named-function check so "rand"/"round" are consumed first.
+       No MATH_VAR_R exists; lowercase 'r' is exclusively this postfix operator. */
+    if (**p == 'r') {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_OP_RADIAN;
+        out->tokens[out->count].value = 0.0f;
+        out->count++;
+        (*p)++;
+        *matched = true;
+        return CALC_OK;
+    }
+
     /* Y₁–Y₄ equation references: "Y" + U+2081..U+2084 (E2 82 81..84).
      * Must be checked before the single-char uppercase variable handler so
      * 'Y' is not consumed alone. */
@@ -483,6 +496,18 @@ static CalcError_t try_tokenize_operator(const char **p, TokenList_t *out, bool 
     *matched = false;
 
     /* UTF-8 multi-byte comparison operators (must be checked before single-char) */
+
+    /* U+00B0 ° — degree postfix (2-byte UTF-8 \xC2\xB0); checked before single-char */
+    if ((unsigned char)(*p)[0] == 0xC2u && (unsigned char)(*p)[1] == 0xB0u) {
+        if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+        out->tokens[out->count].type  = MATH_OP_DEGREE;
+        out->tokens[out->count].value = 0.0f;
+        out->count++;
+        *p += 2;
+        *matched = true;
+        return CALC_OK;
+    }
+
     static const struct { const char *seq; MathTokenType_t type; } cmp3[] = {
         { "\xE2\x89\xA0", MATH_OP_NEQ }, /* U+2260 ≠ */
         { "\xE2\x89\xA5", MATH_OP_GTE }, /* U+2265 ≥ */
@@ -697,7 +722,8 @@ static CalcError_t ShuntingYard(const TokenList_t *in, TokenList_t *out)
             err = sy_push_function(&tok, op_stack, &op_top);
             if (err != CALC_OK) return err;
         }
-        else if (tok.type == MATH_OP_FACT || tok.type == MATH_OP_TRANSPOSE) {
+        else if (tok.type == MATH_OP_FACT    || tok.type == MATH_OP_TRANSPOSE ||
+                 tok.type == MATH_OP_DEGREE  || tok.type == MATH_OP_RADIAN) {
             /* Postfix unary: output immediately — applies to whatever is on top */
             if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
             out->tokens[out->count++] = tok;
@@ -1100,6 +1126,19 @@ static bool eval_unary_func(MathTokenType_t type,
         stack[*top] = calc_factorial(n);
         break;
     }
+    /* Angle-override postfix operators (guidebook p. 2-3/2-5).
+     * Normalise the value so trig functions (which multiply by deg_factor) see
+     * the correct result regardless of the current angle mode:
+     *   °  in RAD mode: convert degrees→radians (x * π/180)
+     *   °  in DEG mode: no-op (value is already in degrees)
+     *   r  in RAD mode: no-op (value is already in radians)
+     *   r  in DEG mode: convert radians→degrees (x * 180/π) so trig's deg_factor cancels */
+    case MATH_OP_DEGREE:
+        stack[*top] = a * (3.14159265358979f / 180.0f) / deg_factor;
+        break;
+    case MATH_OP_RADIAN:
+        stack[*top] = a / deg_factor;
+        break;
     case MATH_FUNC_SIN:    stack[*top] = sinf(a * deg_factor);    break;
     case MATH_FUNC_COS:    stack[*top] = cosf(a * deg_factor);    break;
     case MATH_FUNC_TAN:    stack[*top] = tanf(a * deg_factor);    break;
@@ -1327,7 +1366,9 @@ static CalcResult_t EvaluateRPN_ex(const TokenList_t *rpn, float x_val, float t_
             tt == MATH_FUNC_ROUND   || mat_arith)
         {
             ok = eval_matrix_func(tt, stack, is_matrix, &top, &res);
-        } else if (tt == MATH_OP_NEG || tt == MATH_OP_FACT || is_function(tt)) {
+        } else if (tt == MATH_OP_NEG  || tt == MATH_OP_FACT   ||
+                   tt == MATH_OP_DEGREE || tt == MATH_OP_RADIAN ||
+                   is_function(tt)) {
             ok = eval_unary_func(tt, stack, is_matrix, &top, deg_factor, &res);
         } else if (tt == MATH_OP_EQ  || tt == MATH_OP_NEQ || tt == MATH_OP_GT  ||
                    tt == MATH_OP_GTE || tt == MATH_OP_LT  || tt == MATH_OP_LTE) {

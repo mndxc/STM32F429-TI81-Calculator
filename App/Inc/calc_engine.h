@@ -95,6 +95,9 @@ typedef enum {
     MATH_OP_FACT,           /* !  — factorial (postfix unary) */
     MATH_OP_NPR,            /* nPr — permutations (binary) */
     MATH_OP_NCR,            /* nCr — combinations (binary) */
+    /* Angle-override postfix operators (guidebook p. 2-3/2-5) */
+    MATH_OP_DEGREE,         /* °  U+00B0 — interpret arg as degrees regardless of mode */
+    MATH_OP_RADIAN,         /* r  (lowercase) — interpret arg as radians regardless of mode */
     /* Y= equation references — evaluated at x_val when encountered in RPN */
     MATH_VAR_Y1,   /* Y₁ — evaluates graph_state.equations[0] at x_val */
     MATH_VAR_Y2,   /* Y₂ */
