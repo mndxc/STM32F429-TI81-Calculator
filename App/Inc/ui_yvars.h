@@ -39,6 +39,13 @@ void Yvars_HideScreen(void);
 /** Initialises Y-VARS menu state and shows the screen. Called under lvgl_lock(). */
 void       Yvars_MenuOpen(CalcMode_t return_to);
 
+/**
+ * Opens Y-VARS in STO context: saves @p expr_to_store, then when the user
+ * selects Y₁–Y₄ the expression is written to that Y= slot instead of being
+ * inserted into the expression buffer.  Pass NULL to clear the context.
+ */
+void       Yvars_OpenForSto(const char *expr_to_store);
+
 /** Resets Y-VARS menu state and returns the saved return mode. Called from menu_close(). */
 CalcMode_t Yvars_MenuClose(void);
 

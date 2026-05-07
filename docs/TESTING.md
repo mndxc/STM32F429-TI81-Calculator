@@ -15,24 +15,24 @@ Run these commands from the **repo root** (the directory containing `CMakeLists.
 ```bash
 cmake -S App/Tests -B build-tests
 cmake --build build-tests
-ctest --test-dir build-tests   # runs all 14 suites (964 assertions total)
+ctest --test-dir build-tests   # runs all 14 suites (994 assertions total)
 ```
 
 Or run individual suites:
 ```bash
-./build-tests/test_calc_engine        # Expression evaluation (169 tests)
+./build-tests/test_calc_engine        # Expression evaluation (265 tests)
 ./build-tests/test_expr_util          # Buffer & cursor logic (96 tests)
 ./build-tests/test_expr_buffer        # ExprBuffer_t wrapper (48 tests)
 ./build-tests/test_persist_roundtrip  # Serialization (52 tests)
-./build-tests/test_prgm_exec          # PRGM executor (95 tests)
-./build-tests/test_normal_mode        # handle_normal_mode dispatch (110 tests)
+./build-tests/test_prgm_exec          # PRGM executor (119 tests)
+./build-tests/test_normal_mode        # handle_normal_mode dispatch (129 tests)
 ./build-tests/test_param              # Parametric eval (28 tests)
-./build-tests/test_stat               # Statistical calculations (39 tests)
+./build-tests/test_stat               # Statistical calculations (76 tests)
 ./build-tests/test_yvars              # Y-VARS calc_engine integration (20 tests)
 ./build-tests/test_menu_state         # MenuState_t navigation helpers (43 tests)
-./build-tests/test_prgm_cmd_table     # PRGM cmd_table prefix-ordering guard (16 tests)
+./build-tests/test_prgm_cmd_table     # PRGM cmd_table prefix-ordering guard (1 test)
 ./build-tests/test_parse_eval         # Calc_Parse + Calc_Eval unified API — T3-B (103 tests)
-./build-tests/test_mode_topology      # CalcMode_t routing topology — F2 (45 tests)
+./build-tests/test_mode_topology      # CalcMode_t routing topology — F2 (1 test)
 ./build-tests/test_graph_render       # Graph render integration — F3 (13 tests)
 ```
 
@@ -43,7 +43,7 @@ Or run individual suites:
 3.  **test_expr_buffer**: Validates `ExprBuffer_t` — Clear, Insert (insert/overwrite modes), Delete, Left/Right cursor movement, and overflow guard.
 4.  **test_persist_roundtrip**: Validates that state can be serialized to a buffer and restored exactly, including checksum verification.
 5.  **test_prgm_exec**: Validates the PRGM executor — `If`, `Goto/Lbl`, `IS>/DS<`, `Input/Disp`, subroutine calls, `Stop`.
-6.  **test_normal_mode**: Validates `handle_normal_mode()` and all 8 static sub-handlers — digit/operator/function insert, history navigation, STO, INS/DEL, and mode-dispatch transitions.
+6.  **test_normal_mode**: Validates `handle_normal_mode()` and all static sub-handlers — digit/operator/function insert, history navigation, STO (including STO→matrix, STO→matrix-element, STO→Y= slot), INS/DEL, and mode-dispatch transitions.
 7.  **test_param**: Validates `Calc_PrepareParamEquation` and `Calc_EvalParamEquation` — T variable substitution, circle identity, independence from stored variable 'T', degrees mode, error propagation.
 8.  **test_stat**: Validates `calc_stat.c` — 1-Var statistics, LinReg (including variable storage and Pearson r), LnReg, ExpReg, SortX, SortY, Clear, and degenerate/empty-input guards.
 9.  **test_yvars**: Validates `Calc_RegisterYEquations`, Y₁–Y₄ tokenization, evaluation, and reentrancy guard.

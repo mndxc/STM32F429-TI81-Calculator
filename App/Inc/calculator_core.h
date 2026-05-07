@@ -98,6 +98,14 @@ void ui_refresh_display(void);
 void ui_output_row(uint8_t row_1based, const char *text);
 void handle_history_nav(Token_t t);
 
+/*
+ * Matrix history commit — writes calc_matrices[mat_idx] into the matrix ring
+ * and calls CalcHistory_Commit with the has_matrix fields filled in.
+ * Used by handle_sto_pending (ui_input.c) which cannot access the private ring.
+ * Must not be called when the matrix has rows == 0 or cols == 0.
+ */
+void Calc_CommitMatrixToHistory(const char *expr_text, uint8_t mat_idx);
+
 #ifdef HOST_TEST
 /**
  * @brief Validate CalcMode_t routing topology.

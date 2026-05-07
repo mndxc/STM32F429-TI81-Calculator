@@ -240,6 +240,7 @@ void  Calc_SetAnsMatrix(float matrix_idx);
 float Calc_GetAns(void);
 bool  Calc_GetAnsIsMatrix(void);
 void handle_history_nav(Token_t t);        /* defined in calculator_core.c */
+void Calc_CommitMatrixToHistory(const char *expr_text, uint8_t mat_idx); /* defined in calculator_core.c */
 void lvgl_lock(void);
 void lvgl_unlock(void);
 void hide_all_screens(void);
@@ -336,6 +337,7 @@ static inline void Yvars_ShowScreen(void) {}
 static inline void Yvars_HideScreen(void) {}
 static inline void Yvars_MenuOpen(CalcMode_t r)     { (void)r; current_mode = MODE_YVARS_MENU; }
 static inline CalcMode_t Yvars_MenuClose(void)      { return MODE_NORMAL; }
+static inline void Yvars_OpenForSto(const char *e)  { (void)e; current_mode = MODE_YVARS_MENU; }
 static inline void ui_init_yvars_screen(void)       {}
 static inline void ui_update_yvars_display(void)    {}
 static inline bool handle_yvars_menu(Token_t t)

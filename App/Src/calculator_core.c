@@ -1033,6 +1033,22 @@ static void commit_history_entry(const char *expr_buf, const char *result_str,
     lvgl_unlock();
 }
 
+void Calc_CommitMatrixToHistory(const char *expr_text, uint8_t mat_idx)
+{
+    static const char * const mat_names[4] = {"[A]", "[B]", "[C]", "[ANS]"};
+    uint8_t ring_idx = (uint8_t)(matrix_ring_write_count % MATRIX_RING_COUNT);
+    uint8_t ring_gen = matrix_ring_write_count;
+    uint8_t rows_cache = calc_matrices[mat_idx].rows;
+    matrix_ring[ring_idx]           = calc_matrices[mat_idx];
+    matrix_ring_gen_table[ring_idx] = matrix_ring_write_count;
+    matrix_ring_write_count++;
+    CalcHistory_Commit(expr_text, mat_idx < 4 ? mat_names[mat_idx] : "?",
+                       true, ring_idx, ring_gen, rows_cache);
+    lvgl_lock();
+    CalcHistory_UpdateDisplay();
+    lvgl_unlock();
+}
+
 /* Load a history entry at the given scroll offset into the expression buffer. */
 static void history_load_offset(uint8_t offset)
 {

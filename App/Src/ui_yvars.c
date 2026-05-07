@@ -19,9 +19,11 @@
 #include "menu_state.h"
 #include "ui_shared.h"
 #include "calculator_core.h"
+#include "calc_history.h"
 #include "graph.h"
 #include "ui_palette.h"
 #include <string.h>
+#include "app_common.h"
 
 /*---------------------------------------------------------------------------
  * Constants
@@ -103,6 +105,10 @@ MenuState_t yvars_menu_state = {0};
 
 lv_obj_t *ui_yvars_screen = NULL;
 
+/* STO→Yn context: set by Yvars_OpenForSto before opening the menu */
+static bool s_sto_context          = false;
+static char s_sto_expr[MAX_EXPR_LEN];
+
 static lv_obj_t *yvars_item_labels[MENU_VISIBLE_ROWS];
 static lv_obj_t *yvars_tab_labels[YVARS_TAB_COUNT];
 static lv_obj_t *yvars_scroll_ind[2]; /* [0]=top(↑)  [1]=bottom(↓) */
@@ -111,13 +117,39 @@ static lv_obj_t *yvars_scroll_ind[2]; /* [0]=top(↑)  [1]=bottom(↓) */
  * Actions
  *---------------------------------------------------------------------------*/
 
-/** Y tab: insert equation reference string into the active editor. */
+/** Y tab: insert equation reference string, or in STO context store expr to Y= slot. */
 static void yvars_do_y_insert(uint8_t idx)
 {
     lvgl_lock();
     lv_obj_add_flag(ui_yvars_screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
-    menu_insert_text(yvars_y_insert[idx], &yvars_menu_state.return_mode);
+
+    if (s_sto_context && idx < 4) {
+        /* STO→Yn: write saved expression string to the selected Y= slot */
+        static const char * const ynames[4] = {
+            "Y\xE2\x82\x81", "Y\xE2\x82\x82",
+            "Y\xE2\x82\x83", "Y\xE2\x82\x84"
+        };
+        char *eq_buf = Graph_GetEquationBuf(idx);
+        strncpy(eq_buf, s_sto_expr, 63);
+        eq_buf[63] = '\0';
+
+        char expr_hist[MAX_EXPR_LEN + 12];
+        snprintf(expr_hist, sizeof(expr_hist), "\"%s\"->%s", s_sto_expr, ynames[idx]);
+        CalcHistory_Commit(expr_hist, "Done", false, 0, 0, 0);
+        CalcHistory_ResetRecallOffset();
+
+        s_sto_context = false;
+        Calc_SetMode(MODE_NORMAL);
+        lvgl_lock();
+        CalcHistory_UpdateDisplay();
+        ui_update_status_bar();
+        lvgl_unlock();
+        Update_Calculator_Display();
+    } else {
+        s_sto_context = false;
+        menu_insert_text(yvars_y_insert[idx], &yvars_menu_state.return_mode);
+    }
 }
 
 /**
@@ -339,6 +371,18 @@ bool handle_yvars_menu(Token_t t)
 /*---------------------------------------------------------------------------
  * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
  *---------------------------------------------------------------------------*/
+
+void Yvars_OpenForSto(const char *expr_to_store)
+{
+    if (expr_to_store) {
+        strncpy(s_sto_expr, expr_to_store, MAX_EXPR_LEN - 1);
+        s_sto_expr[MAX_EXPR_LEN - 1] = '\0';
+        s_sto_context = true;
+    } else {
+        s_sto_context = false;
+    }
+    Yvars_MenuOpen(MODE_NORMAL);
+}
 
 void Yvars_MenuOpen(CalcMode_t return_to)
 {

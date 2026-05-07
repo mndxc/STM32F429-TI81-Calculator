@@ -778,6 +778,146 @@ static void test_graph_mode_accessors(void)
           "graph_mode: SetSequentialMode(true) → plot_sequential true");
 }
 
+/* -------------------------------------------------------------------------
+ * Group 12: STO → matrix / matrix element / Y= slot (10 tests)
+ * ---------------------------------------------------------------------- */
+static void test_sto_matrix_yvars(void)
+{
+    printf("Group 12: STO → matrix / element / Y= slot\n");
+
+    /* 1. STO then MTRX_A keeps sto_pending (waiting for ( or ENTER) */
+    reset_state();
+    load_expr("5");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_MTRX_A);
+    CHECK(sto_pending == true,
+          "sto_mat: TOKEN_MTRX_A in STO keeps sto_pending for ( or ENTER");
+
+    /* 2. STO+MTRX_A+CLEAR cancels and clears sto_pending */
+    reset_state();
+    load_expr("5");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_MTRX_A);
+    handle_sto_pending(TOKEN_CLEAR);
+    CHECK(sto_pending == false,
+          "sto_mat: CLEAR after MTRX_A cancels sto_pending");
+
+    /* 3. STO+MTRX_A+ENTER fills all matrix elements with scalar (DIMENSION guard) */
+    reset_state();
+    calc_matrices[0].rows = 2;
+    calc_matrices[0].cols = 2;
+    load_expr("7");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_MTRX_A);
+    handle_sto_pending(TOKEN_ENTER);
+    CHECK(sto_pending == false,
+          "sto_mat: whole-matrix STO clears sto_pending");
+    CHECK(NEAR(calc_matrices[0].data[0][0], 7.0f),
+          "sto_mat: element (0,0) filled with 7");
+    CHECK(NEAR(calc_matrices[0].data[1][1], 7.0f),
+          "sto_mat: element (1,1) filled with 7");
+    CHECK(ans_is_matrix == true,
+          "sto_mat: ANS becomes matrix after whole-matrix STO");
+    CHECK((int)ans == 0,
+          "sto_mat: ANS matrix index is 0 ([A])");
+
+    /* 4. STO+MTRX_A+ENTER on uninitialized matrix commits ERR:DIMENSION */
+    reset_state();
+    calc_matrices[0].rows = 0;
+    calc_matrices[0].cols = 0;
+    load_expr("9");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_MTRX_A);
+    handle_sto_pending(TOKEN_ENTER);
+    CHECK(CalcHistory_GetCount() == 1,
+          "sto_mat: DIMENSION error still commits history entry");
+    CHECK(strstr(CalcHistory_GetEntry(0)->result, "ERR") != NULL,
+          "sto_mat: DIMENSION error result contains ERR");
+
+    /* 5. STO→[A](r,c): full element sequence stores scalar to correct cell */
+    reset_state();
+    calc_matrices[0].rows = 3;
+    calc_matrices[0].cols = 3;
+    calc_matrices[0].data[0][1] = 0.0f;   /* row=1, col=2 → index [0][1] */
+    load_expr("42");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_MTRX_A);
+    handle_sto_pending(TOKEN_L_PAR);
+    handle_sto_pending(TOKEN_1);
+    handle_sto_pending(TOKEN_COMMA);
+    handle_sto_pending(TOKEN_2);
+    handle_sto_pending(TOKEN_R_PAR);
+    handle_sto_pending(TOKEN_ENTER);
+    CHECK(sto_pending == false,
+          "sto_elem: element STO clears sto_pending");
+    CHECK(NEAR(calc_matrices[0].data[0][1], 42.0f),
+          "sto_elem: element [1][2] stores 42");
+    CHECK(NEAR(ans, 42.0f),
+          "sto_elem: ANS becomes stored scalar");
+
+    /* 6. Element STO out of bounds gives ERR:DIMENSION in history */
+    reset_state();
+    calc_matrices[0].rows = 2;
+    calc_matrices[0].cols = 2;
+    load_expr("1");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_MTRX_A);
+    handle_sto_pending(TOKEN_L_PAR);
+    handle_sto_pending(TOKEN_3);   /* row 3 > rows 2 */
+    handle_sto_pending(TOKEN_COMMA);
+    handle_sto_pending(TOKEN_1);
+    handle_sto_pending(TOKEN_R_PAR);
+    handle_sto_pending(TOKEN_ENTER);
+    CHECK(strstr(CalcHistory_GetEntry(0)->result, "ERR") != NULL,
+          "sto_elem: out-of-bounds row → ERR in history");
+
+    /* 7. STO→[A](row,col) history expression contains the element address */
+    reset_state();
+    calc_matrices[1].rows = 2;
+    calc_matrices[1].cols = 2;
+    load_expr("5");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_MTRX_B);
+    handle_sto_pending(TOKEN_L_PAR);
+    handle_sto_pending(TOKEN_2);
+    handle_sto_pending(TOKEN_COMMA);
+    handle_sto_pending(TOKEN_1);
+    handle_sto_pending(TOKEN_R_PAR);
+    handle_sto_pending(TOKEN_ENTER);
+    CHECK(strstr(CalcHistory_GetEntry(0)->expression, "[B]") != NULL,
+          "sto_elem: history expression contains [B]");
+    CHECK(strstr(CalcHistory_GetEntry(0)->expression, "2,1") != NULL,
+          "sto_elem: history expression contains (2,1)");
+
+    /* 8. Bad digit in element row cancels STO cleanly */
+    reset_state();
+    load_expr("1");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_MTRX_A);
+    handle_sto_pending(TOKEN_L_PAR);
+    handle_sto_pending(TOKEN_0);   /* 0 is not a valid row (1–6 only) */
+    CHECK(sto_pending == false,
+          "sto_elem: digit 0 in row position cancels STO");
+
+    /* 9. STO+TOKEN_Y_VARS switches to MODE_YVARS_MENU */
+    reset_state();
+    load_expr("1+1");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_Y_VARS);
+    CHECK(current_mode == MODE_YVARS_MENU,
+          "sto_yvar: TOKEN_Y_VARS in STO opens Y-VARS menu");
+    CHECK(sto_pending == false,
+          "sto_yvar: sto_pending cleared when Y-VARS opens");
+
+    /* 10. STO+TOKEN_Y_VARS clears expression buffer (expr saved inside Yvars) */
+    reset_state();
+    load_expr("sqrt(X)");
+    handle_normal_mode(TOKEN_STO);
+    handle_sto_pending(TOKEN_Y_VARS);
+    CHECK(expr_len == 0,
+          "sto_yvar: expression buffer cleared after opening Y-VARS for STO");
+}
+
 int main(void)
 {
     test_digit_key();
@@ -791,6 +931,7 @@ int main(void)
     test_expr_building();
     test_edge_cases();
     test_graph_mode_accessors();
+    test_sto_matrix_yvars();
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);
     return g_failed > 0 ? 1 : 0;
