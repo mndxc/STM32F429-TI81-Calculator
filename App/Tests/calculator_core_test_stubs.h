@@ -373,6 +373,17 @@ static inline void Reset_MenuOpen(CalcMode_t r)      { (void)r; current_mode = M
 static inline bool handle_reset_confirm(Token_t t)   { (void)t; return false; }
 
 /*---------------------------------------------------------------------------
+ * ui_error.h replacement
+ *---------------------------------------------------------------------------*/
+
+static inline void Error_ShowScreen(void) {}
+static inline void Error_HideScreen(void) {}
+static inline void ui_init_error_screen(void) {}
+static inline void Error_Open(CalcError_t e, const char *s, uint16_t o, bool g)
+    { (void)e; (void)s; (void)o; (void)g; current_mode = MODE_ERROR_SCREEN; }
+static inline bool handle_error_screen(Token_t t)    { (void)t; return false; }
+
+/*---------------------------------------------------------------------------
  * ui_draw.h replacement
  *---------------------------------------------------------------------------*/
 

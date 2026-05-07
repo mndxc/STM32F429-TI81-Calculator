@@ -568,7 +568,8 @@ static CalcError_t try_tokenize_operator(const char **p, TokenList_t *out, bool 
 
 static CalcError_t Tokenize(const char *expr, float ans, bool ans_is_matrix,
                              bool param_mode, TokenList_t *out,
-                             GraphEquation_t *nderiv_out)
+                             GraphEquation_t *nderiv_out,
+                             uint16_t *err_offset_out)
 {
     out->count = 0;
     const char *p = expr;
@@ -580,17 +581,18 @@ static CalcError_t Tokenize(const char *expr, float ans, bool ans_is_matrix,
         CalcError_t err;
 
         err = try_tokenize_number(&p, out, &matched);
-        if (err != CALC_OK) return err;
+        if (err != CALC_OK) { if (err_offset_out) *err_offset_out = (uint16_t)(p - expr); return err; }
         if (matched) continue;
 
         err = try_tokenize_identifier(&p, out, ans, ans_is_matrix, param_mode, nderiv_out, &matched);
-        if (err != CALC_OK) return err;
+        if (err != CALC_OK) { if (err_offset_out) *err_offset_out = (uint16_t)(p - expr); return err; }
         if (matched) continue;
 
         err = try_tokenize_operator(&p, out, &matched);
-        if (err != CALC_OK) return err;
+        if (err != CALC_OK) { if (err_offset_out) *err_offset_out = (uint16_t)(p - expr); return err; }
         if (matched) continue;
 
+        if (err_offset_out) *err_offset_out = (uint16_t)(p - expr);
         return CALC_ERR_SYNTAX; /* Unknown character */
     }
 
@@ -1266,7 +1268,7 @@ static bool eval_binary_op(MathTokenType_t type,
 static CalcResult_t EvaluateRPN_ex(const TokenList_t *rpn, float x_val, float t_val,
                                     bool angle_degrees, const GraphEquation_t *nderiv_eq)
 {
-    CalcResult_t res = { 0.0f, CALC_OK, "", false, 0 };
+    CalcResult_t res = { 0.0f, CALC_OK, "", false, 0, 0 };
 
     float stack[CALC_MAX_STACK];
     bool  is_matrix[CALC_MAX_STACK];
@@ -1420,8 +1422,7 @@ static CalcResult_t EvaluateRPN(const TokenList_t *rpn, float x_val, float t_val
 CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
                            bool angle_degrees)
 {
-    CalcResult_t res = { 0.0f, CALC_OK, "", false, 0 };
-
+    CalcResult_t res = { 0.0f, CALC_OK, "", false, 0, 0 };
 
     if (expr == NULL || strlen(expr) == 0) {
         res.error = CALC_ERR_SYNTAX;
@@ -1433,9 +1434,11 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
     TokenList_t infix  = { .count = 0 };
     TokenList_t postfix = { .count = 0 };
 
-    CalcError_t err = Tokenize(expr, ans, ans_is_matrix, false, &infix, NULL);
+    uint16_t tok_offset = 0;
+    CalcError_t err = Tokenize(expr, ans, ans_is_matrix, false, &infix, NULL, &tok_offset);
     if (err != CALC_OK) {
-        res.error = err;
+        res.error        = err;
+        res.error_offset = tok_offset;
         strncpy(res.error_msg, "Tokenize error",
                 sizeof(res.error_msg) - 1);
         return res;
@@ -1475,7 +1478,7 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
 CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
                               float ans, bool angle_degrees)
 {
-    CalcResult_t res = { 0.0f, CALC_OK, "", false, 0 };
+    CalcResult_t res = { 0.0f, CALC_OK, "", false, 0, 0 };
 
     if (expr == NULL || strlen(expr) == 0) {
         res.error = CALC_ERR_SYNTAX;
@@ -1486,7 +1489,7 @@ CalcResult_t Calc_EvaluateAt(const char *expr, float x_val,
     TokenList_t infix   = { .count = 0 };
     TokenList_t postfix = { .count = 0 };
     /* Graph context is always scalar — ANS cannot be a matrix in Y= equations */
-    CalcError_t err = Tokenize(expr, ans, false, false, &infix, NULL);
+    CalcError_t err = Tokenize(expr, ans, false, false, &infix, NULL, NULL);
     if (err != CALC_OK) {
         res.error = err;
         strncpy(res.error_msg, "Tokenize error",
@@ -1650,6 +1653,32 @@ void Calc_FormatResult(float value, char *buf, uint8_t buf_len)
 }
 
 /*---------------------------------------------------------------------------
+ * Error string API
+ *--------------------------------------------------------------------------*/
+
+const char *Calc_GetErrorString(CalcError_t err)
+{
+    switch (err) {
+    case CALC_OK:                 return "";
+    case CALC_ERR_RESULT_OVERFLOW: return "ERROR 01 MATH";
+    case CALC_ERR_DIV_ZERO:       return "ERROR 02 MATH";
+    case CALC_ERR_IMAGINARY:      return "ERROR 03 MATH";
+    case CALC_ERR_DOMAIN:         return "ERROR 04 MATH";
+    case CALC_ERR_MATRIX_OP:      return "ERROR 05 MATH";
+    case CALC_ERR_SYNTAX:         return "ERROR 06 SYNTAX";
+    case CALC_ERR_OVERFLOW:       return "ERROR 07 MEMORY";
+    case CALC_ERR_UNDEFINED:      return "ERROR 08 MEMORY";
+    case CALC_ERR_RANGE:          return "ERROR 11 RANGE";
+    case CALC_ERR_ZOOM:           return "ERROR 12 ZOOM";
+    case CALC_ERR_BREAK:          return "ERROR 13 BREAK";
+    case CALC_ERR_PRGM_NO_LABEL:  return "ERROR 14 PRGM";
+    case CALC_ERR_PRGM_NESTING:   return "ERROR 15 PRGM";
+    case CALC_ERR_INVALID:        return "ERROR 16 INVALID";
+    default:                      return "ERROR";
+    }
+}
+
+/*---------------------------------------------------------------------------
  * Graph equation cache API
  *--------------------------------------------------------------------------*/
 
@@ -1662,7 +1691,7 @@ CalcError_t Calc_PrepareGraphEquation(const char *expr, float ans,
     TokenList_t postfix = { .count = 0 };
 
     /* Graph context: ANS is always scalar, X emits MATH_VAR_X placeholder */
-    CalcError_t err = Tokenize(expr, ans, false, false, &infix, NULL);
+    CalcError_t err = Tokenize(expr, ans, false, false, &infix, NULL, NULL);
     if (err != CALC_OK) return err;
 
     err = ImplicitMulPass(&infix);
@@ -1695,7 +1724,7 @@ CalcError_t Calc_PrepareParamEquation(const char *expr, float ans,
     TokenList_t postfix = { .count = 0 };
 
     /* Parametric context: 'T'/'t' emits MATH_VAR_T placeholder */
-    CalcError_t err = Tokenize(expr, ans, false, true, &infix, NULL);
+    CalcError_t err = Tokenize(expr, ans, false, true, &infix, NULL, NULL);
     if (err != CALC_OK) return err;
 
     err = ImplicitMulPass(&infix);
@@ -1734,7 +1763,7 @@ CalcError_t Calc_Parse(const char *expr, float ans, bool ans_is_matrix,
 
     out->nested.count = 0; /* cleared here; populated inside Tokenize if nDeriv present */
 
-    CalcError_t err = Tokenize(expr, ans, ans_is_matrix, param_mode, &infix, &out->nested);
+    CalcError_t err = Tokenize(expr, ans, ans_is_matrix, param_mode, &infix, &out->nested, NULL);
     if (err != CALC_OK) return err;
 
     err = ImplicitMulPass(&infix);
@@ -1754,7 +1783,7 @@ CalcResult_t Calc_Eval(const ParsedExpr_t *parsed, float x_val, float t_val,
                        bool angle_degrees)
 {
     if (parsed == NULL) {
-        CalcResult_t res = { 0.0f, CALC_ERR_SYNTAX, "Null parsed expr", false, 0 };
+        CalcResult_t res = { 0.0f, CALC_ERR_SYNTAX, "Null parsed expr", false, 0, 0 };
         return res;
     }
     return EvaluateRPN_ex((const TokenList_t *)&parsed->postfix, x_val, t_val,

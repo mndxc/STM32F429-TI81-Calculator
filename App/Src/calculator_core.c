@@ -50,6 +50,7 @@
 #  include "ui_vars.h"
 #  include "ui_yvars.h"
 #  include "ui_reset.h"
+#  include "ui_error.h"
 #  include "graph_ui.h"
 #  include "ui_graph_zoom.h"
 #  include "ui_palette.h"
@@ -887,6 +888,7 @@ void hide_all_screens(void)
     Vars_HideScreen();
     Yvars_HideScreen();
     Reset_HideScreen();
+    Error_HideScreen();
     hide_prgm_screens();
     Graph_SetVisible(false);
 }
@@ -1093,6 +1095,22 @@ static void history_enter_evaluate(void)
     }
 #endif /* HOST_TEST */
     CalcResult_t result = Calc_Evaluate(expr.buf, ans, ans_is_matrix, angle_degrees);
+    if (result.error != CALC_OK) {
+#ifndef HOST_TEST
+        /* Show TI-81 error overlay — expression is preserved in ui_error module state */
+        Error_Open(result.error, expr.buf, result.error_offset, true);
+        ExprBuffer_Clear(&expr);
+        CalcHistory_ResetRecallOffset();
+#else
+        /* Host-test build: commit error to history for testability */
+        char result_str[MAX_RESULT_LEN];
+        format_calc_result(&result, result_str, MAX_RESULT_LEN);
+        commit_history_entry(expr.buf, result_str, &result);
+        ExprBuffer_Clear(&expr);
+        CalcHistory_ResetRecallOffset();
+#endif
+        return;
+    }
     char result_str[MAX_RESULT_LEN];
     format_calc_result(&result, result_str, MAX_RESULT_LEN);
     commit_history_entry(expr.buf, result_str, &result);
@@ -1374,6 +1392,7 @@ static const ModeRegistration_t k_route_table[] = {
     { MODE_PRGM_MODE_NUMBER,   NULL,             handle_prgm_mode_number },
     { MODE_PRGM_MODE_GRAPH,    NULL,             handle_prgm_mode_graph  },
     { MODE_RESET_CONFIRM,      NULL,             handle_reset_confirm    },
+    { MODE_ERROR_SCREEN,       NULL,             handle_error_screen     },
     /* ALPHA_LOCK compound conditions (also fire when ALPHA_LOCK+return_mode) */
     { MODE_PRGM_NEW_NAME,      pred_prgm_new_name, handle_prgm_new_name },
     { MODE_PRGM_EDITOR,        pred_prgm_editor,   handle_prgm_editor   },
@@ -1532,6 +1551,7 @@ void StartCalcCoreTask(void const *argument)
     ui_init_vars_screen();
     ui_init_yvars_screen();
     ui_init_reset_screen();
+    ui_init_error_screen();
     ui_init_prgm_screens();
     cursor_timer = lv_timer_create(cursor_timer_cb, CURSOR_BLINK_MS, NULL);
     ui_update_zoom_display();   /* populate ZOOM labels with initial scroll=0 (defined in graph_ui.c) */

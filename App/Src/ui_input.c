@@ -30,6 +30,7 @@
 #  include "ui_mode.h"
 #  include "graph.h"
 #  include "ui_yvars.h"
+#  include "ui_error.h"
 #endif
 #include "expr_util.h"
 #include <stdint.h>
@@ -170,8 +171,25 @@ bool handle_sto_pending(Token_t t)
         snprintf(expr_hist, sizeof(expr_hist), "%s->%c", e->buf, var_names[var_idx]);
 
         if (result.error != CALC_OK) {
+#ifndef HOST_TEST
+            char saved[MAX_EXPR_LEN];
+            strncpy(saved, e->buf, MAX_EXPR_LEN - 1);
+            saved[MAX_EXPR_LEN - 1] = '\0';
+            ExprBuffer_Clear(e);
+            CalcHistory_ResetRecallOffset();
+            Error_Open(result.error, saved, result.error_offset, true);
+#else
             strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
             result_str[MAX_RESULT_LEN - 1] = '\0';
+            CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
+            ExprBuffer_Clear(e);
+            CalcHistory_ResetRecallOffset();
+            lvgl_lock();
+            CalcHistory_UpdateDisplay();
+            ui_update_status_bar();
+            lvgl_unlock();
+#endif
+            return true;
         } else if (result.has_matrix) {
             strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
             result_str[MAX_RESULT_LEN - 1] = '\0';
@@ -199,8 +217,25 @@ bool handle_sto_pending(Token_t t)
         char expr_hist[MAX_EXPR_LEN + 6];
         snprintf(expr_hist, sizeof(expr_hist), "%s->\xCE\xB8", e->buf);  /* ->θ */
         if (result.error != CALC_OK) {
+#ifndef HOST_TEST
+            char saved[MAX_EXPR_LEN];
+            strncpy(saved, e->buf, MAX_EXPR_LEN - 1);
+            saved[MAX_EXPR_LEN - 1] = '\0';
+            ExprBuffer_Clear(e);
+            CalcHistory_ResetRecallOffset();
+            Error_Open(result.error, saved, result.error_offset, true);
+#else
             strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
             result_str[MAX_RESULT_LEN - 1] = '\0';
+            CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
+            ExprBuffer_Clear(e);
+            CalcHistory_ResetRecallOffset();
+            lvgl_lock();
+            CalcHistory_UpdateDisplay();
+            ui_update_status_bar();
+            lvgl_unlock();
+#endif
+            return true;
         } else if (result.has_matrix) {
             strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
             result_str[MAX_RESULT_LEN - 1] = '\0';
@@ -282,11 +317,21 @@ static bool sto_mat_commit_whole(void)
     snprintf(expr_hist, sizeof(expr_hist), "%s->%s", e->buf, mat_names[mat_idx]);
 
     if (r.error != CALC_OK) {
+#ifndef HOST_TEST
+        char saved[MAX_EXPR_LEN];
+        strncpy(saved, e->buf, MAX_EXPR_LEN - 1);
+        saved[MAX_EXPR_LEN - 1] = '\0';
+        ExprBuffer_Clear(e);
+        CalcHistory_ResetRecallOffset();
+        Error_Open(r.error, saved, r.error_offset, true);
+        return true;
+#else
         CalcHistory_Commit(expr_hist, r.error_msg, false, 0, 0, 0);
         lvgl_lock();
         CalcHistory_UpdateDisplay();
         ui_update_status_bar();
         lvgl_unlock();
+#endif
     } else if (r.has_matrix) {
         /* Matrix-to-matrix copy: dimensions follow source */
         calc_matrices[mat_idx] = calc_matrices[r.matrix_idx];
@@ -341,8 +386,26 @@ static bool sto_mat_commit_elem(void)
 
     char result_str[MAX_RESULT_LEN];
     if (r.error != CALC_OK) {
+#ifndef HOST_TEST
+        char saved[MAX_EXPR_LEN];
+        strncpy(saved, e->buf, MAX_EXPR_LEN - 1);
+        saved[MAX_EXPR_LEN - 1] = '\0';
+        ExprBuffer_Clear(e);
+        CalcHistory_ResetRecallOffset();
+        Error_Open(r.error, saved, r.error_offset, true);
+        return true;
+#else
         strncpy(result_str, r.error_msg, MAX_RESULT_LEN - 1);
         result_str[MAX_RESULT_LEN - 1] = '\0';
+        CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
+        ExprBuffer_Clear(e);
+        CalcHistory_ResetRecallOffset();
+        lvgl_lock();
+        CalcHistory_UpdateDisplay();
+        ui_update_status_bar();
+        lvgl_unlock();
+        return true;
+#endif
     } else if (r.has_matrix) {
         strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
         result_str[MAX_RESULT_LEN - 1] = '\0';

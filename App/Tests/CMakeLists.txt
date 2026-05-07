@@ -302,6 +302,22 @@ if(COVERAGE)
     target_link_options(test_graph_render PRIVATE --coverage)
 endif()
 
+# --- test_error_codes ---
+# Calc_GetErrorString() TI-81 format strings and error_offset propagation.
+# Pure engine test — no LVGL/HAL/RTOS dependencies.
+
+add_executable(test_error_codes
+    test_error_codes.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
+)
+
+target_compile_options(test_error_codes PRIVATE -Wall -Wextra)
+
+if(COVERAGE)
+    target_compile_options(test_error_codes PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_error_codes PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
@@ -318,3 +334,4 @@ add_test(NAME prgm_cmd_table    COMMAND test_prgm_cmd_table)
 add_test(NAME parse_eval        COMMAND test_parse_eval)
 add_test(NAME mode_topology     COMMAND test_mode_topology)
 add_test(NAME graph_render      COMMAND test_graph_render)
+add_test(NAME error_codes       COMMAND test_error_codes)

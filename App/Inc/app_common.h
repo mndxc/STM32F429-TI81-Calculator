@@ -100,6 +100,7 @@ typedef enum {
 
     /* --- Modal screens (continued) --- */
     MODE_RESET_CONFIRM,      /* RESET confirmation screen (2nd++): 1:No / 2:Reset */
+    MODE_ERROR_SCREEN,       /* TI-81 error overlay: shows "ERROR nn type" + 1:Goto Error / 2:Quit */
 
     /* --- Synthetic: never stored in current_mode; used only for derived rendering --- */
     MODE_STO,                /* STO pending — cursor shows green 'A'; only passed to cursor_render() */

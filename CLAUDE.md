@@ -31,7 +31,7 @@ Snapshot as of **2026-05-05** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 14 suites, 994 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), and STO→matrix/element/Y= host tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 15 suites, 1019 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), STO→matrix/element/Y= host tests, and error code string + error_offset tests.
 
 Full scorecard change history: [docs/PROJECT_HISTORY.md — Scorecard Change Log](docs/PROJECT_HISTORY.md).
 
@@ -93,10 +93,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 #### Medium — approximately one session each
 
 **[complexity] ui_input.c STO state machine extraction** — `handle_sto_pending` and the six STO-matrix helpers (`sto_mat_cancel`, `sto_mat_commit_whole`, `sto_mat_commit_elem`, `handle_sto_mat_elem`, plus state variables) are now ~140 extra lines mixed into the expression-input layer. Extract to a dedicated `ui_sto.c` / `ui_sto.h` module so `ui_input.c` stays focused on expression editing. Files: [App/Src/ui_input.c](App/Src/ui_input.c). No prerequisites.
-
-#### Large — multi-session or architectural
-
-**Error display format and Goto Error** — Guidebook pp. 1-26, B-4: errors should display as `ERROR nn type` (19 numbered codes with labels MATH/SYNTAX/MEMORY/RANGE/ZOOM/BREAK/PRGM/INVALID). The error screen must offer `<Goto Error>` (re-opens the expression editor with the cursor at the fault byte offset returned by `Calc_Evaluate()`) and `<Quit>` (clears to Home). Current implementation uses ad-hoc strings with no codes or navigation. Work: (1) map `CalcError_t` values to TI-81 numbered strings; (2) new error-display screen/mode with the two-option menu; (3) Goto Error state that re-opens the expression editor at the fault offset. Files: [App/Src/calculator_core.c](App/Src/calculator_core.c), [App/Src/ui_input.c](App/Src/ui_input.c), [App/Src/calc_engine.c](App/Src/calc_engine.c). No prerequisites.
 
 #### Hardware validation — no new code, test on device
 

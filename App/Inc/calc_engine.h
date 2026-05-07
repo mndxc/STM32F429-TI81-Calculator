@@ -42,11 +42,34 @@ typedef struct {
 
 typedef enum {
     CALC_OK = 0,
+    /* TI-81 error 01 MATH — numerical result or intermediate >= 1E100 */
+    CALC_ERR_RESULT_OVERFLOW,
+    /* TI-81 error 02 MATH — division by zero */
     CALC_ERR_DIV_ZERO,
-    CALC_ERR_DOMAIN,        /* e.g. sqrt(-1), log(-1) */
-    CALC_ERR_SYNTAX,        /* unmatched parentheses, bad expression */
-    CALC_ERR_OVERFLOW,      /* too many tokens or stack overflow */
-    CALC_ERR_UNDEFINED,     /* unknown token */
+    /* TI-81 error 03 MATH — result is imaginary (sqrt(-1), asin(>1)…) */
+    CALC_ERR_IMAGINARY,
+    /* TI-81 error 04 MATH — invalid argument or undefined intermediate */
+    CALC_ERR_DOMAIN,
+    /* TI-81 error 05 MATH — incompatible matrix dimensions for operation */
+    CALC_ERR_MATRIX_OP,
+    /* TI-81 error 06 SYNTAX — mismatched parens, bad expression structure */
+    CALC_ERR_SYNTAX,
+    /* TI-81 error 07 MEMORY — expression too complex (token/stack overflow) */
+    CALC_ERR_OVERFLOW,
+    /* TI-81 error 08 MEMORY — referenced variable not defined */
+    CALC_ERR_UNDEFINED,
+    /* TI-81 error 11 RANGE — Xmax <= Xmin or Ymax <= Ymin */
+    CALC_ERR_RANGE,
+    /* TI-81 error 12 ZOOM — zoom magnitude out of numerical range */
+    CALC_ERR_ZOOM,
+    /* TI-81 error 13 BREAK — ON key pressed during execution */
+    CALC_ERR_BREAK,
+    /* TI-81 error 14 PRGM — Goto label not found */
+    CALC_ERR_PRGM_NO_LABEL,
+    /* TI-81 error 15 PRGM — subroutine nesting exceeds 10 */
+    CALC_ERR_PRGM_NESTING,
+    /* TI-81 error 16 INVALID — invalid dimension, Xres, or subscript */
+    CALC_ERR_INVALID,
 } CalcError_t;
 
 typedef enum {
@@ -140,6 +163,7 @@ typedef struct {
     char        error_msg[24];  /* Human readable error string */
     bool        has_matrix;     /* True if result is a matrix, not a scalar */
     uint8_t     matrix_idx;     /* Index into calc_matrices[] when has_matrix is true */
+    uint16_t    error_offset;   /* Byte offset in source expression where fault was detected (0 if unknown) */
 } CalcResult_t;
 
 /**
@@ -242,6 +266,14 @@ uint8_t Calc_GetDecimalMode(void);
  */
 void Calc_SetNotationMode(uint8_t mode);
 uint8_t Calc_GetNotationMode(void);
+
+/**
+ * @brief Returns the TI-81 error string for an error code, e.g. "ERROR 06 SYNTAX".
+ *
+ * The returned pointer is to a string literal — do not free or modify it.
+ * CALC_OK returns an empty string "".
+ */
+const char *Calc_GetErrorString(CalcError_t err);
 
 /**
  * @brief Evaluates an infix expression with a specific value substituted for X.
