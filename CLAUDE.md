@@ -90,10 +90,6 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 
 Items are ordered so prerequisites come before the items that depend on them; within a dependency tier, easiest first.
 
-#### Medium — approximately one session each
-
-**[complexity] ui_input.c STO state machine extraction** — `handle_sto_pending` and the six STO-matrix helpers (`sto_mat_cancel`, `sto_mat_commit_whole`, `sto_mat_commit_elem`, `handle_sto_mat_elem`, plus state variables) are now ~140 extra lines mixed into the expression-input layer. Extract to a dedicated `ui_sto.c` / `ui_sto.h` module so `ui_input.c` stays focused on expression editing. Files: [App/Src/ui_input.c](App/Src/ui_input.c). No prerequisites.
-
 #### Hardware validation — no new code, test on device
 
 Full test procedures: [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md).

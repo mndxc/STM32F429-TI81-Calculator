@@ -7,13 +7,15 @@
  * Public API exposed here:
  *   expr_delete_at_cursor — backspace helper called by ui_prgm.c as well
  *   handle_normal_mode    — normal-mode token dispatcher (called from Execute_Token)
- *   handle_sto_pending    — STO intercept layer (called from Execute_Token)
+ *
+ * STO state machine API is in ui_sto.h (included transitively below).
  */
 
 #ifndef UI_INPUT_H
 #define UI_INPUT_H
 
 #include "app_common.h"
+#include "ui_sto.h"
 #include <stdbool.h>
 
 /**
@@ -35,11 +37,5 @@ void expr_delete_at_cursor(void);
  *        and menu-open tokens.
  */
 void handle_normal_mode(Token_t t);
-
-/**
- * @brief Handle a keypress when STO is pending (next alpha key stores ans).
- * @return true if the token was consumed; false to fall through to normal mode.
- */
-bool handle_sto_pending(Token_t t);
 
 #endif /* UI_INPUT_H */
