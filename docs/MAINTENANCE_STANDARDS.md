@@ -71,6 +71,8 @@ Standing rules that apply regardless of current rating. These define the floor �
 
 **API and header design:** Module prefixes (`Calc_*`, `Graph_*`, `Persist_*`, `Keypad_*`) are consistent. No circular dependencies. Do not mix implementation details into public headers.
 
+**Seam depth test:** A seam (callback struct, function-pointer table, adapter interface) is hypothetical if only one adapter exists. It becomes a real seam when two adapters exist — one for embedded, one for host tests — and both code paths honour the seam without `#ifdef` bypasses. When adding or reviewing a seam, verify both adapters are present and that neither path bypasses the seam with direct calls.
+
 **Embedded-specific correctness:** FLASH erase routines in `.RamFunc`. `_Static_assert` on `PersistBlock_t` alignment. `volatile` on `g_sleeping`. ISR-safe queue use (`xQueueSendFromISR`). Checksums + magic + version on every persist block.
 
 **RTOS integration:** Mutex guards all LVGL calls. `cursor_timer_cb` deadlock case documented and avoided. Never add LVGL calls outside `lvgl_lock()` / `lvgl_unlock()`.
