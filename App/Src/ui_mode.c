@@ -25,6 +25,7 @@
 #else
 #  include "ui_shared.h"
 #  include "calculator_core.h"
+#  include "ui_mode.h"
 #  include "graph.h"
 #  include "ui_palette.h"
 #endif

@@ -52,6 +52,7 @@
 #  include "ui_reset.h"
 #  include "ui_error.h"
 #  include "graph_ui.h"
+#  include "graph_ui_range.h"
 #  include "ui_graph_zoom.h"
 #  include "ui_palette.h"
 #  include "expr_util.h"

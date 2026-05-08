@@ -12,6 +12,7 @@
 #ifndef HOST_TEST
 #  include "ui_shared.h"
 #  include "calculator_core.h"
+#  include "ui_input.h"
 #  include "ui_prgm.h"
 #  include "graph_ui.h"
 #  include "ui_palette.h"
