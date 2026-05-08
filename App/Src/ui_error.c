@@ -16,6 +16,7 @@
 #include "ui_shared.h"
 #include "ui_palette.h"
 #include "calculator_core.h"
+#include "expr_editor.h"
 #include "calc_history.h"
 #include "expr_util.h"
 #include <string.h>
@@ -97,11 +98,9 @@ void Error_Open(CalcError_t err, const char *expr, uint16_t offset, bool can_got
 
 static void error_goto(void)
 {
-    ExprBuffer_t *e = Calc_GetExpr();
-    strncpy(e->buf, s_saved_expr, MAX_EXPR_LEN - 1);
-    e->buf[MAX_EXPR_LEN - 1] = '\0';
-    e->len    = (uint8_t)strlen(e->buf);
-    e->cursor = (s_saved_offset <= e->len) ? (uint8_t)s_saved_offset : e->len;
+    ExprEditor_LoadStr(s_saved_expr);
+    int len = ExprEditor_GetLen();
+    ExprEditor_SetCursor((s_saved_offset <= (uint16_t)len) ? (int)s_saved_offset : len);
     CalcHistory_ResetRecallOffset();
 
     Calc_SetMode(MODE_NORMAL);

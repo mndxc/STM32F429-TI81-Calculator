@@ -26,6 +26,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_graph_zoom.c             ZOOM menu screen — state, display, preset executor, and token handler (extracted from graph_ui.c)
     persist.c                   FLASH sector 10 erase/write/load for calculator state
     prgm_exec.c                 Program storage (FLASH sector 11 erase/write/load) and execution engine
+    expr_editor.c               Expression editor module — owns ExprBuffer_t expr, sto_pending, cursor_visible, LVGL cursor objects; STO synthesis rule consolidated in ExprEditor_CursorUpdate() (extracted from calculator_core.c)
     ui_input.c                  Normal-mode expression input handlers (extracted from calculator_core.c; STO state machine in ui_sto.c)
     ui_sto.c                    STO→variable, STO→matrix, and STO→Y= state machine (extracted from ui_input.c)
     ui_math_menu.c              MATH/NUM/HYP/PRB and TEST menu UI — state, LVGL init, display, and token handlers (extracted module)
@@ -34,6 +35,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_stat.c                   STAT menu and results screen UI (extracted module)
     ui_stat_edit.c              STAT DATA list editor — screen init, display update, and token handler (extracted from ui_stat.c)
     calc_stat.c                 Pure statistical math layer — 1-Var, LinReg, LnReg, ExpReg, PwrReg, sort, clear
+    prgm_editor.c               Program line editor — owns editor state (edit_idx/line/scroll/col, s_edit_lines[], LVGL objects); PrgmEditor_Open/HandleToken/InsertStr/FlattenToStore/RefreshDisplay/CursorUpdate/MenuInsert (extracted from ui_prgm.c)
     ui_prgm.c                   Program menu and editor UI (extracted module)
     ui_menu_screen.c            Generic scrolling menu screen — MenuScreen_t owns LVGL objects, MenuState_t nav, and descriptor callbacks; used by all PRGM sub-menus
     ui_prgm_ctl.c               PRGM CTL sub-menu — Lbl/Goto/If/IS>/DS</,Pause/End/Stop; descriptor + thin wrappers over MenuScreen_t
@@ -65,12 +67,14 @@ App/                            ← Custom application code (never touched by Cu
     ui_graph_zoom.h             ZOOM menu screen API (screen pointer, init, display-update, handler)
     persist.h                   Persistent storage API
     prgm_exec.h                 Program storage/FLASH persistence and execution engine API
+    expr_editor.h               Expression editor module API (ExprBuffer_t ownership, sto_pending, cursor_visible, ExprEditor_Insert/Delete/Clear/Left/Right/PrependAns/LoadStr/SetCursor, ExprEditor_CursorUpdate with STO synthesis)
     ui_input.h                  Normal-mode input handler API (expr_insert_str, expr_delete_at_cursor, handle_normal_mode; includes ui_sto.h)
     ui_sto.h                    STO state machine API (handle_sto_pending)
     ui_math_menu.h              MATH/TEST menu UI interface (screen pointers, open/close/handler protos)
     ui_matrix.h                 Matrix editor UI interface
     ui_mode.h                   MODE screen state and API (ModeScreenState_t, ui_mode_init, handle_mode_screen)
     ui_stat.h                   STAT menu UI interface (StatMenuState_t, handler protos)
+    prgm_editor.h               Program line editor module API (PrgmEditor_Open, PrgmEditor_HandleToken, PrgmEditor_InsertStr, PrgmEditor_FlattenToStore, PrgmEditor_RefreshDisplay, PrgmEditor_CursorUpdate, PrgmEditor_MenuInsert, callback setters)
     ui_prgm.h                   Program menu UI interface (includes shared helpers used by CTL/IO/EXEC sub-modules)
     ui_prgm_ctl.h               PRGM CTL sub-menu interface (screen pointer, init, reset, display-update, handler)
     ui_prgm_io.h                PRGM I/O sub-menu interface (screen pointer, init, reset, display-update, handler)

@@ -15,6 +15,7 @@
 #  include "ui_sto.h"
 #  include "calculator_core_test_stubs.h"
 #  include "calculator_core.h"
+#  include "expr_editor.h"
 #else
 #  include "ui_shared.h"
 #  include "calculator_core.h"
@@ -22,6 +23,7 @@
 #  include "calc_engine.h"
 #  include "ui_yvars.h"
 #  include "ui_error.h"
+#  include "expr_editor.h"
 #endif
 #include "expr_util.h"
 #include <stdint.h>
@@ -53,7 +55,7 @@ static uint8_t       s_sto_mat_col;            /* 1-based col, 0 = not set */
 
 static bool sto_mat_cancel(void)
 {
-    Calc_SetStoPending(false);
+    ExprEditor_SetStoPending(false);
     s_sto_mat_dst = 0xFF;
     lvgl_lock();
     ui_update_status_bar();
@@ -63,25 +65,25 @@ static bool sto_mat_cancel(void)
 
 static bool sto_mat_commit_whole(void)
 {
-    ExprBuffer_t *e = Calc_GetExpr();
+    const char *ebuf = ExprEditor_GetBuf();
     static const char * const mat_names[3] = {"[A]", "[B]", "[C]"};
     uint8_t mat_idx = s_sto_mat_dst;
 
-    Calc_SetStoPending(false);
+    ExprEditor_SetStoPending(false);
     s_sto_mat_dst = 0xFF;
 
-    CalcResult_t r = Calc_Evaluate(e->buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+    CalcResult_t r = Calc_Evaluate(ebuf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
                                    Calc_GetAngleDegrees());
 
     char expr_hist[MAX_EXPR_LEN + 8];
-    snprintf(expr_hist, sizeof(expr_hist), "%s->%s", e->buf, mat_names[mat_idx]);
+    snprintf(expr_hist, sizeof(expr_hist), "%s->%s", ebuf, mat_names[mat_idx]);
 
     if (r.error != CALC_OK) {
 #ifndef HOST_TEST
         char saved[MAX_EXPR_LEN];
-        strncpy(saved, e->buf, MAX_EXPR_LEN - 1);
+        strncpy(saved, ebuf, MAX_EXPR_LEN - 1);
         saved[MAX_EXPR_LEN - 1] = '\0';
-        ExprBuffer_Clear(e);
+        ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
         Error_Open(r.error, saved, r.error_offset, true);
         return true;
@@ -121,36 +123,36 @@ static bool sto_mat_commit_whole(void)
         }
     }
 
-    ExprBuffer_Clear(e);
+    ExprEditor_Clear();
     CalcHistory_ResetRecallOffset();
     return true;
 }
 
 static bool sto_mat_commit_elem(void)
 {
-    ExprBuffer_t *e = Calc_GetExpr();
+    const char *ebuf = ExprEditor_GetBuf();
     static const char * const mat_names[3] = {"[A]", "[B]", "[C]"};
     uint8_t mat_idx = s_sto_mat_dst;
     uint8_t row     = s_sto_mat_row;  /* 1-based */
     uint8_t col     = s_sto_mat_col;  /* 1-based */
 
-    Calc_SetStoPending(false);
+    ExprEditor_SetStoPending(false);
     s_sto_mat_dst = 0xFF;
 
-    CalcResult_t r = Calc_Evaluate(e->buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+    CalcResult_t r = Calc_Evaluate(ebuf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
                                    Calc_GetAngleDegrees());
 
     char expr_hist[MAX_EXPR_LEN + 16];
     snprintf(expr_hist, sizeof(expr_hist), "%s->%s(%u,%u)",
-             e->buf, mat_names[mat_idx], (unsigned)row, (unsigned)col);
+             ebuf, mat_names[mat_idx], (unsigned)row, (unsigned)col);
 
     char result_str[MAX_RESULT_LEN];
     if (r.error != CALC_OK) {
 #ifndef HOST_TEST
         char saved[MAX_EXPR_LEN];
-        strncpy(saved, e->buf, MAX_EXPR_LEN - 1);
+        strncpy(saved, ebuf, MAX_EXPR_LEN - 1);
         saved[MAX_EXPR_LEN - 1] = '\0';
-        ExprBuffer_Clear(e);
+        ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
         Error_Open(r.error, saved, r.error_offset, true);
         return true;
@@ -158,7 +160,7 @@ static bool sto_mat_commit_elem(void)
         strncpy(result_str, r.error_msg, MAX_RESULT_LEN - 1);
         result_str[MAX_RESULT_LEN - 1] = '\0';
         CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-        ExprBuffer_Clear(e);
+        ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
         lvgl_lock();
         CalcHistory_UpdateDisplay();
@@ -182,7 +184,7 @@ static bool sto_mat_commit_elem(void)
     }
 
     CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-    ExprBuffer_Clear(e);
+    ExprEditor_Clear();
     CalcHistory_ResetRecallOffset();
     lvgl_lock();
     CalcHistory_UpdateDisplay();
@@ -251,37 +253,36 @@ static bool handle_sto_mat_elem(Token_t t)
 
 bool handle_sto_pending(Token_t t)
 {
-    ExprBuffer_t *e = Calc_GetExpr();
-
     /* Matrix-element collection in progress — delegate entire phase */
     if (s_sto_mat_dst != 0xFF)
         return handle_sto_mat_elem(t);
 
     if (t >= TOKEN_A && t <= TOKEN_Z) {
-        Calc_SetStoPending(false);
+        ExprEditor_SetStoPending(false);
+        const char *ebuf = ExprEditor_GetBuf();
         static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
         uint8_t var_idx = t - TOKEN_A;
 
-        CalcResult_t result = Calc_Evaluate(e->buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+        CalcResult_t result = Calc_Evaluate(ebuf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
                                             Calc_GetAngleDegrees());
 
         char result_str[MAX_RESULT_LEN];
         char expr_hist[MAX_EXPR_LEN + 4];  /* expression + "->A\0" */
-        snprintf(expr_hist, sizeof(expr_hist), "%s->%c", e->buf, var_names[var_idx]);
+        snprintf(expr_hist, sizeof(expr_hist), "%s->%c", ebuf, var_names[var_idx]);
 
         if (result.error != CALC_OK) {
 #ifndef HOST_TEST
             char saved[MAX_EXPR_LEN];
-            strncpy(saved, e->buf, MAX_EXPR_LEN - 1);
+            strncpy(saved, ebuf, MAX_EXPR_LEN - 1);
             saved[MAX_EXPR_LEN - 1] = '\0';
-            ExprBuffer_Clear(e);
+            ExprEditor_Clear();
             CalcHistory_ResetRecallOffset();
             Error_Open(result.error, saved, result.error_offset, true);
 #else
             strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
             result_str[MAX_RESULT_LEN - 1] = '\0';
             CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-            ExprBuffer_Clear(e);
+            ExprEditor_Clear();
             CalcHistory_ResetRecallOffset();
             lvgl_lock();
             CalcHistory_UpdateDisplay();
@@ -299,7 +300,7 @@ bool handle_sto_pending(Token_t t)
         }
 
         CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-        ExprBuffer_Clear(e);
+        ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
 
         lvgl_lock();
@@ -309,25 +310,26 @@ bool handle_sto_pending(Token_t t)
         return true;
 
     } else if (t == TOKEN_THETA) {
-        Calc_SetStoPending(false);
-        CalcResult_t result = Calc_Evaluate(e->buf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+        ExprEditor_SetStoPending(false);
+        const char *ebuf = ExprEditor_GetBuf();
+        CalcResult_t result = Calc_Evaluate(ebuf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
                                             Calc_GetAngleDegrees());
         char result_str[MAX_RESULT_LEN];
         char expr_hist[MAX_EXPR_LEN + 6];
-        snprintf(expr_hist, sizeof(expr_hist), "%s->\xCE\xB8", e->buf);  /* ->θ */
+        snprintf(expr_hist, sizeof(expr_hist), "%s->\xCE\xB8", ebuf);  /* ->θ */
         if (result.error != CALC_OK) {
 #ifndef HOST_TEST
             char saved[MAX_EXPR_LEN];
-            strncpy(saved, e->buf, MAX_EXPR_LEN - 1);
+            strncpy(saved, ebuf, MAX_EXPR_LEN - 1);
             saved[MAX_EXPR_LEN - 1] = '\0';
-            ExprBuffer_Clear(e);
+            ExprEditor_Clear();
             CalcHistory_ResetRecallOffset();
             Error_Open(result.error, saved, result.error_offset, true);
 #else
             strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
             result_str[MAX_RESULT_LEN - 1] = '\0';
             CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-            ExprBuffer_Clear(e);
+            ExprEditor_Clear();
             CalcHistory_ResetRecallOffset();
             lvgl_lock();
             CalcHistory_UpdateDisplay();
@@ -344,7 +346,7 @@ bool handle_sto_pending(Token_t t)
             Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
         }
         CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-        ExprBuffer_Clear(e);
+        ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
         lvgl_lock();
         CalcHistory_UpdateDisplay();
@@ -363,15 +365,16 @@ bool handle_sto_pending(Token_t t)
 
     } else if (t == TOKEN_Y_VARS) {
         /* STO→Yn — open Y-VARS menu in STO context; expression stores to chosen slot */
-        Calc_SetStoPending(false);
+        ExprEditor_SetStoPending(false);
+        const char *ebuf = ExprEditor_GetBuf();
         lvgl_lock();
-        Yvars_OpenForSto(e->buf);
+        Yvars_OpenForSto(ebuf);
         lvgl_unlock();
-        ExprBuffer_Clear(e);
+        ExprEditor_Clear();
         return true;
 
     } else if (t == TOKEN_CLEAR || t == TOKEN_2ND || t == TOKEN_ALPHA) {
-        Calc_SetStoPending(false);
+        ExprEditor_SetStoPending(false);
         lvgl_lock();
         ui_update_status_bar();
         lvgl_unlock();
@@ -379,7 +382,7 @@ bool handle_sto_pending(Token_t t)
     }
 
     /* Any other key cancels STO silently and falls through */
-    Calc_SetStoPending(false);
+    ExprEditor_SetStoPending(false);
     lvgl_lock();
     ui_update_status_bar();
     lvgl_unlock();

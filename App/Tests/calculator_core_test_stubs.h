@@ -157,16 +157,17 @@ extern osMessageQId      keypadQueueHandle;
 #define CURSOR_BLINK_MS     530
 #define MENU_VISIBLE_ROWS   7
 
-/* Shared state — all defined in calculator_core.c */
+/* Shared state — defined in calculator_core.c unless noted */
 extern CalcMode_t  current_mode;
 extern CalcMode_t  return_mode;
 extern bool        insert_mode;
-extern bool        cursor_visible;
 extern float       ans;
 extern bool        ans_is_matrix;
 extern bool        angle_degrees;
-extern bool        sto_pending;          /* non-static in HOST_TEST mode */
 
+/* These three are defined in expr_editor.c (non-static in HOST_TEST mode) */
+extern bool        sto_pending;
+extern bool        cursor_visible;
 extern ExprBuffer_t expr;   /* .buf = expression string, .len = length, .cursor = insertion point */
 
 /* graph.c is not compiled in HOST_TEST builds.  Provide GRAPH_EQUATION_BUF_LEN

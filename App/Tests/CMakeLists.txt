@@ -122,6 +122,7 @@ add_executable(test_normal_mode
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_mode.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_input.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_sto.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_editor.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_buffer.c
@@ -260,6 +261,7 @@ add_executable(test_mode_topology
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_mode.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_input.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_sto.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_editor.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/calc_engine.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_util.c
     ${CMAKE_CURRENT_SOURCE_DIR}/../Src/expr_buffer.c

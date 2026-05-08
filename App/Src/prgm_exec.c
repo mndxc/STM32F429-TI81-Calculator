@@ -17,6 +17,7 @@
 #else
 #  include "calc_history.h"
 #  include "calculator_core.h"
+#  include "expr_editor.h"
 #  include "ui_prgm.h"
 #  include "graph.h"
 #endif
@@ -500,7 +501,7 @@ static void cmd_input(const char *line, uint16_t ln)
     char prompt[4];
     snprintf(prompt, sizeof(prompt), "?");
     if (s_out) s_out->disp_text(prompt, "");
-    ExprBuffer_Clear(Calc_GetExpr());
+    ExprEditor_Clear();
     prgm_waiting_input = true;
     if (s_out) s_out->input_ready();
 }
@@ -856,7 +857,7 @@ void prgm_run_start(uint8_t idx)
     prgm_run_active    = false;
     prgm_waiting_input = false;
     prgm_input_var     = 0;
-    ExprBuffer_Clear(Calc_GetExpr());
+    ExprEditor_Clear();
     prgm_parse_from_store(idx);
     prgm_run_num_lines = Prgm_GetNumLines();
     Calc_SetMode(MODE_PRGM_RUNNING);

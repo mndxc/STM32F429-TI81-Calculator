@@ -24,6 +24,7 @@
 #  include "ui_mode.h"
 #  include "ui_input.h"
 #  include "calculator_core_test_stubs.h"
+#  include "expr_editor.h"
 #  include "calculator_core.h"
 #  include "calc_mode_topology.h"
 #else
@@ -58,6 +59,7 @@
 #  include "ui_graph_zoom.h"
 #  include "ui_palette.h"
 #  include "expr_util.h"
+#  include "expr_editor.h"
 #  include "cmsis_os.h"
 #  include "lvgl.h"
 #  include "main.h"
@@ -114,52 +116,41 @@ extern const uint32_t TI81_LookupTable_Size;
 static lv_obj_t *disp_rows[DISP_ROW_COUNT]; /* Full-width text rows (Montserrat 24) */
 
 /* Cursor blink state */
-#ifdef HOST_TEST
-bool        cursor_visible = true;
-#else
-static bool cursor_visible = true;
-#endif
-static lv_timer_t *cursor_timer   = NULL;
-static lv_obj_t   *cursor_box     = NULL;  /* Filled-block cursor rectangle */
-static lv_obj_t   *cursor_inner   = NULL;  /* Character label inside cursor_box */
+static lv_timer_t *cursor_timer = NULL;
+/* cursor_box / cursor_inner / cursor_visible moved to expr_editor.c */
 
 /* Styles */
 static lv_style_t style_bg;
 
 /* Calculator state */
+/* expr / sto_pending / cursor_visible moved to expr_editor.c */
 #ifdef HOST_TEST
-ExprBuffer_t expr;   /* .buf = expression string, .len = byte length, .cursor = insertion point */
-bool         insert_mode = false; /* false=overwrite (default), true=insert */
+bool insert_mode = false; /* false=overwrite (default), true=insert */
 #else
-static ExprBuffer_t expr;   /* .buf = expression string, .len = byte length, .cursor = insertion point */
-static bool         insert_mode = false; /* false=overwrite (default), true=insert */
+static bool insert_mode = false; /* false=overwrite (default), true=insert */
 #endif
-static uint8_t      expr_chars_per_row = 22; /* Chars that fit on one display row; set at init */
+static uint8_t expr_chars_per_row = 22; /* Chars that fit on one display row; set at init */
 #ifdef HOST_TEST
 /* In test builds, current_mode and return_mode remain non-static so test code
  * can observe and set them directly via the extern declarations in the stubs header. */
 CalcMode_t   current_mode = MODE_NORMAL;
 CalcMode_t   return_mode  = MODE_NORMAL;
 #else
-static CalcMode_t   current_mode           = MODE_NORMAL;
-static CalcMode_t   return_mode            = MODE_NORMAL;
+static CalcMode_t   current_mode = MODE_NORMAL;
+static CalcMode_t   return_mode  = MODE_NORMAL;
 #endif
-bool         angle_degrees          = true;
+bool         angle_degrees = true;
 
 #ifdef HOST_TEST
 /* In test builds, ans and ans_is_matrix remain non-static so test code can
  * observe and set them directly via the extern declarations in the stubs header. */
-float ans          = 0.0f;
+float ans           = 0.0f;
 bool  ans_is_matrix = false;
 #else
-static float ans          = 0.0f;
+static float ans           = 0.0f;
 static bool  ans_is_matrix = false; /* true when ans holds a matrix slot index */
 #endif
-#ifdef HOST_TEST
-bool                sto_pending    = false;  /* True after STO — next alpha stores ans */
-#else
-static bool         sto_pending    = false;  /* True after STO — next alpha stores ans */
-#endif
+/* sto_pending moved to expr_editor.c */
 
 /* History ring buffer state is now private to calc_history.c.
  * Use CalcHistory_* accessors (declared in calc_history.h, included above). */
@@ -206,8 +197,8 @@ CalcMode_t  Calc_GetMode(void)                  { return current_mode; }
 CalcMode_t  Calc_GetReturnMode(void)            { return return_mode; }
 bool        Calc_GetAngleDegrees(void)          { return angle_degrees; }
 void        Calc_SetAngleDegrees(bool degrees)  { angle_degrees = degrees; }
-const char *Calc_GetExprBuf(void)               { return expr.buf; }
-void        Calc_ResetInputState(void)          { sto_pending = false; ExprBuffer_Clear(&expr); }
+const char *Calc_GetExprBuf(void)      { return ExprEditor_GetBuf(); }
+void        Calc_ResetInputState(void) { ExprEditor_Reset(); }
 
 /*---------------------------------------------------------------------------
  * Expression editor state getter/setter API (declared in calculator_core.h)
@@ -215,11 +206,8 @@ void        Calc_ResetInputState(void)          { sto_pending = false; ExprBuffe
 
 bool          Calc_GetInsertMode(void)      { return insert_mode; }
 void          Calc_SetInsertMode(bool v)    { insert_mode = v; }
-bool          Calc_GetCursorVisible(void)   { return cursor_visible; }
-void          Calc_SetCursorVisible(bool v) { cursor_visible = v; }
-bool          Calc_GetStoPending(void)      { return sto_pending; }
-void          Calc_SetStoPending(bool v)    { sto_pending = v; }
-ExprBuffer_t *Calc_GetExpr(void)            { return &expr; }
+bool          Calc_GetCursorVisible(void)   { return ExprEditor_GetCursorVisible(); }
+void          Calc_SetCursorVisible(bool v) { ExprEditor_SetCursorVisible(v); }
 
 /*---------------------------------------------------------------------------
  * Forward declarations for helpers defined later in this file
@@ -312,7 +300,7 @@ static void ui_init_screen(void)
     }
 
     /* Cursor block — filled rectangle that overlays the insertion point. */
-    cursor_box_create(scr, false, &cursor_box, &cursor_inner);
+    ExprEditor_Init(scr);
 
     /* Measure how many monospaced characters fit on one display row. */
     uint16_t glyph_w = lv_font_get_glyph_width(&jetbrains_mono_24, 'X', 0);
@@ -421,19 +409,6 @@ void cursor_render(lv_obj_t *box, lv_obj_t *inner,
     lv_obj_clear_flag(box, LV_OBJ_FLAG_HIDDEN);
 }
 
-
-/**
- * @brief Positions the main calculator screen block cursor.
- *
- * @param row_label  The LVGL label containing the current expression.
- * @param char_pos   Character index at which to place the cursor.
- */
-static void cursor_update(lv_obj_t *row_label, uint32_t char_pos)
-{
-    CalcMode_t display_mode = sto_pending ? MODE_STO : current_mode;
-    cursor_render(cursor_box, cursor_inner, row_label, char_pos,
-                  cursor_visible, display_mode, insert_mode);
-}
 
 /**
  * @brief Redraws all DISP_ROW_COUNT display rows from the history buffer
@@ -641,7 +616,8 @@ void ui_refresh_display(void)
     if (disp_rows[0] == NULL) return;
 
     int cpr = (int)expr_chars_per_row;
-    int expr_rows = (expr.len == 0) ? 1 : (expr.len + cpr - 1) / cpr;
+    int expr_len = ExprEditor_GetLen();
+    int expr_rows = (expr_len == 0) ? 1 : (expr_len + cpr - 1) / cpr;
 
     /* Number of history entries visible (circular buffer cap) */
     int cnt = (int)CalcHistory_GetCount();
@@ -665,8 +641,9 @@ void ui_refresh_display(void)
     int start = (total > DISP_ROW_COUNT) ? (total - DISP_ROW_COUNT) : 0;
 
     /* Which expression sub-row holds the cursor, and column within that row */
-    int cursor_expr_row = (int)expr.cursor / cpr;
-    int cursor_col      = (int)expr.cursor % cpr;
+    int expr_cursor     = ExprEditor_GetCursor();
+    int cursor_expr_row = expr_cursor / cpr;
+    int cursor_col      = expr_cursor % cpr;
 
     /* Build a flat map of the DISP_ROW_COUNT visible logical lines in one
        forward pass — eliminates the per-row inner walk in the original.
@@ -744,23 +721,24 @@ void ui_refresh_display(void)
             /* Current expression sub-row */
             int char_start = sub_row * cpr;
             int char_end   = char_start + cpr;
-            if (char_end > (int)expr.len) char_end = (int)expr.len;
+            if (char_end > expr_len) char_end = expr_len;
             int seg_len = char_end - char_start;
             if (seg_len < 0) seg_len = 0;
             char row_buf[MAX_EXPR_LEN + 1];
-            memcpy(row_buf, &expr.buf[char_start], (size_t)seg_len);
+            memcpy(row_buf, ExprEditor_GetBuf() + char_start, (size_t)seg_len);
             row_buf[seg_len] = '\0';
             lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_GREY_LIGHT), 0);
             lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
             lv_label_set_text(disp_rows[row], row_buf);
             if (sub_row == cursor_expr_row)
-                cursor_update(disp_rows[row], (uint32_t)cursor_col);
+                ExprEditor_CursorUpdate(disp_rows[row], (uint32_t)cursor_col,
+                                        current_mode, insert_mode);
         }
     }
 
     /* If the cursor's sub-row scrolled off-screen, hide the cursor */
-    if (total_history_lines + cursor_expr_row < start && cursor_box != NULL)
-        lv_obj_add_flag(cursor_box, LV_OBJ_FLAG_HIDDEN);
+    if (total_history_lines + cursor_expr_row < start)
+        ExprEditor_CursorHide();
 }
 
 static void update_overlay_cursor(void)
@@ -791,7 +769,7 @@ static void update_overlay_cursor(void)
 static void cursor_timer_cb(lv_timer_t *timer)
 {
     (void)timer;
-    cursor_visible = !cursor_visible;
+    ExprEditor_SetCursorVisible(!ExprEditor_GetCursorVisible());
     ui_refresh_display();
     /* Blink the overlay-screen cursor based on visibility, not current_mode,
      * so it keeps blinking during transient modifier modes (MODE_2ND/ALPHA). */
@@ -806,7 +784,7 @@ static void cursor_timer_cb(lv_timer_t *timer)
  */
 void ui_update_status_bar(void)
 {
-    cursor_visible = true;
+    ExprEditor_SetCursorVisible(true);
     ui_refresh_display();
     update_overlay_cursor();
 }
@@ -1067,10 +1045,7 @@ static void history_load_offset(uint8_t offset)
 {
     uint8_t idx = (uint8_t)((CalcHistory_GetCount() - offset) % HISTORY_LINE_COUNT);
     const HistoryEntry_t *e = CalcHistory_GetEntry(idx);
-    strncpy(expr.buf, e->expression, MAX_EXPR_LEN - 1);
-    expr.buf[MAX_EXPR_LEN - 1] = '\0';
-    expr.len    = (uint8_t)strlen(expr.buf);
-    expr.cursor = expr.len;
+    ExprEditor_LoadStr(e->expression);
     Update_Calculator_Display();
 }
 
@@ -1081,11 +1056,12 @@ static void history_load_offset(uint8_t offset)
  * Called only when expr_len > 0. */
 static void history_enter_evaluate(void)
 {
+    const char *ebuf = ExprEditor_GetBuf();
     /* prgmNAME expression: insert into history and run the program */
-    if (strncmp(expr.buf, "prgm", 4) == 0) {
-        int8_t slot = prgm_lookup_slot(expr.buf + 4);
-        CalcHistory_Commit(expr.buf, "", false, 0, 0, 0);
-        ExprBuffer_Clear(&expr);
+    if (strncmp(ebuf, "prgm", 4) == 0) {
+        int8_t slot = prgm_lookup_slot(ebuf + 4);
+        CalcHistory_Commit(ebuf, "", false, 0, 0, 0);
+        ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
         Update_Calculator_Display();
         if (slot >= 0)
@@ -1095,8 +1071,8 @@ static void history_enter_evaluate(void)
 #ifndef HOST_TEST
     /* DRAW commands execute as statements — display "Done", skip Calc_Evaluate */
     if (try_execute_draw_command()) {
-        CalcHistory_Commit(expr.buf, "Done", false, 0, 0, 0);
-        ExprBuffer_Clear(&expr);
+        CalcHistory_Commit(ebuf, "Done", false, 0, 0, 0);
+        ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
         lvgl_lock();
         CalcHistory_UpdateDisplay();
@@ -1105,27 +1081,27 @@ static void history_enter_evaluate(void)
         return;
     }
 #endif /* HOST_TEST */
-    CalcResult_t result = Calc_Evaluate(expr.buf, ans, ans_is_matrix, angle_degrees);
+    CalcResult_t result = Calc_Evaluate(ebuf, ans, ans_is_matrix, angle_degrees);
     if (result.error != CALC_OK) {
 #ifndef HOST_TEST
         /* Show TI-81 error overlay — expression is preserved in ui_error module state */
-        Error_Open(result.error, expr.buf, result.error_offset, true);
-        ExprBuffer_Clear(&expr);
+        Error_Open(result.error, ebuf, result.error_offset, true);
+        ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
 #else
         /* Host-test build: commit error to history for testability */
         char result_str[MAX_RESULT_LEN];
         format_calc_result(&result, result_str, MAX_RESULT_LEN);
-        commit_history_entry(expr.buf, result_str, &result);
-        ExprBuffer_Clear(&expr);
+        commit_history_entry(ebuf, result_str, &result);
+        ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
 #endif
         return;
     }
     char result_str[MAX_RESULT_LEN];
     format_calc_result(&result, result_str, MAX_RESULT_LEN);
-    commit_history_entry(expr.buf, result_str, &result);
-    ExprBuffer_Clear(&expr);
+    commit_history_entry(ebuf, result_str, &result);
+    ExprEditor_Clear();
     CalcHistory_ResetRecallOffset();
 }
 
@@ -1136,15 +1112,15 @@ void handle_history_nav(Token_t t)
     case TOKEN_LEFT:
         {
             int8_t focus = CalcHistory_GetMatrixScrollFocus();
-            if (expr.len == 0 && focus >= 0 &&
+            if (ExprEditor_GetLen() == 0 && focus >= 0 &&
                 history_get_matrix(CalcHistory_GetEntry((uint8_t)focus)) != NULL) {
                 uint8_t off = CalcHistory_GetMatrixScrollOffset();
                 if (off > 0) {
                     CalcHistory_SetMatrixScrollOffset(off - 1);
                     Update_Calculator_Display();
                 }
-            } else if (expr.cursor > 0) {
-                ExprBuffer_Left(&expr);
+            } else if (ExprEditor_GetCursor() > 0) {
+                ExprEditor_Left();
                 Update_Calculator_Display();
             }
         }
@@ -1153,7 +1129,7 @@ void handle_history_nav(Token_t t)
     case TOKEN_RIGHT:
         {
             int8_t focus = CalcHistory_GetMatrixScrollFocus();
-            if (expr.len == 0 && focus >= 0) {
+            if (ExprEditor_GetLen() == 0 && focus >= 0) {
                 const CalcMatrix_t *m =
                     history_get_matrix(CalcHistory_GetEntry((uint8_t)focus));
                 if (m != NULL) {
@@ -1166,8 +1142,8 @@ void handle_history_nav(Token_t t)
                         Update_Calculator_Display();
                     }
                 }
-            } else if (expr.cursor < expr.len) {
-                ExprBuffer_Right(&expr);
+            } else if (ExprEditor_GetCursor() < ExprEditor_GetLen()) {
+                ExprEditor_Right();
                 Update_Calculator_Display();
             }
         }
@@ -1176,7 +1152,7 @@ void handle_history_nav(Token_t t)
     case TOKEN_UP:
         {
             int8_t recall = CalcHistory_GetRecallOffset();
-            if ((expr.len == 0 || recall > 0) &&
+            if ((ExprEditor_GetLen() == 0 || recall > 0) &&
                 recall < (int8_t)CalcHistory_GetCount() &&
                 recall < (int8_t)HISTORY_LINE_COUNT) {
                 CalcHistory_RecallUp();
@@ -1192,7 +1168,7 @@ void handle_history_nav(Token_t t)
                 CalcHistory_RecallDown();
                 recall = CalcHistory_GetRecallOffset();
                 if (recall == 0) {
-                    ExprBuffer_Clear(&expr);
+                    ExprEditor_Clear();
                     Update_Calculator_Display();
                 } else {
                     history_load_offset((uint8_t)recall);
@@ -1202,7 +1178,7 @@ void handle_history_nav(Token_t t)
         break;
 
     case TOKEN_ENTER:
-        if (expr.len == 0 && CalcHistory_GetCount() > 0) {
+        if (ExprEditor_GetLen() == 0 && CalcHistory_GetCount() > 0) {
             /* Re-evaluate the last history entry */
             uint8_t last_idx = (CalcHistory_GetCount() - 1u) % HISTORY_LINE_COUNT;
             const HistoryEntry_t *last = CalcHistory_GetEntry(last_idx);
@@ -1212,7 +1188,7 @@ void handle_history_nav(Token_t t)
             format_calc_result(&result, result_str, MAX_RESULT_LEN);
             commit_history_entry(last->expression, result_str, &result);
             CalcHistory_ResetRecallOffset();
-        } else if (expr.len > 0) {
+        } else if (ExprEditor_GetLen() > 0) {
             history_enter_evaluate();
         }
         break;
@@ -1280,8 +1256,8 @@ static bool route_token_on(Token_t t)
     Prgm_Save();
 
     Calc_SetMode(MODE_NORMAL);
-    return_mode  = MODE_NORMAL;
-    sto_pending  = false;
+    return_mode = MODE_NORMAL;
+    ExprEditor_SetStoPending(false);
     prgm_reset_execution_state();
     lvgl_lock();
     lv_obj_del(saving_lbl);
@@ -1299,8 +1275,8 @@ static bool route_token_quit(Token_t t)
 {
     (void)t;
     Calc_SetMode(MODE_NORMAL);
-    return_mode  = MODE_NORMAL;
-    sto_pending  = false;
+    return_mode = MODE_NORMAL;
+    ExprEditor_SetStoPending(false);
     prgm_reset_execution_state();
     lvgl_lock();
     hide_all_screens();
@@ -1365,7 +1341,7 @@ static bool pred_graph_mode(Token_t t) {
            current_mode == MODE_GRAPH_PARAM_YEQ;
 }
 
-static bool pred_sto_pending(Token_t t) { (void)t; return sto_pending; }
+static bool pred_sto_pending(Token_t t) { (void)t; return ExprEditor_GetStoPending(); }
 static bool pred_always     (Token_t t) { (void)t; return true; }
 
 /*---------------------------------------------------------------------------
@@ -1479,7 +1455,7 @@ void Process_Hardware_Key(uint8_t key_id)
             return;
         }
         token_to_send = key.alpha;  /* stay locked — do not restore mode */
-    } else if (sto_pending) {
+    } else if (ExprEditor_GetStoPending()) {
         /* STO implicitly uses the alpha layer for the destination key */
         token_to_send = key.alpha;
     } else {
@@ -1657,9 +1633,9 @@ bool calc_mode_topology_validate(void)
     /* Save and reset state so predicates see a clean baseline */
     CalcMode_t saved_mode = current_mode;
     CalcMode_t saved_ret  = return_mode;
-    bool       saved_sto  = sto_pending;
+    bool       saved_sto  = ExprEditor_GetStoPending();
     return_mode = MODE_NORMAL;
-    sto_pending = false;
+    ExprEditor_SetStoPending(false);
 
     bool ok = true;
 
@@ -1708,7 +1684,7 @@ bool calc_mode_topology_validate(void)
 
     current_mode = saved_mode;
     return_mode  = saved_ret;
-    sto_pending  = saved_sto;
+    ExprEditor_SetStoPending(saved_sto);
     return ok;
 }
 #endif /* HOST_TEST */

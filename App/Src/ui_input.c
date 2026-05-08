@@ -23,10 +23,12 @@
 #  include "prgm_exec.h"
 #  include "ui_input.h"
 #  include "calculator_core_test_stubs.h"
+#  include "expr_editor.h"
 #  include "calculator_core.h"
 #else
 #  include "ui_shared.h"
 #  include "calculator_core.h"
+#  include "expr_editor.h"
 #  include "calc_history.h"
 #  include "calc_engine.h"
 #  include "ui_mode.h"
@@ -58,8 +60,7 @@ static void handle_normal_graph_nav(Token_t t);
 
 static void expr_prepend_ans_if_empty(void)
 {
-    ExprBuffer_t *e = Calc_GetExpr();
-    ExprUtil_PrependAns(e->buf, &e->len, &e->cursor, MAX_EXPR_LEN);
+    ExprEditor_PrependAns();
 }
 
 /**
@@ -71,25 +72,25 @@ static void expr_prepend_ans_if_empty(void)
  */
 static void expr_insert_char(char c)
 {
-    ExprBuffer_t *e = Calc_GetExpr();
-    ExprUtil_InsertChar(e->buf, &e->len, &e->cursor, MAX_EXPR_LEN, Calc_GetInsertMode(), c);
+    ExprEditor_InsertChar(c, Calc_GetInsertMode());
 }
 
 /**
  * @brief Inserts a string at cursor and advances the cursor by its length.
+ *        Thin wrapper kept for callers in calculator_core.c and other UI files.
  */
 void expr_insert_str(const char *s)
 {
-    ExprBuffer_t *e = Calc_GetExpr();
-    ExprUtil_InsertStr(e->buf, &e->len, &e->cursor, MAX_EXPR_LEN, s);
+    ExprEditor_Insert(s);
 }
 
 /**
  * @brief Deletes the character immediately before cursor (backspace).
+ *        Thin wrapper kept for callers in ui_prgm.c and prgm_editor.c.
  */
 void expr_delete_at_cursor(void)
 {
-    ExprBuffer_Delete(Calc_GetExpr());
+    ExprEditor_Delete();
 }
 
 /*---------------------------------------------------------------------------
@@ -183,17 +184,17 @@ static void handle_clear_key(void)
         lvgl_unlock();
         return;
     }
-    ExprBuffer_Clear(Calc_GetExpr());
+    ExprEditor_Clear();
     Update_Calculator_Display();
 }
 
 static void handle_sto_key(void)
 {
-    if (Calc_GetExpr()->len == 0) {
+    if (ExprEditor_GetLen() == 0) {
         expr_prepend_ans_if_empty();
         Update_Calculator_Display();
     }
-    Calc_SetStoPending(true);
+    ExprEditor_SetStoPending(true);
     lvgl_lock();
     ui_update_status_bar();
     lvgl_unlock();

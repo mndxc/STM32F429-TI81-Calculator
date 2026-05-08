@@ -20,6 +20,7 @@
 #include "ui_palette.h"
 #include "ui_shared.h"
 #include "calculator_core.h"
+#include "expr_editor.h"
 #include "calc_history.h"
 #include "expr_util.h"
 #include "ui_input.h"
@@ -375,11 +376,10 @@ static void enter_exec_tab(int abs_pos)
     char slot_id[3];
     prgm_slot_id_str((uint8_t)abs_pos, slot_id);
     const char *uname = Prgm_GetName((uint8_t)abs_pos);
-    ExprBuffer_t *e = Calc_GetExpr();
-    snprintf(e->buf, MAX_EXPR_LEN, "prgm%s",
+    char tmp[MAX_EXPR_LEN];
+    snprintf(tmp, MAX_EXPR_LEN, "prgm%s",
              uname[0] != '\0' ? uname : slot_id);
-    e->len    = (uint8_t)strlen(e->buf);
-    e->cursor = e->len;
+    ExprEditor_LoadStr(tmp);
     CalcMode_t exec_ret = prgm_return_mode;
     prgm_return_mode   = MODE_NORMAL;
     prgm_tab           = 0;
@@ -781,7 +781,7 @@ static void prgm_graph_resume(float x, float y)
 static void prgm_graph_abort(void)
 {
     prgm_reset_execution_state();
-    ExprBuffer_Clear(Calc_GetExpr());
+    ExprEditor_Clear();
     Calc_SetMode(MODE_NORMAL);
     lvgl_lock();
     hide_all_screens();
@@ -899,12 +899,12 @@ CalcMode_t prgm_menu_close(void) {
 bool handle_prgm_running(Token_t t)
 {
     if (prgm_is_waiting_input()) {
-        ExprBuffer_t *e = Calc_GetExpr();
         if (t == TOKEN_ENTER) {
             char input_var = prgm_get_input_var();
             if (input_var != 0) {
                 /* Evaluate and store to the target variable */
-                CalcResult_t r = Calc_Evaluate(e->buf, Calc_GetAns(),
+                const char *ebuf = ExprEditor_GetBuf();
+                CalcResult_t r = Calc_Evaluate(ebuf, Calc_GetAns(),
                                                Calc_GetAnsIsMatrix(), Calc_GetAngleDegrees());
                 char res_buf[MAX_RESULT_LEN];
                 format_calc_result(&r, res_buf, MAX_RESULT_LEN);
@@ -913,9 +913,9 @@ bool handle_prgm_running(Token_t t)
                     /* ans already updated by format_calc_result */
                 }
                 /* Append expression + result to history */
-                CalcHistory_Commit(e->buf, res_buf, false, 0, 0, 0);
+                CalcHistory_Commit(ebuf, res_buf, false, 0, 0, 0);
             }
-            ExprBuffer_Clear(e);
+            ExprEditor_Clear();
             prgm_clear_input_wait();
             lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
             prgm_run_loop();  /* resume execution */
@@ -927,8 +927,8 @@ bool handle_prgm_running(Token_t t)
             return true;
         }
         if (t == TOKEN_CLEAR) {
-            if (e->len > 0) {
-                ExprBuffer_Clear(e);
+            if (ExprEditor_GetLen() > 0) {
+                ExprEditor_Clear();
                 Update_Calculator_Display();
             } else {
                 /* Abort on CLEAR with empty expression */
@@ -964,7 +964,7 @@ bool handle_prgm_running(Token_t t)
     /* Not waiting for input — abort on CLEAR, consume everything else */
     if (t == TOKEN_CLEAR) {
         prgm_reset_execution_state();
-        ExprBuffer_Clear(Calc_GetExpr());
+        ExprEditor_Clear();
         Calc_SetMode(MODE_NORMAL);
         lvgl_lock(); ui_refresh_display(); lvgl_unlock();
         return true;

@@ -220,7 +220,7 @@ in `test_normal_mode.c`).
 
 ---
 
-## 4. ExprEditor module — extract the expression display state machine
+## 4. ExprEditor module — extract the expression display state machine ✓ COMPLETE (2026-05-07)
 
 **Effort:** High — 6–10 hours  
 **Risk:** Medium-High — touches the hot input path; the `sto_pending` STO synthesis

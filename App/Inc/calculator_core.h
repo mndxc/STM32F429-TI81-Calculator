@@ -14,8 +14,8 @@
 #define CALCULATOR_CORE_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include "app_common.h"  /* CalcMode_t */
-#include "expr_util.h"   /* ExprBuffer_t */
 #include "calc_engine.h" /* CalcResult_t — needed for format_calc_result */
 
 /*
@@ -67,21 +67,17 @@ const char *Calc_GetExprBuf(void);
 void Calc_ResetInputState(void);
 
 /*
- * Expression editor state getter/setter API.
+ * Input-mode state getter/setter API.
  *
- * Rules:
- *   - Calc_GetExpr() returns a pointer to the live buffer; callers may mutate
- *     through it.  Do not cache the pointer across a Calc_ResetInputState() call.
- *   - All modules outside calculator_core.c must use these accessors — never
- *     access insert_mode, cursor_visible, sto_pending, or expr directly.
+ * insert_mode and cursor_visible are shared across all overlay cursor editors
+ * (Y=, RANGE, MATRIX, PRGM, etc.) and remain in calculator_core.c.
+ * The expression buffer, sto_pending flag, and main-screen cursor objects
+ * have moved to expr_editor.c — use ExprEditor_* (from expr_editor.h) directly.
  */
-bool          Calc_GetInsertMode(void);
-void          Calc_SetInsertMode(bool v);
-bool          Calc_GetCursorVisible(void);
-void          Calc_SetCursorVisible(bool v);
-bool          Calc_GetStoPending(void);
-void          Calc_SetStoPending(bool v);
-ExprBuffer_t *Calc_GetExpr(void);
+bool Calc_GetInsertMode(void);
+void Calc_SetInsertMode(bool v);
+bool Calc_GetCursorVisible(void);
+void Calc_SetCursorVisible(bool v);
 
 /*
  * Result formatting — formats a CalcResult_t for display and updates ANS.
