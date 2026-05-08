@@ -17,6 +17,7 @@
 #else
 #  include "calc_history.h"
 #  include "calculator_core.h"
+#  include "ui_prgm.h"
 #  include "graph.h"
 #endif
 #include "calc_engine.h"
