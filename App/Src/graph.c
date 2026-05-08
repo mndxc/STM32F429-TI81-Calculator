@@ -4,6 +4,7 @@
  */
 #include "graph.h"
 /* Note: app_common.h is included transitively via graph.h */
+#include "graph_coord.h"
 #include "graph_draw.h"
 #include "ui_palette.h"
 #include "calc_engine.h"
@@ -179,45 +180,6 @@ static bool            param_postfix_valid[GRAPH_NUM_PARAM];
  *--------------------------------------------------------------------------*/
 
 
-
-/**
- * @brief Maps a math y coordinate to a canvas pixel row.
- *        Note: pixel y increases downward, math y increases upward.
- */
-static int32_t math_y_to_px(float y)
-{
-    float range = graph_state.y_max - graph_state.y_min;
-    if (fabsf(range) < 1e-9f) return 0;
-    return (int32_t)((graph_state.y_max - y) / range * (GRAPH_H - 1));
-}
-
-static int32_t math_x_to_px(float x)
-{
-    float range = graph_state.x_max - graph_state.x_min;
-    if (fabsf(range) < 1e-9f) return 0;
-    return (int32_t)((x - graph_state.x_min) / range * (GRAPH_W - 1));
-}
-
-/**
- * @brief Maps a canvas pixel column to a math x coordinate (inverse of math_x_to_px).
- */
-static float px_to_math_x(int32_t px)
-{
-    return graph_state.x_min +
-           (float)px / (float)(GRAPH_W - 1) *
-           (graph_state.x_max - graph_state.x_min);
-}
-
-/**
- * @brief Maps a canvas pixel row to a math y coordinate (inverse of math_y_to_px).
- */
-static float px_to_math_y(int32_t py)
-{
-    return graph_state.y_max -
-           (float)py / (float)(GRAPH_H - 1) *
-           (graph_state.y_max - graph_state.y_min);
-}
-
 /**
  * @brief Draws the X and Y axes if they fall within the current window.
  */
@@ -227,14 +189,14 @@ static void draw_axes(void)
 
     /* Y axis — vertical line at x=0 */
     if (graph_state.x_min <= 0.0f && graph_state.x_max >= 0.0f) {
-        int32_t px = math_x_to_px(0.0f);
+        int32_t px = graph_coord_math_x_to_px(&graph_state,0.0f);
         for (int32_t y = 0; y < GRAPH_H; y++)
             graph_buf[y * GRAPH_W + px] = axis_px;
     }
 
     /* X axis — horizontal line at y=0 */
     if (graph_state.y_min <= 0.0f && graph_state.y_max >= 0.0f) {
-        int32_t py = math_y_to_px(0.0f);
+        int32_t py = graph_coord_math_y_to_px(&graph_state,0.0f);
         for (int32_t x = 0; x < GRAPH_W; x++)
             graph_buf[py * GRAPH_W + x] = axis_px;
     }
@@ -254,10 +216,10 @@ static void draw_grid(void)
     float gy_start = ceilf(graph_state.y_min / graph_state.y_scl) * graph_state.y_scl;
 
     for (float gy = gy_start; gy <= graph_state.y_max + 1e-6f; gy += graph_state.y_scl) {
-        int32_t py = math_y_to_px(gy);
+        int32_t py = graph_coord_math_y_to_px(&graph_state,gy);
         if (py < 0 || py >= GRAPH_H) continue;
         for (float gx = gx_start; gx <= graph_state.x_max + 1e-6f; gx += graph_state.x_scl) {
-            int32_t px = math_x_to_px(gx);
+            int32_t px = graph_coord_math_x_to_px(&graph_state,gx);
             if (px < 0 || px >= GRAPH_W) continue;
             graph_buf[py * GRAPH_W + px] = grid_px;
         }
@@ -274,9 +236,9 @@ static void draw_ticks(void)
 
     /* X axis ticks */
     if (graph_state.x_scl > 0.0f && graph_state.y_min <= 0.0f && graph_state.y_max >= 0.0f) {
-        int32_t py = math_y_to_px(0.0f);
+        int32_t py = graph_coord_math_y_to_px(&graph_state,0.0f);
         for (float x = 0.0f; x <= graph_state.x_max; x += graph_state.x_scl) {
-            int32_t px = math_x_to_px(x);
+            int32_t px = graph_coord_math_x_to_px(&graph_state,x);
             if (px < 0 || px >= GRAPH_W) continue;
             for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++) {
                 int32_t ty = py + t;
@@ -285,7 +247,7 @@ static void draw_ticks(void)
             }
         }
         for (float x = 0.0f; x >= graph_state.x_min; x -= graph_state.x_scl) {
-            int32_t px = math_x_to_px(x);
+            int32_t px = graph_coord_math_x_to_px(&graph_state,x);
             if (px < 0 || px >= GRAPH_W) continue;
             for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++) {
                 int32_t ty = py + t;
@@ -297,9 +259,9 @@ static void draw_ticks(void)
 
     /* Y axis ticks */
     if (graph_state.y_scl > 0.0f && graph_state.x_min <= 0.0f && graph_state.x_max >= 0.0f) {
-        int32_t px = math_x_to_px(0.0f);
+        int32_t px = graph_coord_math_x_to_px(&graph_state,0.0f);
         for (float y = 0.0f; y <= graph_state.y_max; y += graph_state.y_scl) {
-            int32_t py = math_y_to_px(y);
+            int32_t py = graph_coord_math_y_to_px(&graph_state,y);
             if (py < 0 || py >= GRAPH_H) continue;
             for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++) {
                 int32_t tx = px + t;
@@ -308,7 +270,7 @@ static void draw_ticks(void)
             }
         }
         for (float y = 0.0f; y >= graph_state.y_min; y -= graph_state.y_scl) {
-            int32_t py = math_y_to_px(y);
+            int32_t py = graph_coord_math_y_to_px(&graph_state,y);
             if (py < 0 || py >= GRAPH_H) continue;
             for (int32_t t = -TICK_LEN; t <= TICK_LEN; t++) {
                 int32_t tx = px + t;
@@ -501,7 +463,7 @@ void Graph_Render(void)
                     continue;
                 }
 
-                int32_t py = math_y_to_px(r.value);
+                int32_t py = graph_coord_math_y_to_px(&graph_state,r.value);
 
                 if (py < 0 || py >= GRAPH_H) {
                     prev_valid = false;
@@ -578,7 +540,7 @@ void Graph_Render(void)
                     continue;
                 }
 
-                int32_t py = math_y_to_px(r.value);
+                int32_t py = graph_coord_math_y_to_px(&graph_state,r.value);
 
                 if (py < 0 || py >= GRAPH_H) {
                     prev_valid[eq] = false;
@@ -703,8 +665,8 @@ void Graph_RenderParametric(void)
                     continue;
                 }
 
-                int32_t px = math_x_to_px(rx.value);
-                int32_t py = math_y_to_px(ry.value);
+                int32_t px = graph_coord_math_x_to_px(&graph_state,rx.value);
+                int32_t py = graph_coord_math_y_to_px(&graph_state,ry.value);
 
                 if (px < 0 || px >= GRAPH_W || py < 0 || py >= GRAPH_H) {
                     prev_valid = false;
@@ -793,8 +755,8 @@ void Graph_RenderParametric(void)
                     continue;
                 }
 
-                int32_t px = math_x_to_px(rx.value);
-                int32_t py = math_y_to_px(ry.value);
+                int32_t px = graph_coord_math_x_to_px(&graph_state,rx.value);
+                int32_t py = graph_coord_math_y_to_px(&graph_state,ry.value);
 
                 if (px < 0 || px >= GRAPH_W || py < 0 || py >= GRAPH_H) {
                     prev_valid[p] = false;
@@ -916,8 +878,8 @@ static void graph_draw_trace_param(float t, uint8_t pair)
         lv_label_set_text(graph_lbl_y, label_buf);
     }
 
-    int32_t px = math_x_to_px(rx.value);
-    int32_t py = math_y_to_px(ry.value);
+    int32_t px = graph_coord_math_x_to_px(&graph_state,rx.value);
+    int32_t py = graph_coord_math_y_to_px(&graph_state,ry.value);
 
     draw_crosshair_px(px, py, lv_color_hex(0x00FF00));
 }
@@ -966,8 +928,8 @@ static void graph_draw_trace_func(float x, uint8_t eq_idx)
         lv_label_set_text(graph_lbl_y, label_buf);
     }
 
-    int32_t px = math_x_to_px(x);
-    int32_t py = math_y_to_px(r.value);
+    int32_t px = graph_coord_math_x_to_px(&graph_state,x);
+    int32_t py = graph_coord_math_y_to_px(&graph_state,r.value);
     draw_crosshair_px(px, py, lv_color_hex(0x00FF00));
 }
 
@@ -1014,8 +976,8 @@ void Graph_DrawFreeCursor(float x, float y)
     snprintf(lbl_buf, sizeof(lbl_buf), "Y=%s", coord_buf);
     lv_label_set_text(graph_lbl_y, lbl_buf);
 
-    int32_t px = math_x_to_px(x);
-    int32_t py = math_y_to_px(y);
+    int32_t px = graph_coord_math_x_to_px(&graph_state,x);
+    int32_t py = graph_coord_math_y_to_px(&graph_state,y);
     draw_crosshair_px(px, py, lv_color_hex(COLOR_WHITE));
 }
 
@@ -1088,8 +1050,8 @@ void Graph_DrawZBox(int32_t px, int32_t py,
     lv_obj_invalidate(graph_canvas);
 
     /* Update coordinate readout — Rect (X/Y) or Polar (R/θ) per MODE row 8 */
-    float mx = px_to_math_x(px);
-    float my = px_to_math_y(py);
+    float mx = graph_coord_px_to_math_x(&graph_state,px);
+    float my = graph_coord_px_to_math_y(&graph_state,py);
     char x_buf[16], y_buf[16], label_buf[22];
 
     if (graph_state.polar_display) {
@@ -1216,8 +1178,8 @@ void Graph_DrawScatter(const StatData_t *d)
 
     uint16_t c = lv_color_to_u16(lv_color_hex(COLOR_CURVE_Y1));
     for (uint8_t i = 0; i < d->list_len; i++) {
-        int32_t px = math_x_to_px(d->list_x[i]);
-        int32_t py = math_y_to_px(d->list_y[i]);
+        int32_t px = graph_coord_math_x_to_px(&graph_state,d->list_x[i]);
+        int32_t py = graph_coord_math_y_to_px(&graph_state,d->list_y[i]);
         /* 3×3 cross */
         for (int32_t dx = -1; dx <= 1; dx++) {
             int32_t ex = px + dx;
@@ -1243,8 +1205,8 @@ void Graph_DrawXYLine(const StatData_t *d)
     uint16_t c16 = lv_color_to_u16(c);
     /* Draw scatter crosses */
     for (uint8_t i = 0; i < d->list_len; i++) {
-        int32_t px = math_x_to_px(d->list_x[i]);
-        int32_t py = math_y_to_px(d->list_y[i]);
+        int32_t px = graph_coord_math_x_to_px(&graph_state,d->list_x[i]);
+        int32_t py = graph_coord_math_y_to_px(&graph_state,d->list_y[i]);
         for (int32_t dx = -1; dx <= 1; dx++) {
             int32_t ex = px + dx;
             if (ex >= 0 && ex < GRAPH_W && py >= 0 && py < GRAPH_H)
@@ -1258,10 +1220,10 @@ void Graph_DrawXYLine(const StatData_t *d)
     }
     /* Connect consecutive points */
     for (uint8_t i = 1; i < d->list_len; i++) {
-        int32_t x0 = math_x_to_px(d->list_x[i - 1]);
-        int32_t y0 = math_y_to_px(d->list_y[i - 1]);
-        int32_t x1 = math_x_to_px(d->list_x[i]);
-        int32_t y1 = math_y_to_px(d->list_y[i]);
+        int32_t x0 = graph_coord_math_x_to_px(&graph_state,d->list_x[i - 1]);
+        int32_t y0 = graph_coord_math_y_to_px(&graph_state,d->list_y[i - 1]);
+        int32_t x1 = graph_coord_math_x_to_px(&graph_state,d->list_x[i]);
+        int32_t y1 = graph_coord_math_y_to_px(&graph_state,d->list_y[i]);
         draw_line_px(x0, y0, x1, y1, c);
     }
     lv_obj_invalidate(graph_canvas);
@@ -1295,7 +1257,7 @@ void Graph_DrawHistogram(const StatData_t *d)
         if (counts[b] > max_count) max_count = counts[b];
 
     uint16_t c = lv_color_to_u16(lv_color_hex(COLOR_CURVE_Y1));
-    int32_t baseline_py = math_y_to_px(graph_state.y_min);
+    int32_t baseline_py = graph_coord_math_y_to_px(&graph_state,graph_state.y_min);
     if (baseline_py < 0)          baseline_py = 0;
     if (baseline_py >= GRAPH_H)   baseline_py = GRAPH_H - 1;
 
@@ -1306,7 +1268,7 @@ void Graph_DrawHistogram(const StatData_t *d)
         if (counts[b] == 0) continue;
         float bar_top_y = graph_state.y_min +
             (float)counts[b] / (float)max_count * (graph_state.y_max - graph_state.y_min);
-        int32_t bar_top_py = math_y_to_px(bar_top_y);
+        int32_t bar_top_py = graph_coord_math_y_to_px(&graph_state,bar_top_y);
         if (bar_top_py < 0) bar_top_py = 0;
         if (bar_top_py > GRAPH_H - 1) bar_top_py = GRAPH_H - 1;
 
@@ -1337,7 +1299,7 @@ bool Graph_IsVisible(void)
 
 int32_t Graph_MathXToPx(float x)
 {
-    int32_t px = math_x_to_px(x);
+    int32_t px = graph_coord_math_x_to_px(&graph_state,x);
     if (px < 0) px = 0;
     if (px >= GRAPH_W) px = GRAPH_W - 1;
     return px;
@@ -1345,7 +1307,7 @@ int32_t Graph_MathXToPx(float x)
 
 int32_t Graph_MathYToPx(float y)
 {
-    int32_t py = math_y_to_px(y);
+    int32_t py = graph_coord_math_y_to_px(&graph_state,y);
     if (py < 0) py = 0;
     if (py >= GRAPH_H) py = GRAPH_H - 1;
     return py;

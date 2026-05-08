@@ -11,6 +11,7 @@
  */
 #include "graph_draw.h"
 #include "graph.h"          /* GRAPH_W, GRAPH_H, Graph_GetState() */
+#include "graph_coord.h"    /* graph_coord_* inline transforms */
 #include "calc_engine.h"    /* Calc_EvaluateAt, CalcResult_t, CALC_OK */
 #include "calculator_core.h"
 #include <math.h>
@@ -31,29 +32,6 @@ static uint16_t * const draw_buf = (uint16_t *)0xD0090800;
 static uint16_t draw_buf_storage[GRAPH_H * GRAPH_W];
 static uint16_t * const draw_buf = draw_buf_storage;
 #endif
-
-/*---------------------------------------------------------------------------
- * Private coordinate helpers
- * These mirror math_x_to_px / math_y_to_px / px_to_math_x in graph.c;
- * they read only from the global graph_state, so no coupling beyond that.
- *--------------------------------------------------------------------------*/
-
-
-static float draw_px_to_math_x(int32_t px)
-{
-    const GraphState_t *gs = Graph_GetState();
-    return gs->x_min +
-           (float)px / (float)(GRAPH_W - 1) *
-           (gs->x_max - gs->x_min);
-}
-
-static int32_t draw_math_y_to_px(float y)
-{
-    const GraphState_t *gs = Graph_GetState();
-    float range = gs->y_max - gs->y_min;
-    if (fabsf(range) < 1e-9f) return 0;
-    return (int32_t)((gs->y_max - y) / range * (GRAPH_H - 1));
-}
 
 /*---------------------------------------------------------------------------
  * Public API
@@ -99,10 +77,10 @@ void Graph_DrawF(const char *expr, uint16_t color)
 {
     bool angle_degrees = Calc_GetAngleDegrees();
     for (int32_t px = 0; px < GRAPH_W; px++) {
-        float x = draw_px_to_math_x(px);
+        float x = graph_coord_px_to_math_x(Graph_GetState(),px);
         CalcResult_t r = Calc_EvaluateAt(expr, x, 0.0f, angle_degrees);
         if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) continue;
-        int32_t py = draw_math_y_to_px(r.value);
+        int32_t py = graph_coord_math_y_to_px(Graph_GetState(),r.value);
         Graph_DrawLayerSetPixel(px, py, color);
     }
 }
@@ -128,7 +106,7 @@ void Graph_Shade(const char *lower_expr, const char *upper_expr,
     if (px_end >= GRAPH_W) px_end = GRAPH_W - 1;
 
     for (int32_t px = px_beg; px <= px_end; px++) {
-        float x = draw_px_to_math_x(px);
+        float x = graph_coord_px_to_math_x(Graph_GetState(),px);
         CalcResult_t r_lo = Calc_EvalGraphEquation(&lower_eq, x, angle_degrees);
         CalcResult_t r_hi = Calc_EvalGraphEquation(&upper_eq, x, angle_degrees);
 
@@ -136,16 +114,16 @@ void Graph_Shade(const char *lower_expr, const char *upper_expr,
         bool hi_valid = (r_hi.error == CALC_OK && !isnan(r_hi.value) && !isinf(r_hi.value));
 
         /* Draw the two boundary curves at every column */
-        if (lo_valid) Graph_DrawLayerSetPixel(px, draw_math_y_to_px(r_lo.value), fill_color);
-        if (hi_valid) Graph_DrawLayerSetPixel(px, draw_math_y_to_px(r_hi.value), fill_color);
+        if (lo_valid) Graph_DrawLayerSetPixel(px, graph_coord_math_y_to_px(Graph_GetState(),r_lo.value), fill_color);
+        if (hi_valid) Graph_DrawLayerSetPixel(px, graph_coord_math_y_to_px(Graph_GetState(),r_hi.value), fill_color);
 
         /* Fill only where lower < upper; respect resolution column spacing */
         if (!lo_valid || !hi_valid) continue;
         if (r_lo.value >= r_hi.value) continue;
         if (resolution > 1 && (px % resolution) != 0) continue;
 
-        int32_t py_top = draw_math_y_to_px(r_hi.value); /* higher Y → lower row */
-        int32_t py_bot = draw_math_y_to_px(r_lo.value);
+        int32_t py_top = graph_coord_math_y_to_px(Graph_GetState(),r_hi.value); /* higher Y → lower row */
+        int32_t py_bot = graph_coord_math_y_to_px(Graph_GetState(),r_lo.value);
         if (py_top > py_bot) { int32_t tmp = py_top; py_top = py_bot; py_bot = tmp; }
         if (py_top < 0) py_top = 0;
         if (py_bot >= GRAPH_H) py_bot = GRAPH_H - 1;

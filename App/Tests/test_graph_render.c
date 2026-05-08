@@ -31,6 +31,7 @@
 /* LVGL stubs must come before graph.h so lv_color_t etc. are available. */
 #include "graph_render_test_stubs.h"
 #include "graph.h"
+#include "graph_coord.h"     /* graph_coord_* inline transforms */
 #include "ui_palette.h"      /* COLOR_CURVE_Y1 for expected pixel value */
 
 /* -------------------------------------------------------------------------
@@ -198,6 +199,46 @@ static void test_render_cache_invalidation(void)
           "cache: old curve row 119 cleared after re-render with Y1=2");
 }
 
+/* Verify graph_coord_* transforms against known values for the baseline window
+ * x=[1,11], y=[0,10] (GRAPH_W=320, GRAPH_H=240). */
+static void test_coord_transforms(void)
+{
+    printf("test_coord_transforms\n");
+
+    GraphState_t s = {
+        .x_min = 1.0f, .x_max = 11.0f,
+        .y_min = 0.0f, .y_max = 10.0f,
+    };
+
+    /* math_x_to_px: x=1 → px 0, x=11 → px 319 (GRAPH_W-1) */
+    CHECK(graph_coord_math_x_to_px(&s, 1.0f)  == 0,
+          "coord: math_x_to_px(x=x_min) == 0");
+    CHECK(graph_coord_math_x_to_px(&s, 11.0f) == GRAPH_W - 1,
+          "coord: math_x_to_px(x=x_max) == GRAPH_W-1");
+
+    /* math_y_to_px: y=10 → row 0 (top), y=0 → row 239 (GRAPH_H-1, bottom) */
+    CHECK(graph_coord_math_y_to_px(&s, 10.0f) == 0,
+          "coord: math_y_to_px(y=y_max) == 0");
+    CHECK(graph_coord_math_y_to_px(&s, 0.0f)  == GRAPH_H - 1,
+          "coord: math_y_to_px(y=y_min) == GRAPH_H-1");
+
+    /* px_to_math_x: px=0 → x_min, px=GRAPH_W-1 → x_max */
+    float mx0 = graph_coord_px_to_math_x(&s, 0);
+    float mxN = graph_coord_px_to_math_x(&s, GRAPH_W - 1);
+    CHECK(fabsf(mx0 - 1.0f)  < 1e-4f,
+          "coord: px_to_math_x(0) == x_min");
+    CHECK(fabsf(mxN - 11.0f) < 1e-4f,
+          "coord: px_to_math_x(GRAPH_W-1) == x_max");
+
+    /* px_to_math_y: row=0 → y_max, row=GRAPH_H-1 → y_min */
+    float my0 = graph_coord_px_to_math_y(&s, 0);
+    float myN = graph_coord_px_to_math_y(&s, GRAPH_H - 1);
+    CHECK(fabsf(my0 - 10.0f) < 1e-4f,
+          "coord: px_to_math_y(0) == y_max");
+    CHECK(fabsf(myN - 0.0f)  < 1e-4f,
+          "coord: px_to_math_y(GRAPH_H-1) == y_min");
+}
+
 static void test_render_invalid_expression(void)
 {
     printf("test_render_invalid_expression\n");
@@ -224,6 +265,7 @@ int main(void)
 {
     printf("=== test_graph_render ===\n");
 
+    test_coord_transforms();
     test_render_empty();
     test_render_constant_y1();
     test_render_disabled_equation();
