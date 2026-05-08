@@ -8,13 +8,14 @@
  * Programs are named up to PRGM_NAME_LEN characters (A–Z only) and stored
  * as null-terminated, newline-delimited text bodies in PRGM_BODY_LEN bytes.
  *
- * The store is saved to / loaded from FLASH sector 11 (0x080E0000, 128 KB)
- * independently of the calculator variable/graph persist block in sector 10.
+ * The store is saved to / loaded from FLASH sector 12 (0x08100000, 128 KB,
+ * Bank 2), independently of the calculator variable/graph persist block.
  * All FLASH write routines carry .RamFunc to execute from RAM during AHB stall.
  *
  * FLASH sector map (STM32F429ZIT6):
- *   Sector 10: 0x080C0000 — calculator variables / graph / matrices
- *   Sector 11: 0x080E0000 — program storage  (this module)
+ *   Sector 10: 0x080C0000 — occupied by firmware (as of 2026-04-28, ~820 KB)
+ *   Sector 11: 0x080E0000 — persist block (persist.h / persist.c)
+ *   Sector 12: 0x08100000 — program storage (this module, Bank 2)
  */
 
 #ifndef PRGM_EXEC_H
@@ -44,9 +45,9 @@
 
 #define PRGM_MAGIC        0xCA1C512EU   /**< "calc p12e" — unique from persist */
 #define PRGM_VERSION      2U            /**< v2: 37 fixed slots, no count field */
-#define PRGM_FLASH_ADDR   0x080E0000U   /**< Sector 11, 128 KB */
+#define PRGM_FLASH_ADDR   0x08100000U   /**< Sector 12 (Bank 2), 128 KB */
 #ifndef HOST_TEST
-#  define PRGM_SECTOR       FLASH_SECTOR_11
+#  define PRGM_SECTOR       FLASH_SECTOR_12
 #endif
 
 /*---------------------------------------------------------------------------
@@ -55,7 +56,7 @@
 
 /**
  * @brief In-RAM program store.  Loaded on boot, modified during edit,
- *        flushed to FLASH sector 11 on 2nd+ON.
+ *        flushed to FLASH sector 12 on 2nd+ON.
  *
  * Fixed 37 slots (1–9, 0, A–Z, θ).  A slot is occupied when names[slot][0]
  * is non-zero.  Bodies are stored as raw text with '\n' line separators.
