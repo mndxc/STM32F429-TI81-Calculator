@@ -53,10 +53,12 @@ App/                            ← Custom application code (never touched by Cu
     calc_engine.h               Math engine interface
     calc_history.h              History ring buffer API (HistoryEntry_t, HISTORY_LINE_COUNT, CalcHistory_* declarations; CalcHistory_UpdateDisplay declared here, defined in calculator_core.c)
     calc_internal.h             Shared internal state for calculator UI modules
+    calc_mode_topology.h        CalcMode_t transition guard — CalcMode_IsValidTransition(from, to); header-only static inline; shared by Calc_SetMode() assert and test_mode_topology.c
     calculator_core.h           Public API for calculator_core.c (ANS getter/setter: Calc_GetAns, Calc_SetAnsScalar, Calc_SetAnsMatrix, Calc_GetAnsIsMatrix)
     calc_stat.h                 Statistical math API (no LVGL/HAL dependencies)
     expr_util.h                 Expression buffer utility API
     graph.h                     Graphing subsystem interface (Y= renderer, trace, ZBox, stat plots)
+    graph_coord.h               Graph coordinate transforms — header-only static inline (graph_coord_math_x_to_px, math_y_to_px, px_to_math_x, px_to_math_y); shared by graph.c and graph_draw.c
     graph_draw.h                Draw layer API (Graph_DrawLayer*, Graph_DrawF, Graph_Shade, Graph_ApplyDrawLayer)
     graph_ui.h                  Graph screen UI interface (Y=, TRACE, ZBox; includes graph_ui_range.h and ui_param_yeq.h)
     graph_ui_range.h            RANGE and ZOOM FACTORS screen API (screen pointers, nav entry points, handlers)

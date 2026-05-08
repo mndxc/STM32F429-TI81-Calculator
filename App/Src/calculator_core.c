@@ -25,6 +25,7 @@
 #  include "ui_input.h"
 #  include "calculator_core_test_stubs.h"
 #  include "calculator_core.h"
+#  include "calc_mode_topology.h"
 #else
 #  include "app_common.h"
 #  include "app_init.h"
@@ -59,7 +60,9 @@
 #  include "cmsis_os.h"
 #  include "lvgl.h"
 #  include "main.h"
+#  include "calc_mode_topology.h"
 #endif
+#include <assert.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -190,7 +193,13 @@ bool  Calc_GetAnsIsMatrix(void)       { return ans_is_matrix; }
  * Mode getter/setter API (declared in calculator_core.h)
  *---------------------------------------------------------------------------*/
 
-void        Calc_SetMode(CalcMode_t mode)       { current_mode = mode; }
+void Calc_SetMode(CalcMode_t mode)
+{
+#ifndef NDEBUG
+    assert(CalcMode_IsValidTransition(current_mode, mode));
+#endif
+    current_mode = mode;
+}
 void        Calc_SetReturnMode(CalcMode_t mode) { return_mode  = mode; }
 CalcMode_t  Calc_GetMode(void)                  { return current_mode; }
 CalcMode_t  Calc_GetReturnMode(void)            { return return_mode; }
@@ -854,10 +863,10 @@ void ui_output_row(uint8_t row_1based, const char *text)
 void menu_insert_text(const char *ins, CalcMode_t *ret_mode)
 {
     if (*ret_mode == MODE_GRAPH_YEQ) {
-        current_mode = MODE_GRAPH_YEQ;
+        Calc_SetMode(MODE_GRAPH_YEQ);
         graph_ui_yeq_insert(ins);
     } else {
-        current_mode = MODE_NORMAL;
+        Calc_SetMode(MODE_NORMAL);
         expr_insert_str(ins);
         Update_Calculator_Display();
     }
@@ -967,7 +976,7 @@ CalcMode_t menu_close(Token_t menu_token)
         ret = MODE_NORMAL;
         break;
     }
-    current_mode = ret;
+    Calc_SetMode(ret);
     lvgl_lock();
     Math_HideScreen();
     Test_HideScreen();
@@ -1269,7 +1278,7 @@ static bool route_token_on(Token_t t)
     Persist_Save(&block);
     Prgm_Save();
 
-    current_mode = MODE_NORMAL;
+    Calc_SetMode(MODE_NORMAL);
     return_mode  = MODE_NORMAL;
     sto_pending  = false;
     prgm_reset_execution_state();
@@ -1288,7 +1297,7 @@ static bool route_token_on(Token_t t)
 static bool route_token_quit(Token_t t)
 {
     (void)t;
-    current_mode = MODE_NORMAL;
+    Calc_SetMode(MODE_NORMAL);
     return_mode  = MODE_NORMAL;
     sto_pending  = false;
     prgm_reset_execution_state();
@@ -1656,7 +1665,7 @@ bool calc_mode_topology_validate(void)
     /* 1. Every mode must be in the route table XOR known_special_cases */
     for (int m = 0; m < MODE_COUNT; m++) {
         CalcMode_t mode = (CalcMode_t)m;
-        current_mode = mode;
+        current_mode = mode;  /* direct assignment: iterates through synthetic/sentinel values; bypasses Calc_SetMode() intentionally */
 
         /* Check for a dedicated (non-fallback) routing entry.
          * The last table entry uses pred_always — skip it. */

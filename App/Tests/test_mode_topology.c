@@ -25,6 +25,7 @@
 #include "prgm_exec.h"
 #include "calculator_core_test_stubs.h"
 #include "calculator_core.h"
+#include "calc_mode_topology.h"
 
 /* -------------------------------------------------------------------------
  * External symbol definitions required by calculator_core.c under HOST_TEST.
@@ -104,6 +105,24 @@ int main(void)
 
     CHECK(calc_mode_topology_validate(),
           "CalcMode_t — every mode in route table XOR known_special_cases, no stale entries");
+
+    /* CalcMode_IsValidTransition: MODE_STO and MODE_COUNT are not settable */
+    CHECK(!CalcMode_IsValidTransition(MODE_NORMAL, MODE_STO),
+          "MODE_STO is not a valid transition target");
+    CHECK(!CalcMode_IsValidTransition(MODE_NORMAL, MODE_COUNT),
+          "MODE_COUNT sentinel is not a valid transition target");
+    CHECK(!CalcMode_IsValidTransition(MODE_NORMAL, (CalcMode_t)(MODE_COUNT + 1)),
+          "out-of-range value is not a valid transition target");
+
+    /* All real modes (excluding synthetic/sentinel) are valid targets */
+    bool all_real_modes_valid = true;
+    for (int m = 0; m < (int)MODE_STO; m++) {
+        if (!CalcMode_IsValidTransition(MODE_NORMAL, (CalcMode_t)m)) {
+            printf("  FAIL: mode %d should be a valid transition target\n", m);
+            all_real_modes_valid = false;
+        }
+    }
+    CHECK(all_real_modes_valid, "all non-synthetic modes are valid transition targets");
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);
     return g_failed > 0 ? 1 : 0;
