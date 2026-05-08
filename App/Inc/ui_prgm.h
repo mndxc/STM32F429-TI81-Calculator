@@ -1,15 +1,13 @@
 /**
  * @file ui_prgm.h
- * @brief Program (PRGM) Menu and Editor UI Module
+ * @brief Program (PRGM) slot browser, new-name entry, and output adapter.
  *
  * Handles PRGM menu UI (EXEC/EDIT/ERASE tabs, 37 slots), name-entry screen,
- * program line editor (CTL/I/O sub-menus), and editor ↔ FLASH store round-trip.
- * Execution is delegated to prgm_exec.c.
+ * and the PrgmOutput_t hardware adapter.  The line editor is in prgm_editor.h.
  *
- * Implementation status (as of 2026-03-22):
+ * Implementation status (as of 2026-05-07):
  *   - UI (menus, editor, CTL/I/O sub-menus): fully implemented.
- *   - Executor (prgm_exec.c): If/Then/Else/While/For/Goto/Lbl/Disp/Input/
- *     Prompt/ClrHome/Pause/Stop/Return/prgm/STO all implemented.
+ *   - Executor (prgm_exec.c): fully implemented.
  *   - All commands implemented. Remaining: hardware validation (P10).
  *     Command reference: docs/PRGM_COMMANDS.md
  */
@@ -25,17 +23,23 @@
 bool Prgm_IsEditorScreenVisible(void);
 bool Prgm_IsNewScreenVisible(void);
 
-/* Accessors for the editor working buffer — used by the execution engine */
+/* Accessors for the editor working buffer — used by the execution engine.
+ * Declarations live here for backward compatibility with prgm_exec.c which
+ * includes ui_prgm.h; implementations are in prgm_editor.c. */
 const char *Prgm_GetLine(uint8_t ln);
 uint8_t     Prgm_GetNumLines(void);
+void        prgm_parse_from_store(uint8_t idx);
 
-/* Helpers used by both the editor and the execution engine */
-void prgm_parse_from_store(uint8_t idx);
+/* Helpers used by the slot browser, sub-menus, and execution engine */
 void prgm_slot_id_str(uint8_t slot, char *out);
 bool prgm_slot_is_used(uint8_t slot);
 
+/* Thin wrapper — delegates to PrgmEditor_FlattenToStore().
+ * Kept for sub-menu files that include ui_prgm.h but have not yet been
+ * migrated to include prgm_editor.h directly. */
+void prgm_flatten_to_store(void);
+
 void ui_init_prgm_screens(void);
-/* prgm_reset_execution_state, prgm_run_start, prgm_run_loop declared in prgm_exec.h */
 void hide_prgm_screens(void);
 void ui_prgm_menu_show(const char *title, const char texts[][PRGM_MAX_LINE_LEN],
                         uint8_t count, uint8_t cursor, uint8_t scroll);
@@ -47,23 +51,15 @@ bool handle_prgm_new_name(Token_t t);
 bool handle_prgm_editor(Token_t t);
 bool handle_prgm_running(Token_t t);
 
-/* Sub-menu shared helpers — called by ui_prgm_ctl.c, ui_prgm_io.c, ui_prgm_exec.c */
-void prgm_editor_insert_str(const char *s);
-void prgm_flatten_to_store(void);
+/* Sub-menu shared helpers — called by ui_prgm_ctl.c, ui_prgm_io.c,
+ * ui_prgm_exec.c, ui_prgm_mode.c.  Defined in ui_prgm.c. */
 void prgm_submenu_return_to_editor(lv_obj_t *hide_screen);
 void prgm_submenu_tab_switch(lv_obj_t *hide_screen, CalcMode_t to_mode);
 
 void prgm_menu_open(CalcMode_t return_to);
 CalcMode_t prgm_menu_close(void);
-void prgm_editor_cursor_update(void);
 void prgm_new_cursor_update(void);
-
-/**
- * @brief Insert string @p s into the current program editor line, flatten the
- *        store, refresh the editor display, and restore MODE_PRGM_EDITOR.
- *        Called from math_menu_insert / test_menu_insert when the menu was
- *        opened from within the program editor (return_mode == MODE_PRGM_EDITOR).
- */
-void prgm_editor_menu_insert(const char *s);
+void ui_update_prgm_display(void);
+void ui_update_prgm_new_display(void);
 
 #endif

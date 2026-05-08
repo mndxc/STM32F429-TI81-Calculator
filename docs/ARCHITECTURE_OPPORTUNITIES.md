@@ -140,7 +140,7 @@ Two legitimate exceptions exist:
 
 ---
 
-## 3. PrgmEditor extraction — split `ui_prgm.c`'s two state machines
+## 3. PrgmEditor extraction — split `ui_prgm.c`'s two state machines ✓ COMPLETE 2026-05-07
 
 **Effort:** Medium — 4–7 hours  
 **Risk:** Medium — touches LVGL object ownership and several cross-call sites; careful
@@ -339,5 +339,5 @@ assert `Refresh()` passes `MODE_STO` to `cursor_render`.
 |---|------|----------------|--------|------|
 | 1 | Graph coordinate transform header | [graph.c](../App/Src/graph.c), [graph_draw.c](../App/Src/graph_draw.c), new `graph_coord.h` | 1–2 h | Very low |
 | 2 | `CalcMode_t` transition enforcement | [calculator_core.c](../App/Src/calculator_core.c), new `calc_mode_topology.h` | 2–4 h | Low |
-| 3 | `PrgmEditor` extraction | [ui_prgm.c](../App/Src/ui_prgm.c), new `prgm_editor.c` / `prgm_editor.h` | 4–7 h | Medium |
+| 3 | `PrgmEditor` extraction ✓ | [ui_prgm.c](../App/Src/ui_prgm.c), [prgm_editor.c](../App/Src/prgm_editor.c), [prgm_editor.h](../App/Inc/prgm_editor.h) | 4–7 h | Medium |
 | 4 | `ExprEditor` module | [calculator_core.c](../App/Src/calculator_core.c), [ui_input.c](../App/Src/ui_input.c), new `expr_editor.c` / `expr_editor.h` | 6–10 h | Medium-High |

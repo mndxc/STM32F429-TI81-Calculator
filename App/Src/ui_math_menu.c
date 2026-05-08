@@ -14,6 +14,7 @@
 #  include "calculator_core.h"
 #  include "ui_input.h"
 #  include "ui_prgm.h"
+#  include "prgm_editor.h"
 #  include "graph_ui.h"
 #  include "ui_palette.h"
 #endif
@@ -254,7 +255,7 @@ static void math_menu_insert(const char *ins)
     lvgl_unlock();
 
     if (s_math.return_mode == MODE_PRGM_EDITOR) {
-        prgm_editor_menu_insert(ins);
+        PrgmEditor_MenuInsert(ins);
     } else if (s_math.return_mode == MODE_GRAPH_YEQ) {
         Calc_SetMode(MODE_GRAPH_YEQ);
         graph_ui_yeq_insert(ins);
@@ -273,7 +274,7 @@ static void test_menu_insert(const char *ins)
     lvgl_unlock();
 
     if (s_test.return_mode == MODE_PRGM_EDITOR) {
-        prgm_editor_menu_insert(ins);
+        PrgmEditor_MenuInsert(ins);
     } else if (s_test.return_mode == MODE_GRAPH_YEQ) {
         Calc_SetMode(MODE_GRAPH_YEQ);
         graph_ui_yeq_insert(ins);

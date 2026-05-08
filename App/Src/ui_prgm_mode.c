@@ -12,6 +12,7 @@
 #include "ui_shared.h"
 #include "ui_prgm.h"
 #include "ui_prgm_mode.h"
+#include "prgm_editor.h"
 #include "ui_palette.h"
 #include "ui_menu_screen.h"
 
@@ -58,16 +59,16 @@ static const int           s_tab_x[2]    = {4, 110};
 
 static void num_on_select(int idx, lv_obj_t *screen)
 {
-    prgm_editor_insert_str(prgm_mode_num_insert[idx]);
-    prgm_flatten_to_store();
+    PrgmEditor_InsertStr(prgm_mode_num_insert[idx]);
+    PrgmEditor_FlattenToStore();
     prgm_submenu_return_to_editor(screen);
 }
 
 static void gph_on_select(int idx, lv_obj_t *screen)
 {
     if (idx < PRGM_MODE_GPH_COUNT) {
-        prgm_editor_insert_str(prgm_mode_gph_insert[idx]);
-        prgm_flatten_to_store();
+        PrgmEditor_InsertStr(prgm_mode_gph_insert[idx]);
+        PrgmEditor_FlattenToStore();
     }
     prgm_submenu_return_to_editor(screen);
 }

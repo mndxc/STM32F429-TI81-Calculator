@@ -1,10 +1,10 @@
 /**
  * @file ui_prgm.c
- * @brief Program (PRGM) Menu and Editor UI Module Implementation
+ * @brief Program (PRGM) slot browser, new-name entry, and output adapter.
  *
- * Handles PRGM menu UI (EXEC/EDIT/ERASE tabs, 37 slots), name-entry screen,
- * program line editor (CTL/I/O sub-menus), and editor ↔ FLASH store round-trip.
- * Execution is delegated to prgm_exec.c.
+ * Owns the EXEC/EDIT/ERASE tab browser (37 slots), the new-program name-entry
+ * screen, the runtime Menu( overlay, and the PrgmOutput_t hardware adapter.
+ * The line editor is now in prgm_editor.c.
  *
  * Supported CTL commands: If (single-line), Goto, Lbl, IS>(, DS<(, Stop, prgm (subroutine).
  * Supported I/O commands: Disp, Input, ClrHome, Pause, DispHome, DispGraph.
@@ -12,6 +12,7 @@
  * Remaining: hardware validation (P10). Command reference: docs/PRGM_COMMANDS.md
  */
 #include "ui_prgm.h"
+#include "prgm_editor.h"
 #include "ui_prgm_ctl.h"
 #include "ui_prgm_io.h"
 #include "ui_prgm_exec.h"
@@ -31,7 +32,6 @@
 
 /* PRGM menu/editor geometry */
 #define PRGM_TAB_COUNT          3   /* EXEC, EDIT, NEW */
-#define PRGM_EDITOR_VISIBLE     7   /* Visible editor rows (matches MENU_VISIBLE_ROWS) */
 /* PRGM_MAX_LINES and PRGM_MAX_LINE_LEN are defined in prgm_exec.h (via ui_prgm.h) */
 
 /* PRGM menu state */
@@ -50,7 +50,6 @@ static char        prgm_new_name[PRGM_NAME_LEN + 1] = {0};
 static uint8_t     prgm_new_name_len          = 0;
 static uint8_t     prgm_new_name_cursor       = 0;   /* insertion point within name [0,len] */
 static uint8_t     prgm_new_slot              = 0;   /* slot index being created */
-static bool        prgm_editor_from_new       = false; /* true when editor opened from name entry */
 static lv_obj_t   *prgm_new_title_lbl        = NULL; /* shows "PrgmX:typed_name" */
 static lv_obj_t   *prgm_new_cursor_box       = NULL;
 static lv_obj_t   *prgm_new_cursor_inner     = NULL;
@@ -60,39 +59,46 @@ static bool        prgm_erase_confirm        = false;
 static uint8_t     prgm_erase_confirm_slot   = 0;   /* actual slot index to erase */
 static uint8_t     prgm_erase_confirm_choice = 0;   /* 0=do not erase, 1=erase */
 
-/* PRGM editor state */
-lv_obj_t   *ui_prgm_editor_screen     = NULL;
-static uint8_t     prgm_edit_idx             = 0;   /* which program is being edited */
-static uint8_t     prgm_edit_line            = 0;   /* current line (0-based) */
-static uint8_t     prgm_edit_scroll          = 0;   /* first visible line */
-static uint8_t     prgm_edit_col             = 0;   /* cursor byte-offset within current line */
-static uint8_t     prgm_edit_num_lines       = 0;   /* total lines in active program */
-static lv_obj_t   *prgm_edit_title_lbl       = NULL;
-static lv_obj_t   *prgm_edit_line_labels[PRGM_EDITOR_VISIBLE];
-static lv_obj_t   *prgm_edit_scroll_up       = NULL;
-static lv_obj_t   *prgm_edit_scroll_down     = NULL;
-static lv_obj_t   *prgm_edit_cursor_box      = NULL;
-static lv_obj_t   *prgm_edit_cursor_inner    = NULL;
-/* Working line buffer for active program — plain .bss */
-static char        prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
-
-const char *Prgm_GetLine(uint8_t ln)     { return prgm_edit_lines[ln]; }
-uint8_t     Prgm_GetNumLines(void)       { return prgm_edit_num_lines; }
-
 /* PRGM runtime Menu( screen — shown during program execution */
 static lv_obj_t   *ui_prgm_menu_screen         = NULL;
 static lv_obj_t   *prgm_menu_title_lbl          = NULL;
 static lv_obj_t   *prgm_menu_item_labels[MENU_VISIBLE_ROWS];
 static lv_obj_t   *prgm_menu_scroll_ind[2];
 
-/* PRGM executor state — defined in prgm_exec.c */
-
 /* PRGM menu / editor static data */
 static const char * const prgm_tab_names[PRGM_TAB_COUNT] = {"EXEC", "EDIT", "ERASE"};
 
 /*===========================================================================
- * PRGM — program editor, sub-menus, and menu
- *==========================================================================*/
+ * PRGM — program editor callbacks registered with prgm_editor.c
+ *===========================================================================*/
+
+/* Called by prgm_editor.c when the user navigates UP from line 0 col 0
+ * in an editor opened from the new-name screen. */
+static void nav_up_to_new_name(void)
+{
+    prgm_new_name_cursor = prgm_new_name_len; /* cursor at end of name */
+    lvgl_lock();
+    lv_obj_clear_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_update_prgm_new_display();
+    lvgl_unlock();
+}
+
+/* Called by prgm_editor.c when CLEAR is pressed on an empty single-line
+ * program — return to the PRGM menu browser on the EDIT tab. */
+static void editor_return_to_menu(void)
+{
+    prgm_tab           = 1;  /* return to EDIT tab */
+    prgm_item_cursor   = 0;
+    prgm_scroll_offset = 0;
+    lvgl_lock();
+    lv_obj_clear_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_update_prgm_display();
+    lvgl_unlock();
+}
+
+/*===========================================================================
+ * PRGM — screen init
+ *===========================================================================*/
 
 /* Creates the PRGM main menu screen (hidden at startup). */
 static void ui_init_prgm_screen(void)
@@ -192,66 +198,9 @@ static void ui_init_prgm_menu_screen(void)
     }
 }
 
-/* Creates the PRGM line editor, CTL sub-menu, and I/O sub-menu screens. */
-static void ui_init_prgm_editor_screen(void)
-{
-    lv_obj_t *scr = lv_scr_act();
-
-    /* --- Program line editor --- */
-    ui_prgm_editor_screen = screen_create(scr);
-
-    prgm_edit_title_lbl = lv_label_create(ui_prgm_editor_screen);
-    lv_obj_set_pos(prgm_edit_title_lbl, 4, 4);
-    lv_obj_set_style_text_font(prgm_edit_title_lbl, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(prgm_edit_title_lbl, lv_color_hex(COLOR_YELLOW), 0);
-    lv_label_set_text(prgm_edit_title_lbl, "PRGM");
-
-    for (int i = 0; i < PRGM_EDITOR_VISIBLE; i++) {
-        prgm_edit_line_labels[i] = lv_label_create(ui_prgm_editor_screen);
-        lv_obj_set_pos(prgm_edit_line_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(prgm_edit_line_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(prgm_edit_line_labels[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(prgm_edit_line_labels[i], "");
-    }
-
-    /* Editor lines are ":<content>" with ':' at X=4 (glyph 0).
-     * Indicators sit at X=4 with opaque bg to replace the colon visually. */
-    prgm_edit_scroll_down = lv_label_create(ui_prgm_editor_screen);
-    lv_obj_set_pos(prgm_edit_scroll_down, 4,
-                   30 + (PRGM_EDITOR_VISIBLE - 1) * 30);
-    lv_obj_set_style_text_font(prgm_edit_scroll_down, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(prgm_edit_scroll_down, lv_color_hex(COLOR_AMBER), 0);
-    lv_obj_set_style_bg_color(prgm_edit_scroll_down, lv_color_hex(COLOR_BLACK), 0);
-    lv_obj_set_style_bg_opa(prgm_edit_scroll_down, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_all(prgm_edit_scroll_down, 0, 0);
-    lv_label_set_text(prgm_edit_scroll_down, "\xE2\x86\x93");
-    lv_obj_add_flag(prgm_edit_scroll_down, LV_OBJ_FLAG_HIDDEN);
-
-    prgm_edit_scroll_up = lv_label_create(ui_prgm_editor_screen);
-    lv_obj_set_pos(prgm_edit_scroll_up, 4, 30);
-    lv_obj_set_style_text_font(prgm_edit_scroll_up, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(prgm_edit_scroll_up, lv_color_hex(COLOR_AMBER), 0);
-    lv_obj_set_style_bg_color(prgm_edit_scroll_up, lv_color_hex(COLOR_BLACK), 0);
-    lv_obj_set_style_bg_opa(prgm_edit_scroll_up, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_all(prgm_edit_scroll_up, 0, 0);
-    lv_label_set_text(prgm_edit_scroll_up, "\xE2\x86\x91");
-    lv_obj_add_flag(prgm_edit_scroll_up, LV_OBJ_FLAG_HIDDEN);
-
-    cursor_box_create(ui_prgm_editor_screen, true,
-                      &prgm_edit_cursor_box, &prgm_edit_cursor_inner);
-
-    /* --- CTL sub-menu — owned by ui_prgm_ctl.c --- */
-    ui_init_prgm_ctl_screen(scr);
-
-    /* --- I/O sub-menu — owned by ui_prgm_io.c --- */
-    ui_init_prgm_io_screen(scr);
-
-    /* --- EXEC sub-menu — owned by ui_prgm_exec.c --- */
-    ui_init_prgm_exec_screen(scr);
-
-    /* --- MODE sub-menu — owned by ui_prgm_mode.c --- */
-    ui_init_prgm_mode_screens(scr);
-}
+/*===========================================================================
+ * Slot & display utilities
+ *===========================================================================*/
 
 /* Returns the display identifier string for a program slot (0-based index).
  * out must have room for 3 bytes.  Mapping: 0-8→'1'-'9', 9→'0', 10-35→'A'-'Z', 36→θ. */
@@ -270,7 +219,7 @@ bool prgm_slot_is_used(uint8_t slot)
 }
 
 /* Updates PRGM menu labels and tab highlights.  Must be called under lvgl_lock. */
-static void ui_update_prgm_display(void)
+void ui_update_prgm_display(void)
 {
     /* Tab highlights */
     for (int i = 0; i < PRGM_TAB_COUNT; i++) {
@@ -336,47 +285,9 @@ static void ui_update_prgm_display(void)
         lv_obj_add_flag(prgm_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
 }
 
-/* Parses program body into prgm_edit_lines working buffer. */
-void prgm_parse_from_store(uint8_t idx)
-{
-    prgm_edit_num_lines = 0;
-    memset(prgm_edit_lines, 0, sizeof(prgm_edit_lines));
-    const char *body = Prgm_GetBody(idx);
-    if (body[0] == '\0') {
-        prgm_edit_num_lines = 1;
-        return;
-    }
-    const char *p = body;
-    while (*p && prgm_edit_num_lines < PRGM_MAX_LINES) {
-        const char *nl = strchr(p, '\n');
-        size_t len = nl ? (size_t)(nl - p) : strlen(p);
-        if (len >= PRGM_MAX_LINE_LEN) len = PRGM_MAX_LINE_LEN - 1;
-        memcpy(prgm_edit_lines[prgm_edit_num_lines], p, len);
-        prgm_edit_lines[prgm_edit_num_lines][len] = '\0';
-        prgm_edit_num_lines++;
-        if (!nl) break;
-        p = nl + 1;
-    }
-    if (prgm_edit_num_lines == 0)
-        prgm_edit_num_lines = 1;
-}
-
-/* Reassembles the program body from prgm_edit_lines and writes it to the store. */
-void prgm_flatten_to_store(void)
-{
-    char body[PRGM_BODY_LEN];
-    size_t off = 0;
-    for (int i = 0; i < (int)prgm_edit_num_lines; i++) {
-        size_t len = strlen(prgm_edit_lines[i]);
-        if (off + len + 2 >= PRGM_BODY_LEN) break;
-        memcpy(body + off, prgm_edit_lines[i], len);
-        off += len;
-        if (i < (int)prgm_edit_num_lines - 1)
-            body[off++] = '\n';
-    }
-    body[off] = '\0';
-    Prgm_SetBody(prgm_edit_idx, body);
-}
+/*===========================================================================
+ * New-name screen cursor/display
+ *===========================================================================*/
 
 /* Positions the new-name cursor box without updating the label text. */
 void prgm_new_cursor_update(void)
@@ -387,65 +298,8 @@ void prgm_new_cursor_update(void)
                   Calc_GetCursorVisible(), Calc_GetMode(), false);
 }
 
-/* Positions the editor cursor box on the current line. */
-void prgm_editor_cursor_update(void)
-{
-    if (prgm_edit_cursor_box == NULL) return;
-    int vis = (int)prgm_edit_line - (int)prgm_edit_scroll;
-    if (vis < 0 || vis >= PRGM_EDITOR_VISIBLE) {
-        lv_obj_add_flag(prgm_edit_cursor_box, LV_OBJ_FLAG_HIDDEN);
-        return;
-    }
-    lv_obj_t *lbl = prgm_edit_line_labels[vis];
-    /* +1 for the ":" prefix rendered in the label */
-    cursor_render(prgm_edit_cursor_box, prgm_edit_cursor_inner,
-                  lbl, (uint32_t)(prgm_edit_col + 1),
-                  Calc_GetCursorVisible(), Calc_GetMode(), Calc_GetInsertMode());
-}
-
-/* Updates all PRGM editor line labels, scroll indicators, and cursor.
- * Must be called under lvgl_lock. */
-static void ui_update_prgm_editor_display(void)
-{
-    char id[3];
-    prgm_slot_id_str(prgm_edit_idx, id);
-    char title[20]; /* "Prgm" + id(2) + "  " + name(8) + NUL = 17 max */
-    const char *ename = Prgm_GetName(prgm_edit_idx);
-    if (ename[0] != '\0')
-        snprintf(title, sizeof(title), "Prgm%s  %s", id, ename);
-    else
-        snprintf(title, sizeof(title), "Prgm%s", id);
-    lv_label_set_text(prgm_edit_title_lbl, title);
-
-    for (int i = 0; i < PRGM_EDITOR_VISIBLE; i++) {
-        int line = (int)prgm_edit_scroll + i;
-        if (line < (int)prgm_edit_num_lines) {
-            char buf[PRGM_MAX_LINE_LEN + 2];
-            snprintf(buf, sizeof(buf), ":%s", prgm_edit_lines[line]);
-            lv_label_set_text(prgm_edit_line_labels[i], buf);
-            lv_obj_set_style_text_color(prgm_edit_line_labels[i],
-                lv_color_hex(line == (int)prgm_edit_line ? COLOR_YELLOW : COLOR_WHITE), 0);
-        } else {
-            lv_label_set_text(prgm_edit_line_labels[i], "");
-        }
-    }
-
-    /* Scroll indicators */
-    if (prgm_edit_scroll > 0)
-        lv_obj_clear_flag(prgm_edit_scroll_up, LV_OBJ_FLAG_HIDDEN);
-    else
-        lv_obj_add_flag(prgm_edit_scroll_up, LV_OBJ_FLAG_HIDDEN);
-    if ((int)(prgm_edit_scroll + PRGM_EDITOR_VISIBLE) < (int)prgm_edit_num_lines)
-        lv_obj_clear_flag(prgm_edit_scroll_down, LV_OBJ_FLAG_HIDDEN);
-    else
-        lv_obj_add_flag(prgm_edit_scroll_down, LV_OBJ_FLAG_HIDDEN);
-
-    prgm_editor_cursor_update();
-}
-
-
 /* Updates the new-program name-entry label and cursor. */
-static void ui_update_prgm_new_display(void)
+void ui_update_prgm_new_display(void)
 {
     /* Build "PrgmX:typed_name" in one buffer; cursor glyph index = 6 + name_len.
      * θ (slot 36) is 2 UTF-8 bytes but 1 glyph, so "Prgmθ:" is always 6 glyphs. */
@@ -459,127 +313,19 @@ static void ui_update_prgm_new_display(void)
                   Calc_GetCursorVisible(), Calc_GetMode(), false);
 }
 
-/* Adjusts editor scroll to keep prgm_edit_line visible. */
-static void prgm_editor_scroll_to_line(void)
+/*===========================================================================
+ * prgm_flatten_to_store — declared in ui_prgm.h for sub-menu backward compat.
+ * Delegates to prgm_editor.c.
+ *===========================================================================*/
+
+void prgm_flatten_to_store(void)
 {
-    if ((int)prgm_edit_line < (int)prgm_edit_scroll)
-        prgm_edit_scroll = prgm_edit_line;
-    else if ((int)prgm_edit_line >= (int)prgm_edit_scroll + PRGM_EDITOR_VISIBLE)
-        prgm_edit_scroll = (uint8_t)(prgm_edit_line - PRGM_EDITOR_VISIBLE + 1);
+    PrgmEditor_FlattenToStore();
 }
 
-/* Inserts string at current cursor position in the current editor line. */
-void prgm_editor_insert_str(const char *s)
-{
-    if (!s || !*s) return;
-    char *line = prgm_edit_lines[prgm_edit_line];
-    uint8_t len = (uint8_t)strlen(line);
-    uint8_t slen = (uint8_t)strlen(s);
-    if ((int)len + (int)slen >= PRGM_MAX_LINE_LEN) return;
-    memmove(line + prgm_edit_col + slen,
-            line + prgm_edit_col,
-            len - prgm_edit_col + 1);
-    memcpy(line + prgm_edit_col, s, slen);
-    prgm_edit_col = (uint8_t)(prgm_edit_col + slen);
-}
-
-/* F4: Insert string into the editor on behalf of a MATH/TEST menu selection.
- * Called from math_menu_insert / test_menu_insert when return_mode == PRGM_EDITOR.
- * Restores the editor screen and sets current_mode back to MODE_PRGM_EDITOR. */
-void prgm_editor_menu_insert(const char *s)
-{
-    prgm_editor_insert_str(s);
-    prgm_flatten_to_store();
-    lvgl_lock();
-    lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-    ui_update_prgm_editor_display();
-    lvgl_unlock();
-    Calc_SetMode(MODE_PRGM_EDITOR);
-}
-
-/* Lookup table for prgm_token_to_str — token + string pairs, linear scan.
- * Tokens are not contiguous across the enum so an offset array is not viable. */
-static const struct { Token_t tok; const char *str; } k_prgm_tok_strs[] = {
-    { TOKEN_ADD,     "+"                  },
-    { TOKEN_SUB,     "-"                  },
-    { TOKEN_MULT,    "*"                  },
-    { TOKEN_DIV,     "/"                  },
-    { TOKEN_POWER,   "^"                  },
-    { TOKEN_L_PAR,   "("                  },
-    { TOKEN_R_PAR,   ")"                  },
-    { TOKEN_DECIMAL, "."                  },
-    { TOKEN_NEG,     "(-"                 },
-    { TOKEN_STO,     "->"                 },
-    { TOKEN_SPACE,   " "                  },
-    { TOKEN_QUOTES,  "\""                 },
-    { TOKEN_COMMA,   ","                  },
-    { TOKEN_QSTN_M,  "?"                  },
-    { TOKEN_ANS,     "ANS"                },
-    { TOKEN_SIN,     "sin("               },
-    { TOKEN_COS,     "cos("               },
-    { TOKEN_TAN,     "tan("               },
-    { TOKEN_ASIN,    "sin\xEE\x80\x81("  }, /* sin⁻¹( */
-    { TOKEN_ACOS,    "cos\xEE\x80\x81("  }, /* cos⁻¹( */
-    { TOKEN_ATAN,    "tan\xEE\x80\x81("  }, /* tan⁻¹( */
-    { TOKEN_ABS,     "abs("               },
-    { TOKEN_LN,      "ln("                },
-    { TOKEN_LOG,     "log("               },
-    { TOKEN_SQRT,    "sqrt("              },
-    { TOKEN_EE,      "*10^"               },
-    { TOKEN_E_X,     "exp("               },
-    { TOKEN_TEN_X,   "10^("               },
-    { TOKEN_SQUARE,  "^2"                 },
-    { TOKEN_X_INV,   "\xEE\x80\x81"      }, /* ⁻¹ U+E001 */
-    { TOKEN_MTRX_A,  "[A]"                },
-    { TOKEN_MTRX_B,  "[B]"                },
-    { TOKEN_MTRX_C,  "[C]"                },
-    { TOKEN_X_T,     "X"                  },
-    { TOKEN_PI,      "pi"                 },
-};
-
-/* Maps a token to its text representation for program editing.
- * Returns NULL for tokens that are not valid in the program editor. */
-static const char *prgm_token_to_str(Token_t t)
-{
-    for (size_t i = 0; i < sizeof(k_prgm_tok_strs) / sizeof(k_prgm_tok_strs[0]); i++) {
-        if (k_prgm_tok_strs[i].tok == t) return k_prgm_tok_strs[i].str;
-    }
-    return NULL;
-}
-
-/* Returns true if the current editor line already has a Lbl/Goto label char (B4). */
-static bool prgm_label_full(void)
-{
-    const char *line = prgm_edit_lines[prgm_edit_line];
-    return (strncmp(line, "Lbl ",  4) == 0 && strlen(line) > 4) ||
-           (strncmp(line, "Goto ", 5) == 0 && strlen(line) > 5);
-}
-
-/* Opens the program editor for the given program index. */
-static void prgm_open_editor(uint8_t idx)
-{
-    prgm_edit_idx        = idx;
-    prgm_edit_line       = 0;
-    prgm_edit_scroll     = 0;
-    prgm_edit_col        = 0;
-    prgm_parse_from_store(idx);
-    Calc_SetInsertMode(false);  /* D1: editor always opens in overwrite mode */
-    Calc_SetMode(MODE_PRGM_EDITOR);
-    lvgl_lock();
-    lv_obj_add_flag(ui_prgm_screen,     LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-    ui_update_prgm_editor_display();
-    lvgl_unlock();
-}
-
-/* prgm_skip_to_target, prgm_execute_line, prgm_run_loop, prgm_run_start,
- * and prgm_reset_execution_state live in prgm_exec.c (pure engine layer).
- * handle_prgm_running lives below in this file (UI super-module). */
-
-/*---------------------------------------------------------------------------
- * PRGM token handlers
- *---------------------------------------------------------------------------*/
+/*===========================================================================
+ * PRGM slot browser — menu token handlers
+ *===========================================================================*/
 
 /* Helper: return the total number of items in the current prgm_tab view. */
 static int prgm_menu_total(void)
@@ -654,15 +400,16 @@ static void enter_edit_tab(int abs_pos)
     bool has_body = (Prgm_GetBody((uint8_t)abs_pos)[0] != '\0');
     if (has_name || has_body) {
         /* D3: body-only slot opens editor directly (no name-entry) */
-        prgm_editor_from_new = false;
-        prgm_open_editor((uint8_t)abs_pos);
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
+        lvgl_unlock();
+        PrgmEditor_Open((uint8_t)abs_pos, false);
     } else {
         /* Empty slot — show name-entry screen; auto-engage ALPHA */
         prgm_new_slot        = (uint8_t)abs_pos;
         prgm_new_name_len    = 0;
         prgm_new_name_cursor = 0;
         memset(prgm_new_name, 0, sizeof(prgm_new_name));
-        prgm_editor_from_new = false;
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_screen,       LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
@@ -858,8 +605,8 @@ bool handle_prgm_new_name(Token_t t)
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
         lvgl_unlock();
-        prgm_editor_from_new = true;
-        prgm_open_editor(prgm_new_slot);
+        PrgmEditor_SetNavUpCallback(nav_up_to_new_name);
+        PrgmEditor_Open(prgm_new_slot, true);
         return true;
     case TOKEN_ENTER:
         /* Save user name if typed; open editor regardless (name is optional) */
@@ -868,8 +615,8 @@ bool handle_prgm_new_name(Token_t t)
         lvgl_lock();
         lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
         lvgl_unlock();
-        prgm_editor_from_new = true;
-        prgm_open_editor(prgm_new_slot);
+        PrgmEditor_SetNavUpCallback(nav_up_to_new_name);
+        PrgmEditor_Open(prgm_new_slot, true);
         return true;
     case TOKEN_CLEAR:
     case TOKEN_PRGM:
@@ -886,201 +633,18 @@ bool handle_prgm_new_name(Token_t t)
     }
 }
 
-static void prgm_editor_handle_nav(Token_t t)
-{
-    switch (t) {
-    case TOKEN_UP:
-        if (prgm_edit_line > 0) {
-            prgm_edit_line--;
-            prgm_edit_col = 0;
-            prgm_editor_scroll_to_line();
-            lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        } else if (prgm_edit_col == 0 && prgm_editor_from_new) {
-            /* F10: navigate back up to the name-entry title */
-            prgm_flatten_to_store();
-            prgm_new_name_cursor = prgm_new_name_len; /* cursor at end of name */
-            Calc_SetMode(MODE_ALPHA);
-            Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
-            lvgl_lock();
-            lv_obj_add_flag(ui_prgm_editor_screen,  LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_prgm_new_screen,   LV_OBJ_FLAG_HIDDEN);
-            ui_update_prgm_new_display();
-            lvgl_unlock();
-        }
-        break;
-    case TOKEN_DOWN:
-    case TOKEN_ENTER:
-        if (prgm_edit_line + 1 < prgm_edit_num_lines) {
-            prgm_edit_line++;
-        } else if (prgm_edit_num_lines < PRGM_MAX_LINES) {
-            /* Add new empty line */
-            prgm_edit_lines[prgm_edit_num_lines][0] = '\0';
-            prgm_edit_num_lines++;
-            prgm_edit_line++;
-            prgm_flatten_to_store();
-        }
-        prgm_edit_col = 0;
-        prgm_editor_scroll_to_line();
-        lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        break;
-    case TOKEN_LEFT:
-        if (prgm_edit_col > 0) {
-            prgm_edit_col--;
-            lvgl_lock(); prgm_editor_cursor_update(); lvgl_unlock();
-        }
-        break;
-    case TOKEN_RIGHT: {
-        uint8_t len = (uint8_t)strlen(prgm_edit_lines[prgm_edit_line]);
-        if (prgm_edit_col < len) {
-            prgm_edit_col++;
-            lvgl_lock(); prgm_editor_cursor_update(); lvgl_unlock();
-        }
-        break;
-    }
-    default: break;
-    }
-}
-
-static void prgm_editor_handle_del_clear(Token_t t)
-{
-    char *line = prgm_edit_lines[prgm_edit_line];
-    switch (t) {
-    case TOKEN_DEL: {
-        uint8_t len = (uint8_t)strlen(line);
-        if (prgm_edit_col > 0) {
-            /* Delete char before cursor */
-            memmove(line + prgm_edit_col - 1,
-                    line + prgm_edit_col,
-                    len - prgm_edit_col + 1);
-            prgm_edit_col--;
-            prgm_flatten_to_store();
-            lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        } else if (len == 0 && prgm_edit_num_lines > 1) {
-            /* Delete empty line — merge with previous */
-            for (int i = (int)prgm_edit_line; i < (int)prgm_edit_num_lines - 1; i++)
-                memcpy(prgm_edit_lines[i], prgm_edit_lines[i + 1], PRGM_MAX_LINE_LEN);
-            prgm_edit_num_lines--;
-            if (prgm_edit_line > 0) prgm_edit_line--;
-            prgm_edit_col = (uint8_t)strlen(prgm_edit_lines[prgm_edit_line]);
-            prgm_editor_scroll_to_line();
-            prgm_flatten_to_store();
-            lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        }
-        break;
-    }
-    case TOKEN_CLEAR:
-        if (strlen(line) > 0) {
-            /* Clear current line */
-            line[0] = '\0';
-            prgm_edit_col = 0;
-            prgm_flatten_to_store();
-            lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        } else if (prgm_edit_num_lines == 1) {
-            /* Empty program — return to PRGM menu */
-            Calc_SetMode(MODE_PRGM_MENU);
-            prgm_tab = 1;  /* return to EDIT tab */
-            prgm_item_cursor = 0;
-            prgm_scroll_offset = 0;
-            lvgl_lock();
-            lv_obj_add_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_prgm_screen,      LV_OBJ_FLAG_HIDDEN);
-            ui_update_prgm_display();
-            lvgl_unlock();
-        }
-        break;
-    default: break;
-    }
-}
-
-static void prgm_editor_handle_insert(Token_t t)
-{
-    switch (t) {
-    case TOKEN_0 ... TOKEN_9: {
-        if (prgm_label_full()) return;  /* B4: single-char label constraint */
-        char c[2] = {(char)('0' + (t - TOKEN_0)), '\0'};
-        prgm_editor_insert_str(c);
-        prgm_flatten_to_store();
-        lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        break;
-    }
-    case TOKEN_A ... TOKEN_Z: {
-        if (prgm_label_full()) return;  /* B4: single-char label constraint */
-        char c[2] = {(char)('A' + (t - TOKEN_A)), '\0'};
-        prgm_editor_insert_str(c);
-        prgm_flatten_to_store();
-        lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        break;
-    }
-    default: {
-        /* Try generic token-to-string mapping */
-        const char *s = prgm_token_to_str(t);
-        if (s) {
-            prgm_editor_insert_str(s);
-            prgm_flatten_to_store();
-            lvgl_lock(); ui_update_prgm_editor_display(); lvgl_unlock();
-        }
-        break;
-    }
-    }
-}
-
 bool handle_prgm_editor(Token_t t)
 {
-    switch (t) {
-    case TOKEN_UP:
-    case TOKEN_DOWN:
-    case TOKEN_ENTER:
-    case TOKEN_LEFT:
-    case TOKEN_RIGHT:
-        prgm_editor_handle_nav(t);
-        return true;
-    case TOKEN_DEL:
-    case TOKEN_CLEAR:
-        prgm_editor_handle_del_clear(t);
-        return true;
-    case TOKEN_INS:
-        Calc_SetInsertMode(!Calc_GetInsertMode());
-        lvgl_lock(); prgm_editor_cursor_update(); lvgl_unlock();
-        return true;
-    case TOKEN_TEST:
-        /* open TEST menu; selections insert via test_menu_insert() */
-        menu_open(TOKEN_TEST, MODE_PRGM_EDITOR);
-        return true;
-    case TOKEN_MATH:
-        /* open MATH menu; selections insert via math_menu_insert() */
-        menu_open(TOKEN_MATH, MODE_PRGM_EDITOR);
-        return true;
-    case TOKEN_PRGM:
-        /* Open CTL sub-menu */
-        Calc_SetMode(MODE_PRGM_CTL_MENU);
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_ctl_screen,  LV_OBJ_FLAG_HIDDEN);
-        ui_prgm_ctl_reset_and_show();
-        lvgl_unlock();
-        return true;
-    case TOKEN_MODE:
-        /* Open MODE NUMBER sub-menu */
-        Calc_SetMode(MODE_PRGM_MODE_NUMBER);
-        lvgl_lock();
-        lv_obj_add_flag(ui_prgm_editor_screen,        LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_mode_num_screen,    LV_OBJ_FLAG_HIDDEN);
-        ui_prgm_mode_num_reset_and_show();
-        lvgl_unlock();
-        return true;
-    default:
-        prgm_editor_handle_insert(t);
-        return true;
-    }
+    return PrgmEditor_HandleToken(t);
 }
 
 void prgm_submenu_return_to_editor(lv_obj_t *hide_screen)
 {
     Calc_SetMode(MODE_PRGM_EDITOR);
     lvgl_lock();
-    lv_obj_add_flag(hide_screen,             LV_OBJ_FLAG_HIDDEN);
-    lv_obj_clear_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-    ui_update_prgm_editor_display();
+    lv_obj_add_flag(hide_screen,                    LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(PrgmEditor_GetScreen(),       LV_OBJ_FLAG_HIDDEN);
+    PrgmEditor_RefreshDisplay();
     lvgl_unlock();
 }
 
@@ -1246,32 +810,42 @@ void ui_init_prgm_screens(void)
     ui_init_prgm_screen();
     ui_init_prgm_new_screen();
     ui_init_prgm_menu_screen();
-    ui_init_prgm_editor_screen();
-}
 
-/* prgm_reset_execution_state is defined in prgm_exec.c */
+    PrgmEditor_SetReturnToMenuCallback(editor_return_to_menu);
+    lv_obj_t *scr = lv_scr_act();
+    PrgmEditor_InitScreen(scr);
+
+    /* CTL/I/O/EXEC/MODE sub-menus — init order must follow PrgmEditor_InitScreen */
+    ui_init_prgm_ctl_screen(scr);
+    ui_init_prgm_io_screen(scr);
+    ui_init_prgm_exec_screen(scr);
+    ui_init_prgm_mode_screens(scr);
+}
 
 bool Prgm_IsEditorScreenVisible(void)
 {
-    return ui_prgm_editor_screen != NULL &&
-           !lv_obj_has_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *s = PrgmEditor_GetScreen();
+    return s != NULL && !lv_obj_has_flag(s, LV_OBJ_FLAG_HIDDEN);
 }
+
 bool Prgm_IsNewScreenVisible(void)
 {
     return ui_prgm_new_screen != NULL &&
            !lv_obj_has_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
-void hide_prgm_screens(void) {
-    if (ui_prgm_screen) lv_obj_add_flag(ui_prgm_screen, LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_new_screen) lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_editor_screen) lv_obj_add_flag(ui_prgm_editor_screen, LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_ctl_screen) lv_obj_add_flag(ui_prgm_ctl_screen, LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_io_screen) lv_obj_add_flag(ui_prgm_io_screen, LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_exec_screen) lv_obj_add_flag(ui_prgm_exec_screen, LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_mode_num_screen) lv_obj_add_flag(ui_prgm_mode_num_screen, LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_mode_gph_screen) lv_obj_add_flag(ui_prgm_mode_gph_screen, LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_menu_screen) lv_obj_add_flag(ui_prgm_menu_screen, LV_OBJ_FLAG_HIDDEN);
+void hide_prgm_screens(void)
+{
+    if (ui_prgm_screen)         lv_obj_add_flag(ui_prgm_screen,         LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_new_screen)     lv_obj_add_flag(ui_prgm_new_screen,     LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *es = PrgmEditor_GetScreen();
+    if (es)                     lv_obj_add_flag(es,                      LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_ctl_screen)     lv_obj_add_flag(ui_prgm_ctl_screen,     LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_io_screen)      lv_obj_add_flag(ui_prgm_io_screen,      LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_exec_screen)    lv_obj_add_flag(ui_prgm_exec_screen,    LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_mode_num_screen)lv_obj_add_flag(ui_prgm_mode_num_screen,LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_mode_gph_screen)lv_obj_add_flag(ui_prgm_mode_gph_screen,LV_OBJ_FLAG_HIDDEN);
+    if (ui_prgm_menu_screen)    lv_obj_add_flag(ui_prgm_menu_screen,    LV_OBJ_FLAG_HIDDEN);
 }
 
 void prgm_reset_state(CalcMode_t target_mode) {
@@ -1289,7 +863,7 @@ void prgm_reset_state(CalcMode_t target_mode) {
         prgm_item_cursor = 0;
         prgm_scroll_offset = 0;
         Calc_SetMode(MODE_PRGM_RUNNING);
-        prgm_run_start(prgm_edit_idx);
+        prgm_run_start(PrgmEditor_GetSlot());
     }
 }
 

@@ -10,6 +10,7 @@
 #include "ui_shared.h"
 #include "ui_prgm.h"
 #include "ui_prgm_exec.h"
+#include "prgm_editor.h"
 #include "ui_palette.h"
 #include "ui_menu_screen.h"
 #include <stdio.h>
@@ -41,8 +42,8 @@ static void exec_on_select(int slot, lv_obj_t *screen)
         char ins[PRGM_NAME_LEN + 6];  /* "prgm" + name/id + NUL */
         snprintf(ins, sizeof(ins), "prgm%s",
                  uname[0] != '\0' ? uname : slot_id);
-        prgm_editor_insert_str(ins);
-        prgm_flatten_to_store();
+        PrgmEditor_InsertStr(ins);
+        PrgmEditor_FlattenToStore();
     }
     prgm_submenu_return_to_editor(screen);
 }

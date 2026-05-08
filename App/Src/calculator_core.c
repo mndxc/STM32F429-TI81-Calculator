@@ -42,6 +42,7 @@
 #  include "ui_math_menu.h"
 #  include "ui_matrix.h"
 #  include "ui_prgm.h"
+#  include "prgm_editor.h"
 #  include "ui_prgm_ctl.h"
 #  include "ui_prgm_io.h"
 #  include "ui_prgm_exec.h"
@@ -773,7 +774,7 @@ static void update_overlay_cursor(void)
     else if (Matrix_IsEditScreenVisible())
         matrix_edit_cursor_update();
     else if (Prgm_IsEditorScreenVisible())
-        prgm_editor_cursor_update();
+        PrgmEditor_CursorUpdate();
     else if (Prgm_IsNewScreenVisible())
         prgm_new_cursor_update();
 }

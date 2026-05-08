@@ -447,6 +447,7 @@ static inline void hide_prgm_screens(void)          {}
 static inline void prgm_menu_open(CalcMode_t m)     { (void)m; current_mode = MODE_PRGM_MENU; }
 static inline CalcMode_t prgm_menu_close(void)      { return MODE_NORMAL; }
 static inline void prgm_editor_cursor_update(void)  {}
+static inline void PrgmEditor_CursorUpdate(void)    {}
 static inline void prgm_new_cursor_update(void)     {}
 static inline void prgm_reset_state(CalcMode_t m)   { (void)m; }
 static inline bool handle_prgm_menu(Token_t t)      { (void)t; return false; }

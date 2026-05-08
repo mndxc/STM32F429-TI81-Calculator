@@ -10,6 +10,7 @@
 #include "ui_shared.h"
 #include "ui_prgm.h"
 #include "ui_prgm_io.h"
+#include "prgm_editor.h"
 #include "ui_palette.h"
 #include "ui_menu_screen.h"
 
@@ -35,8 +36,8 @@ static const int           s_tab_x[3]    = {4, 80, 156};
 
 static void io_on_select(int idx, lv_obj_t *screen)
 {
-    prgm_editor_insert_str(prgm_io_insert[idx]);
-    prgm_flatten_to_store();
+    PrgmEditor_InsertStr(prgm_io_insert[idx]);
+    PrgmEditor_FlattenToStore();
     prgm_submenu_return_to_editor(screen);
 }
 

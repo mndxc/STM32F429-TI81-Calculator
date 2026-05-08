@@ -81,6 +81,7 @@ set(APP_SOURCES
     App/Src/ui_stat_edit.c
     App/Src/calc_stat.c
     App/Src/ui_prgm.c
+    App/Src/prgm_editor.c
     App/Src/ui_menu_screen.c
     App/Src/ui_prgm_ctl.c
     App/Src/ui_prgm_io.c
