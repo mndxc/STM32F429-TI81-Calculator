@@ -22,6 +22,7 @@
 #include "calc_history.h"
 #include "graph.h"
 #include "ui_palette.h"
+#include <stdio.h>
 #include <string.h>
 #include "app_common.h"
 
