@@ -73,4 +73,5 @@ CMakeFiles/test_normal_mode.dir/test_normal_mode.c.o: \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/expr_util.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/calc_engine.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/persist.h \
-  /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_input.h
+  /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_input.h \
+  /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_sto.h

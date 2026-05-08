@@ -53,6 +53,7 @@ graph TD
 
     subgraph "Application Core (Host-Testable)"
         CE["calc_engine.c (Math Engine)"]
+        CS["calc_stat.c (Statistical Math)"]
         CH["calc_history.c (History Ring Buffer)"]
         EU["expr_util.c (Buffer Logic)"]
         MS["menu_state.c (Menu Navigation Helpers)"]
@@ -62,17 +63,19 @@ graph TD
 
     subgraph "UI Logic (Embedded Only)"
         CC["calculator_core.c (Dispatcher)"]
-        GUI["graph_ui.c / graph_ui_range.c / ui_graph_zoom.c / ui_param_yeq.c / ui_matrix.c / ui_math_menu.c / ui_prgm.c (+ ui_prgm_ctl.c / ui_prgm_io.c / ui_prgm_exec.c / ui_prgm_mode.c) / ui_stat.c / ui_draw.c / ui_vars.c"]
+        GUI["graph_ui.c / graph_ui_range.c / ui_graph_zoom.c / ui_param_yeq.c / ui_matrix.c / ui_math_menu.c / ui_prgm.c (+ ui_prgm_ctl.c / ui_prgm_io.c / ui_prgm_exec.c / ui_prgm_mode.c) / ui_stat.c / ui_stat_edit.c / ui_draw.c / ui_vars.c / ui_yvars.c / ui_mode.c / ui_reset.c / ui_menu_screen.c / ui_input.c / ui_sto.c / ui_error.c"]
         G["graph.c + graph_draw.c (Renderer + Draw Layer + Graph_HandleKey dispatcher)"]
     end
 
     HW_K --> CC
     CC --> GUI
     CC --> CE
+    CC --> CS
     CC --> EU
     CC --> PE
     CC --> PRE
     GUI --> G
+    GUI --> CS
     PRE -. "embedded only\n(#ifndef HOST_TEST)\ncalls handle_normal_mode()" .-> CC
 ```
 

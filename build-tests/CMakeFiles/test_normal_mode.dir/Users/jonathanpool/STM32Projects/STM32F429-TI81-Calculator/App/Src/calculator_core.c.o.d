@@ -43,6 +43,7 @@ CMakeFiles/test_normal_mode.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_palette.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_mode.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_input.h \
+  /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_sto.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/calculator_core_test_stubs.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/menu_state.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/string.h \

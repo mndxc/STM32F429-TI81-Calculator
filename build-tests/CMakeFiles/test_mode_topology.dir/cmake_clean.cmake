@@ -17,6 +17,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.o.d"
   "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.o"
   "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.o.d"
+  "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o"
+  "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o.d"
   "CMakeFiles/test_mode_topology.dir/test_mode_topology.c.o"
   "CMakeFiles/test_mode_topology.dir/test_mode_topology.c.o.d"
   "test_mode_topology"

@@ -142,10 +142,24 @@ CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI8
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.s"
 	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c -o CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.s
 
+CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o: CMakeFiles/test_mode_topology.dir/flags.make
+CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c
+CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o: CMakeFiles/test_mode_topology.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o -MF CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o.d -o CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c
+
+CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.i"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c > CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.i
+
+CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.s"
+	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c -o CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.s
+
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: CMakeFiles/test_mode_topology.dir/flags.make
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o: CMakeFiles/test_mode_topology.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o"
 	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -MF CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o.d -o CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c
 
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.i: cmake_force
@@ -159,7 +173,7 @@ CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI8
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o: CMakeFiles/test_mode_topology.dir/flags.make
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o: CMakeFiles/test_mode_topology.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o"
 	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o -MF CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o.d -o CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c
 
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.i: cmake_force
@@ -173,7 +187,7 @@ CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI8
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o: CMakeFiles/test_mode_topology.dir/flags.make
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o: CMakeFiles/test_mode_topology.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o"
 	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o -MF CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o.d -o CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c
 
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.i: cmake_force
@@ -187,7 +201,7 @@ CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI8
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o: CMakeFiles/test_mode_topology.dir/flags.make
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o: CMakeFiles/test_mode_topology.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o"
 	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o -MF CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o.d -o CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c
 
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/prgm_exec.c.i: cmake_force
@@ -201,7 +215,7 @@ CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI8
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o: CMakeFiles/test_mode_topology.dir/flags.make
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o: /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o: CMakeFiles/test_mode_topology.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Building C object CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o"
 	/usr/bin/gcc $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o -MF CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o.d -o CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o -c /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c
 
 CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.i: cmake_force
@@ -219,6 +233,7 @@ test_mode_topology_OBJECTS = \
 "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_core.c.o" \
 "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.o" \
 "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.o" \
+"CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o" \
 "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o" \
 "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o" \
 "CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o" \
@@ -233,6 +248,7 @@ test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Pr
 test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calculator_core.c.o
 test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_mode.c.o
 test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_input.c.o
+test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/ui_sto.c.o
 test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/calc_engine.c.o
 test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_util.c.o
 test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Src/expr_buffer.c.o
@@ -240,7 +256,7 @@ test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Pr
 test_mode_topology: CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/HW/Keypad/keypad_map.c.o
 test_mode_topology: CMakeFiles/test_mode_topology.dir/build.make
 test_mode_topology: CMakeFiles/test_mode_topology.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_11) "Linking C executable test_mode_topology"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/build-tests/CMakeFiles --progress-num=$(CMAKE_PROGRESS_12) "Linking C executable test_mode_topology"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_mode_topology.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.

@@ -31,7 +31,7 @@ CMAKE_COLOR_MAKEFILE:BOOL=ON
 CMAKE_C_COMPILER:STRING=/usr/bin/gcc
 
 //Flags used by the C compiler during all build types.
-CMAKE_C_FLAGS:STRING=
+CMAKE_C_FLAGS:STRING=-Wno-error
 
 //Flags used by the C compiler during DEBUG builds.
 CMAKE_C_FLAGS_DEBUG:STRING=-g

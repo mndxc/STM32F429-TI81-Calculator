@@ -31,7 +31,7 @@ Snapshot as of **2026-05-05** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1277 lines, graph_ui.c 874 lines, calculator_core.c 1467 lines, graph.c 978 lines, graph_ui_range.c 743 lines, ui_matrix.c 578 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 15 suites, 1019 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), STO→matrix/element/Y= host tests, and error code string + error_offset tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 1399 lines, graph_ui.c 1403 lines, calculator_core.c 1702 lines, graph.c 1374 lines, graph_ui_range.c 743 lines, ui_matrix.c 579 lines all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 15 suites, 1019 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), STO→matrix/element/Y= host tests, and error code string + error_offset tests.
 
 Full scorecard change history: [docs/PROJECT_HISTORY.md — Scorecard Change Log](docs/PROJECT_HISTORY.md).
 
@@ -89,6 +89,18 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 ### Next session priorities
 
 Items are ordered so prerequisites come before the items that depend on them; within a dependency tier, easiest first.
+
+#### Complexity debt — surfaced by 2026-05-07 periodic code review
+
+**[complexity] calc_engine.c — EvaluateRPN_ex at dispatch-table redesign threshold** — 53 MATH_* case statements at conditional depth 5; extract sub-dispatch functions `rpn_eval_function()` and `rpn_eval_operator()` to reduce depth to ≤3 and bring case count per function under ~30. Zero behaviour change. Files: `App/Src/calc_engine.c`, function `EvaluateRPN_ex`.
+
+**[complexity] calculator_core.c (1702 lines) carries 4 independent responsibilities** — UI-object creation, expression editing, history management, and mode routing live in one file; begin with migrating the matrix-ring history state and callbacks into `App/Src/calc_history.c` (currently underused). Zero behaviour change. Files: `App/Src/calculator_core.c`, `App/Src/calc_history.c`.
+
+**[complexity] graph_ui.c (1403 lines) conflates Y= editor with 6 live graph-canvas modes** — `handle_trace_mode` (~150 lines, depth 6) and `handle_free_cursor_mode` are independent state machines; extract into a new `App/Src/graph_ui_cursor.c`. Zero behaviour change. Files: `App/Src/graph_ui.c`.
+
+#### Docs — surfaced by 2026-05-07 periodic code review
+
+**[docs] ARCHITECTURE.md Mermaid — verify calc_stat.c layer placement** — `calc_stat.c` is Application Core (no LVGL/HAL); confirm the diagram arrow `GUI --> CS` correctly reflects that `ui_stat.c` calls into `calc_stat.c` and no upward dependency exists. Files: `docs/ARCHITECTURE.md`.
 
 #### Hardware validation — no new code, test on device
 

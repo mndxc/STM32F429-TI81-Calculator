@@ -28,6 +28,7 @@ CMakeFiles/test_mode_topology.dir/Users/jonathanpool/STM32Projects/STM32F429-TI8
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/calc_engine.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/prgm_exec.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_input.h \
+  /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_sto.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/calculator_core_test_stubs.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/menu_state.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/calc_history.h \

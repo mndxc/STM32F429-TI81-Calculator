@@ -38,6 +38,7 @@ CMakeFiles/test_graph_render.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81
   /Library/Developer/CommandLineTools/usr/lib/clang/16/include/__stddef_offsetof.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/calc_engine.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/calculator_core.h \
+  /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/expr_util.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/math.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityVersions.h \

@@ -39,6 +39,7 @@ CMakeFiles/test_graph_render.dir/Users/jonathanpool/STM32Projects/STM32F429-TI81
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/ui_palette.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/calc_engine.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/calculator_core.h \
+  /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/../Inc/expr_util.h \
   /Users/jonathanpool/STM32Projects/STM32F429-TI81-Calculator/App/Tests/graph_render_test_stubs.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/string.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_string.h \
