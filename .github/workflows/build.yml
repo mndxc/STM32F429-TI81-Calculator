@@ -7,9 +7,18 @@ on:
     branches: [ main ]
 
 jobs:
+  source-list-check:
+    name: CMakeLists Source List Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check all App/Src/*.c files are listed in CMakeLists.txt
+        run: bash scripts/check_cmake_sources.sh
+
   stm32-build:
     name: STM32 Firmware Build
     runs-on: ubuntu-latest
+    needs: source-list-check
     steps:
       - uses: actions/checkout@v4
 
