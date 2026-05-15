@@ -10,7 +10,7 @@
  *
  * Testing strategy:
  *   - Programs are loaded into slot 0 (ID "1") via Prgm_SetName/Prgm_SetBody.
- *   - prgm_run_start(0) runs the program synchronously.
+ *   - Prgm_RunStart(0) runs the program synchronously.
  *   - Observables: current_mode, calc_variables[], ans, history_count,
  *     history[].result, history[].expression.
  *   - MODE_NORMAL after run = program completed.
@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
-#include "prgm_exec.h"          /* ProgramStore_t, prgm_run_start, etc. */
+#include "prgm_exec.h"          /* ProgramStore_t, Prgm_RunStart, etc. */
 #include "prgm_exec_test_stubs.h" /* CalcMode_t, HistoryEntry_t, externs */
 
 /* -------------------------------------------------------------------------
@@ -130,7 +130,7 @@ static void run_program(const char *body)
 {
     Prgm_SetName(0, "P");
     Prgm_SetBody(0, body);
-    prgm_run_start(0);
+    Prgm_RunStart(0);
 }
 
 /* -------------------------------------------------------------------------
@@ -537,20 +537,20 @@ static void test_empty_body(void)
     CHECK(current_mode == MODE_NORMAL, "empty-nl: mode NORMAL");
     CHECK(history_count == 0, "empty-nl: no history");
 
-    /* 3. Slot with body but no user name still executes via prgm_run_start */
+    /* 3. Slot with body but no user name still executes via Prgm_RunStart */
     reset_state();
     /* names[0] stays empty (not set by run_program helper) */
     Prgm_SetBody(0, "5->A");
-    prgm_run_start(0);
+    Prgm_RunStart(0);
     CHECK(NEAR(calc_variables['A'-'A'], 5.0f), "no-name: body runs via index");
 }
 
 /* -------------------------------------------------------------------------
- * Group 16: prgm_lookup_slot — T35 / T35b (prgmNAME execution model)
+ * Group 16: Prgm_LookupSlot — T35 / T35b (prgmNAME execution model)
  * ---------------------------------------------------------------------- */
 static void test_lookup_slot(void)
 {
-    printf("Group 16: prgm_lookup_slot\n");
+    printf("Group 16: Prgm_LookupSlot\n");
 
     reset_state();
     Prgm_SetName(0,  "HELLO");
@@ -558,29 +558,29 @@ static void test_lookup_slot(void)
     Prgm_SetName(10, "ALPHA");
 
     /* 1. Lookup by user name */
-    CHECK(prgm_lookup_slot("HELLO") == 0,  "lookup: name HELLO -> 0");
+    CHECK(Prgm_LookupSlot("HELLO") == 0,  "lookup: name HELLO -> 0");
 
     /* 2. Canonical ID "1" -> slot 0 (TI-81: digit 1 = first slot) */
-    CHECK(prgm_lookup_slot("1") == 0, "lookup: id '1' -> 0");
+    CHECK(Prgm_LookupSlot("1") == 0, "lookup: id '1' -> 0");
 
     /* 3. Canonical ID "0" -> slot 9 (TI-81: digit 0 = tenth slot) */
-    CHECK(prgm_lookup_slot("0") == 9, "lookup: id '0' -> 9");
+    CHECK(Prgm_LookupSlot("0") == 9, "lookup: id '0' -> 9");
 
     /* 4. Canonical ID "A" -> slot 10 */
-    CHECK(prgm_lookup_slot("A") == 10, "lookup: id 'A' -> 10");
+    CHECK(Prgm_LookupSlot("A") == 10, "lookup: id 'A' -> 10");
 
     /* 5. User name "ZERO" resolves to slot 9 (name match beats ID match) */
-    CHECK(prgm_lookup_slot("ZERO") == 9, "lookup: name ZERO -> 9");
+    CHECK(Prgm_LookupSlot("ZERO") == 9, "lookup: name ZERO -> 9");
 
     /* 6. Non-existent name -> -1 */
-    CHECK(prgm_lookup_slot("NOEXIST") == -1, "lookup: unknown -> -1");
+    CHECK(Prgm_LookupSlot("NOEXIST") == -1, "lookup: unknown -> -1");
 
     /* 7. Empty string -> -1 */
-    CHECK(prgm_lookup_slot("") == -1, "lookup: empty -> -1");
+    CHECK(Prgm_LookupSlot("") == -1, "lookup: empty -> -1");
 
     /* 8. "T" matches slot 29 (the T letter slot, A-Z range) before theta(36);
      * theta's ASCII representation "T" collides with the T slot — first match wins */
-    CHECK(prgm_lookup_slot("T") == 29, "lookup: id 'T' -> 29 (T-letter slot before theta)");
+    CHECK(Prgm_LookupSlot("T") == 29, "lookup: id 'T' -> 29 (T-letter slot before theta)");
 }
 
 /* -------------------------------------------------------------------------

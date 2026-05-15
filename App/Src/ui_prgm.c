@@ -760,15 +760,15 @@ static void prgm_graph_resume(float x, float y)
     ui_refresh_display();
     lvgl_unlock();
     Calc_SetMode(MODE_PRGM_RUNNING);
-    prgm_clear_input_wait();
-    prgm_run_loop();
+    Prgm_ClearInputWait();
+    Prgm_RunLoop();
 }
 
 /* Called when the user presses CLEAR during graph-exploration Input.
  * Aborts the program and returns to the home screen in normal mode. */
 static void prgm_graph_abort(void)
 {
-    prgm_reset_execution_state();
+    Prgm_ResetExecutionState();
     ExprEditor_Clear();
     Calc_SetMode(MODE_NORMAL);
     lvgl_lock();
@@ -851,7 +851,7 @@ void prgm_reset_state(CalcMode_t target_mode) {
         prgm_item_cursor = 0;
         prgm_scroll_offset = 0;
         Calc_SetMode(MODE_PRGM_RUNNING);
-        prgm_run_start(PrgmEditor_GetSlot());
+        Prgm_RunStart(PrgmEditor_GetSlot());
     }
 }
 
@@ -886,9 +886,9 @@ CalcMode_t prgm_menu_close(void) {
  */
 bool handle_prgm_running(Token_t t)
 {
-    if (prgm_is_waiting_input()) {
+    if (Prgm_IsWaitingInput()) {
         if (t == TOKEN_ENTER) {
-            char input_var = prgm_get_input_var();
+            char input_var = Prgm_GetInputVar();
             if (input_var != 0) {
                 /* Evaluate and store to the target variable */
                 const char *ebuf = ExprEditor_GetBuf();
@@ -904,9 +904,9 @@ bool handle_prgm_running(Token_t t)
                 CalcHistory_Commit(ebuf, res_buf, false, 0, 0, 0);
             }
             ExprEditor_Clear();
-            prgm_clear_input_wait();
+            Prgm_ClearInputWait();
             lvgl_lock(); CalcHistory_UpdateDisplay(); lvgl_unlock();
-            prgm_run_loop();  /* resume execution */
+            Prgm_RunLoop();  /* resume execution */
             return true;
         }
         if (t == TOKEN_DEL) {
@@ -920,7 +920,7 @@ bool handle_prgm_running(Token_t t)
                 Update_Calculator_Display();
             } else {
                 /* Abort on CLEAR with empty expression */
-                prgm_reset_execution_state();
+                Prgm_ResetExecutionState();
                 Calc_SetMode(MODE_NORMAL);
                 lvgl_lock(); ui_refresh_display(); lvgl_unlock();
             }
@@ -951,7 +951,7 @@ bool handle_prgm_running(Token_t t)
 
     /* Not waiting for input — abort on CLEAR, consume everything else */
     if (t == TOKEN_CLEAR) {
-        prgm_reset_execution_state();
+        Prgm_ResetExecutionState();
         ExprEditor_Clear();
         Calc_SetMode(MODE_NORMAL);
         lvgl_lock(); ui_refresh_display(); lvgl_unlock();

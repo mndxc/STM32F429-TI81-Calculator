@@ -13,7 +13,7 @@
  *   Non-exact entries use strncmp prefix matching, so a shorter non-exact
  *   prefix appearing before a longer prefix it starts with would silently
  *   shadow the later entry (the longer command would never be reached).
- *   prgm_cmd_table_validate() checks every (i, j) pair where i < j and
+ *   Prgm_CmdTableValidate() checks every (i, j) pair where i < j and
  *   entry i is non-exact; it fails if cmd_table[i].prefix is a prefix of
  *   cmd_table[j].prefix.
  */
@@ -65,7 +65,7 @@ int main(void)
     printf("=== test_prgm_cmd_table ===\n");
 
     /* T1-A: no non-exact prefix in cmd_table[] may shadow a later entry */
-    CHECK(prgm_cmd_table_validate(),
+    CHECK(Prgm_CmdTableValidate(),
           "cmd_table[] — no non-exact prefix shadows a later entry");
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);

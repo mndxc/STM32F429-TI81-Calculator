@@ -126,7 +126,7 @@ typedef struct {
 /**
  * @brief  Register the active output callbacks.
  *
- * Must be called before prgm_run_start().  In embedded builds, Prgm_Init()
+ * Must be called before Prgm_RunStart().  In embedded builds, Prgm_Init()
  * calls this internally with the hardware callback table; host-test builds
  * call it directly with a test-owned struct.
  */
@@ -212,52 +212,52 @@ bool Prgm_Load(void);
  * @brief  Initialise executor state and start running program @p idx.
  *         Sets current_mode to MODE_PRGM_RUNNING and enters the run loop.
  */
-void prgm_run_start(uint8_t idx);
+void Prgm_RunStart(uint8_t idx);
 
 /**
  * @brief  Main synchronous execution loop.
  *         Runs lines from prgm_run_pc until a pause point or end of program.
  *         Re-entered via handle_prgm_running on ENTER after Pause/Input/Prompt.
  */
-void prgm_run_loop(void);
+void Prgm_RunLoop(void);
 
 /**
  * @brief  Reset all executor state variables to their initial (idle) values.
  *         Called on TOKEN_ON (save/power) and hard QUIT to prevent stale state.
  */
-void prgm_reset_execution_state(void);
+void Prgm_ResetExecutionState(void);
 
 /**
  * @brief  Find a program slot by slot-ID string (e.g. "1","A") or user name.
  * @return 0-based slot index, or -1 if not found.
  */
-int8_t prgm_lookup_slot(const char *id);
+int8_t Prgm_LookupSlot(const char *id);
 
 /**
  * @brief  Abort a running program immediately.
- *         Safe to call from any task (e.g. keypadTask) while prgm_run_loop()
+ *         Safe to call from any task (e.g. keypadTask) while Prgm_RunLoop()
  *         is executing on CalcCoreTask.  Sets prgm_run_active = false so the
  *         run loop exits on the next iteration.  No-op if not running.
  */
-void prgm_request_abort(void);
+void Prgm_RequestAbort(void);
 
 /**
  * @brief  Returns true when the executor is paused waiting for user input
  *         (Input / Pause command).  Used by handle_prgm_running() in ui_prgm.c.
  */
-bool prgm_is_waiting_input(void);
+bool Prgm_IsWaitingInput(void);
 
 /**
  * @brief  Returns the target variable letter ('A'–'Z') for the pending Input
  *         command, or '\0' for Pause (no target variable).
  */
-char prgm_get_input_var(void);
+char Prgm_GetInputVar(void);
 
 /**
  * @brief  Clears the waiting-for-input flag and target variable after the user
  *         has provided input (pressed ENTER in MODE_PRGM_RUNNING).
  */
-void prgm_clear_input_wait(void);
+void Prgm_ClearInputWait(void);
 
 #ifdef HOST_TEST
 /**
@@ -268,7 +268,7 @@ void prgm_clear_input_wait(void);
  * Prints a diagnostic to stderr and returns false on any violation.
  * Available only in HOST_TEST builds; call from test_prgm_cmd_table.c.
  */
-bool prgm_cmd_table_validate(void);
+bool Prgm_CmdTableValidate(void);
 #endif /* HOST_TEST */
 
 #endif /* PRGM_EXEC_H */

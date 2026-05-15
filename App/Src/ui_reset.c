@@ -143,7 +143,7 @@ static void reset_confirm_and_apply(void)
 
     /* Return to home screen, showing "Mem cleared" */
     Calc_ResetInputState();
-    prgm_reset_execution_state();
+    Prgm_ResetExecutionState();
     CalcHistory_Commit("", "Mem cleared", false, 0, 0, 0);
 
     Calc_SetMode(MODE_NORMAL);

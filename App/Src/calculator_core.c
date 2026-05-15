@@ -1036,13 +1036,13 @@ static void history_enter_evaluate(void)
     const char *ebuf = ExprEditor_GetBuf();
     /* prgmNAME expression: insert into history and run the program */
     if (strncmp(ebuf, "prgm", 4) == 0) {
-        int8_t slot = prgm_lookup_slot(ebuf + 4);
+        int8_t slot = Prgm_LookupSlot(ebuf + 4);
         CalcHistory_Commit(ebuf, "", false, 0, 0, 0);
         ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
         Update_Calculator_Display();
         if (slot >= 0)
-            prgm_run_start((uint8_t)slot);
+            Prgm_RunStart((uint8_t)slot);
         return;
     }
 #ifndef HOST_TEST
@@ -1235,7 +1235,7 @@ static bool route_token_on(Token_t t)
     Calc_SetMode(MODE_NORMAL);
     return_mode = MODE_NORMAL;
     ExprEditor_SetStoPending(false);
-    prgm_reset_execution_state();
+    Prgm_ResetExecutionState();
     lvgl_lock();
     lv_obj_del(saving_lbl);
     hide_all_screens();
@@ -1254,7 +1254,7 @@ static bool route_token_quit(Token_t t)
     Calc_SetMode(MODE_NORMAL);
     return_mode = MODE_NORMAL;
     ExprEditor_SetStoPending(false);
-    prgm_reset_execution_state();
+    Prgm_ResetExecutionState();
     lvgl_lock();
     hide_all_screens();
     ui_update_status_bar();
@@ -1477,9 +1477,9 @@ void Process_Hardware_Key(uint8_t key_id)
 
     if (token_to_send != TOKEN_NONE) {
         /* F1: on CLEAR, abort any running program immediately from keypadTask so
-         * prgm_run_loop() (on CalcCoreTask) exits on its next iteration check. */
+         * Prgm_RunLoop() (on CalcCoreTask) exits on its next iteration check. */
         if (token_to_send == TOKEN_CLEAR)
-            prgm_request_abort();  /* no-op if not running */
+            Prgm_RequestAbort();  /* no-op if not running */
         if (xQueueSend(keypadQueueHandle, &token_to_send, 0) != pdPASS) {
             /* Queue full — keypress dropped */
         }

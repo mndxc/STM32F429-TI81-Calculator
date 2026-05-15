@@ -1,7 +1,7 @@
 /**
  * @file    prgm_exec.c
  * @brief   Program storage (FLASH sector 11 erase/write/load) and execution engine
- *          (prgm_run_start, prgm_run_loop, prgm_execute_line).
+ *          (Prgm_RunStart, Prgm_RunLoop, prgm_execute_line).
  *
  * Mirrors persist.c in structure.  All routines that touch FLASH carry
  * __attribute__((section(".RamFunc"))) so they execute from RAM during
@@ -226,7 +226,7 @@ static char        prgm_input_var     = 0;    /* 'A'–'Z' for Input/Prompt, 0 f
  * @brief Find a program slot by slot-ID string (e.g. "1","A") or user name.
  * @return 0-based slot index, or -1 if not found.
  */
-int8_t prgm_lookup_slot(const char *id)
+int8_t Prgm_LookupSlot(const char *id)
 {
     if (!id || id[0] == '\0') return -1;
     for (uint8_t i = 0; i < PRGM_MAX_PROGRAMS; i++) {
@@ -369,7 +369,7 @@ static void cmd_ds_lt(const char *line, uint16_t ln)
 static void cmd_end(const char *line, uint16_t ln)
 {
     (void)line; (void)ln;
-    /* Exhaust current program's line counter; prgm_run_loop() will then either
+    /* Exhaust current program's line counter; Prgm_RunLoop() will then either
      * pop the call stack (subroutine return) or finalize execution (top level). */
     prgm_run_pc = prgm_run_num_lines;
 }
@@ -403,7 +403,7 @@ static void cmd_stop(const char *line, uint16_t ln)
 static void cmd_prgm_call(const char *line, uint16_t ln)
 {
     (void)ln;
-    int8_t idx = prgm_lookup_slot(line + 4);
+    int8_t idx = Prgm_LookupSlot(line + 4);
     if (idx < 0) return; /* program not found — continue */
     if (prgm_call_top < PRGM_CALL_DEPTH) {
         prgm_call_stack[prgm_call_top].idx       = prgm_run_idx;
@@ -797,14 +797,14 @@ static void prgm_execute_line(uint16_t ln)
 /** Main synchronous execution loop.  Runs lines from prgm_run_pc until a
  *  pause point or end of program.  Re-entered via handle_prgm_running on
  *  ENTER after Pause/Input/Prompt. */
-void prgm_request_abort(void)
+void Prgm_RequestAbort(void)
 {
     prgm_run_active    = false;
     prgm_waiting_input = false;
     prgm_call_top      = 0;
 }
 
-void prgm_run_loop(void)
+void Prgm_RunLoop(void)
 {
     prgm_run_active = true;
 
@@ -814,7 +814,7 @@ restart:
         uint16_t ln = prgm_run_pc++;
         prgm_execute_line(ln);
 #ifndef HOST_TEST
-        /* Yield so keypadTask can call prgm_request_abort() on CLEAR, and so
+        /* Yield so keypadTask can call Prgm_RequestAbort() on CLEAR, and so
          * DefaultTask can render Disp output.  Without this yield an infinite
          * program loop starves other tasks → black screen + slow heartbeat. */
         osDelay(0);
@@ -848,7 +848,7 @@ restart:
 }
 
 /** Initialise executor state and start running program @p idx. */
-void prgm_run_start(uint8_t idx)
+void Prgm_RunStart(uint8_t idx)
 {
     prgm_run_idx       = idx;
     prgm_run_pc        = 0;
@@ -861,12 +861,12 @@ void prgm_run_start(uint8_t idx)
     prgm_run_num_lines = Prgm_GetNumLines();
     Calc_SetMode(MODE_PRGM_RUNNING);
     if (s_out) s_out->show_home();
-    prgm_run_loop();
+    Prgm_RunLoop();
 }
 
 /* handle_prgm_running() was moved to ui_prgm.c — declared in ui_prgm.h. */
 
-void prgm_reset_execution_state(void)
+void Prgm_ResetExecutionState(void)
 {
     prgm_run_active    = false;
     prgm_waiting_input = false;
@@ -874,9 +874,9 @@ void prgm_reset_execution_state(void)
     prgm_call_top      = 0;
 }
 
-bool prgm_is_waiting_input(void) { return prgm_waiting_input; }
-char prgm_get_input_var(void)    { return prgm_input_var; }
-void prgm_clear_input_wait(void) { prgm_waiting_input = false; prgm_input_var = 0; }
+bool Prgm_IsWaitingInput(void) { return prgm_waiting_input; }
+char Prgm_GetInputVar(void)    { return prgm_input_var; }
+void Prgm_ClearInputWait(void) { prgm_waiting_input = false; prgm_input_var = 0; }
 
 #ifdef HOST_TEST
 /**
@@ -885,7 +885,7 @@ void prgm_clear_input_wait(void) { prgm_waiting_input = false; prgm_input_var = 
  * Returns true when the table is clean; prints a diagnostic and returns false
  * on the first violation found.
  */
-bool prgm_cmd_table_validate(void)
+bool Prgm_CmdTableValidate(void)
 {
     bool ok = true;
     size_t n = sizeof(cmd_table) / sizeof(cmd_table[0]);

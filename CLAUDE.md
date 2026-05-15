@@ -102,7 +102,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 
 
-**[refactor] prgm_exec.h naming — public functions use snake_case instead of Module_VerbNoun** — `prgm_run_start`, `prgm_run_loop`, `prgm_lookup_slot`, `prgm_request_abort`, `prgm_is_waiting_input`, `prgm_get_input_var`, `prgm_clear_input_wait`, `prgm_cmd_table_validate` break the capitalization convention used everywhere else. Rename to `Prgm_RunStart`, `Prgm_RunLoop`, etc. Update all callers (primarily `calculator_core.c`). Zero behaviour change. Files: `App/Inc/prgm_exec.h`, `App/Src/prgm_exec.c`, `App/Src/calculator_core.c`.
 
 #### Hardware validation — no new code, test on device
 
