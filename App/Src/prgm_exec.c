@@ -16,6 +16,7 @@
 #  include "prgm_exec_test_stubs.h"
 #else
 #  include "calc_history.h"
+#  include "calculator_core.h"
 #  include "prgm_store_access.h"
 #  include "graph.h"
 #endif
@@ -23,6 +24,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+/* Defined in ui_prgm.c / declared in ui_prgm.h.  Forward-declared here to
+ * avoid pulling in the full UI Logic header from Application Core. */
+#ifndef HOST_TEST
+void prgm_slot_id_str(uint8_t slot, char *out);
+#endif
 
 /*---------------------------------------------------------------------------
  * Output callback table — set once by Prgm_Init (embedded) or

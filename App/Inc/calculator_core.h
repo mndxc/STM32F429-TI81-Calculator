@@ -83,6 +83,12 @@ bool Calc_GetCursorVisible(void);
 void Calc_SetCursorVisible(bool v);
 
 /*
+ * Format a CalcResult_t into a display string and update ANS as a side-effect.
+ * Called by ui_prgm.c and the main expression evaluation path in calculator_core.c.
+ */
+void format_calc_result(const CalcResult_t *r, char *buf, int buf_size);
+
+/*
  * Super-module internal display/nav functions — defined in calculator_core.c,
  * called by other UI super-module files (graph_ui.c, ui_prgm.c, etc.).
  */

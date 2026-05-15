@@ -434,6 +434,7 @@ void  Calc_SetAngleDegrees(bool degrees);
  * expr_editor.h or calculator_core.h.
  */
 void Calc_ClearExpr(void);
+
 #endif /* !HOST_TEST */
 
 #endif /* CALC_ENGINE_H */
