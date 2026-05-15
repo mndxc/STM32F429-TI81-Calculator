@@ -1262,6 +1262,84 @@ static bool eval_binary_op(MathTokenType_t type,
 }
 
 /*---------------------------------------------------------------------------
+ * Stage 3 — RPN evaluator helpers
+ *--------------------------------------------------------------------------*/
+
+/* 1=pushed (caller should continue), 0=not a push operand (fall through to dispatch), -1=error. */
+static int rpn_eval_push(const MathToken_t *tok, float x_val, float t_val,
+                          bool angle_degrees,
+                          float *stack, bool *is_matrix, int *top, CalcResult_t *res)
+{
+    MathTokenType_t tt = tok->type;
+    if (tt == MATH_NUMBER)
+        return rpn_push(stack, is_matrix, top, tok->value, false, res) ? 1 : -1;
+    if (tt == MATH_VAR_X)
+        return rpn_push(stack, is_matrix, top, x_val, false, res) ? 1 : -1;
+    if (tt == MATH_VAR_T)
+        return rpn_push(stack, is_matrix, top, t_val, false, res) ? 1 : -1;
+    if (tt >= MATH_VAR_Y1 && tt <= MATH_VAR_Y4) {
+        uint8_t idx = (uint8_t)(tt - MATH_VAR_Y1);
+        float y_val = 0.0f;
+        if (s_yeq != NULL && idx < s_yeq_count &&
+            s_yeq[idx][0] != '\0' && s_y_eval_depth == 0) {
+            s_y_eval_depth++;
+            CalcResult_t yr = Calc_EvaluateAt(s_yeq[idx], x_val, 0.0f, angle_degrees);
+            s_y_eval_depth--;
+            if (yr.error != CALC_OK) { *res = yr; return -1; }
+            y_val = yr.value;
+        }
+        return rpn_push(stack, is_matrix, top, y_val, false, res) ? 1 : -1;
+    }
+    if (tt == MATH_MATRIX_VAL)
+        return rpn_push(stack, is_matrix, top, tok->value, true, res) ? 1 : -1;
+    return 0;
+}
+
+/* 1=handled (caller should continue), 0=not a special op (fall through), -1=error.
+ * Covers R>P / P>R (coordinate conversion with variable side-effects) and nDeriv. */
+static int rpn_eval_special(MathTokenType_t tt, float *stack, bool *is_matrix, int *top,
+                              bool angle_degrees, const GraphEquation_t *nderiv_eq,
+                              CalcResult_t *res)
+{
+    if (tt == MATH_FUNC_R_TO_P || tt == MATH_FUNC_P_TO_R) {
+        if (*top < 1) { rpn_set_error(res, CALC_ERR_SYNTAX, "Syntax error"); return -1; }
+        float b = stack[(*top)--];
+        float a = stack[*top];
+        if (tt == MATH_FUNC_R_TO_P) {
+            float r     = sqrtf(a * a + b * b);
+            float theta = atan2f(b, a);
+            if (angle_degrees) theta *= (180.0f / 3.14159265358979f);
+            calc_variables['R' - 'A'] = r;
+            calc_variables[26]        = theta;
+            stack[*top] = r;
+        } else {
+            float theta_rad = angle_degrees ? b * (3.14159265358979f / 180.0f) : b;
+            float x = a * cosf(theta_rad);
+            float y = a * sinf(theta_rad);
+            calc_variables['X' - 'A'] = x;
+            calc_variables['Y' - 'A'] = y;
+            stack[*top] = x;
+        }
+        is_matrix[*top] = false;
+        return 1;
+    }
+    if (tt == MATH_FUNC_NDERIV) {
+        /* Stack on entry: [X_ref, val] (top = val). */
+        if (*top < 1) { rpn_set_error(res, CALC_ERR_SYNTAX, "Syntax error"); return -1; }
+        float val = stack[(*top)--];
+        (*top)--;
+        float eps = 1e-3f;
+        CalcResult_t fp = Calc_EvalGraphEquation(nderiv_eq, val + eps, angle_degrees);
+        if (fp.error != CALC_OK) { *res = fp; return -1; }
+        CalcResult_t fm = Calc_EvalGraphEquation(nderiv_eq, val - eps, angle_degrees);
+        if (fm.error != CALC_OK) { *res = fm; return -1; }
+        float deriv = (fp.value - fm.value) / (2.0f * eps);
+        return rpn_push(stack, is_matrix, top, deriv, false, res) ? 1 : -1;
+    }
+    return 0;
+}
+
+/*---------------------------------------------------------------------------
  * Stage 3 — RPN evaluator
  *--------------------------------------------------------------------------*/
 
@@ -1280,82 +1358,13 @@ static CalcResult_t EvaluateRPN_ex(const TokenList_t *rpn, float x_val, float t_
         MathToken_t     tok = rpn->tokens[i];
         MathTokenType_t tt  = tok.type;
 
-        if (tt == MATH_NUMBER) {
-            if (!rpn_push(stack, is_matrix, &top, tok.value, false, &res)) return res;
-            continue;
-        }
-        if (tt == MATH_VAR_X) {
-            if (!rpn_push(stack, is_matrix, &top, x_val, false, &res)) return res;
-            continue;
-        }
-        if (tt == MATH_VAR_T) {
-            if (!rpn_push(stack, is_matrix, &top, t_val, false, &res)) return res;
-            continue;
-        }
-        if (tt >= MATH_VAR_Y1 && tt <= MATH_VAR_Y4) {
-            uint8_t idx = (uint8_t)(tt - MATH_VAR_Y1);
-            float y_val = 0.0f;
-            if (s_yeq != NULL && idx < s_yeq_count &&
-                s_yeq[idx][0] != '\0' && s_y_eval_depth == 0) {
-                s_y_eval_depth++;
-                CalcResult_t yr = Calc_EvaluateAt(s_yeq[idx], x_val, 0.0f, angle_degrees);
-                s_y_eval_depth--;
-                if (yr.error != CALC_OK) { res = yr; return res; }
-                y_val = yr.value;
-            }
-            if (!rpn_push(stack, is_matrix, &top, y_val, false, &res)) return res;
-            continue;
-        }
-        if (tt == MATH_MATRIX_VAL) {
-            if (!rpn_push(stack, is_matrix, &top, tok.value, true, &res)) return res;
-            continue;
-        }
+        int r = rpn_eval_push(&tok, x_val, t_val, angle_degrees, stack, is_matrix, &top, &res);
+        if (r < 0) return res;
+        if (r > 0) continue;
 
-        /* R>P(x,y) and P>R(r,θ) — 2-arg coordinate conversion with side effects */
-        if (tt == MATH_FUNC_R_TO_P || tt == MATH_FUNC_P_TO_R) {
-            if (top < 1) {
-                rpn_set_error(&res, CALC_ERR_SYNTAX, "Syntax error");
-                return res;
-            }
-            float b = stack[top--];   /* second arg: y (R>P) or θ (P>R) */
-            float a = stack[top];     /* first  arg: x (R>P) or r (P>R) */
-            if (tt == MATH_FUNC_R_TO_P) {
-                float r     = sqrtf(a * a + b * b);
-                float theta = atan2f(b, a);
-                if (angle_degrees) theta *= (180.0f / 3.14159265358979f);
-                calc_variables['R' - 'A'] = r;
-                calc_variables[26]        = theta;
-                stack[top] = r;
-            } else {
-                float theta_rad = angle_degrees ? b * (3.14159265358979f / 180.0f) : b;
-                float x = a * cosf(theta_rad);
-                float y = a * sinf(theta_rad);
-                calc_variables['X' - 'A'] = x;
-                calc_variables['Y' - 'A'] = y;
-                stack[top] = x;
-            }
-            is_matrix[top] = false;
-            continue;
-        }
-
-        /* nDeriv(expr, X, val) — symmetric difference quotient (ε = 0.001)
-         * Stack on entry: [X_ref, val] (top = val). */
-        if (tt == MATH_FUNC_NDERIV) {
-            if (top < 1) {
-                rpn_set_error(&res, CALC_ERR_SYNTAX, "Syntax error");
-                return res;
-            }
-            float val = stack[top--]; /* arg3: evaluation point */
-            top--;                    /* arg2: variable ref (discard) */
-            float eps = 1e-3f;
-            CalcResult_t fp = Calc_EvalGraphEquation(nderiv_eq, val + eps, angle_degrees);
-            if (fp.error != CALC_OK) { res = fp; return res; }
-            CalcResult_t fm = Calc_EvalGraphEquation(nderiv_eq, val - eps, angle_degrees);
-            if (fm.error != CALC_OK) { res = fm; return res; }
-            float deriv = (fp.value - fm.value) / (2.0f * eps);
-            if (!rpn_push(stack, is_matrix, &top, deriv, false, &res)) return res;
-            continue;
-        }
+        r = rpn_eval_special(tt, stack, is_matrix, &top, angle_degrees, nderiv_eq, &res);
+        if (r < 0) return res;
+        if (r > 0) continue;
 
         /* Route ADD/SUB/MUL to matrix handler when either operand is a matrix */
         bool mat_arith = (tt == MATH_OP_ADD || tt == MATH_OP_SUB || tt == MATH_OP_MUL)

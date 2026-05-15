@@ -92,8 +92,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 #### Complexity debt — surfaced by 2026-05-07 periodic code review
 
-**[complexity] calc_engine.c — EvaluateRPN_ex at dispatch-table redesign threshold** — 53 MATH_* case statements at conditional depth 5; extract sub-dispatch functions `rpn_eval_function()` and `rpn_eval_operator()` to reduce depth to ≤3 and bring case count per function under ~30. Zero behaviour change. Files: `App/Src/calc_engine.c`, function `EvaluateRPN_ex`.
-
 **[complexity] calculator_core.c (1702 lines) carries 4 independent responsibilities** — UI-object creation, expression editing, history management, and mode routing live in one file; begin with migrating the matrix-ring history state and callbacks into `App/Src/calc_history.c` (currently underused). Zero behaviour change. Files: `App/Src/calculator_core.c`, `App/Src/calc_history.c`.
 
 **[complexity] graph_ui.c (1403 lines) conflates Y= editor with 6 live graph-canvas modes** — `handle_trace_mode` (~150 lines, depth 6) and `handle_free_cursor_mode` are independent state machines; extract into a new `App/Src/graph_ui_cursor.c`. Zero behaviour change. Files: `App/Src/graph_ui.c`.

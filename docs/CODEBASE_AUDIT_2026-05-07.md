@@ -569,7 +569,7 @@ Each item is self-contained and can be started independently (prerequisites note
 
 ---
 
-### E5. ❌ [HIGH] Verify and resolve function complexity in persist.c (Persist_BuildBlock / Persist_ApplyBlock)
+### E5. ✅ [HIGH] Verify and resolve function complexity in persist.c (Persist_BuildBlock / Persist_ApplyBlock)
 
 **Why it matters:** Both `Persist_BuildBlock` (lines 167–235, ~68 lines) and `Persist_ApplyBlock` (lines 236–305, ~69 lines) exceed the 60-line limit. The audit marked these ⚠️ REVIEW.
 
@@ -1034,7 +1034,7 @@ Open a `[complexity]` item in CLAUDE.md "Next session priorities" for any functi
 
 ### Summary Table
 
-_Status as of 2026-05-14: ✅ Done · ⚠️ Partial (interim comments added; full callback fix deferred) · ❌ Open — last updated 2026-05-14_
+_Status as of 2026-05-14: ✅ Done · ⚠️ Partial (interim comments added; full callback fix deferred) · ❌ Open — last updated 2026-05-14. E6 completed 2026-05-14._
 
 | Item | Severity | Est. Effort | Prerequisites | Primary Verification | Status (2026-05-14) |
 |------|----------|-------------|---------------|----------------------|---------------------|
@@ -1042,8 +1042,8 @@ _Status as of 2026-05-14: ✅ Done · ⚠️ Partial (interim comments added; fu
 | E2 — Stale comment (covered by E1) | Critical→Low | 5 min | E1 | Build only | ✅ Done (by E1) |
 | E3 — prgm_exec.c UI layer dep | High | 2–3 h | None | Host suite + build | ✅ Done (ANS/angle accessors + `Calc_ClearExpr` added to `calc_engine.h`; `calculator_core.h` removed from `prgm_exec.c` — closed with E4) |
 | E4 — persist.c UI layer dep | High | 1 h | E3 (model) | `test_persist_roundtrip` | ✅ Done (ANS/angle declarations added to `calc_engine.h`; `calculator_core.h` removed from `persist.c`; 15/15 host tests pass) |
-| E5 — persist.c function length | High | 1 h | E4 | `test_persist_roundtrip` | ❌ Open |
-| E6 — EvaluateRPN_ex complexity | High | 3–4 h | None | `test_calc_engine`, `test_parse_eval` | ❌ Open |
+| E5 — persist.c function length | High | 1 h | E4 | `test_persist_roundtrip` | ✅ Done (6 static helpers extracted: `build_graph_state`, `build_matrix_state`, `build_stat_state`, `apply_graph_state`, `apply_matrix_state`, `apply_stat_state`; both top-level functions now ~18 lines; 15/15 host tests pass) |
+| E6 — EvaluateRPN_ex complexity | High | 3–4 h | None | `test_calc_engine`, `test_parse_eval` | ✅ Done (extracted `rpn_eval_push` and `rpn_eval_special`; `EvaluateRPN_ex` reduced from ~130 to ~52 lines; 15/15 host tests pass) |
 | E7 — graph_ui.c cursor extraction | High | 3–4 h | None | `test_graph_render` | ❌ Open |
 | E8 — CalcHistory_UpdateDisplay | Medium | 30 min interim / 4 h full | ARCH_OPPS item 4 for full fix | Build only (interim) | ⚠️ Partial (comments added in `calc_history.h:7` and `calculator_core.c:808`; callback fix deferred) |
 | E9 — ui_matrix.c encapsulation | Medium | 1–2 h | None | Build | ✅ Done (9 globals marked `static`; redundant raw `extern` decls removed — already in `ui_shared.h`; file-level Doxygen block added) |
