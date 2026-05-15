@@ -102,7 +102,7 @@ static const int16_t yvars_tab_x[YVARS_TAB_COUNT] = { 4, 40, 92 };
  * Module state
  *---------------------------------------------------------------------------*/
 
-MenuState_t yvars_menu_state = {0};
+static MenuState_t yvars_menu_state = {0};
 
 lv_obj_t *ui_yvars_screen = NULL;
 

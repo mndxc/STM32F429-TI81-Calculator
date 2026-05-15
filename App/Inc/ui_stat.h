@@ -14,12 +14,6 @@
 /* StatMenuState_t replaced by shared MenuState_t. */
 
 /*---------------------------------------------------------------------------
- * Externally visible state
- *---------------------------------------------------------------------------*/
-
-extern MenuState_t stat_menu_state;
-
-/*---------------------------------------------------------------------------
  * Stat data / results accessors
  *---------------------------------------------------------------------------*/
 
@@ -74,7 +68,7 @@ void       Stat_MenuOpen(CalcMode_t return_to);
 CalcMode_t Stat_MenuClose(void);
 
 /** Token handler for MODE_STAT_MENU.  Returns true to consume token. */
-bool handle_stat_menu(Token_t t, MenuState_t *s);
+bool handle_stat_menu(Token_t t);
 
 /** Token handler for MODE_STAT_EDIT.  Returns true to consume token. */
 bool handle_stat_edit(Token_t t);

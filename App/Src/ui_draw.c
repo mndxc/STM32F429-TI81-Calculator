@@ -57,7 +57,7 @@ static const char * const draw_item_insert[DRAW_ITEM_COUNT] = {
  * Module state
  *---------------------------------------------------------------------------*/
 
-MenuState_t draw_menu_state = {0};
+static MenuState_t draw_menu_state = {0};
 
 lv_obj_t *ui_draw_screen = NULL;
 

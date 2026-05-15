@@ -262,10 +262,6 @@ void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
  * ui_matrix.h replacement
  *---------------------------------------------------------------------------*/
 
-/* MatrixMenuState_t replaced by shared MenuState_t. */
-
-extern MenuState_t matrix_menu_state;
-
 static inline void Matrix_ShowMenuScreen(void)   {}
 static inline void Matrix_HideMenuScreen(void)   {}
 static inline void Matrix_ShowEditScreen(void)   {}
@@ -279,17 +275,13 @@ static inline void ui_update_matrix_edit_display(void)    {}
 static inline void matrix_edit_cursor_update(void)        {}
 static inline void Matrix_MenuOpen(CalcMode_t r)    { (void)r; current_mode = MODE_MATRIX_MENU; }
 static inline CalcMode_t Matrix_MenuClose(void)     { return MODE_NORMAL; }
-static inline bool handle_matrix_menu(Token_t t, MenuState_t *s)
-    { (void)t; (void)s; return false; }
+static inline bool handle_matrix_menu(Token_t t)
+    { (void)t; return false; }
 static inline void handle_matrix_edit(Token_t t) { (void)t; }
 
 /*---------------------------------------------------------------------------
  * ui_stat.h replacement
  *---------------------------------------------------------------------------*/
-
-/* StatMenuState_t replaced by shared MenuState_t. */
-
-extern MenuState_t stat_menu_state;
 
 /* Stat_GetData / Stat_GetResults / Stat_SetData are not called from HOST_TEST paths. */
 
@@ -307,8 +299,8 @@ static inline void ui_update_stat_edit_display(void)   {}
 static inline void ui_update_stat_results_display(void){}
 static inline void Stat_MenuOpen(CalcMode_t r)      { (void)r; current_mode = MODE_STAT_MENU; }
 static inline CalcMode_t Stat_MenuClose(void)       { return MODE_NORMAL; }
-static inline bool handle_stat_menu(Token_t t, MenuState_t *s)
-    { (void)t; (void)s; return false; }
+static inline bool handle_stat_menu(Token_t t)
+    { (void)t; return false; }
 static inline bool handle_stat_edit(Token_t t)    { (void)t; return false; }
 static inline bool handle_stat_results(Token_t t) { (void)t; return false; }
 
@@ -316,8 +308,6 @@ static inline bool handle_stat_results(Token_t t) { (void)t; return false; }
  * ui_vars.h replacement
  * Navigation state uses MenuState_t (see App/Inc/menu_state.h — Item 3).
  *---------------------------------------------------------------------------*/
-
-extern MenuState_t vars_menu_state;
 
 static inline void Vars_ShowScreen(void) {}
 static inline void Vars_HideScreen(void) {}
@@ -331,8 +321,6 @@ static inline bool handle_vars_menu(Token_t t)
 /*---------------------------------------------------------------------------
  * ui_yvars.h replacement
  *---------------------------------------------------------------------------*/
-
-extern MenuState_t yvars_menu_state;
 
 static inline void Yvars_ShowScreen(void) {}
 static inline void Yvars_HideScreen(void) {}
@@ -387,10 +375,6 @@ static inline bool handle_error_screen(Token_t t)    { (void)t; return false; }
 /*---------------------------------------------------------------------------
  * ui_draw.h replacement
  *---------------------------------------------------------------------------*/
-
-/* DrawMenuState_t replaced by shared MenuState_t. */
-
-extern MenuState_t draw_menu_state;
 
 static inline void Draw_ShowScreen(void) {}
 static inline void Draw_HideScreen(void) {}

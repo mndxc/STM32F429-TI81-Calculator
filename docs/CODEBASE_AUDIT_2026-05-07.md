@@ -1045,7 +1045,7 @@ _Status as of 2026-05-14: ✅ Done · ⚠️ Partial (interim comments added; fu
 | E9 — ui_matrix.c encapsulation | Medium | 1–2 h | None | Build | ✅ Done (9 globals marked `static`; redundant raw `extern` decls removed — already in `ui_shared.h`; file-level Doxygen block added) |
 | E10 — ui_prgm.h LVGL pollution | Medium | 1–2 h | E3 (pattern) | Build | ❌ Open (`prgm_store_access.h` not created) |
 | E11 — extern lv_obj_t * pattern | Medium | 3–4 h (6 modules) | None | Build | ✅ Done (all 7 screen pointers now `static`; `_hide()` accessors added to all 5 PRGM sub-modules; `IsVisible()` added to ui_error/ui_reset; `_reset_and_show()` wrappers fold in the unhide; `prgm_submenu_tab_switch` simplified; `hide_prgm_screens` calls accessors; `prgm_editor.c` redundant `lv_obj_clear_flag` calls removed; host suite 15/15) |
-| E12 — extern MenuState_t pattern | Medium | 3–4 h (6 modules) | None | Build | ❌ Open |
+| E12 — extern MenuState_t pattern | Medium | 3–4 h (6 modules) | None | Build | ✅ Done (all 5 MenuState_t vars + ModeScreenState_t s_mode made static; `handle_matrix_menu` / `handle_stat_menu` parameters dropped; `UiMode_GetCommittedArray` / `UiMode_RestoreCommittedArray` / `UiMode_SetRow` accessors added; persist.c updated; stubs and test defs cleaned up; 15/15 host tests pass) |
 | E13 — prgm_exec.h naming | Low | 30 min | None | Host suite + build | ❌ Open |
 | E14 — #pragma once inconsistency | Low | 15 min | None | Host suite + build | ✅ Done (both headers now use `#ifndef` guards) |
 | E15 — calc_mode_topology.h `from` | Low | 1–2 h | None | `test_mode_topology` | ✅ Done (Option A: parameter removed; signature is now `CalcMode_IsValidTransition(CalcMode_t to)`) |

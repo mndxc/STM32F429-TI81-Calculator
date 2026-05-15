@@ -39,11 +39,33 @@
  *---------------------------------------------------------------------------*/
 
 /** Row 2 starts at 1 = Degree to match angle_degrees=true default. */
-ModeScreenState_t s_mode = {
+static ModeScreenState_t s_mode = {
     .row_selected = 0,
     .cursor    = {0, 0, 1, 0, 0, 0, 0, 0},
     .committed = {0, 0, 1, 0, 0, 0, 0, 0},
 };
+
+void UiMode_GetCommittedArray(uint8_t *out, uint8_t count)
+{
+    for (uint8_t i = 0; i < count && i < MODE_ROW_COUNT; i++)
+        out[i] = s_mode.committed[i];
+}
+
+void UiMode_RestoreCommittedArray(const uint8_t *in, uint8_t count)
+{
+    for (uint8_t i = 0; i < count && i < MODE_ROW_COUNT; i++) {
+        s_mode.committed[i] = in[i];
+        s_mode.cursor[i]    = in[i];
+    }
+}
+
+void UiMode_SetRow(uint8_t row, uint8_t val)
+{
+    if (row < MODE_ROW_COUNT) {
+        s_mode.committed[row] = val;
+        s_mode.cursor[row]    = val;
+    }
+}
 
 /* Screen pointer — private; accessed externally via Mode_HideScreen().
  * lv_obj_t is provided by lvgl.h (firmware) or calculator_core_test_stubs.h (host test). */

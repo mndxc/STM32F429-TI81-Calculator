@@ -47,24 +47,18 @@ SemaphoreHandle_t xLVGL_Mutex    = NULL;
 SemaphoreHandle_t xLVGL_Ready    = NULL;
 osMessageQId      keypadQueueHandle = NULL;
 
-MenuState_t matrix_menu_state = {0};
-
 lv_obj_t *ui_stat_screen         = NULL;
 lv_obj_t *ui_stat_edit_screen    = NULL;
 lv_obj_t *ui_stat_results_screen = NULL;
-MenuState_t stat_menu_state = {0};
 
 lv_obj_t *ui_math_screen = NULL;
 lv_obj_t *ui_test_screen = NULL;
 
 lv_obj_t *ui_draw_screen = NULL;
-MenuState_t draw_menu_state = {0};
 
 lv_obj_t *ui_vars_screen = NULL;
-MenuState_t vars_menu_state = {0, 0, 0, MODE_NORMAL};
 
 lv_obj_t *ui_yvars_screen = NULL;
-MenuState_t yvars_menu_state = {0};
 
 ProgramStore_t g_prgm_store;
 char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];

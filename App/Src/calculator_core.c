@@ -1207,9 +1207,9 @@ typedef struct {
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 /* Thin wrappers for handlers whose signatures differ from ModeHandler_fn. */
-static bool dispatch_matrix_menu(Token_t t) { return handle_matrix_menu(t, &matrix_menu_state); }
+static bool dispatch_matrix_menu(Token_t t) { return handle_matrix_menu(t); }
 static bool dispatch_matrix_edit(Token_t t) { handle_matrix_edit(t); return true; }
-static bool dispatch_stat_menu(Token_t t)   { return handle_stat_menu(t, &stat_menu_state); }
+static bool dispatch_stat_menu(Token_t t)   { return handle_stat_menu(t); }
 
 /*---------------------------------------------------------------------------
  * Route handlers — extracted from the former inline blocks in Execute_Token

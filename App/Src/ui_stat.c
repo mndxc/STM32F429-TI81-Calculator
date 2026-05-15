@@ -46,7 +46,7 @@ static const char * const stat_data_names[4] = {
 lv_obj_t *ui_stat_screen         = NULL;
 lv_obj_t *ui_stat_results_screen = NULL;
 
-MenuState_t stat_menu_state = {0};
+static MenuState_t stat_menu_state = {0};
 
 /* Module-private stat data and results — accessed via Stat_GetData/GetResults/SetData */
 static StatData_t    stat_data    = {{0}, {0}, 0};
@@ -240,8 +240,9 @@ void ui_update_stat_results_display(void)
  * Token Handlers
  *---------------------------------------------------------------------------*/
 
-bool handle_stat_menu(Token_t t, MenuState_t *s)
+bool handle_stat_menu(Token_t t)
 {
+    MenuState_t *s = &stat_menu_state;
     uint8_t tab_count  = STAT_TAB_COUNT;
     uint8_t item_count = stat_tab_item_count[s->tab];
 
@@ -310,7 +311,7 @@ bool handle_stat_menu(Token_t t, MenuState_t *s)
         for (int i = 0; i < 5; i++) {
             if (t == digit_tokens[i] && i < (int)item_count) {
                 s->cursor = (uint8_t)i;
-                handle_stat_menu(TOKEN_ENTER, s);
+                handle_stat_menu(TOKEN_ENTER);
                 return true;
             }
         }

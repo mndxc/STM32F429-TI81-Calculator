@@ -14,7 +14,7 @@
 #ifndef HOST_TEST
 #  include "calc_engine.h"      /* calc_variables, calc_matrices, Calc_SetNotationMode, Calc_SetDecimalMode */
 #  include "calculator_core.h"  /* Calc_GetAns, Calc_SetAnsScalar, Calc_Get/SetAngleDegrees */
-#  include "ui_mode.h"          /* s_mode, ModeScreenState_t */
+#  include "ui_mode.h"          /* UiMode_GetCommittedArray, UiMode_RestoreCommittedArray, MODE_ROW_COUNT */
 #  include "graph.h"            /* Graph_GetState, Graph_Set*, Graph_GetEquationBuf, … */
 #  include "graph_ui_range.h"   /* graph_ui_get_zoom_x_fact, graph_ui_set_zoom_facts */
 #  include "ui_stat.h"          /* Stat_GetData, Stat_GetResults, Stat_SetData */
@@ -180,7 +180,7 @@ PersistBlock_t Persist_BuildBlock(void)
     out.mode_ver   = MODE_PERSIST_VERSION;
 
     /* MODE section */
-    memcpy(out.mode.committed, s_mode.committed, sizeof(s_mode.committed));
+    UiMode_GetCommittedArray(out.mode.committed, MODE_ROW_COUNT);
 
     /* Graph section — copy fields individually (skip active) */
     const GraphState_t *gs = Graph_GetState();
@@ -231,14 +231,13 @@ PersistBlock_t Persist_BuildBlock(void)
  * @brief  Restore calculator state from a previously loaded block.
  *
  * Re-derives angle_degrees, calc_decimal_mode, and MODE screen cursor from
- * the restored s_mode.committed so behaviour is consistent with ENTER on MODE.
+ * the restored mode.committed block so behaviour is consistent with ENTER on MODE.
  */
 void Persist_ApplyBlock(const PersistBlock_t *block)
 {
     memcpy(calc_variables, block->calc_variables, sizeof(calc_variables));
     Calc_SetAnsScalar(block->ans);
-    memcpy(s_mode.committed, block->mode.committed, sizeof(s_mode.committed));
-    for (int i = 0; i < MODE_ROW_COUNT; i++) s_mode.cursor[i] = s_mode.committed[i];
+    UiMode_RestoreCommittedArray(block->mode.committed, MODE_ROW_COUNT);
 
     /* Re-derive state computed from mode.committed */
     Calc_SetNotationMode(block->mode.committed[0]);
@@ -285,8 +284,7 @@ void Persist_ApplyBlock(const PersistBlock_t *block)
     Graph_SetParamWindow(block->graph.t_min, block->graph.t_max,
                          (block->graph.t_step > 0.0f) ? block->graph.t_step : 0.1309f);
     /* Re-sync MODE screen cursor for row 3 (Function|Param) */
-    s_mode.cursor[3]    = (block->graph.param_mode != 0) ? 1u : 0u;
-    s_mode.committed[3] = s_mode.cursor[3];
+    UiMode_SetRow(3, (block->graph.param_mode != 0) ? 1u : 0u);
 
     /* Restore STAT data list */
     StatData_t sd;

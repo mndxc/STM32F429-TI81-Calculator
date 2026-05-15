@@ -35,8 +35,14 @@ typedef struct {
  * Shared state (defined in ui_mode.c)
  *---------------------------------------------------------------------------*/
 
-/** MODE screen state — accessed by Persist_BuildBlock / Persist_ApplyBlock in persist.c. */
-extern ModeScreenState_t s_mode;
+/** Copy committed[] to caller-supplied array (for persist serialisation). */
+void UiMode_GetCommittedArray(uint8_t *out, uint8_t count);
+
+/** Restore committed[] and cursor[] from a saved array (for persist restore). */
+void UiMode_RestoreCommittedArray(const uint8_t *in, uint8_t count);
+
+/** Set a single row's committed and cursor to val (for per-row persist fixup). */
+void UiMode_SetRow(uint8_t row, uint8_t val);
 
 /*---------------------------------------------------------------------------
  * Public API

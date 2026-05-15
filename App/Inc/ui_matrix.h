@@ -9,8 +9,6 @@
 #include "app_common.h"
 #include "menu_state.h"
 
-extern MenuState_t matrix_menu_state;
-
 /* Screen show/hide/visibility API (caller holds lvgl_lock) */
 void Matrix_ShowMenuScreen(void);
 void Matrix_HideMenuScreen(void);
@@ -32,7 +30,7 @@ void       Matrix_MenuOpen(CalcMode_t return_to);
 CalcMode_t Matrix_MenuClose(void);
 
 /* Token Handlers */
-bool handle_matrix_menu(Token_t t, MenuState_t *s);
+bool handle_matrix_menu(Token_t t);
 void handle_matrix_edit(Token_t t);
 
 #endif /* APP_UI_MATRIX_H */

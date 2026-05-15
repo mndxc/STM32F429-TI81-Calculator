@@ -22,7 +22,7 @@
 static lv_obj_t *ui_matrix_screen      = NULL;
 static lv_obj_t *ui_matrix_edit_screen = NULL;
 
-MenuState_t matrix_menu_state = {0};
+static MenuState_t matrix_menu_state = {0};
 
 static uint8_t    matrix_edit_idx        = 0;   /* 0=[A], 1=[B], 2=[C] */
 static int16_t    matrix_edit_cursor     = 0;   /* flat cell index; -1 = dim mode */
@@ -255,8 +255,9 @@ void ui_update_matrix_edit_display(void)
 /*---------------------------------------------------------------------------
  * Token Handlers
  *---------------------------------------------------------------------------*/
-bool handle_matrix_menu(Token_t t, MenuState_t *s)
+bool handle_matrix_menu(Token_t t)
 {
+    MenuState_t *s = &matrix_menu_state;
     switch (t) {
     case TOKEN_LEFT:
         tab_move(&s->tab, &s->cursor, NULL, 2, true, ui_update_matrix_display);

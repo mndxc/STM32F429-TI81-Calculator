@@ -63,32 +63,23 @@ SemaphoreHandle_t xLVGL_Mutex    = NULL;
 SemaphoreHandle_t xLVGL_Ready    = NULL;
 osMessageQId      keypadQueueHandle = NULL;
 
-/* Matrix menu state (normally owned by ui_matrix.c) */
-MenuState_t matrix_menu_state = {0};
-
 /* STAT screen pointers (normally owned by ui_stat.c) */
 lv_obj_t *ui_stat_screen         = NULL;
 lv_obj_t *ui_stat_edit_screen    = NULL;
 lv_obj_t *ui_stat_results_screen = NULL;
 
-/* STAT state (normally owned by ui_stat.c) */
-MenuState_t stat_menu_state = {0};
-
 /* MATH/TEST menu screen pointers (normally owned by ui_math_menu.c) */
 lv_obj_t *ui_math_screen = NULL;
 lv_obj_t *ui_test_screen = NULL;
 
-/* DRAW screen pointer and state (normally owned by ui_draw.c) */
+/* DRAW screen pointer (normally owned by ui_draw.c) */
 lv_obj_t *ui_draw_screen = NULL;
-MenuState_t draw_menu_state = {0};
 
-/* VARS screen pointer and state (normally owned by ui_vars.c) */
+/* VARS screen pointer (normally owned by ui_vars.c) */
 lv_obj_t *ui_vars_screen = NULL;
-MenuState_t vars_menu_state = {0, 0, 0, MODE_NORMAL};
 
-/* Y-VARS screen pointer and state (normally owned by ui_yvars.c) */
+/* Y-VARS screen pointer (normally owned by ui_yvars.c) */
 lv_obj_t *ui_yvars_screen = NULL;
-MenuState_t yvars_menu_state = {0};
 
 /* Program store and editor buffers (normally owned by prgm_exec.c / ui_prgm.c) */
 ProgramStore_t g_prgm_store;

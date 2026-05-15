@@ -87,7 +87,7 @@ static const char * const vars_rng_names[10] = {
  * Module state
  *---------------------------------------------------------------------------*/
 
-MenuState_t vars_menu_state = {0, 0, 0, MODE_NORMAL};
+static MenuState_t vars_menu_state = {0, 0, 0, MODE_NORMAL};
 
 lv_obj_t *ui_vars_screen = NULL;
 
