@@ -4,10 +4,10 @@
  *
  * Ownership: all history state is private to calc_history.c.
  *
- * CalcHistory_UpdateDisplay() is declared here but defined in calculator_core.c
- * because it must call ui_refresh_display(), which accesses private LVGL
- * display-row objects owned by that translation unit.  Callers must hold the
- * LVGL mutex when calling CalcHistory_UpdateDisplay().
+ * CalcHistory_UpdateDisplay() is defined here (in calc_history.c) and
+ * delegates to a callback registered by calculator_core.c at init time via
+ * CalcHistory_RegisterDisplayCallback(ui_refresh_display).  Callers must hold
+ * the LVGL mutex when calling CalcHistory_UpdateDisplay().
  */
 
 #ifndef APP_CALC_HISTORY_H
@@ -69,8 +69,13 @@ uint8_t CalcHistory_GetMatrixScrollOffset(void);
 void    CalcHistory_SetMatrixScrollOffset(uint8_t offset);
 
 /* ---- Display ------------------------------------------------------------- */
-/** Refresh the history display rows.  Defined in calculator_core.c (needs the
- *  private LVGL display-row array).  Caller must hold the LVGL mutex. */
+/** Register the display-refresh callback.  Call once during UI init (before
+ *  the first CalcHistory_UpdateDisplay() call) with a pointer to the function
+ *  that owns the private LVGL display-row objects. */
+void CalcHistory_RegisterDisplayCallback(void (*cb)(void));
+
+/** Refresh the history display rows by invoking the registered callback.
+ *  Caller must hold the LVGL mutex. */
 void CalcHistory_UpdateDisplay(void);
 
 #endif /* APP_CALC_HISTORY_H */

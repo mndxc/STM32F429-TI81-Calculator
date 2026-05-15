@@ -5,15 +5,18 @@
  * Owns: s_history[], s_history_count, s_history_recall_offset,
  *       s_matrix_scroll_focus, s_matrix_scroll_offset.
  *
- * CalcHistory_UpdateDisplay() is intentionally NOT defined here.  It is
- * defined in calculator_core.c because it must call ui_refresh_display(),
- * which accesses private LVGL display-row objects owned by that TU.
+ * CalcHistory_UpdateDisplay() delegates to a display callback registered by
+ * calculator_core.c at init time via CalcHistory_RegisterDisplayCallback().
+ * In HOST_TEST builds the callback is never registered so UpdateDisplay is
+ * a safe no-op.
  */
 
 #include "calc_history.h"
 #include <string.h>
 
 /* ---- Private state ------------------------------------------------------- */
+
+static void (*s_display_cb)(void) = NULL;
 
 static HistoryEntry_t s_history[HISTORY_LINE_COUNT];
 static uint8_t        s_history_count         = 0;
@@ -132,4 +135,16 @@ uint8_t CalcHistory_GetMatrixScrollOffset(void)
 void CalcHistory_SetMatrixScrollOffset(uint8_t offset)
 {
     s_matrix_scroll_offset = offset;
+}
+
+/* ---- Display callback ---------------------------------------------------- */
+
+void CalcHistory_RegisterDisplayCallback(void (*cb)(void))
+{
+    s_display_cb = cb;
+}
+
+void CalcHistory_UpdateDisplay(void)
+{
+    if (s_display_cb) s_display_cb();
 }

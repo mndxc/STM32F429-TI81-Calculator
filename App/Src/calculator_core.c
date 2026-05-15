@@ -781,16 +781,6 @@ void Update_Calculator_Display(void)
 /* expr_prepend_ans_if_empty, expr_insert_char, expr_insert_str,
  * expr_delete_at_cursor moved to ui_input.c; declared in ui_input.h. */
 
-/**
- * @brief Refresh the history display rows.
- *        Defined here (not in calc_history.c) because it requires access to
- *        the private disp_rows[] LVGL objects.  Declared in calc_history.h.
- */
-void CalcHistory_UpdateDisplay(void)
-{
-    ui_refresh_display();
-}
-
 /** Write @p text directly to display row @p row_1based (1–8) without
  *  touching the history ring buffer.  Must be called under lvgl_lock(). */
 void ui_output_row(uint8_t row_1based, const char *text)
@@ -1503,6 +1493,7 @@ void StartCalcCoreTask(void const *argument)
     lvgl_lock();
     ui_init_styles();
     ui_init_screen();
+    CalcHistory_RegisterDisplayCallback(ui_refresh_display);
     ui_init_graph_screens();
     ui_mode_init();
     ui_init_math_screen();

@@ -1034,7 +1034,7 @@ Open a `[complexity]` item in CLAUDE.md "Next session priorities" for any functi
 
 ### Summary Table
 
-_Status as of 2026-05-14: ✅ Done · ⚠️ Partial (interim comments added; full callback fix deferred) · ❌ Open — last updated 2026-05-14. E6 completed 2026-05-14. E7 completed 2026-05-14._
+_Status as of 2026-05-14: ✅ Done · ⚠️ Partial (interim comments added; full callback fix deferred) · ❌ Open — last updated 2026-05-14. E6 completed 2026-05-14. E7 completed 2026-05-14. E8 completed 2026-05-14._
 
 | Item | Severity | Est. Effort | Prerequisites | Primary Verification | Status (2026-05-14) |
 |------|----------|-------------|---------------|----------------------|---------------------|
@@ -1045,7 +1045,7 @@ _Status as of 2026-05-14: ✅ Done · ⚠️ Partial (interim comments added; fu
 | E5 — persist.c function length | High | 1 h | E4 | `test_persist_roundtrip` | ✅ Done (6 static helpers extracted: `build_graph_state`, `build_matrix_state`, `build_stat_state`, `apply_graph_state`, `apply_matrix_state`, `apply_stat_state`; both top-level functions now ~18 lines; 15/15 host tests pass) |
 | E6 — EvaluateRPN_ex complexity | High | 3–4 h | None | `test_calc_engine`, `test_parse_eval` | ✅ Done (extracted `rpn_eval_push` and `rpn_eval_special`; `EvaluateRPN_ex` reduced from ~130 to ~52 lines; 15/15 host tests pass) |
 | E7 — graph_ui.c cursor extraction | High | 3–4 h | None | `test_graph_render` | ✅ Done (`graph_ui_cursor.c` created; `handle_trace_mode`, `handle_free_cursor_mode`, `Graph_StartPrgmInput`, blink-timer state moved; `nav_to()` calls `GraphCursor_StartBlink()`; 15/15 host tests pass) |
-| E8 — CalcHistory_UpdateDisplay | Medium | 30 min interim / 4 h full | ARCH_OPPS item 4 for full fix | Build only (interim) | ⚠️ Partial (comments added in `calc_history.h:7` and `calculator_core.c:808`; callback fix deferred) |
+| E8 — CalcHistory_UpdateDisplay | Medium | 30 min interim / 4 h full | ARCH_OPPS item 4 for full fix | Build only (interim) | ✅ Done (`CalcHistory_RegisterDisplayCallback` added to `calc_history.c/.h`; `calculator_core.c` registers `ui_refresh_display` after `ui_init_screen()`; definition removed from `calculator_core.c`; 15/15 host tests pass) |
 | E9 — ui_matrix.c encapsulation | Medium | 1–2 h | None | Build | ✅ Done (9 globals marked `static`; redundant raw `extern` decls removed — already in `ui_shared.h`; file-level Doxygen block added) |
 | E10 — ui_prgm.h LVGL pollution | Medium | 1–2 h | E3 (pattern) | Build | ✅ Done (`prgm_store_access.h` created; `ui_prgm.h` no longer included in `prgm_exec.c`; zero LVGL dependency confirmed — commit `42b8bcd`) |
 | E11 — extern lv_obj_t * pattern | Medium | 3–4 h (6 modules) | None | Build | ✅ Done (all 7 screen pointers now `static`; `_hide()` accessors added to all 5 PRGM sub-modules; `IsVisible()` added to ui_error/ui_reset; `_reset_and_show()` wrappers fold in the unhide; `prgm_submenu_tab_switch` simplified; `hide_prgm_screens` calls accessors; `prgm_editor.c` redundant `lv_obj_clear_flag` calls removed; host suite 15/15) |
