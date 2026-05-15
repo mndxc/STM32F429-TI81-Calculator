@@ -94,8 +94,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 **[complexity] calculator_core.c (1702 lines) carries 4 independent responsibilities** — UI-object creation, expression editing, history management, and mode routing live in one file; begin with migrating the matrix-ring history state and callbacks into `App/Src/calc_history.c` (currently underused). Zero behaviour change. Files: `App/Src/calculator_core.c`, `App/Src/calc_history.c`.
 
-**[complexity] graph_ui.c (1403 lines) conflates Y= editor with 6 live graph-canvas modes** — `handle_trace_mode` (~150 lines, depth 6) and `handle_free_cursor_mode` are independent state machines; extract into a new `App/Src/graph_ui_cursor.c`. Zero behaviour change. Files: `App/Src/graph_ui.c`.
-
 #### Refactoring — surfaced by 2026-05-07 codebase audit
 
 
@@ -109,8 +107,8 @@ Full test procedures: [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md).
 |---|---|---|
 | P28 | cursor_render() refactor | [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md) Section 1 |
 | P10 | PRGM execution | [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md), App/Src/ui_prgm.c, App/Src/prgm_exec.c |
-| — | Free-cursor + TRACE toggle | App/Src/graph_ui.c, App/Src/graph.c |
-| — | `Input` no-arg graph exploration | App/Src/prgm_exec.c, App/Src/graph_ui.c, App/Src/ui_prgm.c |
+| — | Free-cursor + TRACE toggle | App/Src/graph_ui_cursor.c, App/Src/graph.c |
+| — | `Input` no-arg graph exploration | App/Src/prgm_exec.c, App/Src/graph_ui_cursor.c, App/Src/ui_prgm.c |
 | P33h | Connected/Dot mode | App/Src/graph.c, App/Src/ui_mode.c |
 | P35h | Parametric graphing | App/Src/graph_ui.c, App/Src/graph.c, App/Src/calculator_core.c |
 | P38h | Sequential/Simultaneous | App/Src/graph.c, App/Src/ui_mode.c |

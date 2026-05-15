@@ -14,6 +14,7 @@
 
 #include "app_common.h"
 #include "ui_param_yeq.h"
+#include "graph_ui_cursor.h"
 #include "lvgl.h"
 #include <stdbool.h>
 
@@ -70,32 +71,14 @@ void zoom_enter_cursor_pick(uint8_t op);
 void draw_enter_cursor_pick(uint8_t op);
 
 /*---------------------------------------------------------------------------
- * PRGM graph-exploration Input — no-argument form (guidebook p. 8-13)
- *---------------------------------------------------------------------------*/
-/** Callback types for Graph_StartPrgmInput(). */
-typedef void (*GraphFreeCursorEnterCb_t)(float x, float y);
-typedef void (*GraphFreeCursorAbortCb_t)(void);
-
-/**
- * Called by hw_input_graph() (ui_prgm.c) when a program executes Input with
- * no argument.  Registers @p on_enter and @p on_abort, then enters
- * MODE_GRAPH_FREE_CURSOR so the user can explore the graph.
- *
- * on_enter(x, y) — ENTER pressed: store x/y, resume program.
- * on_abort()     — CLEAR pressed: abort program, return to normal mode.
- */
-void Graph_StartPrgmInput(GraphFreeCursorEnterCb_t on_enter,
-                          GraphFreeCursorAbortCb_t on_abort);
-
-/*---------------------------------------------------------------------------
  * Token handler functions (called from Execute_Token dispatcher)
+ * Note: handle_trace_mode, handle_free_cursor_mode, Graph_StartPrgmInput,
+ * and the GraphFreeCursor*Cb_t typedefs are re-exported via graph_ui_cursor.h.
  *---------------------------------------------------------------------------*/
 bool handle_yeq_mode(Token_t t);
 /* handle_zoom_mode declared in ui_graph_zoom.h */
 bool handle_zbox_mode(Token_t t);
 bool handle_zoom_cursor_mode(Token_t t);
 bool handle_draw_cursor_mode(Token_t t);
-bool handle_trace_mode(Token_t t);
-bool handle_free_cursor_mode(Token_t t);
 
 #endif /* APP_GRAPH_UI_H */

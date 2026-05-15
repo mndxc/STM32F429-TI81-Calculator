@@ -94,6 +94,7 @@ set(APP_SOURCES
     App/Src/ui_reset.c
     App/Src/ui_error.c
     App/Src/graph_ui.c
+    App/Src/graph_ui_cursor.c
     App/Src/graph_ui_range.c
     App/Src/ui_graph_zoom.c
     App/Src/menu_state.c
