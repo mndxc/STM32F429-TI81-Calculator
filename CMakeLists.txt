@@ -71,6 +71,7 @@ set(APP_SOURCES
     App/Src/calc_engine.c
     App/Src/expr_util.c
     App/Src/expr_buffer.c
+    App/Src/expr_editor.c
     App/Src/graph.c
     App/Src/graph_draw.c
     App/Src/ui_param_yeq.c
