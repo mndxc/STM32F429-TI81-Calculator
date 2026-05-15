@@ -80,11 +80,12 @@ bool Calc_GetCursorVisible(void);
 void Calc_SetCursorVisible(bool v);
 
 /*
- * Result formatting — formats a CalcResult_t for display and updates ANS.
- * Defined in calculator_core.c; declared here so prgm_exec.c can call it
- * without pulling in LVGL-dependent headers.
+ * Expression buffer clear — clears the main expression buffer and resets the
+ * cursor.  Wraps ExprEditor_Clear() so Application Core modules (e.g.
+ * prgm_exec.c) can clear the expression without including expr_editor.h.
+ * Also declared in calc_engine.h for the same reason.
  */
-void format_calc_result(const CalcResult_t *r, char *buf, int buf_size);
+void Calc_ClearExpr(void);
 
 /*
  * Super-module internal display/nav functions — defined in calculator_core.c,

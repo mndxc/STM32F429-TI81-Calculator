@@ -250,6 +250,24 @@ CalcResult_t Calc_Evaluate(const char *expr, float ans, bool ans_is_matrix,
 void Calc_FormatResult(float value, char *buf, uint8_t buf_len);
 
 /**
+ * @brief Formats a CalcResult_t into a display string (pure — no ANS side-effect).
+ *
+ * For error results: copies r->error_msg into buf.
+ * For matrix results: produces a newline-separated grid "[a b c]\n[d e f]...".
+ * For scalar results: calls Calc_FormatResult on r->value.
+ *
+ * Does NOT update ANS or ans_is_matrix — that is the caller's responsibility.
+ * Use this from Application Core modules (e.g. prgm_exec.c) that must not
+ * depend on the UI Logic layer.  calculator_core.c's format_calc_result()
+ * wraps this and additionally updates ANS.
+ *
+ * @param r        Result from Calc_Evaluate or Calc_Eval
+ * @param buf      Output buffer
+ * @param buf_size Buffer size in bytes
+ */
+void Calc_FormatResultStr(const CalcResult_t *r, char *buf, int buf_size);
+
+/**
  * @brief Sets the decimal display mode used by Calc_FormatResult.
  *
  * @param mode  0 = Float (auto), 1 = Fix 0, 2 = Fix 1, … 10 = Fix 9.

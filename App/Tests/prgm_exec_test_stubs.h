@@ -9,7 +9,9 @@
  *   - Constants from calc_internal.h
  *   - Extern declarations for all shared state (defined in test_prgm_exec.c)
  *   - Inline implementations of prgm_parse_from_store, prgm_slot_is_used,
- *     prgm_slot_id_str, and format_calc_result
+ *     prgm_slot_id_str, and Calc_ClearExpr
+ *   - Calc_FormatResultStr is NOT stubbed here — it comes from calc_engine.c
+ *     which is compiled into test_prgm_exec
  *
  * All LVGL / Graph / UI calls in prgm_exec.c go through PrgmOutput_t
  * callbacks registered via Prgm_SetOutput(); no LVGL stubs are needed here.
@@ -188,28 +190,13 @@ static inline void  Calc_SetAnsScalar(float value)  { ans = value; ans_is_matrix
 static inline void  Calc_SetAnsMatrix(float idx)    { ans = idx;   ans_is_matrix = true;  }
 static inline float Calc_GetAns(void)               { return ans; }
 static inline bool  Calc_GetAnsIsMatrix(void)       { return ans_is_matrix; }
-static inline ExprBuffer_t *Calc_GetExpr(void)      { return &expr; }
-static inline void ExprEditor_Clear(void)           { ExprBuffer_Clear(&expr); }
 
-/*---------------------------------------------------------------------------
- * format_calc_result — simplified version for host tests.
- * Formats a scalar result into buf using Calc_FormatResult; updates ans via
- * Calc_SetAns* so prgm_exec.c sees the correct state.
- * Matrix results fall through to a placeholder string.
- *---------------------------------------------------------------------------*/
-static inline void format_calc_result(const CalcResult_t *r, char *buf, int buf_size)
-{
-    if (r->error != CALC_OK) {
-        snprintf(buf, (size_t)buf_size, "ERR");
-        return;
-    }
-    if (r->has_matrix) {
-        snprintf(buf, (size_t)buf_size, "[matrix]");
-        Calc_SetAnsMatrix((float)r->matrix_idx);
-        return;
-    }
-    Calc_FormatResult(r->value, buf, (uint8_t)buf_size);
-    Calc_SetAnsScalar(r->value);
-}
+/* Calc_ClearExpr — clears the test-owned expression buffer. */
+static inline void Calc_ClearExpr(void) { ExprBuffer_Clear(&expr); }
+
+/*
+ * Calc_FormatResultStr is NOT stubbed here — it is implemented in calc_engine.c
+ * which is compiled for test_prgm_exec.  prgm_exec.c calls it directly.
+ */
 
 #endif /* PRGM_EXEC_TEST_STUBS_H */

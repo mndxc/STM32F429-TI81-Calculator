@@ -107,17 +107,17 @@ int main(void)
           "CalcMode_t — every mode in route table XOR known_special_cases, no stale entries");
 
     /* CalcMode_IsValidTransition: MODE_STO and MODE_COUNT are not settable */
-    CHECK(!CalcMode_IsValidTransition(MODE_NORMAL, MODE_STO),
+    CHECK(!CalcMode_IsValidTransition(MODE_STO),
           "MODE_STO is not a valid transition target");
-    CHECK(!CalcMode_IsValidTransition(MODE_NORMAL, MODE_COUNT),
+    CHECK(!CalcMode_IsValidTransition(MODE_COUNT),
           "MODE_COUNT sentinel is not a valid transition target");
-    CHECK(!CalcMode_IsValidTransition(MODE_NORMAL, (CalcMode_t)(MODE_COUNT + 1)),
+    CHECK(!CalcMode_IsValidTransition((CalcMode_t)(MODE_COUNT + 1)),
           "out-of-range value is not a valid transition target");
 
     /* All real modes (excluding synthetic/sentinel) are valid targets */
     bool all_real_modes_valid = true;
     for (int m = 0; m < (int)MODE_STO; m++) {
-        if (!CalcMode_IsValidTransition(MODE_NORMAL, (CalcMode_t)m)) {
+        if (!CalcMode_IsValidTransition((CalcMode_t)m)) {
             printf("  FAIL: mode %d should be a valid transition target\n", m);
             all_real_modes_valid = false;
         }

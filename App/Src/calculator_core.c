@@ -188,7 +188,7 @@ bool  Calc_GetAnsIsMatrix(void)       { return ans_is_matrix; }
 void Calc_SetMode(CalcMode_t mode)
 {
 #ifndef NDEBUG
-    assert(CalcMode_IsValidTransition(current_mode, mode));
+    assert(CalcMode_IsValidTransition(mode));
 #endif
     current_mode = mode;
 }
@@ -199,6 +199,7 @@ bool        Calc_GetAngleDegrees(void)          { return angle_degrees; }
 void        Calc_SetAngleDegrees(bool degrees)  { angle_degrees = degrees; }
 const char *Calc_GetExprBuf(void)      { return ExprEditor_GetBuf(); }
 void        Calc_ResetInputState(void) { ExprEditor_Reset(); }
+void        Calc_ClearExpr(void)       { ExprEditor_Clear(); }
 
 /*---------------------------------------------------------------------------
  * Expression editor state getter/setter API (declared in calculator_core.h)
@@ -427,39 +428,15 @@ void cursor_render(lv_obj_t *box, lv_obj_t *inner,
  */
 void format_calc_result(const CalcResult_t *r, char *buf, int buf_size)
 {
-    memset(buf, 0, (size_t)buf_size);
-    if (r->error != CALC_OK) {
-        strncpy(buf, r->error_msg, (size_t)(buf_size - 1));
-        buf[buf_size - 1] = '\0';
-        return;
-    }
-    if (r->has_matrix) {
-        const CalcMatrix_t *m = &calc_matrices[r->matrix_idx];
-        int pos = 0;
-        for (int row = 0; row < (int)m->rows && pos < buf_size - 2; row++) {
-            if (row > 0 && pos < buf_size - 1) buf[pos++] = '\n';
-            if (pos < buf_size - 1) buf[pos++] = '[';
-            for (int col = 0; col < (int)m->cols; col++) {
-                char cell[12];
-                Calc_FormatResult(m->data[row][col], cell, sizeof(cell));
-                /* Limit cell width to 8 chars to keep lines short */
-                cell[8] = '\0';
-                if (col > 0 && pos < buf_size - 1) buf[pos++] = ' ';
-                int cl = (int)strlen(cell);
-                if (pos + cl < buf_size - 1) {
-                    memcpy(&buf[pos], cell, (size_t)cl);
-                    pos += cl;
-                }
-            }
-            if (pos < buf_size - 1) buf[pos++] = ']';
+    Calc_FormatResultStr(r, buf, buf_size);
+    if (r->error == CALC_OK) {
+        if (r->has_matrix) {
+            ans_is_matrix = true;
+            ans = (float)r->matrix_idx;
+        } else {
+            ans_is_matrix = false;
+            ans = r->value;
         }
-        buf[pos] = '\0';
-        ans_is_matrix = true;
-        ans = (float)r->matrix_idx;
-    } else {
-        Calc_FormatResult(r->value, buf, (uint8_t)buf_size);
-        ans_is_matrix = false;
-        ans = r->value;
     }
 }
 

@@ -17,8 +17,7 @@
 #else
 #  include "calc_history.h"
 #  include "calculator_core.h"
-#  include "expr_editor.h"
-#  include "ui_prgm.h"
+#  include "prgm_store_access.h"
 #  include "graph.h"
 #endif
 #include "calc_engine.h"
@@ -472,7 +471,7 @@ static void cmd_disp(const char *line, uint16_t ln)
         char disp_buf[MAX_RESULT_LEN];
         CalcResult_t r = Calc_Evaluate(arg, Calc_GetAns(), Calc_GetAnsIsMatrix(),
                                        Calc_GetAngleDegrees());
-        format_calc_result(&r, disp_buf, MAX_RESULT_LEN);
+        Calc_FormatResultStr(&r, disp_buf, MAX_RESULT_LEN);
         if (s_out) s_out->disp_text("", disp_buf);
     }
 }
@@ -501,7 +500,7 @@ static void cmd_input(const char *line, uint16_t ln)
     char prompt[4];
     snprintf(prompt, sizeof(prompt), "?");
     if (s_out) s_out->disp_text(prompt, "");
-    ExprEditor_Clear();
+    Calc_ClearExpr();
     prgm_waiting_input = true;
     if (s_out) s_out->input_ready();
 }
@@ -857,7 +856,7 @@ void prgm_run_start(uint8_t idx)
     prgm_run_active    = false;
     prgm_waiting_input = false;
     prgm_input_var     = 0;
-    ExprEditor_Clear();
+    Calc_ClearExpr();
     prgm_parse_from_store(idx);
     prgm_run_num_lines = Prgm_GetNumLines();
     Calc_SetMode(MODE_PRGM_RUNNING);

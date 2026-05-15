@@ -5,7 +5,8 @@
  * All four transforms are static inline — zero runtime cost.  Formulas match
  * the former private statics in graph.c, which were the authoritative reference.
  */
-#pragma once
+#ifndef GRAPH_COORD_H
+#define GRAPH_COORD_H
 #include "graph.h"  /* GraphState_t, GRAPH_W, GRAPH_H */
 #include <math.h>   /* fabsf */
 #include <stdint.h>
@@ -37,3 +38,5 @@ static inline float graph_coord_px_to_math_y(const GraphState_t *s, int32_t py)
            (float)py / (float)(GRAPH_H - 1) *
            (s->y_max - s->y_min);
 }
+
+#endif /* GRAPH_COORD_H */

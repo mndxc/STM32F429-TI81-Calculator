@@ -1653,6 +1653,43 @@ void Calc_FormatResult(float value, char *buf, uint8_t buf_len)
 }
 
 /*---------------------------------------------------------------------------
+ * CalcResult_t string formatting — no ANS side-effect
+ *--------------------------------------------------------------------------*/
+
+void Calc_FormatResultStr(const CalcResult_t *r, char *buf, int buf_size)
+{
+    memset(buf, 0, (size_t)buf_size);
+    if (r->error != CALC_OK) {
+        strncpy(buf, r->error_msg, (size_t)(buf_size - 1));
+        buf[buf_size - 1] = '\0';
+        return;
+    }
+    if (r->has_matrix) {
+        const CalcMatrix_t *m = &calc_matrices[r->matrix_idx];
+        int pos = 0;
+        for (int row = 0; row < (int)m->rows && pos < buf_size - 2; row++) {
+            if (row > 0 && pos < buf_size - 1) buf[pos++] = '\n';
+            if (pos < buf_size - 1) buf[pos++] = '[';
+            for (int col = 0; col < (int)m->cols; col++) {
+                char cell[12];
+                Calc_FormatResult(m->data[row][col], cell, sizeof(cell));
+                cell[8] = '\0';  /* Limit cell width to 8 chars */
+                if (col > 0 && pos < buf_size - 1) buf[pos++] = ' ';
+                int cl = (int)strlen(cell);
+                if (pos + cl < buf_size - 1) {
+                    memcpy(&buf[pos], cell, (size_t)cl);
+                    pos += cl;
+                }
+            }
+            if (pos < buf_size - 1) buf[pos++] = ']';
+        }
+        buf[pos] = '\0';
+    } else {
+        Calc_FormatResult(r->value, buf, (uint8_t)buf_size);
+    }
+}
+
+/*---------------------------------------------------------------------------
  * Error string API
  *--------------------------------------------------------------------------*/
 

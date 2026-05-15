@@ -17,18 +17,12 @@
 #include "app_common.h"
 #include "lvgl.h"
 #include "prgm_exec.h"
+#include "prgm_store_access.h"  /* Prgm_GetLine, Prgm_GetNumLines, prgm_parse_from_store */
 #include <stdint.h>
 #include <stdbool.h>
 
 bool Prgm_IsEditorScreenVisible(void);
 bool Prgm_IsNewScreenVisible(void);
-
-/* Accessors for the editor working buffer — used by the execution engine.
- * Declarations live here for backward compatibility with prgm_exec.c which
- * includes ui_prgm.h; implementations are in prgm_editor.c. */
-const char *Prgm_GetLine(uint8_t ln);
-uint8_t     Prgm_GetNumLines(void);
-void        prgm_parse_from_store(uint8_t idx);
 
 /* Helpers used by the slot browser, sub-menus, and execution engine */
 void prgm_slot_id_str(uint8_t slot, char *out);

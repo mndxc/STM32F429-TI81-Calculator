@@ -75,6 +75,7 @@ App/                            ← Custom application code (never touched by Cu
     ui_mode.h                   MODE screen state and API (ModeScreenState_t, ui_mode_init, handle_mode_screen)
     ui_stat.h                   STAT menu UI interface (StatMenuState_t, handler protos)
     prgm_editor.h               Program line editor module API (PrgmEditor_Open, PrgmEditor_HandleToken, PrgmEditor_InsertStr, PrgmEditor_FlattenToStore, PrgmEditor_RefreshDisplay, PrgmEditor_CursorUpdate, PrgmEditor_MenuInsert, callback setters)
+    prgm_store_access.h         Narrow seam header — Prgm_GetLine, Prgm_GetNumLines, prgm_parse_from_store; lets prgm_exec.c access editor storage without pulling in ui_prgm.h/LVGL
     ui_prgm.h                   Program menu UI interface (includes shared helpers used by CTL/IO/EXEC sub-modules)
     ui_prgm_ctl.h               PRGM CTL sub-menu interface (screen pointer, init, reset, display-update, handler)
     ui_prgm_io.h                PRGM I/O sub-menu interface (screen pointer, init, reset, display-update, handler)
