@@ -482,14 +482,16 @@ Each item is self-contained and can be started independently (prerequisites note
 
 ---
 
-### E3. ❌ [HIGH] Remove prgm_exec.c's upward dependency on the UI Logic layer
+### E3. ⚠️ [HIGH] Remove prgm_exec.c's upward dependency on the UI Logic layer
+
+**Progress (commit `42b8bcd`):** `Calc_FormatResultStr` added to `calc_engine.c`/`calc_engine.h` (replacing the old `format_calc_result` declared in `calculator_core.h`). `Calc_ClearExpr()` added to `calculator_core.h` (used in lieu of the raw `ExprBuffer_Clear(Calc_GetExpr())` pattern). `ui_prgm.h` replaced by `prgm_store_access.h` (E10). Remaining blocker: `prgm_exec.c:19` still includes `calculator_core.h` for `Calc_GetAns()` and `Calc_GetAnsIsMatrix()` — these are declared only in `calculator_core.h`, not in `calc_engine.h`. E3 is fully closed when those ANS/angle accessors are moved to `calc_engine.h` (same work as E4).
 
 **Why it matters:** `prgm_exec.c` is classified as Application Core (host-testable) but in non-`HOST_TEST` builds it includes `calculator_core.h` (UI Logic) and calls `format_calc_result()` (defined in `calculator_core.c`) and `Calc_GetExpr()` + `ExprBuffer_Clear()` (UI-layer state). This creates an upward dependency that prevents `prgm_exec.c` from being tested or reused without dragging in the entire UI layer.
 
-**Specific violations (confirmed by grep):**
-- `prgm_exec.c:19` — `#include "calculator_core.h"` (non-HOST_TEST)
-- `prgm_exec.c:474` — `format_calc_result(&r, disp_buf, MAX_RESULT_LEN)` (defined in `calculator_core.c:453`)
-- `prgm_exec.c:503` and `prgm_exec.c:859` — `ExprBuffer_Clear(Calc_GetExpr())` (both `Calc_GetExpr()` and the `ExprBuffer_Clear` call reach into UI-layer state)
+**Specific violations (confirmed by grep; ~~strikethrough~~ = resolved):**
+- `prgm_exec.c:19` — `#include "calculator_core.h"` (non-HOST_TEST) — **still present** (needed for `Calc_GetAns`/`Calc_GetAnsIsMatrix`)
+- ~~`prgm_exec.c:474` — `format_calc_result(&r, disp_buf, MAX_RESULT_LEN)`~~ → now `Calc_FormatResultStr` from `calc_engine.h`
+- ~~`prgm_exec.c:503` and `prgm_exec.c:859` — `ExprBuffer_Clear(Calc_GetExpr())`~~ → now `Calc_ClearExpr()` from `calculator_core.h`
 
 **Files to change:**
 - `App/Src/calc_engine.c` — add `format_calc_result` implementation
@@ -542,7 +544,7 @@ Each item is self-contained and can be started independently (prerequisites note
 
 ---
 
-### E4. ❌ [HIGH] Remove persist.c's upward dependency on the UI Logic layer
+### E4. ✅ [HIGH] Remove persist.c's upward dependency on the UI Logic layer
 
 **Why it matters:** `persist.c:16` includes `calculator_core.h` (UI Logic) in non-HOST_TEST builds to access `Calc_GetAns()`, `Calc_SetAnsScalar()`, and `Calc_SetAngleDegrees()`. These are App Core state accessors that belong in `calc_engine.h`.
 
@@ -725,7 +727,9 @@ Each item is self-contained and can be started independently (prerequisites note
 
 ---
 
-### E10. ❌ [MEDIUM] Eliminate LVGL transitive pollution from ui_prgm.h into prgm_exec.c
+### E10. ✅ [MEDIUM] Eliminate LVGL transitive pollution from ui_prgm.h into prgm_exec.c
+
+**Done (commit `42b8bcd`):** `App/Inc/prgm_store_access.h` created with the LVGL-free declarations (`Prgm_GetLine`, `Prgm_GetNumLines`, `prgm_parse_from_store`). `prgm_exec.c` now includes `prgm_store_access.h` (line 20) instead of `ui_prgm.h`. Confirmed: zero LVGL dependency in `prgm_exec.c`.
 
 **Context from audit:** `ui_prgm.h:18` includes `lvgl.h`. `prgm_exec.c:20` includes `ui_prgm.h` in non-`HOST_TEST` builds. This gives `prgm_exec.c` a transitive LVGL dependency and prevents the declarations `prgm_exec.c` actually needs (`Prgm_GetLine`, `Prgm_GetNumLines`, `prgm_parse_from_store`) from being accessed without LVGL.
 
@@ -1030,20 +1034,20 @@ Open a `[complexity]` item in CLAUDE.md "Next session priorities" for any functi
 
 ### Summary Table
 
-_Status as of 2026-05-14: ✅ Done · ⚠️ Partial (interim comments added; full callback fix deferred) · ❌ Open_
+_Status as of 2026-05-14: ✅ Done · ⚠️ Partial (interim comments added; full callback fix deferred) · ❌ Open — last updated 2026-05-14_
 
 | Item | Severity | Est. Effort | Prerequisites | Primary Verification | Status (2026-05-14) |
 |------|----------|-------------|---------------|----------------------|---------------------|
 | E1 — FLASH sector collision | Critical | 30 min | None | Hardware + host suite | ✅ Done (commit `8db9e83`) |
 | E2 — Stale comment (covered by E1) | Critical→Low | 5 min | E1 | Build only | ✅ Done (by E1) |
-| E3 — prgm_exec.c UI layer dep | High | 2–3 h | None | Host suite + build | ❌ Open |
-| E4 — persist.c UI layer dep | High | 1 h | E3 (model) | `test_persist_roundtrip` | ❌ Open |
+| E3 — prgm_exec.c UI layer dep | High | 2–3 h | None | Host suite + build | ✅ Done (ANS/angle accessors + `Calc_ClearExpr` added to `calc_engine.h`; `calculator_core.h` removed from `prgm_exec.c` — closed with E4) |
+| E4 — persist.c UI layer dep | High | 1 h | E3 (model) | `test_persist_roundtrip` | ✅ Done (ANS/angle declarations added to `calc_engine.h`; `calculator_core.h` removed from `persist.c`; 15/15 host tests pass) |
 | E5 — persist.c function length | High | 1 h | E4 | `test_persist_roundtrip` | ❌ Open |
 | E6 — EvaluateRPN_ex complexity | High | 3–4 h | None | `test_calc_engine`, `test_parse_eval` | ❌ Open |
 | E7 — graph_ui.c cursor extraction | High | 3–4 h | None | `test_graph_render` | ❌ Open |
 | E8 — CalcHistory_UpdateDisplay | Medium | 30 min interim / 4 h full | ARCH_OPPS item 4 for full fix | Build only (interim) | ⚠️ Partial (comments added in `calc_history.h:7` and `calculator_core.c:808`; callback fix deferred) |
 | E9 — ui_matrix.c encapsulation | Medium | 1–2 h | None | Build | ✅ Done (9 globals marked `static`; redundant raw `extern` decls removed — already in `ui_shared.h`; file-level Doxygen block added) |
-| E10 — ui_prgm.h LVGL pollution | Medium | 1–2 h | E3 (pattern) | Build | ❌ Open (`prgm_store_access.h` not created) |
+| E10 — ui_prgm.h LVGL pollution | Medium | 1–2 h | E3 (pattern) | Build | ✅ Done (`prgm_store_access.h` created; `ui_prgm.h` no longer included in `prgm_exec.c`; zero LVGL dependency confirmed — commit `42b8bcd`) |
 | E11 — extern lv_obj_t * pattern | Medium | 3–4 h (6 modules) | None | Build | ✅ Done (all 7 screen pointers now `static`; `_hide()` accessors added to all 5 PRGM sub-modules; `IsVisible()` added to ui_error/ui_reset; `_reset_and_show()` wrappers fold in the unhide; `prgm_submenu_tab_switch` simplified; `hide_prgm_screens` calls accessors; `prgm_editor.c` redundant `lv_obj_clear_flag` calls removed; host suite 15/15) |
 | E12 — extern MenuState_t pattern | Medium | 3–4 h (6 modules) | None | Build | ✅ Done (all 5 MenuState_t vars + ModeScreenState_t s_mode made static; `handle_matrix_menu` / `handle_stat_menu` parameters dropped; `UiMode_GetCommittedArray` / `UiMode_RestoreCommittedArray` / `UiMode_SetRow` accessors added; persist.c updated; stubs and test defs cleaned up; 15/15 host tests pass) |
 | E13 — prgm_exec.h naming | Low | 30 min | None | Host suite + build | ✅ Done |

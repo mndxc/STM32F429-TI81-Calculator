@@ -12,8 +12,7 @@
 #include "persist.h"
 #include <string.h>
 #ifndef HOST_TEST
-#  include "calc_engine.h"      /* calc_variables, calc_matrices, Calc_SetNotationMode, Calc_SetDecimalMode */
-#  include "calculator_core.h"  /* Calc_GetAns, Calc_SetAnsScalar, Calc_Get/SetAngleDegrees */
+#  include "calc_engine.h"      /* calc_variables, calc_matrices, Calc_Set/GetNotationMode, Calc_Set/GetDecimalMode, Calc_GetAns, Calc_SetAnsScalar, Calc_Get/SetAngleDegrees */
 #  include "ui_mode.h"          /* UiMode_GetCommittedArray, UiMode_RestoreCommittedArray, MODE_ROW_COUNT */
 #  include "graph.h"            /* Graph_GetState, Graph_Set*, Graph_GetEquationBuf, … */
 #  include "graph_ui_range.h"   /* graph_ui_get_zoom_x_fact, graph_ui_set_zoom_facts */

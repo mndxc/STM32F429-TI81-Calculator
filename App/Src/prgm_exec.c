@@ -16,7 +16,6 @@
 #  include "prgm_exec_test_stubs.h"
 #else
 #  include "calc_history.h"
-#  include "calculator_core.h"
 #  include "prgm_store_access.h"
 #  include "graph.h"
 #endif

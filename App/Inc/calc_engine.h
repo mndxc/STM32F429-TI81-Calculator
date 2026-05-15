@@ -406,4 +406,34 @@ CalcError_t Calc_Parse(const char *expr, float ans, bool ans_is_matrix,
 CalcResult_t Calc_Eval(const ParsedExpr_t *parsed, float x_val, float t_val,
                        bool angle_degrees);
 
+/*---------------------------------------------------------------------------
+ * ANS and angle-mode state accessors
+ *
+ * Implementations live in calculator_core.c.  Declared here (not only in
+ * calculator_core.h) so Application Core modules (persist.c, prgm_exec.c)
+ * can read/write ANS and angle mode without depending on the UI Logic layer.
+ *
+ * Rules: always update ans + ans_is_matrix together via the setters; never
+ * write the backing statics directly from outside calculator_core.c.
+ *
+ * Guarded with HOST_TEST because prgm_exec_test_stubs.h provides static
+ * inline definitions in host-test builds — redeclaring them as non-static
+ * here would cause a C declaration-conflict error.
+ *--------------------------------------------------------------------------*/
+#ifndef HOST_TEST
+float Calc_GetAns(void);
+bool  Calc_GetAnsIsMatrix(void);
+void  Calc_SetAnsScalar(float value);
+void  Calc_SetAnsMatrix(float matrix_idx);
+bool  Calc_GetAngleDegrees(void);
+void  Calc_SetAngleDegrees(bool degrees);
+
+/*
+ * Expression buffer clear — wraps ExprEditor_Clear() so Application Core
+ * modules (prgm_exec.c) can clear the expression without including
+ * expr_editor.h or calculator_core.h.
+ */
+void Calc_ClearExpr(void);
+#endif /* !HOST_TEST */
+
 #endif /* CALC_ENGINE_H */

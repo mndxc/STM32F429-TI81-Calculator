@@ -1,13 +1,11 @@
 /**
  * @file    calculator_core.h
- * @brief   Public API for calculator_core.c.
+ * @brief   Public API for calculator_core.c — mode routing, UI refresh,
+ *          and insert/cursor state.
  *
- * Exposes the ANS getter/setter API so external modules never write
- * `ans` or `ans_is_matrix` directly.  Always call Calc_SetAnsScalar()
- * or Calc_SetAnsMatrix() together — never update one without the other.
- *
- * Also exposes the mode getter/setter API so external modules never
- * write `current_mode` or `return_mode` directly.
+ * ANS getter/setter and angle-mode accessor declarations have moved to
+ * calc_engine.h (included below) so Application Core modules can access
+ * them without depending on the UI Logic layer.
  */
 
 #ifndef CALCULATOR_CORE_H
@@ -19,19 +17,31 @@
 #include "calc_engine.h" /* CalcResult_t — needed for format_calc_result */
 
 /*
- * ANS getter/setter API.
+ * ANS getter/setter and angle-mode API.
+ *
+ * These are also declared in calc_engine.h (included above) so that
+ * Application Core modules (persist.c, prgm_exec.c) can access them without
+ * including this UI Logic header.  Redundant declarations are compatible in C.
+ *
+ * In HOST_TEST builds, calc_engine.h hides these declarations (to avoid
+ * conflict with the static-inline stubs in prgm_exec_test_stubs.h), so this
+ * header remains the authoritative declaration for all other HOST_TEST files.
  *
  * Rules:
  *   - Calc_SetAnsScalar: sets ans = value, ans_is_matrix = false.
  *   - Calc_SetAnsMatrix: sets ans = matrix slot index (as float),
  *                        ans_is_matrix = true.
- *   - Only update via these setters — never raw assignment from outside
- *     calculator_core.c.
+ *   - Never write the backing statics directly from outside calculator_core.c.
  */
 void  Calc_SetAnsScalar(float value);
 void  Calc_SetAnsMatrix(float matrix_idx);
 float Calc_GetAns(void);
 bool  Calc_GetAnsIsMatrix(void);
+bool  Calc_GetAngleDegrees(void);
+void  Calc_SetAngleDegrees(bool degrees);
+
+/* Calc_ClearExpr() is also declared in calc_engine.h (included above). */
+void Calc_ClearExpr(void);
 
 /*
  * Mode getter/setter API.
@@ -46,13 +56,6 @@ void        Calc_SetMode(CalcMode_t mode);
 void        Calc_SetReturnMode(CalcMode_t mode);
 CalcMode_t  Calc_GetMode(void);
 CalcMode_t  Calc_GetReturnMode(void);
-
-/*
- * Angle mode accessor — used by persist.c to restore angle mode without
- * used by persist.c without pulling in LVGL-dependent headers.
- */
-bool Calc_GetAngleDegrees(void);
-void Calc_SetAngleDegrees(bool degrees);
 
 /*
  * Expression buffer read accessor — returns expr.buf as a const pointer.
@@ -78,14 +81,6 @@ bool Calc_GetInsertMode(void);
 void Calc_SetInsertMode(bool v);
 bool Calc_GetCursorVisible(void);
 void Calc_SetCursorVisible(bool v);
-
-/*
- * Expression buffer clear — clears the main expression buffer and resets the
- * cursor.  Wraps ExprEditor_Clear() so Application Core modules (e.g.
- * prgm_exec.c) can clear the expression without including expr_editor.h.
- * Also declared in calc_engine.h for the same reason.
- */
-void Calc_ClearExpr(void);
 
 /*
  * Super-module internal display/nav functions — defined in calculator_core.c,
