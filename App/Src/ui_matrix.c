@@ -1,3 +1,12 @@
+/**
+ * @file  ui_matrix.c
+ * @brief Matrix editor UI — slot browser (MATRX tab) and cell editor (EDIT tab).
+ *
+ * Two sub-state machines: matrix_menu (browse/select) and matrix_edit (dimension
+ * change, cell navigation, and value entry). Both run inside handle_matrix_menu()
+ * and handle_matrix_edit() respectively.
+ */
+
 #include "ui_matrix.h"
 #include "ui_palette.h"
 #include "ui_shared.h"
@@ -10,18 +19,18 @@
 /*---------------------------------------------------------------------------
  * Matrix UI State
  *---------------------------------------------------------------------------*/
-lv_obj_t *ui_matrix_screen      = NULL;
-lv_obj_t *ui_matrix_edit_screen = NULL;
+static lv_obj_t *ui_matrix_screen      = NULL;
+static lv_obj_t *ui_matrix_edit_screen = NULL;
 
 MenuState_t matrix_menu_state = {0};
 
-uint8_t    matrix_edit_idx        = 0;   /* 0=[A], 1=[B], 2=[C] */
-int16_t    matrix_edit_cursor     = 0;   /* flat cell index; -1 = dim mode */
-int16_t    matrix_edit_scroll     = 0;   /* first visible cell */
-uint8_t    matrix_edit_dim_field  = 0;   /* 0=rows, 1=cols (dim mode only) */
-char       matrix_edit_buf[16]    = {0};
-uint8_t    matrix_edit_len        = 0;
-uint8_t    matrix_edit_val_cursor = 0;
+static uint8_t    matrix_edit_idx        = 0;   /* 0=[A], 1=[B], 2=[C] */
+static int16_t    matrix_edit_cursor     = 0;   /* flat cell index; -1 = dim mode */
+static int16_t    matrix_edit_scroll     = 0;   /* first visible cell */
+static uint8_t    matrix_edit_dim_field  = 0;   /* 0=rows, 1=cols (dim mode only) */
+static char       matrix_edit_buf[16]    = {0};
+static uint8_t    matrix_edit_len        = 0;
+static uint8_t    matrix_edit_val_cursor = 0;
 
 static lv_obj_t *matrix_tab_labels[2];
 static lv_obj_t *matrix_item_labels[MENU_VISIBLE_ROWS];
@@ -44,11 +53,6 @@ static const char * const matrix_op_insert[6]     = {
     "rowSwap(", "row+(", "*row(", "*row+(", "det(", "^T"
 };
 static const char * const matrix_edit_item_names[3] = {"[A]", "[B]", "[C]"};
-
-/* Reference to externally defined menu insertion helper */
-extern void menu_insert_text(const char *ins, CalcMode_t *ret_mode);
-extern void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
-                     uint8_t tab_count, bool left, void (*update)(void));
 
 /*---------------------------------------------------------------------------
  * Internal helpers

@@ -100,23 +100,12 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 #### Refactoring — surfaced by 2026-05-07 codebase audit
 
-**[refactor] prgm_exec.c — upward dependency on UI Logic layer** — In non-HOST_TEST builds `prgm_exec.c` includes `calculator_core.h` and `ui_prgm.h`, calling `format_calc_result()` (defined in `calculator_core.c`) and `Calc_GetExpr()` / `ExprBuffer_Clear()` (UI-layer state). Move `format_calc_result` to `calc_engine.c`/`calc_engine.h` and expose `Calc_ClearExpr()` as an App Core API so `prgm_exec.c` has zero UI Logic includes. Zero behaviour change. Files: `App/Src/prgm_exec.c`, `App/Inc/prgm_exec.h`, `App/Src/calc_engine.c`, `App/Inc/calc_engine.h`, `App/Src/calculator_core.c`.
-
-**[refactor] ui_matrix.c — worst encapsulation in codebase** — 9 non-`static` globals at lines 13–24 exported by linkage with no matching `extern` in `ui_matrix.h`; 2 raw `extern` function declarations inside the `.c` file (lines 49–51) for `menu_insert_text` and `tab_move` defined in `calculator_core.c`. Mark all 9 vars `static` or add proper `extern` declarations to `ui_matrix.h`; move the raw `extern` function decls to a header that `ui_matrix.c` includes. Also add a missing file-level Doxygen block. Files: `App/Src/ui_matrix.c`, `App/Inc/ui_matrix.h`.
 
 **[refactor] Pervasive `extern lv_obj_t *` screen pointer pattern** — Six sub-module headers export mutable screen pointers directly (`ui_prgm_ctl.h:22`, `ui_prgm_mode.h:19–20`, `ui_prgm_exec.h:24`, `ui_prgm_io.h:22`, `ui_reset.h:19`, `ui_error.h:25`). Replace with `Module_Show()` / `Module_Hide()` / `Module_IsVisible()` accessors following the pattern in `graph_ui.c`. Reduces write-anywhere mutation risk; enables future screen lifecycle management. Zero behaviour change.
 
 **[refactor] Pervasive `extern MenuState_t` pattern** — Six headers expose mutable `MenuState_t` state directly (`ui_matrix.h:12`, `ui_draw.h:24`, `ui_mode.h:39`, `ui_vars.h:31`, `ui_yvars.h:27`, `ui_stat.h:20`). Callers that only read cursor position should use a `Module_GetCursor()` accessor. Zero behaviour change.
 
 **[refactor] prgm_exec.h naming — public functions use snake_case instead of Module_VerbNoun** — `prgm_run_start`, `prgm_run_loop`, `prgm_lookup_slot`, `prgm_request_abort`, `prgm_is_waiting_input`, `prgm_get_input_var`, `prgm_clear_input_wait`, `prgm_cmd_table_validate` break the capitalization convention used everywhere else. Rename to `Prgm_RunStart`, `Prgm_RunLoop`, etc. Update all callers (primarily `calculator_core.c`). Zero behaviour change. Files: `App/Inc/prgm_exec.h`, `App/Src/prgm_exec.c`, `App/Src/calculator_core.c`.
-
-#### Docs — surfaced by 2026-05-07 codebase audit and periodic code review
-
-**[docs] ARCHITECTURE.md Mermaid — verify calc_stat.c layer placement** — `calc_stat.c` is Application Core (no LVGL/HAL); confirm the diagram arrow `GUI --> CS` correctly reflects that `ui_stat.c` calls into `calc_stat.c` and no upward dependency exists. Files: `docs/ARCHITECTURE.md`.
-
-**[docs] Include guard style inconsistency** — `graph_coord.h` and `calc_mode_topology.h` use `#pragma once`; all other headers use `#ifndef MODULE_H / #endif` guards. Standardise to `#ifndef` to match the codebase convention. Files: `App/Inc/graph_coord.h`, `App/Inc/calc_mode_topology.h`.
-
-**[docs] calc_mode_topology.h — `from` parameter cast to void** — `CalcMode_IsValidTransition(CalcMode_t from, CalcMode_t to)` immediately does `(void)from`. Either implement the from→to pair table or remove the parameter to avoid misleading callers. Files: `App/Inc/calc_mode_topology.h`.
 
 #### Hardware validation — no new code, test on device
 
