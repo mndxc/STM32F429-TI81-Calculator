@@ -16,10 +16,9 @@
 #include "app_common.h"
 #include "keypad_map.h"
 
-extern lv_obj_t *ui_reset_screen;
-
 void Reset_ShowScreen(void);
 void Reset_HideScreen(void);
+bool Reset_IsVisible(void);
 
 void ui_init_reset_screen(void);
 

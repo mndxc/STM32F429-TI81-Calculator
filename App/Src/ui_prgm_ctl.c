@@ -66,7 +66,7 @@ static const MenuScreenDesc_t s_ctl_desc = {
  *---------------------------------------------------------------------------*/
 
 static MenuScreen_t s_ctl;
-lv_obj_t *ui_prgm_ctl_screen = NULL;
+static lv_obj_t *ui_prgm_ctl_screen = NULL;
 
 void ui_init_prgm_ctl_screen(lv_obj_t *parent)
 {
@@ -74,6 +74,11 @@ void ui_init_prgm_ctl_screen(lv_obj_t *parent)
     ui_prgm_ctl_screen = s_ctl.screen;
 }
 
-void ui_prgm_ctl_reset_and_show(void)  { MenuScreen_ResetAndShow(&s_ctl); }
+void ui_prgm_ctl_reset_and_show(void)
+{
+    lv_obj_clear_flag(ui_prgm_ctl_screen, LV_OBJ_FLAG_HIDDEN);
+    MenuScreen_ResetAndShow(&s_ctl);
+}
+void ui_prgm_ctl_hide(void)            { if (ui_prgm_ctl_screen) lv_obj_add_flag(ui_prgm_ctl_screen, LV_OBJ_FLAG_HIDDEN); }
 void ui_update_prgm_ctl_display(void)  { MenuScreen_UpdateDisplay(&s_ctl); }
 bool handle_prgm_ctl_menu(Token_t t)   { return MenuScreen_HandleToken(&s_ctl, t); }

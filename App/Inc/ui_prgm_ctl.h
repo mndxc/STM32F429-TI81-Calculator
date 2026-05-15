@@ -13,15 +13,6 @@
 #include "app_common.h"
 
 /*---------------------------------------------------------------------------
- * Externally visible screen object
- * Referenced by hide_prgm_screens() in ui_prgm.c and by prgm_submenu_tab_switch().
- * lv_obj_t must be defined before including this header (provided by lvgl.h
- * or by the HOST_TEST stubs in calculator_core_test_stubs.h).
- *---------------------------------------------------------------------------*/
-
-extern lv_obj_t *ui_prgm_ctl_screen;
-
-/*---------------------------------------------------------------------------
  * Public API
  *---------------------------------------------------------------------------*/
 
@@ -29,11 +20,14 @@ extern lv_obj_t *ui_prgm_ctl_screen;
 void ui_init_prgm_ctl_screen(lv_obj_t *parent);
 
 /**
- * @brief Reset CTL navigation state (cursor, scroll) and refresh the display.
+ * @brief Unhide the CTL screen, reset navigation state, and refresh the display.
  *        Called by prgm_submenu_tab_switch() and the TOKEN_PRGM handler in
  *        handle_prgm_editor(), already under lvgl_lock().
  */
 void ui_prgm_ctl_reset_and_show(void);
+
+/** Hide the CTL screen.  NULL-safe. */
+void ui_prgm_ctl_hide(void);
 
 /** Redraws CTL sub-menu labels with current cursor highlight.
  *  Must be called under lvgl_lock(). */

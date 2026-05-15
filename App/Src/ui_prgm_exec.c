@@ -81,7 +81,7 @@ static const MenuScreenDesc_t s_exec_desc = {
  *---------------------------------------------------------------------------*/
 
 static MenuScreen_t s_exec;
-lv_obj_t *ui_prgm_exec_screen = NULL;
+static lv_obj_t *ui_prgm_exec_screen = NULL;
 
 void ui_init_prgm_exec_screen(lv_obj_t *parent)
 {
@@ -89,6 +89,11 @@ void ui_init_prgm_exec_screen(lv_obj_t *parent)
     ui_prgm_exec_screen = s_exec.screen;
 }
 
-void ui_prgm_exec_reset_and_show(void)  { MenuScreen_ResetAndShow(&s_exec); }
+void ui_prgm_exec_reset_and_show(void)
+{
+    lv_obj_clear_flag(ui_prgm_exec_screen, LV_OBJ_FLAG_HIDDEN);
+    MenuScreen_ResetAndShow(&s_exec);
+}
+void ui_prgm_exec_hide(void)            { if (ui_prgm_exec_screen) lv_obj_add_flag(ui_prgm_exec_screen, LV_OBJ_FLAG_HIDDEN); }
 void ui_update_prgm_exec_display(void)  { MenuScreen_UpdateDisplay(&s_exec); }
 bool handle_prgm_exec_menu(Token_t t)   { return MenuScreen_HandleToken(&s_exec, t); }

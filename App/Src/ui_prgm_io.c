@@ -62,7 +62,7 @@ static const MenuScreenDesc_t s_io_desc = {
  *---------------------------------------------------------------------------*/
 
 static MenuScreen_t s_io;
-lv_obj_t *ui_prgm_io_screen = NULL;
+static lv_obj_t *ui_prgm_io_screen = NULL;
 
 void ui_init_prgm_io_screen(lv_obj_t *parent)
 {
@@ -70,6 +70,11 @@ void ui_init_prgm_io_screen(lv_obj_t *parent)
     ui_prgm_io_screen = s_io.screen;
 }
 
-void ui_prgm_io_reset_and_show(void)  { MenuScreen_ResetAndShow(&s_io); }
+void ui_prgm_io_reset_and_show(void)
+{
+    lv_obj_clear_flag(ui_prgm_io_screen, LV_OBJ_FLAG_HIDDEN);
+    MenuScreen_ResetAndShow(&s_io);
+}
+void ui_prgm_io_hide(void)            { if (ui_prgm_io_screen) lv_obj_add_flag(ui_prgm_io_screen, LV_OBJ_FLAG_HIDDEN); }
 void ui_update_prgm_io_display(void)  { MenuScreen_UpdateDisplay(&s_io); }
 bool handle_prgm_io_menu(Token_t t)   { return MenuScreen_HandleToken(&s_io, t); }

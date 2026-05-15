@@ -447,16 +447,14 @@ bool PrgmEditor_HandleToken(Token_t t)
     case TOKEN_PRGM:
         Calc_SetMode(MODE_PRGM_CTL_MENU);
         lvgl_lock();
-        lv_obj_add_flag(s_editor_screen,       LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_ctl_screen,  LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_editor_screen, LV_OBJ_FLAG_HIDDEN);
         ui_prgm_ctl_reset_and_show();
         lvgl_unlock();
         return true;
     case TOKEN_MODE:
         Calc_SetMode(MODE_PRGM_MODE_NUMBER);
         lvgl_lock();
-        lv_obj_add_flag(s_editor_screen,           LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_prgm_mode_num_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_editor_screen, LV_OBJ_FLAG_HIDDEN);
         ui_prgm_mode_num_reset_and_show();
         lvgl_unlock();
         return true;

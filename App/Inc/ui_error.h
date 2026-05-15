@@ -22,10 +22,9 @@
 #include "keypad_map.h"
 #include "calc_engine.h"
 
-extern lv_obj_t *ui_error_screen;
-
 void Error_ShowScreen(void);
 void Error_HideScreen(void);
+bool Error_IsVisible(void);
 
 void ui_init_error_screen(void);
 

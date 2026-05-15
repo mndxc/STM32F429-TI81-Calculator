@@ -26,7 +26,7 @@
  * Module state
  *---------------------------------------------------------------------------*/
 
-lv_obj_t *ui_error_screen = NULL;
+static lv_obj_t *ui_error_screen = NULL;
 
 static lv_obj_t  *s_lbl_title    = NULL;
 static lv_obj_t  *s_lbl_goto     = NULL;
@@ -39,8 +39,9 @@ static bool      s_can_goto;
  * Show / hide
  *---------------------------------------------------------------------------*/
 
-void Error_ShowScreen(void) { lv_obj_clear_flag(ui_error_screen, LV_OBJ_FLAG_HIDDEN); }
-void Error_HideScreen(void) { lv_obj_add_flag(ui_error_screen,   LV_OBJ_FLAG_HIDDEN); }
+void Error_ShowScreen(void)  { lv_obj_clear_flag(ui_error_screen, LV_OBJ_FLAG_HIDDEN); }
+void Error_HideScreen(void)  { lv_obj_add_flag(ui_error_screen,   LV_OBJ_FLAG_HIDDEN); }
+bool Error_IsVisible(void)   { return ui_error_screen != NULL && !lv_obj_has_flag(ui_error_screen, LV_OBJ_FLAG_HIDDEN); }
 
 /*---------------------------------------------------------------------------
  * UI Initialisation

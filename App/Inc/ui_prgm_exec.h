@@ -18,12 +18,6 @@
 #include "app_common.h"
 
 /*---------------------------------------------------------------------------
- * Externally visible screen object
- *---------------------------------------------------------------------------*/
-
-extern lv_obj_t *ui_prgm_exec_screen;
-
-/*---------------------------------------------------------------------------
  * Public API
  *---------------------------------------------------------------------------*/
 
@@ -31,10 +25,13 @@ extern lv_obj_t *ui_prgm_exec_screen;
 void ui_init_prgm_exec_screen(lv_obj_t *parent);
 
 /**
- * @brief Reset EXEC navigation state (cursor, scroll) and refresh the display.
+ * @brief Unhide the EXEC screen, reset navigation state, and refresh the display.
  *        Called by prgm_submenu_tab_switch(), already under lvgl_lock().
  */
 void ui_prgm_exec_reset_and_show(void);
+
+/** Hide the EXEC screen.  NULL-safe. */
+void ui_prgm_exec_hide(void);
 
 /** Redraws EXEC sub-menu labels with current cursor highlight and slot names.
  *  Must be called under lvgl_lock(). */

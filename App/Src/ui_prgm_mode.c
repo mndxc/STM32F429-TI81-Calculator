@@ -111,8 +111,8 @@ static const MenuScreenDesc_t s_gph_desc = {
 
 static MenuScreen_t s_num;
 static MenuScreen_t s_gph;
-lv_obj_t *ui_prgm_mode_num_screen = NULL;
-lv_obj_t *ui_prgm_mode_gph_screen = NULL;
+static lv_obj_t *ui_prgm_mode_num_screen = NULL;
+static lv_obj_t *ui_prgm_mode_gph_screen = NULL;
 
 void ui_init_prgm_mode_screens(lv_obj_t *parent)
 {
@@ -122,7 +122,17 @@ void ui_init_prgm_mode_screens(lv_obj_t *parent)
     ui_prgm_mode_gph_screen = s_gph.screen;
 }
 
-void ui_prgm_mode_num_reset_and_show(void) { MenuScreen_ResetAndShow(&s_num); }
-void ui_prgm_mode_gph_reset_and_show(void) { MenuScreen_ResetAndShow(&s_gph); }
+void ui_prgm_mode_num_reset_and_show(void)
+{
+    lv_obj_clear_flag(ui_prgm_mode_num_screen, LV_OBJ_FLAG_HIDDEN);
+    MenuScreen_ResetAndShow(&s_num);
+}
+void ui_prgm_mode_gph_reset_and_show(void)
+{
+    lv_obj_clear_flag(ui_prgm_mode_gph_screen, LV_OBJ_FLAG_HIDDEN);
+    MenuScreen_ResetAndShow(&s_gph);
+}
+void ui_prgm_mode_num_hide(void) { if (ui_prgm_mode_num_screen) lv_obj_add_flag(ui_prgm_mode_num_screen, LV_OBJ_FLAG_HIDDEN); }
+void ui_prgm_mode_gph_hide(void) { if (ui_prgm_mode_gph_screen) lv_obj_add_flag(ui_prgm_mode_gph_screen, LV_OBJ_FLAG_HIDDEN); }
 bool handle_prgm_mode_number(Token_t t)    { return MenuScreen_HandleToken(&s_num, t); }
 bool handle_prgm_mode_graph(Token_t t)     { return MenuScreen_HandleToken(&s_gph, t); }

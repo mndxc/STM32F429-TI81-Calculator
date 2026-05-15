@@ -16,12 +16,15 @@
 #include "lvgl.h"
 #include <stdbool.h>
 
-extern lv_obj_t *ui_prgm_mode_num_screen;
-extern lv_obj_t *ui_prgm_mode_gph_screen;
-
 void ui_init_prgm_mode_screens(lv_obj_t *parent);
+/** Unhide the NUMBER screen, reset navigation, and refresh.  Call under lvgl_lock(). */
 void ui_prgm_mode_num_reset_and_show(void);
+/** Unhide the GRAPH screen, reset navigation, and refresh.  Call under lvgl_lock(). */
 void ui_prgm_mode_gph_reset_and_show(void);
+/** Hide the NUMBER screen.  NULL-safe. */
+void ui_prgm_mode_num_hide(void);
+/** Hide the GRAPH screen.  NULL-safe. */
+void ui_prgm_mode_gph_hide(void);
 bool handle_prgm_mode_number(Token_t t);
 bool handle_prgm_mode_graph(Token_t t);
 

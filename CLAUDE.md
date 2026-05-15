@@ -101,8 +101,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 #### Refactoring — surfaced by 2026-05-07 codebase audit
 
 
-**[refactor] Pervasive `extern lv_obj_t *` screen pointer pattern** — Six sub-module headers export mutable screen pointers directly (`ui_prgm_ctl.h:22`, `ui_prgm_mode.h:19–20`, `ui_prgm_exec.h:24`, `ui_prgm_io.h:22`, `ui_reset.h:19`, `ui_error.h:25`). Replace with `Module_Show()` / `Module_Hide()` / `Module_IsVisible()` accessors following the pattern in `graph_ui.c`. Reduces write-anywhere mutation risk; enables future screen lifecycle management. Zero behaviour change.
-
 **[refactor] Pervasive `extern MenuState_t` pattern** — Six headers expose mutable `MenuState_t` state directly (`ui_matrix.h:12`, `ui_draw.h:24`, `ui_mode.h:39`, `ui_vars.h:31`, `ui_yvars.h:27`, `ui_stat.h:20`). Callers that only read cursor position should use a `Module_GetCursor()` accessor. Zero behaviour change.
 
 **[refactor] prgm_exec.h naming — public functions use snake_case instead of Module_VerbNoun** — `prgm_run_start`, `prgm_run_loop`, `prgm_lookup_slot`, `prgm_request_abort`, `prgm_is_waiting_input`, `prgm_get_input_var`, `prgm_clear_input_wait`, `prgm_cmd_table_validate` break the capitalization convention used everywhere else. Rename to `Prgm_RunStart`, `Prgm_RunLoop`, etc. Update all callers (primarily `calculator_core.c`). Zero behaviour change. Files: `App/Inc/prgm_exec.h`, `App/Src/prgm_exec.c`, `App/Src/calculator_core.c`.

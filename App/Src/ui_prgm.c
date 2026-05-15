@@ -650,31 +650,19 @@ void prgm_submenu_return_to_editor(lv_obj_t *hide_screen)
 
 void prgm_submenu_tab_switch(lv_obj_t *hide_screen, CalcMode_t to_mode)
 {
-    lv_obj_t *show_screen;
     Calc_SetMode(to_mode);
     lvgl_lock();
     lv_obj_add_flag(hide_screen, LV_OBJ_FLAG_HIDDEN);
-    if (to_mode == MODE_PRGM_CTL_MENU) {
-        show_screen = ui_prgm_ctl_screen;
-        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+    if (to_mode == MODE_PRGM_CTL_MENU)
         ui_prgm_ctl_reset_and_show();
-    } else if (to_mode == MODE_PRGM_IO_MENU) {
-        show_screen = ui_prgm_io_screen;
-        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+    else if (to_mode == MODE_PRGM_IO_MENU)
         ui_prgm_io_reset_and_show();
-    } else if (to_mode == MODE_PRGM_MODE_NUMBER) {
-        show_screen = ui_prgm_mode_num_screen;
-        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+    else if (to_mode == MODE_PRGM_MODE_NUMBER)
         ui_prgm_mode_num_reset_and_show();
-    } else if (to_mode == MODE_PRGM_MODE_GRAPH) {
-        show_screen = ui_prgm_mode_gph_screen;
-        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+    else if (to_mode == MODE_PRGM_MODE_GRAPH)
         ui_prgm_mode_gph_reset_and_show();
-    } else {
-        show_screen = ui_prgm_exec_screen;
-        lv_obj_clear_flag(show_screen, LV_OBJ_FLAG_HIDDEN);
+    else
         ui_prgm_exec_reset_and_show();
-    }
     lvgl_unlock();
 }
 
@@ -840,11 +828,11 @@ void hide_prgm_screens(void)
     if (ui_prgm_new_screen)     lv_obj_add_flag(ui_prgm_new_screen,     LV_OBJ_FLAG_HIDDEN);
     lv_obj_t *es = PrgmEditor_GetScreen();
     if (es)                     lv_obj_add_flag(es,                      LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_ctl_screen)     lv_obj_add_flag(ui_prgm_ctl_screen,     LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_io_screen)      lv_obj_add_flag(ui_prgm_io_screen,      LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_exec_screen)    lv_obj_add_flag(ui_prgm_exec_screen,    LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_mode_num_screen)lv_obj_add_flag(ui_prgm_mode_num_screen,LV_OBJ_FLAG_HIDDEN);
-    if (ui_prgm_mode_gph_screen)lv_obj_add_flag(ui_prgm_mode_gph_screen,LV_OBJ_FLAG_HIDDEN);
+    ui_prgm_ctl_hide();
+    ui_prgm_io_hide();
+    ui_prgm_exec_hide();
+    ui_prgm_mode_num_hide();
+    ui_prgm_mode_gph_hide();
     if (ui_prgm_menu_screen)    lv_obj_add_flag(ui_prgm_menu_screen,    LV_OBJ_FLAG_HIDDEN);
 }
 

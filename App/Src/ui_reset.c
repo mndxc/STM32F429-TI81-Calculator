@@ -28,7 +28,7 @@
  * Module state
  *---------------------------------------------------------------------------*/
 
-lv_obj_t *ui_reset_screen = NULL;
+static lv_obj_t *ui_reset_screen = NULL;
 
 static CalcMode_t s_return_mode = MODE_NORMAL;
 static lv_obj_t  *s_lbl_sts    = NULL;
@@ -38,8 +38,9 @@ static lv_obj_t  *s_lbl_pgm    = NULL;
  * Show / hide
  *---------------------------------------------------------------------------*/
 
-void Reset_ShowScreen(void) { lv_obj_clear_flag(ui_reset_screen, LV_OBJ_FLAG_HIDDEN); }
-void Reset_HideScreen(void) { lv_obj_add_flag(ui_reset_screen,   LV_OBJ_FLAG_HIDDEN); }
+void Reset_ShowScreen(void)  { lv_obj_clear_flag(ui_reset_screen, LV_OBJ_FLAG_HIDDEN); }
+void Reset_HideScreen(void)  { lv_obj_add_flag(ui_reset_screen,   LV_OBJ_FLAG_HIDDEN); }
+bool Reset_IsVisible(void)   { return ui_reset_screen != NULL && !lv_obj_has_flag(ui_reset_screen, LV_OBJ_FLAG_HIDDEN); }
 
 /*---------------------------------------------------------------------------
  * UI Initialisation
