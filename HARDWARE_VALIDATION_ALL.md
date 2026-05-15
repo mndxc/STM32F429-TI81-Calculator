@@ -1,6 +1,6 @@
 # Neo-81 — Full Hardware Validation Checklist
-_Generated 2026-04-18. Updated 2026-04-28 to include all commits through cf931ab._
-_All features implemented; none yet verified on hardware._
+_Generated 2026-04-18. Updated 2026-05-14 to include all commits through f18b257._
+_All features implemented; none yet verified on hardware (except where manual notes indicate)._
 _Mark each test: ✅ PASS  ❌ FAIL  ⚠️ PARTIAL_
 
 ---
@@ -35,8 +35,8 @@ _Verifies `cursor_render()` refactor produces zero visible behaviour change acro
 | 5 | Press any letter key (e.g. `A`) | Letter inserted, cursor resets to grey | |
 | 6 | Press `STO→` | Cursor turns green with `A` inside (STO-pending state) | |
 | 7 | While STO-pending, press any letter | Stores to that variable, cursor resets to grey block | |
-| 8 | Press `2ND+INS` | Cursor changes to underscore style | |
-| 9 | Press `2ND+INS` again | Cursor returns to full-height block | |
+| 8 | Press `INS` | Cursor changes to underscore style | |
+| 9 | Press `INS` again | Cursor returns to full-height block | |
 
 ---
 Manual Notes:
@@ -51,8 +51,8 @@ Tasks 1-9 above pass
 | 10 | Press `Y=` | Cursor blinks on first equation field | |
 | 11 | Press `2ND` | Cursor turns amber with `^` | |
 | 12 | Press any key to resolve 2ND | Cursor resets | |
-| 13 | Press `2ND+INS` | Cursor changes to underscore style | |
-| 14 | Press `2ND+INS` again | Cursor returns to block | |
+| 13 | Press `INS` | Cursor changes to underscore style | |
+| 14 | Press `INS` again | Cursor returns to block | |
 
 ---
 Manual Notes:
@@ -65,8 +65,8 @@ Tasks 10-14 above pass with the universal note again that the INS button does no
 | # | Action | Expected | Result |
 |---|---|---|---|
 | 15 | Press `RANGE` | Cursor blinks in Xmin field | |
-| 16 | Press `2ND+INS` | Cursor changes to underscore style | |
-| 17 | Press `2ND+INS` again | Cursor returns to block | |
+| 16 | Press `INS` | Cursor changes to underscore style | |
+| 17 | Press `INS` again | Cursor returns to block | |
 ---
 Manual Notes:
 Tasks 15-17 above pass
@@ -79,8 +79,8 @@ Tasks 15-17 above pass
 | # | Action | Expected | Result |
 |---|---|---|---|
 | 18 | `ZOOM` → Select Factors | Cursor blinks in XFact field | |
-| 19 | Press `2ND+INS` | Cursor changes to underscore style | |
-| 20 | Press `2ND+INS` again | Cursor returns to block | |
+| 19 | Press `INS` | Cursor changes to underscore style | |
+| 20 | Press `INS` again | Cursor returns to block | |
 ---
 Manual Notes:
 Tasks 18-20 above pass
@@ -93,7 +93,7 @@ Tasks 18-20 above pass
 | # | Action | Expected | Result |
 |---|---|---|---|
 | 21 | `MATRX` → EDIT → select matrix → navigate to a cell | Cursor is full-height grey block | |
-| 22 | Press `2ND+INS` | Cursor shape does **not** change | |
+| 22 | Press `INS` | Cursor shape does **not** change | |
 | 23 | Press `2ND` | Cursor turns amber with `^` | |
 | 24 | Press `ALPHA` | Cursor turns green with `A` | |
 ---
@@ -109,11 +109,11 @@ Task 24 doesn't work as expected
 | # | Action | Expected | Result |
 |---|---|---|---|
 | 25 | `PRGM` → EDIT → empty slot → ENTER | Cursor blinks in name field; full-height block | |
-| 26 | Press `2ND+INS` | Cursor shape does **not** change | |
+| 26 | Press `INS` | Cursor shape does **not** change — name entry does not support insert mode; the key should be silently ignored | |
 ---
 Manual Notes:
 Task 25 above pass
-Task 26 i don't understand what is meant in this test
+Task 26: INS is a standalone key; test confirms pressing it in the name-entry field has no visible effect on cursor shape
 ---
 
 
@@ -122,8 +122,8 @@ Task 26 i don't understand what is meant in this test
 | # | Action | Expected | Result |
 |---|---|---|---|
 | 27 | `PRGM` → EDIT → select a program | Cursor blinks on program line | |
-| 28 | Press `2ND+INS` | Cursor changes to underscore style | |
-| 29 | Press `2ND+INS` again | Cursor returns to block | |
+| 28 | Press `INS` | Cursor changes to underscore style | |
+| 29 | Press `INS` again | Cursor returns to block | |
 ---
 Manual Notes:
 Tasks 27-29 above pass
@@ -187,6 +187,26 @@ Bug: Zoom or graph scale change does not impact items that have been added to th
 
 ---
 
+### Interactive cursor-pick DRAW (from graph canvas)
+
+_Tests the cursor-pick entry path introduced in f59dc6f. These require the graph canvas to be active (press `GRAPH` first), not the home screen expression buffer._
+
+**Setup:** Ensure Y₁=X is entered and enabled. Press `GRAPH` so the free-cursor is active.
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 14 | From graph canvas, press `2ND+PRGM` → select `2:Line(` | DRAW menu closes; crosshair cursor appears on graph canvas centred at current position; no text inserted into expression buffer | |
+| 15 | Move cursor with arrow keys to a start point → press ENTER | Start point recorded (no visible change yet); cursor ready to pick end point | |
+| 16 | Move cursor to a different position → press ENTER | Line segment drawn between start and end points; cursor resets, ready for another segment | |
+| 17 | From graph canvas, press `2ND+PRGM` → select `3:PT-On(` → move cursor → press ENTER | Single pixel drawn at cursor coordinates; cursor remains active for additional points | |
+| 18 | With PT-On( cursor active, press `GRAPH` | Cursor-pick mode exits; free-cursor returns | |
+| 19 | From graph canvas, `2ND+PRGM` → `4:PT-Off(` → move to a pixel set in test 17 → ENTER | That pixel is cleared | |
+| 20 | From graph canvas, `2ND+PRGM` → `5:PT-Chg(` → ENTER → ENTER at same point | Pixel toggles on then off (or off then on if already clear) | |
+---
+Manual Notes:
+
+---
+
 
 ---
 
@@ -208,7 +228,7 @@ _Validates statistics data entry, calculations, and graph plots._
 | 9 | DRAW → `1:Hist` | Histogram bars visible on graph canvas | |
 | 10 | `2nd+ON` to save → power-cycle → STAT → DATA → Edit | All 5 data pairs intact | |
 | 11 | DATA → Edit → navigate to row 3 → press RIGHT to reach column 3 (row-select state) | `>` prefix appears before row 3 cursor; pressing INS/DEL applies to whole row | |
-| 12 | With `>` cursor at row 3 → press `2ND+INS` | New row (0,0) inserted before the current row 3; remaining rows shift down; total becomes 6 pairs | |
+| 12 | With `>` cursor at row 3 → press `INS` | New row (0,0) inserted before the current row 3; remaining rows shift down; total becomes 6 pairs | |
 | 13 | With `>` cursor at a row → press `DEL` | That row is removed; remaining rows shift up | |
 | 14 | From home screen, after running 1-Var with 5 pairs: type `{x}(1)` → ENTER | Result is the first x-value (1); type `{y}(3)` → ENTER: result is the third y-value (7); type `{x}(6)` → ENTER: DOMAIN ERR (out of bounds) | |
 ---
@@ -409,6 +429,18 @@ _Mark ✅ / ❌ / ⚠️. See Notes section at end for context on individual tes
 | T46 | Tab wrap in sub-menus | In editor → PRGM → CTL tab. Press LEFT. | Wraps to EXEC. LEFT→I/O; LEFT→CTL. RIGHT: CTL→I/O→EXEC→CTL | |
 | T46b | EXEC digit and ALPHA+letter shortcuts | On EXEC sub-menu → press `2` | `:prgm2` inserted immediately. Then EXEC tab again → ALPHA+A → `:prgmA` inserted (slot 10). | |
 
+### Executor — Input no-arg graph exploration (guidebook p. 8-13)
+
+_Requires a Y= equation to be entered and enabled (e.g. Y₁=sin(X)) and a valid RANGE set (e.g. ZTrig)._
+
+| # | Test | Steps | Expected | Result |
+|---|---|---|---|---|
+| T47 | Input no-arg shows graph | Program: `Input` (no variable) / `Disp X` / `Disp Y` → run | Graph canvas appears with blinking free-roaming crosshair cursor; `X=` and `Y=` labels update as cursor moves | |
+| T48 | Cursor movement stores X and Y | While in Input graph mode, move cursor a few pixels right and up → press ENTER | Program resumes; `Disp X` prints the math X-coordinate of the cursor position; `Disp Y` prints the Y-coordinate | |
+| T49 | CLEAR aborts program | Program: `Input` → run → press CLEAR while graph cursor is active | Execution stops; home screen returns; no lockup | |
+| T50 | Input no-arg mid-program | Program: `Disp "START"` / `Input` / `Disp X` / `Disp "END"` → run | `START` shown; graph appears; after ENTER `X` value shown; `END` shown; Done | |
+| T51 | X and Y variables updated in calc engine | After T48, return to home screen → type `X` → ENTER; type `Y` → ENTER | Both return the coordinate values picked during the Input graph session | |
+
 ---
 
 ## Notes (PRGM section)
@@ -495,6 +527,28 @@ _Validates MODE rows 0, 5, 6, 8 and the free-roaming graph cursor introduced wit
 | 34 | Type `P>R(1,0)` → ENTER | Result is `1`; then type `Y` → ENTER: result is `0` | |
 | 35 | Type `3` → `STO→` → `θ` → ENTER → type `θ` → ENTER | θ variable stores 3; second ENTER returns `3` | |
 
+### TRACE auto-pan at viewport edge (guidebook p. 3-10)
+
+**Setup:** Ensure Y₁=sin(X) is entered and enabled. Set RANGE to ZTrig preset. Press `GRAPH` then `TRACE`.
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 36 | In TRACE mode, hold RIGHT until cursor reaches Xmax | When cursor hits Xmax, viewport pans right by (Xmax−Xmin)/2; graph re-renders with the new window; cursor X-value continues past the original Xmax | |
+| 37 | In TRACE mode after right-pan, hold LEFT until cursor reaches new Xmin | Viewport pans left by (Xmax−Xmin)/2; graph re-renders; cursor X-value continues left | |
+| 38 | Parametric mode: TRACE cursor at T boundary | Cursor clamps at Tmin/Tmax — no pan in parametric mode | |
+
+### ZOOM cursor-pick (guidebook pp. 3-13, 3-14, 3-16)
+
+**Setup:** Ensure Y₁=sin(X) is entered and enabled. Standard RANGE (Xmin=-10, Xmax=10).
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 39 | Press `ZOOM` → `2:Zoom In` | Graph closes menu; blinking crosshair cursor appears on canvas (cursor-pick mode, not immediate zoom) | |
+| 40 | Move cursor to a point of interest → press ENTER | Graph re-renders zoomed in; the picked point becomes the new window centre | |
+| 41 | Press `ZOOM` → `3:Zoom Out` → move cursor → ENTER | Graph re-renders zoomed out centred on picked point | |
+| 42 | Press `ZOOM` → `8:Integer` → move cursor → ENTER | Graph re-renders with integer pixel-to-coordinate mapping centred on picked point | |
+| 43 | While in ZOOM cursor-pick, press `GRAPH` (or any graph-nav key) | Cursor-pick mode exits without zooming; free-cursor returns | |
+
 ---
 
 ## Section 9 — MATH extensions (HYP tab + nDeriv + expression fixes)
@@ -532,6 +586,17 @@ _Validates hyperbolic functions, numerical derivative, and auto-close trailing p
 | 14 | Type `sin(1` (no closing `)`) → ENTER | Result ≈ `0.841471` — unmatched `(` is auto-closed; no SYNTAX ERR | |
 | 15 | Type `(1+2` → ENTER | Result is `3` — leading unmatched `(` auto-closed | |
 | 16 | Type `sin(cos(0` → ENTER | Result ≈ `0.841471` — two unmatched `(` auto-closed in order | |
+
+### Angle-override postfix tokens: `°` and `r` (guidebook pp. 2-3, 2-5)
+
+_`°` forces degrees regardless of angle mode; `r` forces radians regardless of angle mode. The `°` symbol is entered via the MATH menu (ANGLE tab or similar); `r` is typed directly as a lowercase letter. Verify in both angle modes._
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 17 | Set angle mode to **Rad**. Type `sin(90°)` → ENTER | Result is `1` — `°` overrides RAD mode; calculator treats 90 as degrees → sin(π/2)=1. Without `°` in RAD mode, `sin(90)` ≈ `0.8940`. | |
+| 18 | Set angle mode to **Deg**. Type `sin(1r)` → ENTER | Result ≈ `0.8415` — `r` overrides DEG mode; calculator treats 1 as radians → sin(1 rad). Without `r` in DEG mode, `sin(1)` ≈ `0.01745`. | |
+| 19 | In Rad mode. Type `cos(180°)` → ENTER | Result is `-1` — 180° in radians is π; cos(π)=-1 | |
+| 20 | In Deg mode. Type `cos(3.14159r)` → ENTER | Result ≈ `-1` — π radians overridden to radians in DEG mode | |
 
 ---
 
@@ -573,22 +638,62 @@ _Validates `2nd++` (2nd then +) RESET MEMORY confirmation screen per guidebook p
 
 ---
 
+## Section 12 — Error overlay (guidebook pp. 1-26, B-4)
+_Validates the yellow error overlay screen with `1:Goto Error` / `2:Quit` and numbered error strings._
+
+**Setup:** Start from home screen with expression buffer clear.
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 1 | Type `sin(` (unclosed — but auto-close gives a valid result); instead type `1++1` → ENTER | Error overlay appears with yellow title `ERROR 04 SYNTAX`; choices `1:Goto Error` and `2:Quit` | |
+| 2 | On error overlay, press `2` or `CLEAR` | Overlay closes; home screen returns; expression buffer unchanged | |
+| 3 | Type `log(-1)` → ENTER | Error overlay shows `ERROR 02 DOMAIN` | |
+| 4 | Type `1/0` → ENTER | Error overlay shows `ERROR 01 DIVIDE BY 0` | |
+| 5 | Type `1++1` → ENTER → press `1` (Goto Error) | Overlay closes; cursor is positioned at the error location in the expression buffer (at the second `+`) | |
+| 6 | Trigger a DIMENSION error: with [A] set to 2×2, type `[A]+[B]` where [B] is 3×3 → ENTER | Error overlay shows `ERROR 05 DIMENSION` | |
+| 7 | Trigger error during PRGM execution: program body `Disp 1/0` → run | Error overlay appears mid-execution; press `2` → home screen; no lockup | |
+| 8 | Trigger error during PRGM execution → press `1` (Goto Error) | Returns to home screen (program context exited cleanly); no lockup | |
+---
+Manual Notes:
+
+---
+
+## Section 13 — STO advanced targets: matrix, element, Y= (guidebook pp. 6-5, 6-10, 3-18)
+_Validates storing to matrix slots, individual matrix elements, and Y= equation slots._
+
+**Setup:** Ensure [A] is defined as a 2×2 matrix with any values. Ensure Y₁ has an equation entered.
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| 1 | Type `[[1,2],[3,4]]` → `STO→` → `[A]` (MATRX → NAMES → [A]) → ENTER | `[[1,2],[3,4]]` stored in [A]; result row shows the matrix; press `[A]` → ENTER to confirm | |
+| 2 | Type `5` → `STO→` → `[A]` → ENTER | All elements of [A] filled with `5` (scalar broadcast); press `[A]` → ENTER: shows [[5,5],[5,5]] | |
+| 3 | Type `7` → `STO→` → `[A]` → `(` → `1` → `,` → `2` → `)` → ENTER | Element [A](1,2) stores 7; press `[A]` → ENTER: row 1 col 2 is `7`; other elements unchanged | |
+| 4 | Type `2+3` → `STO→` → `[A]` → `(` → `2` → `,` → `1` → `)` → ENTER | Expression evaluated to 5; [A](2,1) stores 5 | |
+| 5 | Type `X^2` → `STO→` → `Y₁` (via `2ND+VARS` → Y tab → `1:Y₁`) → ENTER | Y₁ equation updated to `X^2`; press `Y=` to confirm | |
+| 6 | STO→ to out-of-bounds element: type `1` → `STO→` → `[A]` → `(` → `9` → `,` → `1` → `)` → ENTER | Error overlay: `ERROR 05 DIMENSION` (row 9 out of range for 2-row matrix) | |
+---
+Manual Notes:
+
+---
+
 ## Summary
 
 | Section | Feature | Tests | Result |
 |---|---|---|---|
 | 1 | Cursor rendering (P28) | 29 | |
 | 2 | Parametric graphing (P35h) | 6 | |
-| 3 | DRAW menu (P29h) | 13 | |
+| 3 | DRAW menu — expression buffer + interactive cursor-pick (P29h) | 20 | |
 | 4 | STAT menu (P30h) | 14 | |
 | 5 | VARS menu (P31h) | 10 | |
 | 6 | Y-VARS menu (P32h) | 12 | |
-| 7 | PRGM system (P10) | 55 | |
-| 8 | MODE screen (notation + graph modes + free cursor) | 35 | |
-| 9 | MATH extensions (HYP + nDeriv + auto-close) | 16 | |
+| 7 | PRGM system + Input no-arg graph exploration (P10) | 60 | |
+| 8 | MODE screen (notation + graph modes + free cursor + TRACE auto-pan + ZOOM cursor-pick) | 43 | |
+| 9 | MATH extensions (HYP + nDeriv + auto-close + angle-override postfix) | 20 | |
 | 10 | Matrix row operations | 8 | |
 | 11 | RESET menu | 10 | |
-| **Total** | | **208** | |
+| 12 | Error overlay | 8 | |
+| 13 | STO advanced targets (matrix / element / Y=) | 6 | |
+| **Total** | | **246** | |
 
 ---
 
@@ -599,3 +704,5 @@ When all sections pass:
 2. Delete `docs/prgm_manual_tests.md` (P10 complete)
 3. Add a Resolved Items row to `docs/PROJECT_HISTORY.md` for each section
 4. Remove completed hardware items from "Next session priorities" in `CLAUDE.md`
+
+Sections 12 and 13 have no corresponding legacy manual-test files — sign off by marking all rows ✅ and adding a PROJECT_HISTORY entry.

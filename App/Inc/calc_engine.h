@@ -185,6 +185,14 @@ typedef struct {
  * Variable storage
  *--------------------------------------------------------------------------*/
 
+/* Direct write to either array is safe: no internal cached state depends on
+ * their contents. Write sites outside calc_engine.c: calc_stat.c (regression
+ * results → [0]/[1]), ui_sto.c (STO token), graph.c (polar/parametric cursor
+ * coords: R, θ, X, Y), prgm_exec.c (IS>/DS< counters, prgm STO), ui_prgm.c
+ * (graph-Input X/Y), persist.c (restore on load). Callers that store to
+ * calc_variables[] are responsible for calling Calc_ClearHistory() if the
+ * change should be reflected in the history display. */
+
 /** User variable storage — A through Z, indexed by (ch - 'A'); [26] = θ. */
 extern float calc_variables[27];
 

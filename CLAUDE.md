@@ -94,6 +94,12 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 **[complexity] calculator_core.c (1702 lines) carries 4 independent responsibilities** — UI-object creation, expression editing, history management, and mode routing live in one file; begin with migrating the matrix-ring history state and callbacks into `App/Src/calc_history.c` (currently underused). Zero behaviour change. Files: `App/Src/calculator_core.c`, `App/Src/calc_history.c`.
 
+**[complexity] handle_stat_edit (224 lines, depth 6) and handle_stat_menu (85 lines, depth 5) exceed both thresholds** — E17 sweep confirmed both functions in `App/Src/ui_stat_edit.c` and `App/Src/ui_stat.c` exceed 60 lines at nesting depth > 4. `handle_stat_edit` is the priority: extract the display-update block, the data-entry switch arms, and the ENTER/DEL dispatch into static helpers. Files: `App/Src/ui_stat_edit.c`, `App/Src/ui_stat.c`.
+
+**[complexity] Graph_Render (176 lines, depth 6) and Graph_RenderParametric (203 lines, depth 7) exceed both thresholds** — E17 sweep confirmed both in `App/Src/graph.c`. Extract the per-pixel sample-and-plot inner loop, the asymptote/discontinuity detection, and the connected-dot segment draw into static helpers. Files: `App/Src/graph.c`.
+
+**[complexity] handle_vars_menu (65 lines, depth 5) and handle_yvars_menu (73 lines, depth 5) exceed both thresholds** — E17 sweep. Both are dispatch tables wrapped in nested conditional logic; extract the token-dispatch switch body into a static helper that returns the insert string, then call it from a thin top-level function. Files: `App/Src/ui_vars.c`, `App/Src/ui_yvars.c`.
+
 #### Refactoring — surfaced by 2026-05-07 codebase audit
 
 

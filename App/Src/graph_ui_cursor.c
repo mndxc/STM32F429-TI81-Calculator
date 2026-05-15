@@ -18,6 +18,7 @@
 #include "graph_draw.h"
 #include "ui_graph_zoom.h"
 #include "calc_engine.h"
+#include "calculator_core.h"
 #include "ui_shared.h"
 #include "lvgl.h"
 #include <string.h>

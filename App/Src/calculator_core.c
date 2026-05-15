@@ -1,11 +1,16 @@
 /**
- * @file    calculator_core.c
- * @brief   Calculator logic, UI management, and FreeRTOS task implementation.
+ * @file  calculator_core.c
+ * @brief Central coordinator for LVGL UI layout, mode routing, and history display.
  *
- * This module handles:
- *  - LVGL UI creation and updates
- *  - Token processing from the keypad queue
- *  - Calculator input buffer management
+ * This file carries two remaining responsibilities (two others have been extracted):
+ *   1. LVGL UI object creation and layout — owns the main screen, label hierarchy,
+ *      and cursor LVGL objects (target for future ui_expr.c extraction).
+ *   2. Mode routing / token dispatch — stays here as coordinator; delegates to
+ *      per-mode handler modules via Execute_Token().
+ *
+ * Extracted responsibilities (no longer here):
+ *   - Expression buffer state → expr_editor.c (ARCHITECTURE_OPPORTUNITIES item 4)
+ *   - History display updates → calc_history.c via CalcHistory_RegisterDisplayCallback()
  */
 
 #ifdef HOST_TEST
