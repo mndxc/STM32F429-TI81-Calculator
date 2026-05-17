@@ -217,7 +217,6 @@ extern lv_obj_t *ui_matrix_edit_screen;
 extern lv_obj_t *ui_graph_yeq_screen;
 extern lv_obj_t *ui_param_yeq_screen;
 extern lv_obj_t *ui_graph_range_screen;
-extern lv_obj_t *ui_graph_zoom_screen;
 extern lv_obj_t *ui_graph_zoom_factors_screen;
 extern lv_obj_t *ui_stat_edit_screen;
 extern lv_obj_t *ui_stat_results_screen;

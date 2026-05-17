@@ -18,6 +18,7 @@
 #include "calc_engine.h"
 #include "graph_ui.h"
 #include "ui_graph_zoom.h"
+#include "ui_menu_screen.h"
 #include "graph.h"
 #include "graph_ui_range.h"
 #include "ui_palette.h"
@@ -30,134 +31,23 @@
 
 #define ZOOM_ITEM_COUNT       8
 
-static const char * const zoom_item_names[ZOOM_ITEM_COUNT] = {
-    "Box", "Zoom In", "Zoom Out", "Set Factors",
-    "Square", "Standard", "Trig", "Integer"
+static const char * const zoom_display_labels[ZOOM_ITEM_COUNT] = {
+    "1:Box", "2:Zoom In", "3:Zoom Out", "4:Set Factors",
+    "5:Square", "6:Standard", "7:Trig", "8:Integer"
 };
 
 /*---------------------------------------------------------------------------
- * Private types
+ * Module state
  *---------------------------------------------------------------------------*/
 
-typedef struct {
-    uint8_t  scroll_offset;
-    uint8_t  item_cursor;       /* Visible-row index of highlight */
-} ZoomMenuState_t;
-
-/*---------------------------------------------------------------------------
- * LVGL object pointers
- *---------------------------------------------------------------------------*/
-
-/* Screen pointer — private; accessed externally via Zoom_ShowScreen() / Zoom_HideScreen() */
-static lv_obj_t *ui_graph_zoom_screen = NULL;
-
-/* ZOOM menu labels */
-static lv_obj_t *zoom_item_labels[MENU_VISIBLE_ROWS];
-static lv_obj_t *zoom_scroll_ind[2];   /* [0]=top(↑), [1]=bottom(↓) */
-
-/*---------------------------------------------------------------------------
- * State
- *---------------------------------------------------------------------------*/
-
-static ZoomMenuState_t s_zoom = {0};
+static MenuScreen_t s_zoom_ms;
 
 /*---------------------------------------------------------------------------
  * Screen show/hide
  *---------------------------------------------------------------------------*/
 
-void Zoom_ShowScreen(void) { lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN); }
-void Zoom_HideScreen(void) { lv_obj_add_flag(ui_graph_zoom_screen,   LV_OBJ_FLAG_HIDDEN); }
-
-/*---------------------------------------------------------------------------
- * Initialisation
- *---------------------------------------------------------------------------*/
-
-void ui_init_zoom_screen(lv_obj_t *parent)
-{
-    ui_graph_zoom_screen = lv_obj_create(parent);
-    lv_obj_set_size(ui_graph_zoom_screen, DISPLAY_W, DISPLAY_H);
-    lv_obj_set_pos(ui_graph_zoom_screen, 0, 0);
-    lv_obj_set_style_bg_color(ui_graph_zoom_screen, lv_color_hex(COLOR_BLACK), 0);
-    lv_obj_set_style_border_width(ui_graph_zoom_screen, 0, 0);
-    lv_obj_set_style_pad_all(ui_graph_zoom_screen, 0, 0);
-    lv_obj_clear_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
-
-    lv_obj_t *lbl_zoom_title = lv_label_create(ui_graph_zoom_screen);
-    lv_obj_set_pos(lbl_zoom_title, 4, 4);
-    lv_obj_set_style_text_font(lbl_zoom_title, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(lbl_zoom_title, lv_color_hex(COLOR_WHITE), 0);
-    lv_label_set_text(lbl_zoom_title, "ZOOM");
-
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        zoom_item_labels[i] = lv_label_create(ui_graph_zoom_screen);
-        lv_obj_set_pos(zoom_item_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(zoom_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(zoom_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(zoom_item_labels[i], "");
-    }
-
-    for (int i = 0; i < 2; i++) {
-        int row = (i == 0) ? 0 : (MENU_VISIBLE_ROWS - 1);
-        zoom_scroll_ind[i] = lv_label_create(ui_graph_zoom_screen);
-        lv_obj_set_pos(zoom_scroll_ind[i], 18, 30 + row * 30);
-        lv_obj_set_style_text_font(zoom_scroll_ind[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(zoom_scroll_ind[i], lv_color_hex(COLOR_AMBER), 0);
-        lv_obj_set_style_bg_color(zoom_scroll_ind[i], lv_color_hex(COLOR_BLACK), 0);
-        lv_obj_set_style_bg_opa(zoom_scroll_ind[i], LV_OPA_COVER, 0);
-        lv_obj_set_style_pad_all(zoom_scroll_ind[i], 0, 0);
-        lv_label_set_text(zoom_scroll_ind[i], "");
-        lv_obj_add_flag(zoom_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
-    }
-}
-
-/*---------------------------------------------------------------------------
- * Display helper
- *---------------------------------------------------------------------------*/
-
-void ui_update_zoom_display(void)
-{
-    lv_obj_add_flag(zoom_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(zoom_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        int idx = s_zoom.scroll_offset + i;
-        if (idx >= ZOOM_ITEM_COUNT) {
-            lv_label_set_text(zoom_item_labels[i], "");
-            continue;
-        }
-        bool more_below = (s_zoom.scroll_offset + MENU_VISIBLE_ROWS < ZOOM_ITEM_COUNT)
-                          && (i == MENU_VISIBLE_ROWS - 1);
-        bool more_above = (s_zoom.scroll_offset > 0) && (i == 0);
-        char buf[32];
-        if (more_below) {
-            snprintf(buf, sizeof(buf), "%d %s", idx + 1, zoom_item_names[idx]);
-            lv_label_set_text(zoom_scroll_ind[1], "\xE2\x86\x93");
-            lv_obj_clear_flag(zoom_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-        } else if (more_above) {
-            snprintf(buf, sizeof(buf), "%d %s", idx + 1, zoom_item_names[idx]);
-            lv_label_set_text(zoom_scroll_ind[0], "\xE2\x86\x91");
-            lv_obj_clear_flag(zoom_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-        } else {
-            snprintf(buf, sizeof(buf), "%d:%s", idx + 1, zoom_item_names[idx]);
-        }
-        lv_color_t col = (i == (int)s_zoom.item_cursor)
-            ? lv_color_hex(COLOR_YELLOW)
-            : lv_color_hex(COLOR_WHITE);
-        lv_obj_set_style_text_color(zoom_item_labels[i], col, 0);
-        lv_label_set_text(zoom_item_labels[i], buf);
-    }
-}
-
-/*---------------------------------------------------------------------------
- * State helper
- *---------------------------------------------------------------------------*/
-
-void zoom_menu_reset(void)
-{
-    s_zoom.scroll_offset = 0;
-    s_zoom.item_cursor   = 0;
-}
+void Zoom_ShowScreen(void) { lv_obj_clear_flag(s_zoom_ms.screen, LV_OBJ_FLAG_HIDDEN); }
+void Zoom_HideScreen(void) { lv_obj_add_flag  (s_zoom_ms.screen, LV_OBJ_FLAG_HIDDEN); }
 
 /*---------------------------------------------------------------------------
  * ZOOM action executor helpers
@@ -168,7 +58,7 @@ static void zoom_show_graph(void)
 {
     Calc_SetMode(MODE_NORMAL);
     lvgl_lock();
-    lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_zoom_ms.screen, LV_OBJ_FLAG_HIDDEN);
     Graph_SetVisible(true);
     Graph_Render();
     lvgl_unlock();
@@ -179,7 +69,7 @@ static void zoom_enter_factors(void)
 {
     Calc_SetMode(MODE_GRAPH_ZOOM_FACTORS);
     lvgl_lock();
-    lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_zoom_ms.screen, LV_OBJ_FLAG_HIDDEN);
     zoom_factors_nav_enter();
     lvgl_unlock();
 }
@@ -228,84 +118,97 @@ static void zoom_execute_item(uint8_t item_num)
     case 2: zoom_enter_cursor_pick(1);                                    break; /* Zoom In */
     case 3: zoom_enter_cursor_pick(2);                                    break; /* Zoom Out */
     case 4: zoom_enter_factors();                                         break;
-    case 5: apply_zoom_preset(4); zoom_show_graph();                     break;
-    case 6: apply_zoom_preset(1); zoom_show_graph();                     break;
-    case 7: apply_zoom_preset(2); zoom_show_graph();                     break;
+    case 5: apply_zoom_preset(4); zoom_show_graph();                      break;
+    case 6: apply_zoom_preset(1); zoom_show_graph();                      break;
+    case 7: apply_zoom_preset(2); zoom_show_graph();                      break;
     case 8: zoom_enter_cursor_pick(3);                                    break; /* Integer */
     default:
         Calc_SetMode(MODE_NORMAL);
-        lvgl_lock(); lv_obj_add_flag(ui_graph_zoom_screen, LV_OBJ_FLAG_HIDDEN); lvgl_unlock();
+        lvgl_lock(); lv_obj_add_flag(s_zoom_ms.screen, LV_OBJ_FLAG_HIDDEN); lvgl_unlock();
         break;
     }
+}
+
+/*---------------------------------------------------------------------------
+ * MenuScreen_t descriptor and callbacks
+ *---------------------------------------------------------------------------*/
+
+static void zoom_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+    zoom_execute_item((uint8_t)(idx + 1));
+}
+
+static void zoom_on_cancel(lv_obj_t *screen)
+{
+    (void)screen;
+    zoom_menu_reset();
+    Calc_SetMode(MODE_NORMAL);
+    lvgl_lock();
+    hide_all_screens();
+    lvgl_unlock();
+}
+
+/* TOKEN_ZOOM closes without reopening; graph-nav and other menu keys fall
+ * through to handle_normal_mode via DefaultExtra. */
+static bool zoom_on_extra(Token_t t, MenuScreen_t *ms)
+{
+    if (t == TOKEN_ZOOM) {
+        zoom_on_cancel(NULL);
+        return true;
+    }
+    return MenuScreen_DefaultExtra(t, ms);
+}
+
+static const MenuTabDesc_t s_tab = {
+    ZOOM_ITEM_COUNT, zoom_display_labels, NULL, zoom_on_select
+};
+
+static const MenuScreenDesc_t s_desc = {
+    .tab_count      = 0,
+    .tab_names      = NULL,
+    .tab_x          = NULL,
+    .default_tab    = 0,
+    .wrap_tabs      = false,
+    .title          = "ZOOM",
+    .tabs           = &s_tab,
+    .left_mode      = 0,
+    .right_mode     = 0,
+    .on_cancel      = zoom_on_cancel,
+    .on_tab_switch  = NULL,
+    .on_extra       = zoom_on_extra,
+};
+
+/*---------------------------------------------------------------------------
+ * Initialisation
+ *---------------------------------------------------------------------------*/
+
+void ui_init_zoom_screen(lv_obj_t *parent)
+{
+    MenuScreen_Init(&s_zoom_ms, &s_desc, parent);
+}
+
+/*---------------------------------------------------------------------------
+ * Display helper
+ *---------------------------------------------------------------------------*/
+
+void ui_update_zoom_display(void)
+{
+    MenuScreen_UpdateDisplay(&s_zoom_ms);
+}
+
+/*---------------------------------------------------------------------------
+ * State helper
+ *---------------------------------------------------------------------------*/
+
+void zoom_menu_reset(void)
+{
+    s_zoom_ms.nav.cursor = 0;
+    s_zoom_ms.nav.scroll = 0;
 }
 
 /*---------------------------------------------------------------------------
  * Token handler
  *---------------------------------------------------------------------------*/
 
-bool handle_zoom_mode(Token_t t)
-{
-    switch (t) {
-    case TOKEN_UP:
-        if (s_zoom.item_cursor > 0) {
-            s_zoom.item_cursor--;
-        } else if (s_zoom.scroll_offset > 0) {
-            s_zoom.scroll_offset--;
-        }
-        lvgl_lock();
-        ui_update_zoom_display();
-        lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        if ((int)(s_zoom.scroll_offset + s_zoom.item_cursor) + 1 < ZOOM_ITEM_COUNT) {
-            if (s_zoom.item_cursor < MENU_VISIBLE_ROWS - 1)
-                s_zoom.item_cursor++;
-            else if (s_zoom.scroll_offset + MENU_VISIBLE_ROWS < ZOOM_ITEM_COUNT)
-                s_zoom.scroll_offset++;
-        }
-        lvgl_lock();
-        ui_update_zoom_display();
-        lvgl_unlock();
-        return true;
-    case TOKEN_ENTER:
-        zoom_execute_item((uint8_t)(s_zoom.scroll_offset + s_zoom.item_cursor + 1));
-        return true;
-    case TOKEN_CLEAR:
-    case TOKEN_ZOOM:
-        zoom_menu_reset();
-        Calc_SetMode(MODE_NORMAL);
-        lvgl_lock();
-        hide_all_screens();
-        lvgl_unlock();
-        return true;
-    case TOKEN_Y_EQUALS:
-        zoom_menu_reset();
-        nav_to(MODE_GRAPH_YEQ);
-        return true;
-    case TOKEN_RANGE:
-        zoom_menu_reset();
-        nav_to(MODE_GRAPH_RANGE);
-        return true;
-    case TOKEN_GRAPH:
-        zoom_menu_reset();
-        nav_to(MODE_GRAPH_FREE_CURSOR);
-        return true;
-    case TOKEN_TRACE:
-        zoom_menu_reset();
-        nav_to(MODE_GRAPH_TRACE);
-        return true;
-    case TOKEN_1 ... TOKEN_9: {
-        uint8_t item = (uint8_t)(t - TOKEN_0);
-        if (item <= ZOOM_ITEM_COUNT)
-            zoom_execute_item(item);
-        return true;
-    }
-    default:
-        zoom_menu_reset();
-        Calc_SetMode(MODE_NORMAL);
-        lvgl_lock();
-        hide_all_screens();
-        lvgl_unlock();
-        return false; /* fall through to main switch */
-    }
-}
+bool handle_zoom_mode(Token_t t) { return MenuScreen_HandleToken(&s_zoom_ms, t); }

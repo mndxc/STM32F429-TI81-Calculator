@@ -51,7 +51,6 @@ lv_obj_t *ui_matrix_edit_screen        = NULL;
 lv_obj_t *ui_graph_yeq_screen          = NULL;
 lv_obj_t *ui_param_yeq_screen          = NULL;
 lv_obj_t *ui_graph_range_screen        = NULL;
-lv_obj_t *ui_graph_zoom_screen         = NULL;
 lv_obj_t *ui_graph_zoom_factors_screen = NULL;
 
 /* Stub font objects (never dereferenced — LVGL calls are no-ops) */
