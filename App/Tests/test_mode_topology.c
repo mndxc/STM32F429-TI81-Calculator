@@ -52,8 +52,6 @@ lv_obj_t *ui_stat_results_screen = NULL;
 
 lv_obj_t *ui_math_screen = NULL;
 
-lv_obj_t *ui_vars_screen = NULL;
-
 lv_obj_t *ui_yvars_screen = NULL;
 
 ProgramStore_t g_prgm_store;

@@ -21,7 +21,7 @@
  */
 
 #include "ui_vars.h"
-#include "menu_state.h"
+#include "ui_menu_screen.h"
 #include "ui_shared.h"
 #include "calc_engine.h"
 #include "calculator_core.h"
@@ -43,7 +43,7 @@ static const char * const vars_tab_names[VARS_TAB_COUNT] = {
     "XY", "\xCE\xA3", "LR", "DIM", "RNG"
 };
 
-static const uint8_t vars_tab_item_count[VARS_TAB_COUNT] = { 7, 5, 4, 7, 10 };
+static const int vars_tab_x[VARS_TAB_COUNT] = {4, 48, 84, 120, 188};
 
 /* Tab 0: XY — statistics summary */
 static const char * const vars_xy_names[7] = {
@@ -87,21 +87,7 @@ static const char * const vars_rng_names[10] = {
  * Module state
  *---------------------------------------------------------------------------*/
 
-static MenuState_t vars_menu_state = {0, 0, 0, MODE_NORMAL};
-
-lv_obj_t *ui_vars_screen = NULL;
-
-/* Item list labels */
-static lv_obj_t *vars_item_labels[MENU_VISIBLE_ROWS];
-
-/* Tab bar labels */
-static lv_obj_t *vars_tab_labels[VARS_TAB_COUNT];
-
-/* Scroll indicator overlays — amber, opaque bg (same pattern as MATH menu) */
-static lv_obj_t *vars_scroll_ind[2];  /* [0]=top(↑) [1]=bottom(↓) */
-
-/* Tab bar x positions — tuned for 5 tabs at 24px mono font (~14px/char) */
-static const int16_t vars_tab_x[VARS_TAB_COUNT] = {4, 48, 84, 120, 188};
+static MenuScreen_t s_vars_ms;
 
 /*---------------------------------------------------------------------------
  * Value formatting — returns the current value string for a given item
@@ -200,23 +186,97 @@ static void vars_format_value(uint8_t tab, uint8_t item, char *buf, size_t len)
  * Insert action
  *---------------------------------------------------------------------------*/
 
-/** Format the value for (tab, item) and insert it into the active editor. */
 static void vars_do_insert(uint8_t tab, uint8_t item)
 {
     char buf[64];
     vars_format_value(tab, item, buf, sizeof(buf));
     lvgl_lock();
-    lv_obj_add_flag(ui_vars_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_vars_ms.screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
-    menu_insert_text(buf, &vars_menu_state.return_mode);
+    menu_insert_text(buf, &s_vars_ms.nav.return_mode);
 }
+
+/*---------------------------------------------------------------------------
+ * MenuScreen_t descriptor and callbacks
+ *---------------------------------------------------------------------------*/
+
+static void vars_xy_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+    vars_do_insert(0, (uint8_t)idx);
+}
+
+static void vars_sigma_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+    vars_do_insert(1, (uint8_t)idx);
+}
+
+static void vars_lr_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+    vars_do_insert(2, (uint8_t)idx);
+}
+
+static void vars_dim_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+    vars_do_insert(3, (uint8_t)idx);
+}
+
+static void vars_rng_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+    vars_do_insert(4, (uint8_t)idx);
+}
+
+static void vars_on_cancel(lv_obj_t *screen)
+{
+    (void)screen;
+    menu_close(TOKEN_VARS);
+    Update_Calculator_Display();
+}
+
+/* TOKEN_VARS closes without reopening (return true); other unrecognised
+ * tokens fall through to MenuScreen_DefaultExtra for graph-nav/menu-open handling. */
+static bool vars_on_extra(Token_t t, MenuScreen_t *ms)
+{
+    if (t == TOKEN_VARS) {
+        vars_on_cancel(NULL);
+        return true;
+    }
+    return MenuScreen_DefaultExtra(t, ms);
+}
+
+static const MenuTabDesc_t s_tabs[VARS_TAB_COUNT] = {
+    { 7,  vars_xy_names,    NULL, vars_xy_on_select    },
+    { 5,  vars_sigma_names, NULL, vars_sigma_on_select },
+    { 4,  vars_lr_names,    NULL, vars_lr_on_select    },
+    { 7,  vars_dim_names,   NULL, vars_dim_on_select   },
+    { 10, vars_rng_names,   NULL, vars_rng_on_select   },
+};
+
+static const MenuScreenDesc_t s_desc = {
+    .tab_count      = VARS_TAB_COUNT,
+    .tab_names      = vars_tab_names,
+    .tab_x          = vars_tab_x,
+    .default_tab    = 0,
+    .wrap_tabs      = true,
+    .title          = NULL,
+    .tabs           = s_tabs,
+    .left_mode      = 0,
+    .right_mode     = 0,
+    .on_cancel      = vars_on_cancel,
+    .on_tab_switch  = NULL,
+    .on_extra       = vars_on_extra,
+};
 
 /*---------------------------------------------------------------------------
  * Screen show/hide
  *---------------------------------------------------------------------------*/
 
-void Vars_ShowScreen(void) { lv_obj_clear_flag(ui_vars_screen, LV_OBJ_FLAG_HIDDEN); }
-void Vars_HideScreen(void) { lv_obj_add_flag(ui_vars_screen,   LV_OBJ_FLAG_HIDDEN); }
+void Vars_ShowScreen(void) { lv_obj_clear_flag(s_vars_ms.screen, LV_OBJ_FLAG_HIDDEN); }
+void Vars_HideScreen(void) { lv_obj_add_flag  (s_vars_ms.screen, LV_OBJ_FLAG_HIDDEN); }
 
 /*---------------------------------------------------------------------------
  * UI Initialization
@@ -224,44 +284,7 @@ void Vars_HideScreen(void) { lv_obj_add_flag(ui_vars_screen,   LV_OBJ_FLAG_HIDDE
 
 void ui_init_vars_screen(void)
 {
-    lv_obj_t *scr = lv_scr_act();
-    ui_vars_screen = screen_create(scr);
-
-    /* Tab bar */
-    for (int i = 0; i < VARS_TAB_COUNT; i++) {
-        vars_tab_labels[i] = lv_label_create(ui_vars_screen);
-        lv_obj_set_pos(vars_tab_labels[i], vars_tab_x[i], 4);
-        lv_obj_set_style_text_font(vars_tab_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(vars_tab_labels[i],
-            lv_color_hex(COLOR_GREY_INACTIVE), 0);
-        lv_label_set_text(vars_tab_labels[i], vars_tab_names[i]);
-    }
-
-    /* Item list */
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        vars_item_labels[i] = lv_label_create(ui_vars_screen);
-        lv_obj_set_pos(vars_item_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(vars_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(vars_item_labels[i],
-            lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(vars_item_labels[i], "");
-    }
-
-    /* Scroll indicator overlays (amber, opaque bg — same as MATH menu) */
-    for (int i = 0; i < 2; i++) {
-        int row = (i == 0) ? 0 : (MENU_VISIBLE_ROWS - 1);
-        vars_scroll_ind[i] = lv_label_create(ui_vars_screen);
-        lv_obj_set_pos(vars_scroll_ind[i], 18, 30 + row * 30);
-        lv_obj_set_style_text_font(vars_scroll_ind[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(vars_scroll_ind[i],
-            lv_color_hex(COLOR_AMBER), 0);
-        lv_obj_set_style_bg_color(vars_scroll_ind[i],
-            lv_color_hex(COLOR_BLACK), 0);
-        lv_obj_set_style_bg_opa(vars_scroll_ind[i], LV_OPA_COVER, 0);
-        lv_obj_set_style_pad_all(vars_scroll_ind[i], 0, 0);
-        lv_label_set_text(vars_scroll_ind[i], "");
-        lv_obj_add_flag(vars_scroll_ind[i], LV_OBJ_FLAG_HIDDEN);
-    }
+    MenuScreen_Init(&s_vars_ms, &s_desc, lv_scr_act());
 }
 
 /*---------------------------------------------------------------------------
@@ -270,131 +293,14 @@ void ui_init_vars_screen(void)
 
 void ui_update_vars_display(void)
 {
-    uint8_t tab    = vars_menu_state.tab;
-    uint8_t cursor = vars_menu_state.cursor;
-    uint8_t scroll = vars_menu_state.scroll;
-    uint8_t total  = vars_tab_item_count[tab];
-
-    /* Tab labels */
-    for (int i = 0; i < VARS_TAB_COUNT; i++) {
-        lv_obj_set_style_text_color(vars_tab_labels[i],
-            (i == (int)tab) ? lv_color_hex(COLOR_YELLOW)
-                            : lv_color_hex(COLOR_GREY_INACTIVE), 0);
-    }
-
-    /* Hide scroll indicators; re-show below if needed */
-    lv_obj_add_flag(vars_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(vars_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-
-    /* Item rows */
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        int idx = (int)scroll + i;
-        if (idx >= (int)total) {
-            lv_label_set_text(vars_item_labels[i], "");
-            lv_obj_set_style_text_color(vars_item_labels[i],
-                lv_color_hex(COLOR_WHITE), 0);
-            continue;
-        }
-
-        bool more_above = (scroll > 0)                            && (i == 0);
-        bool more_below = ((int)scroll + MENU_VISIBLE_ROWS < (int)total)
-                          && (i == MENU_VISIBLE_ROWS - 1);
-
-        /* Pick display name for this item */
-        const char *name = "";
-        switch (tab) {
-        case 0: name = vars_xy_names[idx];    break;
-        case 1: name = vars_sigma_names[idx]; break;
-        case 2: name = vars_lr_names[idx];    break;
-        case 3: name = vars_dim_names[idx];   break;
-        case 4: name = vars_rng_names[idx];   break;
-        }
-
-        lv_label_set_text(vars_item_labels[i], name);
-        lv_obj_set_style_text_color(vars_item_labels[i],
-            (i == (int)cursor) ? lv_color_hex(COLOR_YELLOW)
-                               : lv_color_hex(COLOR_WHITE), 0);
-
-        if (more_above) {
-            lv_label_set_text(vars_scroll_ind[0], "\xE2\x86\x91");
-            lv_obj_clear_flag(vars_scroll_ind[0], LV_OBJ_FLAG_HIDDEN);
-        }
-        if (more_below) {
-            lv_label_set_text(vars_scroll_ind[1], "\xE2\x86\x93");
-            lv_obj_clear_flag(vars_scroll_ind[1], LV_OBJ_FLAG_HIDDEN);
-        }
-    }
+    MenuScreen_UpdateDisplay(&s_vars_ms);
 }
 
 /*---------------------------------------------------------------------------
  * Token Handler
  *---------------------------------------------------------------------------*/
 
-bool handle_vars_menu(Token_t t)
-{
-    MenuState_t *s = &vars_menu_state;
-    uint8_t total = vars_tab_item_count[s->tab];
-
-    switch (t) {
-    case TOKEN_LEFT:
-        tab_move(&s->tab, &s->cursor, &s->scroll,
-                 VARS_TAB_COUNT, true, ui_update_vars_display);
-        return true;
-
-    case TOKEN_RIGHT:
-        tab_move(&s->tab, &s->cursor, &s->scroll,
-                 VARS_TAB_COUNT, false, ui_update_vars_display);
-        return true;
-
-    case TOKEN_UP:
-        MenuState_MoveUp(s, total, MENU_VISIBLE_ROWS);
-        lvgl_lock();
-        ui_update_vars_display();
-        lvgl_unlock();
-        return true;
-
-    case TOKEN_DOWN:
-        MenuState_MoveDown(s, total, MENU_VISIBLE_ROWS);
-        lvgl_lock();
-        ui_update_vars_display();
-        lvgl_unlock();
-        return true;
-
-    case TOKEN_ENTER: {
-        uint8_t actual = MenuState_AbsoluteIndex(s);
-        if ((int)actual < (int)total)
-            vars_do_insert(s->tab, actual);
-        return true;
-    }
-
-    /* Digit shortcuts 1–9: item at that 1-based index; 0: item 10 (RNG Tstep) */
-    case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4: case TOKEN_5:
-    case TOKEN_6: case TOKEN_7: case TOKEN_8: case TOKEN_9: case TOKEN_0: {
-        int idx = MenuState_DigitToIndex(t, total);
-        if (idx >= 0) {
-            /* Scroll so the chosen item is visible, place cursor on it */
-            if (idx < MENU_VISIBLE_ROWS) {
-                s->scroll = 0;
-                s->cursor = (uint8_t)idx;
-            } else {
-                s->scroll = (uint8_t)(idx - MENU_VISIBLE_ROWS + 1);
-                s->cursor = (uint8_t)(MENU_VISIBLE_ROWS - 1);
-            }
-            vars_do_insert(s->tab, (uint8_t)idx);
-        }
-        return true;
-    }
-
-    case TOKEN_CLEAR:
-    case TOKEN_VARS:
-        menu_close(TOKEN_VARS);
-        Update_Calculator_Display();
-        return true;
-
-    default:
-        return false;
-    }
-}
+bool handle_vars_menu(Token_t t) { return MenuScreen_HandleToken(&s_vars_ms, t); }
 
 /*---------------------------------------------------------------------------
  * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
@@ -402,21 +308,17 @@ bool handle_vars_menu(Token_t t)
 
 void Vars_MenuOpen(CalcMode_t return_to)
 {
-    vars_menu_state.return_mode = return_to;
-    vars_menu_state.tab         = 0;
-    vars_menu_state.cursor      = 0;
-    vars_menu_state.scroll      = 0;
+    s_vars_ms.nav.return_mode = return_to;
     Calc_SetMode(MODE_VARS_MENU);
-    Vars_ShowScreen();
-    ui_update_vars_display();
+    lvgl_lock();
+    lv_obj_clear_flag(s_vars_ms.screen, LV_OBJ_FLAG_HIDDEN);
+    MenuScreen_ResetAndShow(&s_vars_ms);
+    lvgl_unlock();
 }
 
 CalcMode_t Vars_MenuClose(void)
 {
-    CalcMode_t ret              = vars_menu_state.return_mode;
-    vars_menu_state.return_mode = MODE_NORMAL;
-    vars_menu_state.tab         = 0;
-    vars_menu_state.cursor      = 0;
-    vars_menu_state.scroll      = 0;
+    CalcMode_t ret            = s_vars_ms.nav.return_mode;
+    s_vars_ms.nav.return_mode = MODE_NORMAL;
     return ret;
 }

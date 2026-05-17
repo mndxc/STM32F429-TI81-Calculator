@@ -70,9 +70,6 @@ lv_obj_t *ui_stat_results_screen = NULL;
 /* MATH menu screen pointer (normally owned by ui_math_menu.c) */
 lv_obj_t *ui_math_screen = NULL;
 
-/* VARS screen pointer (normally owned by ui_vars.c) */
-lv_obj_t *ui_vars_screen = NULL;
-
 /* Y-VARS screen pointer (normally owned by ui_yvars.c) */
 lv_obj_t *ui_yvars_screen = NULL;
 

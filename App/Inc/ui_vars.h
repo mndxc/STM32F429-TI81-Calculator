@@ -21,7 +21,6 @@
 #define APP_UI_VARS_H
 
 #include "app_common.h"
-#include "menu_state.h"
 #include "lvgl.h"
 
 /*---------------------------------------------------------------------------
