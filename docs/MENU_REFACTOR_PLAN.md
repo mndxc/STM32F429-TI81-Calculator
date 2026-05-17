@@ -13,7 +13,7 @@
 | # | Step | Status | Date | Commit | Est. |
 |---|------|--------|------|--------|------|
 | 0 | Passthrough bug fix (`ui_menu_screen.c:131`) | ✅ DONE | 2026-05-16 | 16c8b34 | 5 min |
-| 1 | Extend `MenuScreen_t` API + rewrite 5 PRGM sub-menu descriptors + add host test | ✅ DONE | 2026-05-16 | — | 3 h |
+| 1 | Extend `MenuScreen_t` API + rewrite 5 PRGM sub-menu descriptors + add host test | ✅ DONE | 2026-05-16 | db162f0 | 3 h |
 | 2a | Migrate DRAW menu | ⬜ TODO | — | — | 1 h |
 | 2b | Migrate TEST menu | ⬜ TODO | — | — | 1 h |
 | 2c | Migrate STAT menu | ⬜ TODO | — | — | 1 h |
@@ -356,6 +356,6 @@ No `[complexity]` item needed in CLAUDE.md after the refactor completes. Update 
 
 Add a one-line entry per session in reverse-chronological order. Include date, step(s) advanced, commit SHA, and any notes/decisions.
 
-- **2026-05-16** — Step 1 complete. Added `MenuTabDesc_t`, restructured `MenuScreenDesc_t` (tabs[] replaces item_count/display_labels/on_select; adds title/default_tab/wrap_tabs); added `active_tab`/`title_label` to `MenuScreen_t`; bumped `MENU_SCREEN_MAX_TABS` 3→5; implemented `SetTab`, `IsMenuOpeningKey`, `DefaultExtra`; rewrote 5 PRGM sub-menu descriptors to tabs[] form; added `test_ui_menu_screen.c` (69 assertions). All 16 host suites pass. Manual smoke pending hardware.
+- **2026-05-16** — Step 1 complete (commit db162f0). Added `MenuTabDesc_t`, restructured `MenuScreenDesc_t` (tabs[] replaces item_count/display_labels/on_select; adds title/default_tab/wrap_tabs); added `active_tab`/`title_label` to `MenuScreen_t`; bumped `MENU_SCREEN_MAX_TABS` 3→5; implemented `SetTab`, `IsMenuOpeningKey`, `DefaultExtra`; rewrote 5 PRGM sub-menu descriptors to tabs[] form; added `test_ui_menu_screen.c` (69 assertions). All 16 host suites pass. Manual smoke pending hardware.
 - **2026-05-16** — Step 0 complete (commit 16c8b34). One-line fix: `return true` → `return false` in `MenuScreen_HandleToken` default branch. All 15 host suites pass. Manual smoke pending hardware.
 - **2026-05-16** — Plan created; saved as `docs/MENU_REFACTOR_PLAN.md`. CLAUDE.md "Next session priorities" updated with pointer. Awaiting Step 0 start.
