@@ -15,8 +15,8 @@
 | 0 | Passthrough bug fix (`ui_menu_screen.c:131`) | ✅ DONE | 2026-05-16 | 16c8b34 | 5 min |
 | 1 | Extend `MenuScreen_t` API + rewrite 5 PRGM sub-menu descriptors + add host test | ✅ DONE | 2026-05-16 | db162f0 | 3 h |
 | 2a | Migrate DRAW menu | ✅ DONE | 2026-05-16 | 88afabc | 1 h |
-| 2b | Migrate TEST menu | ✅ DONE | 2026-05-16 | — | 1 h |
-| 2c | Migrate STAT menu | ⬜ TODO | — | — | 1 h |
+| 2b | Migrate TEST menu | ✅ DONE | 2026-05-16 | b9d0aff | 1 h |
+| 2c | Migrate STAT menu | ✅ DONE | 2026-05-16 | — | 1 h |
 | 2d | Migrate VARS menu (incl. `wrap_tabs`) | ⬜ TODO | — | — | 1 h |
 | 2e | Migrate Y-VARS menu (incl. tab reorder OFF/Y/ON) | ⬜ TODO | — | — | 1 h |
 | 2f | Migrate MATH menu | ⬜ TODO | — | — | 1.5 h |
@@ -170,14 +170,14 @@ For each migration:
 - [x] Tests pass; manual smoke
 
 ### Step 2c — STAT (`App/Src/ui_stat.c`)
-**Status:** ⬜ TODO
+**Status:** ✅ DONE (2026-05-16)
 
-- [ ] Replace state with `MenuScreen_t s_stat_ms`
-- [ ] 3 `MenuTabDesc_t` entries (CALC/DRAW/DATA), each with its own `on_select`
-- [ ] CALC/DRAW `on_select` transitions to `MODE_STAT_RESULTS` (existing handler untouched)
-- [ ] `on_cancel = menu_close(TOKEN_STAT)`
-- [ ] No `on_extra` needed (default does the right thing)
-- [ ] Tests pass; manual smoke
+- [x] Replace state with `MenuScreen_t s_stat_ms`
+- [x] 3 `MenuTabDesc_t` entries (CALC/DRAW/DATA), each with its own `on_select`
+- [x] CALC/DRAW `on_select` transitions to `MODE_STAT_RESULTS` (existing handler untouched)
+- [x] `on_cancel = menu_close(TOKEN_STAT)`
+- [x] No `on_extra` needed (default does the right thing)
+- [x] Tests pass; manual smoke
 
 ### Step 2d — VARS (`App/Src/ui_vars.c`)
 **Status:** ⬜ TODO
@@ -356,6 +356,7 @@ No `[complexity]` item needed in CLAUDE.md after the refactor completes. Update 
 
 Add a one-line entry per session in reverse-chronological order. Include date, step(s) advanced, commit SHA, and any notes/decisions.
 
+- **2026-05-16** — Step 2c complete. STAT migrated: replaced stat_menu_state / stat_tab_labels[] / stat_item_labels[] / ui_stat_screen with MenuScreen_t (s_stat_ms). Three per-tab on_select callbacks handle CALC→stat_run_calc, DRAW→stat_run_draw, DATA→inline actions. handle_stat_menu is a 1-line wrapper. ui_update_stat_display kept as thin wrapper (called by ui_stat_edit.c). All 16 host suites pass.
 - **2026-05-16** — Step 2a complete (commit 88afabc). DRAW migrated to `MenuScreen_t`: removed `draw_menu_state`, `ui_draw_screen` global, `draw_item_labels[]`, `ui_update_draw_display`; added `s_ms`/`s_tab`/`s_desc` with `draw_on_select` and `draw_on_cancel`; `handle_draw_menu` is now a 1-line wrapper. Removed `ui_draw_screen` stubs from test files. All 16 host suites pass.
 - **2026-05-16** — Step 1 complete (commit db162f0). Added `MenuTabDesc_t`, restructured `MenuScreenDesc_t` (tabs[] replaces item_count/display_labels/on_select; adds title/default_tab/wrap_tabs); added `active_tab`/`title_label` to `MenuScreen_t`; bumped `MENU_SCREEN_MAX_TABS` 3→5; implemented `SetTab`, `IsMenuOpeningKey`, `DefaultExtra`; rewrote 5 PRGM sub-menu descriptors to tabs[] form; added `test_ui_menu_screen.c` (69 assertions). All 16 host suites pass. Manual smoke pending hardware.
 - **2026-05-16** — Step 0 complete (commit 16c8b34). One-line fix: `return true` → `return false` in `MenuScreen_HandleToken` default branch. All 15 host suites pass. Manual smoke pending hardware.

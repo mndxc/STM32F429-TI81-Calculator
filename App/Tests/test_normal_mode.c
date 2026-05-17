@@ -64,7 +64,6 @@ SemaphoreHandle_t xLVGL_Ready    = NULL;
 osMessageQId      keypadQueueHandle = NULL;
 
 /* STAT screen pointers (normally owned by ui_stat.c) */
-lv_obj_t *ui_stat_screen         = NULL;
 lv_obj_t *ui_stat_edit_screen    = NULL;
 lv_obj_t *ui_stat_results_screen = NULL;
 

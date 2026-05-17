@@ -47,7 +47,6 @@ SemaphoreHandle_t xLVGL_Mutex    = NULL;
 SemaphoreHandle_t xLVGL_Ready    = NULL;
 osMessageQId      keypadQueueHandle = NULL;
 
-lv_obj_t *ui_stat_screen         = NULL;
 lv_obj_t *ui_stat_edit_screen    = NULL;
 lv_obj_t *ui_stat_results_screen = NULL;
 
