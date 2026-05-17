@@ -70,8 +70,6 @@ lv_obj_t *ui_stat_results_screen = NULL;
 /* MATH menu screen pointer (normally owned by ui_math_menu.c) */
 lv_obj_t *ui_math_screen = NULL;
 
-/* Y-VARS screen pointer (normally owned by ui_yvars.c) */
-lv_obj_t *ui_yvars_screen = NULL;
 
 /* Program store and editor buffers (normally owned by prgm_exec.c / ui_prgm.c) */
 ProgramStore_t g_prgm_store;

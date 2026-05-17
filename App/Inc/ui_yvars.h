@@ -18,7 +18,6 @@
 
 #include "app_common.h"
 #include "lvgl.h"
-#include "menu_state.h"
 
 /*---------------------------------------------------------------------------
  * Screen show/hide API (caller holds lvgl_lock)

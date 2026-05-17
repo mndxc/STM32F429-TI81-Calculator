@@ -222,7 +222,6 @@ extern lv_obj_t *ui_graph_zoom_screen;
 extern lv_obj_t *ui_graph_zoom_factors_screen;
 extern lv_obj_t *ui_stat_edit_screen;
 extern lv_obj_t *ui_stat_results_screen;
-extern lv_obj_t *ui_yvars_screen;
 
 /* calc_internal.h function declarations (defined in calculator_core.c or
  * the ui_* sub-module that owns each function) */
