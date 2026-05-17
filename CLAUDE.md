@@ -104,8 +104,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 **[bug] PRGM editor routes only MATH/TEST/PRGM/MODE to menus (Menu Refactor Follow-up #2)** — `App/Src/prgm_editor.c:461` falls into `editor_handle_insert` for VARS/MATRX/Y_VARS/STAT/DRAW. Add explicit cases calling `menu_open(TOKEN_X, MODE_PRGM_EDITOR)` for each; add corresponding `return_mode == MODE_PRGM_EDITOR → PrgmEditor_MenuInsert` branches to each menu's insert helper (mirror `ui_math_menu.c:257`).
 
-**[bug] PRGM NEW name-entry guidebook conformance (Menu Refactor Follow-up #3)** — `App/Src/ui_prgm.c:541-633`: allowed chars missing θ and `.` (guidebook p. 8-4); alpha-lock model uses MODE_ALPHA + manual re-engage instead of MODE_ALPHA_LOCK (so every digit requires its own ALPHA press); `default: return true` (`:632`) absorbs RANGE/GRAPH/Y= etc. instead of leaving the edit screen (p. 1-25).
-
 #### Hardware validation — no new code, test on device
 
 PRGM test protocol: [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md).

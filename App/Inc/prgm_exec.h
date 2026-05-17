@@ -5,7 +5,7 @@
  * Provides 37 fixed program slots matching original TI-81 capacity.
  * Slot identifiers: 1–9, 0, A–Z, θ (indices 0–36).
  * A slot is occupied when names[slot][0] != '\0'.
- * Programs are named up to PRGM_NAME_LEN characters (A–Z only) and stored
+ * Programs are named up to PRGM_NAME_LEN characters (A–Z, 0–9, θ, '.') and stored
  * as null-terminated, newline-delimited text bodies in PRGM_BODY_LEN bytes.
  *
  * The store is saved to / loaded from FLASH sector 12 (0x08100000, 128 KB,
@@ -32,7 +32,8 @@
  *---------------------------------------------------------------------------*/
 
 #define PRGM_MAX_PROGRAMS   37          /**< Fixed slots: 1–9,0,A–Z,θ (TI-81) */
-#define PRGM_NAME_LEN        8          /**< Max program name chars (no null) */
+#define PRGM_NAME_LEN        8          /**< Max program name glyphs (no null) */
+#define PRGM_NAME_BYTE_LEN  (PRGM_NAME_LEN * 2) /**< Max name buffer bytes (θ = 2 UTF-8 bytes) */
 #define PRGM_BODY_LEN      512          /**< Max program body bytes incl null */
 
 /* Editor / execution shared working buffer limits */
@@ -64,11 +65,11 @@
  * inserted by the CTL / I/O sub-menus in the editor.
  */
 typedef struct {
-    char    names[PRGM_MAX_PROGRAMS][PRGM_NAME_LEN + 1];   /**< Null-terminated names   */
-    char    bodies[PRGM_MAX_PROGRAMS][PRGM_BODY_LEN];      /**< '\n'-delimited line text */
-    uint8_t _pad[3];  /**< Word-align: 37*521=19277 → +3 = 19280 B */
+    char    names[PRGM_MAX_PROGRAMS][PRGM_NAME_BYTE_LEN + 1]; /**< Null-terminated names (UTF-8) */
+    char    bodies[PRGM_MAX_PROGRAMS][PRGM_BODY_LEN];         /**< '\n'-delimited line text      */
+    uint8_t _pad[3];  /**< Word-align: 37*529=19573 → +3 = 19576 B */
 } ProgramStore_t;
-/* Size: 37*(9+512)+3 = 19280 B */
+/* Size: 37*(17+512)+3 = 19576 B */
 
 /**
  * @brief Flat block written verbatim to FLASH sector 11.

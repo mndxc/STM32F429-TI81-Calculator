@@ -41,7 +41,7 @@ static MenuScreen_t s_prgm_ms;
 
 /* PRGM NEW name entry state */
 lv_obj_t   *ui_prgm_new_screen        = NULL;
-static char        prgm_new_name[PRGM_NAME_LEN + 1] = {0};
+static char        prgm_new_name[PRGM_NAME_BYTE_LEN + 1] = {0};
 static uint8_t     prgm_new_name_len          = 0;
 static uint8_t     prgm_new_name_cursor       = 0;   /* insertion point within name [0,len] */
 static uint8_t     prgm_new_slot              = 0;   /* slot index being created */
@@ -253,27 +253,45 @@ void ui_update_prgm_display(void)
  * New-name screen cursor/display
  *===========================================================================*/
 
+/* Count UTF-8 glyphs in the first byte_len bytes of s. */
+static uint32_t prgm_name_glyph_count(const char *s, uint8_t byte_len)
+{
+    uint32_t count = 0;
+    uint8_t  i     = 0;
+    while (i < byte_len) {
+        uint8_t c = (uint8_t)s[i];
+        if      (c < 0x80) i += 1;
+        else if (c < 0xE0) i += 2;
+        else if (c < 0xF0) i += 3;
+        else               i += 4;
+        count++;
+    }
+    return count;
+}
+
 /* Positions the new-name cursor box without updating the label text. */
 void prgm_new_cursor_update(void)
 {
     if (prgm_new_cursor_box == NULL || prgm_new_title_lbl == NULL) return;
+    uint32_t glyph_idx = 6u + prgm_name_glyph_count(prgm_new_name, prgm_new_name_cursor);
     cursor_render(prgm_new_cursor_box, prgm_new_cursor_inner,
-                  prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor),
+                  prgm_new_title_lbl, glyph_idx,
                   Calc_GetCursorVisible(), Calc_GetMode(), false);
 }
 
 /* Updates the new-program name-entry label and cursor. */
 void ui_update_prgm_new_display(void)
 {
-    /* Build "PrgmX:typed_name" in one buffer; cursor glyph index = 6 + name_len.
-     * θ (slot 36) is 2 UTF-8 bytes but 1 glyph, so "Prgmθ:" is always 6 glyphs. */
+    /* Build "PrgmX:typed_name" in one buffer; cursor glyph index = 6 + name glyphs.
+     * θ is 2 UTF-8 bytes but 1 glyph, so "Prgmθ:" is always 6 glyphs. */
     char id[3];
     prgm_slot_id_str(prgm_new_slot, id);
-    char buf[4 + 2 + 1 + PRGM_NAME_LEN + 1]; /* "Prgm" + id(≤2) + ":" + name + NUL */
+    char buf[4 + 2 + 1 + PRGM_NAME_BYTE_LEN + 1]; /* "Prgm" + id(≤2) + ":" + name + NUL */
     snprintf(buf, sizeof(buf), "Prgm%s:%s", id, prgm_new_name);
     lv_label_set_text(prgm_new_title_lbl, buf);
+    uint32_t glyph_idx = 6u + prgm_name_glyph_count(prgm_new_name, prgm_new_name_cursor);
     cursor_render(prgm_new_cursor_box, prgm_new_cursor_inner,
-                  prgm_new_title_lbl, (uint32_t)(6 + prgm_new_name_cursor),
+                  prgm_new_title_lbl, glyph_idx,
                   Calc_GetCursorVisible(), Calc_GetMode(), false);
 }
 
@@ -369,7 +387,7 @@ static void enter_edit_tab(int abs_pos)
         lv_obj_clear_flag(ui_prgm_new_screen,    LV_OBJ_FLAG_HIDDEN);
         ui_update_prgm_new_display();
         lvgl_unlock();
-        Calc_SetMode(MODE_ALPHA);
+        Calc_SetMode(MODE_ALPHA_LOCK);
         Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
     }
 }
@@ -447,7 +465,7 @@ bool handle_prgm_new_name(Token_t t)
 {
     switch (t) {
     case TOKEN_A ... TOKEN_Z: {
-        if (prgm_new_name_len < PRGM_NAME_LEN) {
+        if (prgm_name_glyph_count(prgm_new_name, prgm_new_name_len) < PRGM_NAME_LEN) {
             char ch = (char)('A' + (t - TOKEN_A));
             memmove(prgm_new_name + prgm_new_name_cursor + 1,
                     prgm_new_name + prgm_new_name_cursor,
@@ -457,13 +475,27 @@ bool handle_prgm_new_name(Token_t t)
             prgm_new_name_len++;
             lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
         }
-        /* Re-engage ALPHA so the next keypress is also a letter */
-        Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
-        Calc_SetMode(MODE_ALPHA);
+        /* ALPHA_LOCK stays active — no manual re-engagement needed */
+        return true;
+    }
+    case TOKEN_THETA: {
+        /* θ = U+03B8 = 0xCE 0xB8 (2 UTF-8 bytes) */
+        if (prgm_name_glyph_count(prgm_new_name, prgm_new_name_len) < PRGM_NAME_LEN) {
+            memmove(prgm_new_name + prgm_new_name_cursor + 2,
+                    prgm_new_name + prgm_new_name_cursor,
+                    prgm_new_name_len - prgm_new_name_cursor + 1);
+            prgm_new_name[prgm_new_name_cursor]     = (char)0xCE;
+            prgm_new_name[prgm_new_name_cursor + 1] = (char)0xB8;
+            prgm_new_name_cursor += 2;
+            prgm_new_name_len    += 2;
+            lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
+        }
         return true;
     }
     case TOKEN_0 ... TOKEN_9: {
-        if (prgm_new_name_len < PRGM_NAME_LEN) {
+        /* Digits arrive only after the user presses ALPHA to exit alpha-lock.
+         * Stay in PRGM_NEW_NAME so consecutive digits don't require repeated ALPHA. */
+        if (prgm_name_glyph_count(prgm_new_name, prgm_new_name_len) < PRGM_NAME_LEN) {
             char ch = (char)('0' + (t - TOKEN_0));
             memmove(prgm_new_name + prgm_new_name_cursor + 1,
                     prgm_new_name + prgm_new_name_cursor,
@@ -473,36 +505,59 @@ bool handle_prgm_new_name(Token_t t)
             prgm_new_name_len++;
             lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
         }
-        /* Re-engage ALPHA so the next keypress can still be a letter */
-        Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
-        Calc_SetMode(MODE_ALPHA);
+        return true;
+    }
+    case TOKEN_DECIMAL: {
+        /* '.' arrives only after the user presses ALPHA to exit alpha-lock. */
+        if (prgm_name_glyph_count(prgm_new_name, prgm_new_name_len) < PRGM_NAME_LEN) {
+            memmove(prgm_new_name + prgm_new_name_cursor + 1,
+                    prgm_new_name + prgm_new_name_cursor,
+                    prgm_new_name_len - prgm_new_name_cursor + 1);
+            prgm_new_name[prgm_new_name_cursor] = '.';
+            prgm_new_name_cursor++;
+            prgm_new_name_len++;
+            lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
+        }
         return true;
     }
     case TOKEN_DEL:
         if (prgm_new_name_cursor > 0) {
-            memmove(prgm_new_name + prgm_new_name_cursor - 1,
-                    prgm_new_name + prgm_new_name_cursor,
-                    prgm_new_name_len - prgm_new_name_cursor + 1);
+            /* Walk back past UTF-8 continuation bytes to find the start of the char */
+            uint8_t save = prgm_new_name_cursor;
             prgm_new_name_cursor--;
-            prgm_new_name_len--;
+            while (prgm_new_name_cursor > 0 &&
+                   ((uint8_t)prgm_new_name[prgm_new_name_cursor] & 0xC0) == 0x80)
+                prgm_new_name_cursor--;
+            uint8_t del_bytes = save - prgm_new_name_cursor;
+            memmove(prgm_new_name + prgm_new_name_cursor,
+                    prgm_new_name + save,
+                    prgm_new_name_len - save + 1);
+            prgm_new_name_len -= del_bytes;
             lvgl_lock(); ui_update_prgm_new_display(); lvgl_unlock();
         }
-        /* Re-engage ALPHA after DEL so the next keypress is still a letter */
-        Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
-        Calc_SetMode(MODE_ALPHA);
         return true;
     case TOKEN_LEFT:
         if (prgm_new_name_cursor > 0) {
+            /* Step back past the full UTF-8 sequence */
             prgm_new_name_cursor--;
+            while (prgm_new_name_cursor > 0 &&
+                   ((uint8_t)prgm_new_name[prgm_new_name_cursor] & 0xC0) == 0x80)
+                prgm_new_name_cursor--;
             lvgl_lock(); prgm_new_cursor_update(); lvgl_unlock();
         }
         return true;
-    case TOKEN_RIGHT:
+    case TOKEN_RIGHT: {
         if (prgm_new_name_cursor < prgm_new_name_len) {
-            prgm_new_name_cursor++;
+            /* Step forward past the full UTF-8 sequence */
+            uint8_t c = (uint8_t)prgm_new_name[prgm_new_name_cursor];
+            if      (c < 0x80) prgm_new_name_cursor += 1;
+            else if (c < 0xE0) prgm_new_name_cursor += 2;
+            else if (c < 0xF0) prgm_new_name_cursor += 3;
+            else               prgm_new_name_cursor += 4;
             lvgl_lock(); prgm_new_cursor_update(); lvgl_unlock();
         }
         return true;
+    }
     case TOKEN_DOWN:
         /* Navigate into editor body — save name first */
         if (prgm_new_name_len > 0)
@@ -534,7 +589,12 @@ bool handle_prgm_new_name(Token_t t)
         lvgl_unlock();
         return true;
     default:
-        return true;  /* absorb all other keys in name entry */
+        /* Navigation and other screen-switching keys exit name entry. */
+        Calc_SetMode(MODE_NORMAL);
+        lvgl_lock();
+        lv_obj_add_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
+        lvgl_unlock();
+        return false;
     }
 }
 

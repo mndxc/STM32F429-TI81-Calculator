@@ -242,7 +242,7 @@ static void editor_handle_nav(Token_t t)
         } else if (s_edit_col == 0 && s_from_new) {
             /* F10: navigate back up to the name-entry title */
             flatten_to_store_internal();
-            Calc_SetMode(MODE_ALPHA);
+            Calc_SetMode(MODE_ALPHA_LOCK);
             Calc_SetReturnMode(MODE_PRGM_NEW_NAME);
             lvgl_lock();
             lv_obj_add_flag(s_editor_screen, LV_OBJ_FLAG_HIDDEN);

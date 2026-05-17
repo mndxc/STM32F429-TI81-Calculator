@@ -169,8 +169,8 @@ bool Prgm_IsSlotOccupied(uint8_t slot)
 
 void Prgm_SetName(uint8_t slot, const char *name)
 {
-    strncpy(g_prgm_store.names[slot], name, PRGM_NAME_LEN);
-    g_prgm_store.names[slot][PRGM_NAME_LEN] = '\0';
+    strncpy(g_prgm_store.names[slot], name, PRGM_NAME_BYTE_LEN);
+    g_prgm_store.names[slot][PRGM_NAME_BYTE_LEN] = '\0';
 }
 
 void Prgm_AppendLine(uint8_t slot, const char *line)
