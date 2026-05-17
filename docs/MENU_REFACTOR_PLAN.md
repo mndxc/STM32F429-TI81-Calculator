@@ -16,12 +16,12 @@
 | 1 | Extend `MenuScreen_t` API + rewrite 5 PRGM sub-menu descriptors + add host test | ✅ DONE | 2026-05-16 | db162f0 | 3 h |
 | 2a | Migrate DRAW menu | ✅ DONE | 2026-05-16 | 88afabc | 1 h |
 | 2b | Migrate TEST menu | ✅ DONE | 2026-05-16 | b9d0aff | 1 h |
-| 2c | Migrate STAT menu | ✅ DONE | 2026-05-16 | — | 1 h |
-| 2d | Migrate VARS menu (incl. `wrap_tabs`) | ⬜ TODO | — | — | 1 h |
-| 2e | Migrate Y-VARS menu (incl. tab reorder OFF/Y/ON) | ⬜ TODO | — | — | 1 h |
-| 2f | Migrate MATH menu | ⬜ TODO | — | — | 1.5 h |
-| 2g | Migrate ZOOM menu | ⬜ TODO | — | — | 1.5 h |
-| 2h | Migrate PRGM main menu (incl. `wrap_tabs`) | ⬜ TODO | — | — | 2 h |
+| 2c | Migrate STAT menu | ✅ DONE | 2026-05-16 | 9e42e6b | 1 h |
+| 2d | Migrate VARS menu (incl. `wrap_tabs`) | ✅ DONE | 2026-05-16 | 7c7855d | 1 h |
+| 2e | Migrate Y-VARS menu (incl. tab reorder OFF/Y/ON) | ✅ DONE | 2026-05-16 | 03b048d | 1 h |
+| 2f | Migrate MATH menu | ✅ DONE | 2026-05-16 | 2eb3e8c | 1.5 h |
+| 2g | Migrate ZOOM menu | ✅ DONE | 2026-05-16 | 0921109 | 1.5 h |
+| 2h | Migrate PRGM main menu (incl. `wrap_tabs`) | ✅ DONE | 2026-05-16 | a4f74be | 2 h |
 | 3 | Migrate MATRX 2-tab menu | ⬜ TODO | — | — | 2 h |
 
 **Total estimated effort:** ~18 hours, spread across multiple sessions. Each step is independently shippable (test suite must pass + manual smoke test before proceeding).
@@ -180,64 +180,62 @@ For each migration:
 - [x] Tests pass; manual smoke
 
 ### Step 2d — VARS (`App/Src/ui_vars.c`)
-**Status:** ⬜ TODO
+**Status:** ✅ DONE (2026-05-16, commit 7c7855d)
 
-- [ ] Replace state with `MenuScreen_t s_vars_ms`
-- [ ] 5 `MenuTabDesc_t` entries (XY/Σ/LR/DIM/RNG) with their own item counts
-- [ ] Extract per-tab insert logic from `ui_update_vars_display` into `vars_get_insert_str(tab, idx)` helper
-- [ ] Each tab's `on_select` calls `menu_insert_text(vars_get_insert_str(tab, idx), &ret_mode)`
-- [ ] **Set `wrap_tabs = true`** per guidebook p. 3-17 (LEFT from XY wraps to RNG)
-- [ ] `on_cancel = menu_close(TOKEN_VARS)`
-- [ ] Tests pass; manual smoke: VARS opens to XY, LEFT wraps to RNG
+- [x] Replace state with `MenuScreen_t s_vars_ms`
+- [x] 5 `MenuTabDesc_t` entries (XY/Σ/LR/DIM/RNG) with their own item counts
+- [x] Per-tab `on_select` callbacks call `vars_do_insert(tab, idx)` helper
+- [x] `vars_on_extra` handles TOKEN_VARS → close+return true; others → DefaultExtra
+- [x] **Set `wrap_tabs = true`** per guidebook p. 3-17 (LEFT from XY wraps to RNG)
+- [x] `on_cancel = menu_close(TOKEN_VARS)` via `vars_on_cancel`
+- [x] Tests pass; manual smoke: VARS opens to XY, LEFT wraps to RNG
 
 ### Step 2e — Y-VARS (`App/Src/ui_yvars.c`)
-**Status:** ⬜ TODO
+**Status:** ✅ DONE (2026-05-16, commit 03b048d)
 
-- [ ] Replace state with `MenuScreen_t s_yvars_ms`
-- [ ] **Reorder tabs to OFF / Y / ON** with `default_tab = 1` per guidebook p. 3-19
-- [ ] 3 `MenuTabDesc_t` entries; Y-tab `on_select` reads STO context flag (set by `Yvars_OpenForSto`)
-- [ ] `on_cancel = menu_close(TOKEN_Y_VARS)`
-- [ ] Tests pass; manual smoke: Y-VARS opens centered on Y; LEFT shows OFF, RIGHT shows ON
+- [x] Replace state with `MenuScreen_t s_yvars_ms`
+- [x] **Reorder tabs to OFF / Y / ON** with `default_tab = 1` per guidebook p. 3-19
+- [x] 3 `MenuTabDesc_t` entries; Y-tab `on_select` reads STO context flag (set by `Yvars_OpenForSto`)
+- [x] `yvars_on_extra` handles TOKEN_Y_VARS → close+return true; others → DefaultExtra
+- [x] `on_cancel = menu_close(TOKEN_Y_VARS)` via `yvars_on_cancel`
+- [x] Tests pass; manual smoke: Y-VARS opens centered on Y; LEFT shows OFF, RIGHT shows ON
 
 ### Step 2f — MATH (`App/Src/ui_math_menu.c`)
-**Status:** ⬜ TODO
+**Status:** ✅ DONE (2026-05-16, commit 2eb3e8c)
 
-- [ ] Replace state with `MenuScreen_t s_math_ms`
-- [ ] 4 `MenuTabDesc_t` entries (MATH/NUM/HYP/PRB); MATH has 8 items (must scroll)
-- [ ] Each tab's `on_select` calls existing `math_menu_insert(item_str)` (preserves PRGM_EDITOR / Y= / normal routing at `ui_math_menu.c:257`)
-- [ ] `on_extra = MenuScreen_DefaultExtra` — removes the duplicated nav-key switch in current code
-- [ ] `on_cancel = menu_close(TOKEN_MATH)`
-- [ ] Verify PRB has exactly 3 items (Rand/nPr/nCr) per guidebook
-- [ ] Tests pass; manual smoke: MATH menu, NUM/HYP/PRB tabs all work; from MATH menu press ZOOM → ZOOM opens
+- [x] Replace state with `MenuScreen_t s_math_ms`
+- [x] 4 `MenuTabDesc_t` entries (MATH/NUM/HYP/PRB) with `get_label` callbacks for display+insert split
+- [x] Shared `math_on_select` reads `s_math_ms.active_tab`; calls `math_menu_insert` (preserves PRGM_EDITOR / Y= / normal routing)
+- [x] `math_on_extra` handles TOKEN_MATH → close+return true; others → DefaultExtra
+- [x] `on_cancel = menu_close(TOKEN_MATH)` via `math_on_cancel`
+- [x] PRB has exactly 3 items (Rand/nPr/nCr) — verified
+- [x] Tests pass; manual smoke: MATH menu, NUM/HYP/PRB tabs all work
 
-### Step 2g — ZOOM (`App/Src/ui_zoom.c` NEW, or in `App/Src/graph_ui.c`)
-**Status:** ⬜ TODO
+### Step 2g — ZOOM (`App/Src/ui_graph_zoom.c`)
+**Status:** ✅ DONE (2026-05-16, commit 0921109)
 
 Guidebook p. 1-19 explicitly uses ZOOM as the canonical menu example.
 
-- [ ] Decide file location: new `App/Src/ui_zoom.c` (matches `ui_*` pattern) or stay in `graph_ui.c`
-- [ ] Replace `handle_zoom_mode` body with `MenuScreen_HandleToken`
-- [ ] 8 items: BOX, Zoom In, Zoom Out, Set Factors, Square, Standard, Trig, Integer
-- [ ] `on_select` dispatch (per guidebook p. 3-11):
-  - Items 1/2/3/8 (Box/In/Out/Integer): set operation flag + `nav_to(MODE_GRAPH_ZOOM_CURSOR)`
-  - Item 4 (Set Factors): `nav_to(MODE_GRAPH_ZOOM_FACTORS)`
-  - Items 5/6/7 (Square/Standard/Trig): execute immediately + `nav_to(MODE_GRAPH)` to replot
-- [ ] `on_cancel = menu_close(TOKEN_ZOOM)`
-- [ ] `on_extra = MenuScreen_DefaultExtra`
-- [ ] Existing `MODE_GRAPH_ZOOM_CURSOR` and `MODE_GRAPH_ZOOM_FACTORS` handlers stay unchanged
-- [ ] Tests pass; manual smoke: ZOOM menu opens, all 8 items dispatch correctly
+- [x] File: existing `App/Src/ui_graph_zoom.c` (extracted from graph_ui.c earlier)
+- [x] Replace `handle_zoom_mode` body with `MenuScreen_HandleToken`
+- [x] 8 items with pre-formatted "N:Label" display_labels; `zoom_on_select(idx)` → `zoom_execute_item(idx+1)`
+- [x] `zoom_on_extra` handles TOKEN_ZOOM → close+return true; others → DefaultExtra
+- [x] `zoom_on_cancel` calls `zoom_menu_reset()` + `hide_all_screens()` directly (TOKEN_ZOOM not in menu_close dispatch)
+- [x] Existing `MODE_GRAPH_ZOOM_CURSOR` and `MODE_GRAPH_ZOOM_FACTORS` handlers unchanged
+- [x] Tests pass; manual smoke: ZOOM menu opens, all 8 items dispatch correctly
 
 ### Step 2h — PRGM main menu (`App/Src/ui_prgm.c`)
-**Status:** ⬜ TODO
+**Status:** ✅ DONE (2026-05-16, commit a4f74be)
 
-- [ ] Replace main-menu state with `MenuScreen_t s_prgm_ms`
-- [ ] 3 `MenuTabDesc_t` entries (EXEC/EDIT/ERASE) with `get_label` for dynamic "N:PrgmX Name" formatting (37 slots)
-- [ ] **Set `wrap_tabs = true`** per guidebook p. 8-8 ("PRGM+LEFT shows ERASE" from default EXEC) — preserves existing D2 wrap behavior
-- [ ] `on_extra` handles ALPHA letter → slot mapping (A-Z → 10-35, θ → 36); standard digit shortcuts handled by `MenuState_DigitToIndex`
-- [ ] ERASE-tab `on_select` triggers existing confirm-dialog overlay (NOT migrated)
-- [ ] NEW name-entry stays as its own mode (NOT migrated; see Follow-up #3)
-- [ ] `on_cancel = menu_close(TOKEN_PRGM)`
-- [ ] Tests pass; manual smoke: PRGM menu, EXEC/EDIT/ERASE wrap correctly, slot shortcuts work
+- [x] Replace main-menu state with `MenuScreen_t s_prgm_ms`
+- [x] 3 `MenuTabDesc_t` entries (EXEC/EDIT/ERASE) with shared `prgm_get_label()` for dynamic "N:PrgmX Name" formatting (37 slots)
+- [x] **Set `wrap_tabs = true`** per guidebook p. 8-8 — preserves existing D2 wrap behavior
+- [x] `prgm_on_extra` handles TOKEN_PRGM (close+return true), TOKEN_A-Z (slots 10-35), TOKEN_THETA (slot 36); digit shortcuts handled by `MenuState_DigitToIndex`
+- [x] ERASE-tab `on_select` triggers existing confirm-dialog overlay (erase_confirm rendered into `s_prgm_ms.item_labels[]`)
+- [x] NEW name-entry stays as its own mode (NOT migrated; see Follow-up #3)
+- [x] `on_cancel = menu_close(TOKEN_PRGM)` via `prgm_on_cancel`
+- [x] `editor_return_to_menu` uses `MenuScreen_SetTab(&s_prgm_ms, 1)` under lvgl_lock
+- [x] Tests pass; manual smoke: PRGM menu, EXEC/EDIT/ERASE wrap correctly, slot shortcuts work
 
 ---
 
@@ -356,6 +354,7 @@ No `[complexity]` item needed in CLAUDE.md after the refactor completes. Update 
 
 Add a one-line entry per session in reverse-chronological order. Include date, step(s) advanced, commit SHA, and any notes/decisions.
 
+- **2026-05-16** — Steps 2d–2h complete. VARS (7c7855d): 5-tab wrap_tabs; vars_on_extra handles TOKEN_VARS. Y-VARS (03b048d): tab reorder OFF/Y/ON, default_tab=1. MATH (2eb3e8c): 4-tab get_label, shared math_on_select, math_on_extra. ZOOM (0921109): 8 items, zoom_on_extra, zoom_on_cancel skips menu_close (TOKEN_ZOOM not in dispatch). PRGM (a4f74be): 3-tab wrap_tabs, prgm_get_label for 37 slots, prgm_on_extra handles A-Z/θ shortcuts, erase_confirm rendered into s_prgm_ms.item_labels[], editor_return_to_menu uses MenuScreen_SetTab. All 16 host suites pass after each step.
 - **2026-05-16** — Step 2c complete. STAT migrated: replaced stat_menu_state / stat_tab_labels[] / stat_item_labels[] / ui_stat_screen with MenuScreen_t (s_stat_ms). Three per-tab on_select callbacks handle CALC→stat_run_calc, DRAW→stat_run_draw, DATA→inline actions. handle_stat_menu is a 1-line wrapper. ui_update_stat_display kept as thin wrapper (called by ui_stat_edit.c). All 16 host suites pass.
 - **2026-05-16** — Step 2a complete (commit 88afabc). DRAW migrated to `MenuScreen_t`: removed `draw_menu_state`, `ui_draw_screen` global, `draw_item_labels[]`, `ui_update_draw_display`; added `s_ms`/`s_tab`/`s_desc` with `draw_on_select` and `draw_on_cancel`; `handle_draw_menu` is now a 1-line wrapper. Removed `ui_draw_screen` stubs from test files. All 16 host suites pass.
 - **2026-05-16** — Step 1 complete (commit db162f0). Added `MenuTabDesc_t`, restructured `MenuScreenDesc_t` (tabs[] replaces item_count/display_labels/on_select; adds title/default_tab/wrap_tabs); added `active_tab`/`title_label` to `MenuScreen_t`; bumped `MENU_SCREEN_MAX_TABS` 3→5; implemented `SetTab`, `IsMenuOpeningKey`, `DefaultExtra`; rewrote 5 PRGM sub-menu descriptors to tabs[] form; added `test_ui_menu_screen.c` (69 assertions). All 16 host suites pass. Manual smoke pending hardware.
