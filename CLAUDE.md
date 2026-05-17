@@ -106,12 +106,12 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 #### Hardware validation — no new code, test on device
 
-PRGM test protocol: [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md).
+Hardware validation checklist: [docs/hardware_checklist.md](docs/hardware_checklist.md).
 
 | Item | Feature | Relevant files |
 |---|---|---|
 | P28 | cursor_render() refactor | App/Src/calculator_core.c, App/Src/ui_input.c |
-| P10 | PRGM execution | [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md), App/Src/ui_prgm.c, App/Src/prgm_exec.c |
+| P10 | PRGM execution | [docs/hardware_checklist.md](docs/hardware_checklist.md), App/Src/ui_prgm.c, App/Src/prgm_exec.c |
 | — | Free-cursor + TRACE toggle | App/Src/graph_ui_cursor.c, App/Src/graph.c |
 | — | `Input` no-arg graph exploration | App/Src/prgm_exec.c, App/Src/graph_ui_cursor.c, App/Src/ui_prgm.c |
 | P33h | Connected/Dot mode | App/Src/graph.c, App/Src/ui_mode.c |

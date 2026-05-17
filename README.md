@@ -27,7 +27,7 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 ## Status
 
-~95% implemented against the original TI-81 guidebook and daily-usable on the STM32F429I-DISC1 development board. Hardware validation is ongoing — see [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md) for the PRGM test protocol. A custom PCB to replace the original TI-81 internals while keeping the original shell is in progress.
+~95% implemented against the original TI-81 guidebook and daily-usable on the STM32F429I-DISC1 development board. Hardware validation is ongoing — see [docs/hardware_checklist.md](docs/hardware_checklist.md) for the full checklist. A custom PCB to replace the original TI-81 internals while keeping the original shell is in progress.
 
 **Working today:**
 - Arithmetic, expression evaluation, operator precedence, parentheses, history recall

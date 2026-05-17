@@ -16,7 +16,7 @@
 | `docs/ARCHITECTURE.md` | Module dependency diagram, file tree listing (memory layout: links to TECHNICAL.md — no numeric mirror) |
 | `docs/MENU_SPECS.md` | Menu layouts, navigation rules, implementation status — single source of truth for all menus |
 | `docs/PRGM_COMMANDS.md` | PRGM command set; update when commands are added, removed, or renamed |
-| `docs/prgm_manual_tests.md` | PRGM hardware test plan; update test IDs when command set changes |
+| `docs/hardware_checklist.md` | Hardware validation checklist covering all UI areas; update when features or menus change |
 | `docs/TESTING.md` | Host test executables and coverage targets |
 | `docs/POWER_MANAGEMENT.md` | Power management design and Stop mode implementation notes |
 | `docs/DISPLAY_STABILITY.md` | Display stability and pixel-clock artifact notes |
@@ -190,7 +190,7 @@ These triggers fire regardless of change size. If the artifact changed, the upda
 | `App/Inc/app_common.h` — `GraphState_t` fields | Update `docs/TECHNICAL.md` Graphing → State section | — (no CLAUDE.md block exists; read `app_common.h` directly for current values) |
 | Any `App/Src/*.c` file added or removed | Update `docs/TECHNICAL.md` Project Structure listing | `docs/ARCHITECTURE.md` file tree |
 | Any `App/Tests/` test added or removed | Re-run `cmake --build build-tests`; update `docs/TESTING.md` assertion counts (it is the canonical source — run `scripts/update_test_counts.sh`) | Scorecard Testing row if rating changed |
-| `docs/PRGM_COMMANDS.md` touched | Verify it matches `prgm_exec.c` dispatch table exactly | `docs/prgm_manual_tests.md` test IDs |
+| `docs/PRGM_COMMANDS.md` touched | Verify it matches `prgm_exec.c` dispatch table exactly | `docs/hardware_checklist.md` test IDs |
 | Any new public function or header added | Confirm module prefix convention (`Calc_*`, `Graph_*`, etc.) | `docs/ARCHITECTURE.md` module diagram if boundary changed |
 | New `App/Src/ui_*.c` module with symbols referenced in `calculator_core.c` | Add a stub section to `App/Tests/calculator_core_test_stubs.h` (typedef + extern + static inline no-ops) and concrete definitions in `App/Tests/test_normal_mode.c` | Rebuild `build-tests` — confirm no undeclared identifier errors before committing |
 

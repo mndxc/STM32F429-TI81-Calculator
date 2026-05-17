@@ -81,8 +81,8 @@ Target: **>80% branch coverage** for any new logic in `calc_engine.c`.
 
 Since the UI and hardware peripheral interactions (FLASH, LCD, Keypad) cannot be easily mocked on the host, they are validated manually.
 
-### PRGM Hardware Test Plan
-The PRGM system has a dedicated 50-item test protocol. See [docs/prgm_manual_tests.md](prgm_manual_tests.md).
+### Hardware Test Checklist
+All hardware validation (normal mode, MODE menu, VARS/Y-VARS, MATRIX, graphing, DRAW, STAT, PRGM) is in [docs/hardware_checklist.md](hardware_checklist.md).
 
 ### CI Quality Gate
 The project enforces `-Werror` on all `App/` sources. Pull Requests will not be merged if they introduce compiler warnings.

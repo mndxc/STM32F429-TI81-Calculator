@@ -181,7 +181,7 @@ To avoid monolithic growth in `calculator_core.c`, complex sub-menus and distinc
 3. **Core Integration:** In `calculator_core.c`, remove mode-specific logic. Initialize the extracted screen once in `StartCalcCoreTask` (e.g., `ui_init_matrix_screen()`), and delegate mode-specific token handling to the public handlers defined in `ui_<feature>.h`.
 
 > [!NOTE]
-> **PRGM Module:** `ui_prgm.c` handles all PRGM UI screens (EXEC, EDIT, NEW, CTL, I/O). The execution engine lives in `prgm_exec.c`. Both are feature-complete as of PERSIST_VERSION 6. Hardware validation (P10) is the only remaining gate — see `docs/prgm_manual_tests.md`.
+> **PRGM Module:** `ui_prgm.c` handles all PRGM UI screens (EXEC, EDIT, NEW, CTL, I/O). The execution engine lives in `prgm_exec.c`. Both are feature-complete as of PERSIST_VERSION 6. Hardware validation (P10) is the only remaining gate — see `docs/hardware_checklist.md`.
 
 ---
 
