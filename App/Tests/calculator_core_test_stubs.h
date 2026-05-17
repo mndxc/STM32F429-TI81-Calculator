@@ -224,7 +224,6 @@ extern lv_obj_t *ui_graph_zoom_factors_screen;
 extern lv_obj_t *ui_stat_screen;
 extern lv_obj_t *ui_stat_edit_screen;
 extern lv_obj_t *ui_stat_results_screen;
-extern lv_obj_t *ui_draw_screen;
 extern lv_obj_t *ui_vars_screen;
 extern lv_obj_t *ui_yvars_screen;
 
@@ -381,7 +380,6 @@ static inline void Draw_HideScreen(void) {}
 static inline void Draw_MenuOpen(CalcMode_t r)       { (void)r; current_mode = MODE_DRAW_MENU; }
 static inline CalcMode_t Draw_MenuClose(void)        { return MODE_NORMAL; }
 static inline void ui_init_draw_screen(void)         {}
-static inline void ui_update_draw_display(void)      {}
 static inline bool handle_draw_menu(Token_t t)       { (void)t; return false; }
 static inline bool try_execute_draw_command(void)    { return false; }
 

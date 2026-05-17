@@ -72,9 +72,6 @@ lv_obj_t *ui_stat_results_screen = NULL;
 lv_obj_t *ui_math_screen = NULL;
 lv_obj_t *ui_test_screen = NULL;
 
-/* DRAW screen pointer (normally owned by ui_draw.c) */
-lv_obj_t *ui_draw_screen = NULL;
-
 /* VARS screen pointer (normally owned by ui_vars.c) */
 lv_obj_t *ui_vars_screen = NULL;
 

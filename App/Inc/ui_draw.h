@@ -13,9 +13,6 @@
 
 #include "app_common.h"
 #include "lvgl.h"
-#include "menu_state.h"
-
-/* DrawMenuState_t replaced by shared MenuState_t. */
 
 /*---------------------------------------------------------------------------
  * Screen show/hide API (caller holds lvgl_lock)
@@ -35,9 +32,6 @@ CalcMode_t Draw_MenuClose(void);
 
 /** Creates the DRAW menu screen (hidden at start). */
 void ui_init_draw_screen(void);
-
-/** Redraws the DRAW menu display from current state. */
-void ui_update_draw_display(void);
 
 /** Token handler for MODE_DRAW_MENU.  Returns true to consume token. */
 bool handle_draw_menu(Token_t t);

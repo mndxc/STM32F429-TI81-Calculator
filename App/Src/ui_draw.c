@@ -16,6 +16,7 @@
  */
 
 #include "ui_draw.h"
+#include "ui_menu_screen.h"
 #include "graph_ui.h"
 #include "ui_shared.h"
 #include "calculator_core.h"
@@ -54,65 +55,7 @@ static const char * const draw_item_insert[DRAW_ITEM_COUNT] = {
 };
 
 /*---------------------------------------------------------------------------
- * Module state
- *---------------------------------------------------------------------------*/
-
-static MenuState_t draw_menu_state = {0};
-
-lv_obj_t *ui_draw_screen = NULL;
-
-/* Item list labels */
-static lv_obj_t *draw_item_labels[DRAW_ITEM_COUNT];
-
-/*---------------------------------------------------------------------------
- * Screen show/hide
- *---------------------------------------------------------------------------*/
-
-void Draw_ShowScreen(void) { lv_obj_clear_flag(ui_draw_screen, LV_OBJ_FLAG_HIDDEN); }
-void Draw_HideScreen(void) { lv_obj_add_flag(ui_draw_screen,   LV_OBJ_FLAG_HIDDEN); }
-
-/*---------------------------------------------------------------------------
- * UI Initialization
- *---------------------------------------------------------------------------*/
-
-void ui_init_draw_screen(void)
-{
-    lv_obj_t *scr = lv_scr_act();
-    ui_draw_screen = screen_create(scr);
-
-    /* Title label */
-    lv_obj_t *title = lv_label_create(ui_draw_screen);
-    lv_obj_set_pos(title, 4, 4);
-    lv_obj_set_style_text_font(title, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(title, lv_color_hex(COLOR_YELLOW), 0);
-    lv_label_set_text(title, "DRAW");
-
-    /* Item list */
-    for (int i = 0; i < DRAW_ITEM_COUNT; i++) {
-        draw_item_labels[i] = lv_label_create(ui_draw_screen);
-        lv_obj_set_pos(draw_item_labels[i], 4, 34 + i * 30);
-        lv_obj_set_style_text_font(draw_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(draw_item_labels[i],
-            lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(draw_item_labels[i], draw_item_names[i]);
-    }
-}
-
-/*---------------------------------------------------------------------------
- * Display Update
- *---------------------------------------------------------------------------*/
-
-void ui_update_draw_display(void)
-{
-    for (int i = 0; i < DRAW_ITEM_COUNT; i++) {
-        lv_obj_set_style_text_color(draw_item_labels[i],
-            (i == (int)draw_menu_state.cursor)
-            ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
-    }
-}
-
-/*---------------------------------------------------------------------------
- * Token Handler
+ * Helpers
  *---------------------------------------------------------------------------*/
 
 /* Returns true when the DRAW menu was opened from an on-graph mode, meaning
@@ -126,37 +69,108 @@ static bool is_graph_context(CalcMode_t m)
         || m == MODE_GRAPH_DRAW_CURSOR;
 }
 
-/** Execute or insert the item at draw_menu_state.cursor. */
-static void draw_menu_select(void)
-{
-    uint8_t item = draw_menu_state.cursor;
+/*---------------------------------------------------------------------------
+ * MenuScreen_t descriptor and callbacks
+ *---------------------------------------------------------------------------*/
 
-    if (item == 0) {
+static MenuScreen_t s_ms;
+
+static void draw_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+
+    if (idx == 0) {
         /* ClrDraw — immediate: clear layer, re-render if graph was visible */
         Graph_DrawLayerClear();
-        if (Graph_IsVisible()) {
+        if (Graph_IsVisible())
             Graph_Render();
-        }
         menu_close(TOKEN_DRAW);
         Update_Calculator_Display();
         return;
     }
 
     /* Items 2–5 (Line(, PT-On(, PT-Off(, PT-Chg(): enter interactive cursor-pick
-     * when the menu was opened from a graph canvas mode (guidebook p. 5-2/5-5/5-6).
-     * op encoding: item 1→op 2 (Line(), item 2→op 3 (PT-On(), etc. */
-    if (item <= 4 && is_graph_context(draw_menu_state.return_mode)) {
-        draw_enter_cursor_pick((uint8_t)(item + 1));
+     * when the menu was opened from a graph canvas mode (guidebook p. 5-2/5-5/5-6). */
+    if (idx <= 4 && is_graph_context(s_ms.nav.return_mode)) {
+        draw_enter_cursor_pick((uint8_t)(idx + 1));
         return;
     }
 
-    /* All other cases (items 6–7, or items 2–5 from expression editor):
-     * insert token text and return to the calling editor. */
-    const char *ins = draw_item_insert[item];
+    /* All other cases: insert token text and return to the calling editor. */
     lvgl_lock();
-    lv_obj_add_flag(ui_draw_screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(s_ms.screen, LV_OBJ_FLAG_HIDDEN);
     lvgl_unlock();
-    menu_insert_text(ins, &draw_menu_state.return_mode);
+    menu_insert_text(draw_item_insert[idx], &s_ms.nav.return_mode);
+}
+
+static void draw_on_cancel(lv_obj_t *screen)
+{
+    (void)screen;
+    menu_close(TOKEN_DRAW);
+    Update_Calculator_Display();
+}
+
+static const MenuTabDesc_t s_tab = {
+    DRAW_ITEM_COUNT, draw_item_names, NULL, draw_on_select
+};
+
+static const MenuScreenDesc_t s_desc = {
+    .tab_count      = 0,
+    .tab_names      = NULL,
+    .tab_x          = NULL,
+    .default_tab    = 0,
+    .wrap_tabs      = false,
+    .title          = "DRAW",
+    .tabs           = &s_tab,
+    .left_mode      = 0,
+    .right_mode     = 0,
+    .on_cancel      = draw_on_cancel,
+    .on_tab_switch  = NULL,
+    .on_extra       = MenuScreen_DefaultExtra,
+};
+
+/*---------------------------------------------------------------------------
+ * Screen show/hide
+ *---------------------------------------------------------------------------*/
+
+void Draw_ShowScreen(void) { lv_obj_clear_flag(s_ms.screen, LV_OBJ_FLAG_HIDDEN); }
+void Draw_HideScreen(void) { lv_obj_add_flag(s_ms.screen,   LV_OBJ_FLAG_HIDDEN); }
+
+/*---------------------------------------------------------------------------
+ * UI Initialization
+ *---------------------------------------------------------------------------*/
+
+void ui_init_draw_screen(void)
+{
+    MenuScreen_Init(&s_ms, &s_desc, lv_scr_act());
+}
+
+/*---------------------------------------------------------------------------
+ * Token Handler
+ *---------------------------------------------------------------------------*/
+
+bool handle_draw_menu(Token_t t)
+{
+    return MenuScreen_HandleToken(&s_ms, t);
+}
+
+/*---------------------------------------------------------------------------
+ * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
+ *---------------------------------------------------------------------------*/
+
+void Draw_MenuOpen(CalcMode_t return_to)
+{
+    s_ms.nav.return_mode = return_to;
+    Calc_SetMode(MODE_DRAW_MENU);
+    lv_obj_clear_flag(s_ms.screen, LV_OBJ_FLAG_HIDDEN);
+    MenuScreen_ResetAndShow(&s_ms);
+}
+
+CalcMode_t Draw_MenuClose(void)
+{
+    CalcMode_t ret       = s_ms.nav.return_mode;
+    s_ms.nav.return_mode = MODE_NORMAL;
+    return ret;
 }
 
 /*---------------------------------------------------------------------------
@@ -347,72 +361,4 @@ bool try_execute_draw_command(void)
     }
 
     return false;
-}
-
-bool handle_draw_menu(Token_t t)
-{
-    switch (t) {
-    case TOKEN_UP:
-        MenuState_MoveUp(&draw_menu_state, DRAW_ITEM_COUNT, MENU_VISIBLE_ROWS);
-        lvgl_lock();
-        ui_update_draw_display();
-        lvgl_unlock();
-        return true;
-
-    case TOKEN_DOWN:
-        MenuState_MoveDown(&draw_menu_state, DRAW_ITEM_COUNT, MENU_VISIBLE_ROWS);
-        lvgl_lock();
-        ui_update_draw_display();
-        lvgl_unlock();
-        return true;
-
-    case TOKEN_ENTER:
-        draw_menu_select();
-        return true;
-
-    /* Digit shortcuts: 1–7 jump to that item and select it */
-    case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4:
-    case TOKEN_5: case TOKEN_6: case TOKEN_7: {
-        static const Token_t digit_tok[7] = {
-            TOKEN_1, TOKEN_2, TOKEN_3, TOKEN_4, TOKEN_5, TOKEN_6, TOKEN_7
-        };
-        for (int i = 0; i < DRAW_ITEM_COUNT; i++) {
-            if (t == digit_tok[i]) {
-                draw_menu_state.cursor = (uint8_t)i;
-                draw_menu_select();
-                break;
-            }
-        }
-        return true;
-    }
-
-    case TOKEN_CLEAR:
-        menu_close(TOKEN_DRAW);
-        Update_Calculator_Display();
-        return true;
-
-    default:
-        return false;
-    }
-}
-
-/*---------------------------------------------------------------------------
- * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
- *---------------------------------------------------------------------------*/
-
-void Draw_MenuOpen(CalcMode_t return_to)
-{
-    draw_menu_state.return_mode = return_to;
-    draw_menu_state.cursor = 0;
-    Calc_SetMode(MODE_DRAW_MENU);
-    Draw_ShowScreen();
-    ui_update_draw_display();
-}
-
-CalcMode_t Draw_MenuClose(void)
-{
-    CalcMode_t ret              = draw_menu_state.return_mode;
-    draw_menu_state.return_mode = MODE_NORMAL;
-    draw_menu_state.cursor = 0;
-    return ret;
 }
