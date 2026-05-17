@@ -212,7 +212,6 @@ static inline char *Graph_GetParamEquationYBuf(uint8_t p)
 /* LVGL screen pointers — all stub-defined in test_normal_mode.c.
  * ui_mode_screen is a private static in ui_mode.c (after T4) and is NOT
  * declared extern here; it is accessed only through Mode_HideScreen(). */
-extern lv_obj_t *ui_math_screen;
 extern lv_obj_t *ui_matrix_screen;
 extern lv_obj_t *ui_matrix_edit_screen;
 extern lv_obj_t *ui_graph_yeq_screen;

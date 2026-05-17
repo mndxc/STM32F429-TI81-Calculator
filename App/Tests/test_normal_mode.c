@@ -67,10 +67,6 @@ osMessageQId      keypadQueueHandle = NULL;
 lv_obj_t *ui_stat_edit_screen    = NULL;
 lv_obj_t *ui_stat_results_screen = NULL;
 
-/* MATH menu screen pointer (normally owned by ui_math_menu.c) */
-lv_obj_t *ui_math_screen = NULL;
-
-
 /* Program store and editor buffers (normally owned by prgm_exec.c / ui_prgm.c) */
 ProgramStore_t g_prgm_store;
 char    prgm_edit_lines[PRGM_MAX_LINES][PRGM_MAX_LINE_LEN];
