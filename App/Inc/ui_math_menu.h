@@ -33,9 +33,6 @@ void ui_init_test_screen(void);
 /** Redraws the MATH menu display from current state. Must be called under lvgl_lock(). */
 void ui_update_math_display(void);
 
-/** Redraws the TEST menu display from current state. Must be called under lvgl_lock(). */
-void ui_update_test_display(void);
-
 /** Token handler for MODE_MATH_MENU. Returns true to consume token. */
 bool handle_math_menu(Token_t t);
 

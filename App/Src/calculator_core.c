@@ -1517,7 +1517,6 @@ void StartCalcCoreTask(void const *argument)
     ui_update_zoom_display();   /* populate ZOOM labels with initial scroll=0 (defined in graph_ui.c) */
     ui_update_mode_display();
     ui_update_math_display();
-    ui_update_test_display();
     ui_update_matrix_display();
     ui_update_matrix_edit_display();
     ui_update_stat_display();

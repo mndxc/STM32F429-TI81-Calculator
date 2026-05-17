@@ -52,7 +52,6 @@ lv_obj_t *ui_stat_edit_screen    = NULL;
 lv_obj_t *ui_stat_results_screen = NULL;
 
 lv_obj_t *ui_math_screen = NULL;
-lv_obj_t *ui_test_screen = NULL;
 
 lv_obj_t *ui_vars_screen = NULL;
 

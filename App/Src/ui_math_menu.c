@@ -7,6 +7,7 @@
  */
 
 #include "ui_math_menu.h"
+#include "ui_menu_screen.h"
 #include "menu_state.h"
 #include <stdio.h>
 #ifndef HOST_TEST
@@ -35,7 +36,7 @@ typedef struct {
     const char *insert;
 } MenuItem_t;
 
-/* MathMenuState_t and TestMenuState_t replaced by shared MenuState_t. */
+/* MathMenuState_t replaced by shared MenuState_t. */
 
 /*---------------------------------------------------------------------------
  * Private variables — MATH menu
@@ -90,12 +91,6 @@ static const MenuItem_t math_menu_items[MATH_TAB_COUNT][8] = {
  * Private variables — TEST menu
  *---------------------------------------------------------------------------*/
 
-/* Screen pointer — private; accessed externally via Test_ShowScreen() / Test_HideScreen() */
-static lv_obj_t *ui_test_screen = NULL;
-static MenuState_t s_test = {0};
-static lv_obj_t  *test_title_label                  = NULL;
-static lv_obj_t  *test_item_labels[TEST_ITEM_COUNT];
-
 static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
     {"=",             "="},
     {"\xE2\x89\xA0",  "\xE2\x89\xA0"},   /* U+2260 ≠ */
@@ -103,6 +98,16 @@ static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
     {"\xE2\x89\xA5",  "\xE2\x89\xA5"},   /* U+2265 ≥ */
     {"<",             "<"},
     {"\xE2\x89\xA4",  "\xE2\x89\xA4"},   /* U+2264 ≤ */
+};
+
+/* Pre-formatted "N:symbol" display labels for MenuTabDesc_t. */
+static const char * const test_display_labels[TEST_ITEM_COUNT] = {
+    "1:=",
+    "2:\xE2\x89\xA0",   /* 2:≠ */
+    "3:>",
+    "4:\xE2\x89\xA5",   /* 4:≥ */
+    "5:<",
+    "6:\xE2\x89\xA4",   /* 6:≤ */
 };
 
 #ifndef HOST_TEST
@@ -113,8 +118,64 @@ static const MenuItem_t test_menu_items[TEST_ITEM_COUNT] = {
 
 void Math_ShowScreen(void) { lv_obj_clear_flag(ui_math_screen, LV_OBJ_FLAG_HIDDEN); }
 void Math_HideScreen(void) { lv_obj_add_flag(ui_math_screen,   LV_OBJ_FLAG_HIDDEN); }
-void Test_ShowScreen(void) { lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN); }
-void Test_HideScreen(void) { lv_obj_add_flag(ui_test_screen,   LV_OBJ_FLAG_HIDDEN); }
+
+/*---------------------------------------------------------------------------
+ * TEST MenuScreen_t descriptor and callbacks
+ *---------------------------------------------------------------------------*/
+
+static MenuScreen_t s_test_ms;
+
+static void test_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+    if (idx < 0 || idx >= TEST_ITEM_COUNT) return;
+    const char *ins = test_menu_items[idx].insert;
+    if (!ins) return;
+
+    lvgl_lock();
+    lv_obj_add_flag(s_test_ms.screen, LV_OBJ_FLAG_HIDDEN);
+    lvgl_unlock();
+
+    if (s_test_ms.nav.return_mode == MODE_PRGM_EDITOR) {
+        PrgmEditor_MenuInsert(ins);
+    } else if (s_test_ms.nav.return_mode == MODE_GRAPH_YEQ) {
+        Calc_SetMode(MODE_GRAPH_YEQ);
+        graph_ui_yeq_insert(ins);
+    } else {
+        Calc_SetMode(MODE_NORMAL);
+        expr_insert_str(ins);
+        Update_Calculator_Display();
+    }
+    s_test_ms.nav.return_mode = MODE_NORMAL;
+}
+
+static void test_on_cancel(lv_obj_t *screen)
+{
+    (void)screen;
+    menu_close(TOKEN_TEST);
+}
+
+static const MenuTabDesc_t s_test_tab = {
+    TEST_ITEM_COUNT, test_display_labels, NULL, test_on_select
+};
+
+static const MenuScreenDesc_t s_test_desc = {
+    .tab_count      = 0,
+    .tab_names      = NULL,
+    .tab_x          = NULL,
+    .default_tab    = 0,
+    .wrap_tabs      = false,
+    .title          = "TEST",
+    .tabs           = &s_test_tab,
+    .left_mode      = 0,
+    .right_mode     = 0,
+    .on_cancel      = test_on_cancel,
+    .on_tab_switch  = NULL,
+    .on_extra       = MenuScreen_DefaultExtra,
+};
+
+void Test_ShowScreen(void) { lv_obj_clear_flag(s_test_ms.screen, LV_OBJ_FLAG_HIDDEN); }
+void Test_HideScreen(void) { lv_obj_add_flag(s_test_ms.screen,   LV_OBJ_FLAG_HIDDEN); }
 
 /*---------------------------------------------------------------------------
  * Screen initialisation
@@ -163,24 +224,7 @@ void ui_init_math_screen(void)
 /* Creates the TEST menu screen (hidden at startup). */
 void ui_init_test_screen(void)
 {
-    lv_obj_t *scr = lv_scr_act();
-    ui_test_screen = screen_create(scr);
-
-    /* "TEST" title at the top row */
-    test_title_label = lv_label_create(ui_test_screen);
-    lv_obj_set_pos(test_title_label, 4, 4);
-    lv_obj_set_style_text_font(test_title_label, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(test_title_label, lv_color_hex(COLOR_YELLOW), 0);
-    lv_label_set_text(test_title_label, "TEST");
-
-    /* Item labels — text set by ui_update_test_display() */
-    for (int i = 0; i < TEST_ITEM_COUNT; i++) {
-        test_item_labels[i] = lv_label_create(ui_test_screen);
-        lv_obj_set_pos(test_item_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(test_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(test_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(test_item_labels[i], "");
-    }
+    MenuScreen_Init(&s_test_ms, &s_test_desc, lv_scr_act());
 }
 
 /*---------------------------------------------------------------------------
@@ -232,18 +276,6 @@ void ui_update_math_display(void)
     }
 }
 
-/* Refreshes the TEST menu item labels based on s_test.item_cursor. */
-void ui_update_test_display(void)
-{
-    for (int i = 0; i < TEST_ITEM_COUNT; i++) {
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%d:%s", i + 1, test_menu_items[i].display);
-        lv_obj_set_style_text_color(test_item_labels[i],
-            (i == (int)s_test.cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(test_item_labels[i], buf);
-    }
-}
-
 /*---------------------------------------------------------------------------
  * Private insert helpers
  *---------------------------------------------------------------------------*/
@@ -267,27 +299,8 @@ static void math_menu_insert(const char *ins)
     s_math.return_mode = MODE_NORMAL;
 }
 
-static void test_menu_insert(const char *ins)
-{
-    lvgl_lock();
-    lv_obj_add_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
-    lvgl_unlock();
-
-    if (s_test.return_mode == MODE_PRGM_EDITOR) {
-        PrgmEditor_MenuInsert(ins);
-    } else if (s_test.return_mode == MODE_GRAPH_YEQ) {
-        Calc_SetMode(MODE_GRAPH_YEQ);
-        graph_ui_yeq_insert(ins);
-    } else {
-        Calc_SetMode(MODE_NORMAL);
-        expr_insert_str(ins);
-        Update_Calculator_Display();
-    }
-    s_test.return_mode = MODE_NORMAL;
-}
-
 /*---------------------------------------------------------------------------
- * Private navigation helper (shared by both handlers)
+ * Private navigation helper (used by MATH handler)
  *---------------------------------------------------------------------------*/
 
 /* Shared nav-key handler for menus that can jump to graph screens.
@@ -373,44 +386,7 @@ bool handle_math_menu(Token_t t)
 
 bool handle_test_menu(Token_t t)
 {
-    switch (t) {
-    case TOKEN_UP:
-        MenuState_MoveUp(&s_test, TEST_ITEM_COUNT, MENU_VISIBLE_ROWS);
-        lvgl_lock(); ui_update_test_display(); lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        MenuState_MoveDown(&s_test, TEST_ITEM_COUNT, MENU_VISIBLE_ROWS);
-        lvgl_lock(); ui_update_test_display(); lvgl_unlock();
-        return true;
-    case TOKEN_ENTER: {
-        const char *ins = test_menu_items[s_test.cursor].insert;
-        if (ins != NULL) { test_menu_insert(ins); return true; }
-        break;
-    }
-    case TOKEN_1 ... TOKEN_6: {
-        int idx = (int)(t - TOKEN_0) - 1;
-        if (idx >= 0 && idx < TEST_ITEM_COUNT) {
-            const char *ins = test_menu_items[idx].insert;
-            if (ins != NULL) { test_menu_insert(ins); return true; }
-        }
-        break;
-    }
-    case TOKEN_CLEAR:
-    case TOKEN_TEST:
-        menu_close(TOKEN_TEST);
-        return true;
-    default:
-        if (menu_handle_nav_keys(t, &s_test.return_mode,
-                                 &s_test.cursor, NULL))
-            return true;
-    {
-        CalcMode_t ret = menu_close(TOKEN_TEST);
-        if (ret == MODE_GRAPH_YEQ)
-            return true;
-        return false; /* fall through to main switch */
-    }
-    }
-    return true;
+    return MenuScreen_HandleToken(&s_test_ms, t);
 }
 
 /*---------------------------------------------------------------------------
@@ -430,11 +406,10 @@ void math_menu_open(CalcMode_t return_to)
 
 void test_menu_open(CalcMode_t return_to)
 {
-    s_test.return_mode = return_to;
-    s_test.cursor      = 0;
+    s_test_ms.nav.return_mode = return_to;
     Calc_SetMode(MODE_TEST_MENU);
-    lv_obj_clear_flag(ui_test_screen, LV_OBJ_FLAG_HIDDEN);
-    ui_update_test_display();
+    lv_obj_clear_flag(s_test_ms.screen, LV_OBJ_FLAG_HIDDEN);
+    MenuScreen_ResetAndShow(&s_test_ms);
 }
 
 CalcMode_t math_menu_close(void)
@@ -448,9 +423,8 @@ CalcMode_t math_menu_close(void)
 
 CalcMode_t test_menu_close(void)
 {
-    CalcMode_t ret     = s_test.return_mode;
-    s_test.return_mode = MODE_NORMAL;
-    s_test.cursor      = 0;
+    CalcMode_t ret            = s_test_ms.nav.return_mode;
+    s_test_ms.nav.return_mode = MODE_NORMAL;
     return ret;
 }
 
@@ -461,12 +435,10 @@ CalcMode_t test_menu_close(void)
  *---------------------------------------------------------------------------*/
 
 lv_obj_t *ui_math_screen = NULL;
-lv_obj_t *ui_test_screen = NULL;
 
 void ui_init_math_screen(void)         {}
 void ui_init_test_screen(void)         {}
 void ui_update_math_display(void)      {}
-void ui_update_test_display(void)      {}
 bool handle_math_menu(Token_t t)       { (void)t; return false; }
 bool handle_test_menu(Token_t t)       { (void)t; return false; }
 void math_menu_open(CalcMode_t r)      { (void)r; }

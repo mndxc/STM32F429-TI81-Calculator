@@ -213,7 +213,6 @@ static inline char *Graph_GetParamEquationYBuf(uint8_t p)
  * ui_mode_screen is a private static in ui_mode.c (after T4) and is NOT
  * declared extern here; it is accessed only through Mode_HideScreen(). */
 extern lv_obj_t *ui_math_screen;
-extern lv_obj_t *ui_test_screen;
 extern lv_obj_t *ui_matrix_screen;
 extern lv_obj_t *ui_matrix_edit_screen;
 extern lv_obj_t *ui_graph_yeq_screen;
@@ -342,7 +341,6 @@ static inline void Test_HideScreen(void) {}
 static inline void ui_init_math_screen(void)         {}
 static inline void ui_init_test_screen(void)         {}
 static inline void ui_update_math_display(void)      {}
-static inline void ui_update_test_display(void)      {}
 static inline bool handle_math_menu(Token_t t)       { (void)t; return false; }
 static inline bool handle_test_menu(Token_t t)       { (void)t; return false; }
 static inline void math_menu_open(CalcMode_t r)      { (void)r; current_mode = MODE_MATH_MENU; }
