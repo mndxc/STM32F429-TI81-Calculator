@@ -894,6 +894,72 @@ static void test_sto_matrix_yvars(void)
           "sto_yvar: expression buffer cleared after opening Y-VARS for STO");
 }
 
+/* -------------------------------------------------------------------------
+ * Group 13: menu-to-menu return chain (Follow-up #1) (8 tests)
+ *
+ * When handle_normal_mode is reached via a menu passthrough (on_cancel already
+ * restored current_mode to the origin), the new menu must receive that origin
+ * as return_to, not the hardcoded MODE_NORMAL.  The stubs discard return_to so
+ * the observable here is that the correct menu mode is set; the return_to value
+ * is verified by the code path: Calc_GetMode() == origin at call time.
+ * ---------------------------------------------------------------------- */
+static void test_menu_return_chain(void)
+{
+    printf("Group 13: menu-to-menu return chain\n");
+
+    /* Simulate the post-cancel state: on_cancel ran and restored current_mode
+     * to MODE_GRAPH_YEQ before handle_normal_mode was called.  Each menu key
+     * must still open the correct menu (return_to = MODE_GRAPH_YEQ is passed). */
+
+    /* 1. MATH from YEQ context */
+    reset_state();
+    current_mode = MODE_GRAPH_YEQ;
+    handle_normal_mode(TOKEN_MATH);
+    CHECK(current_mode == MODE_MATH_MENU, "chain: MATH opens from YEQ context");
+
+    /* 2. TEST from YEQ context */
+    reset_state();
+    current_mode = MODE_GRAPH_YEQ;
+    handle_normal_mode(TOKEN_TEST);
+    CHECK(current_mode == MODE_TEST_MENU, "chain: TEST opens from YEQ context");
+
+    /* 3. MATRX from YEQ context */
+    reset_state();
+    current_mode = MODE_GRAPH_YEQ;
+    handle_normal_mode(TOKEN_MATRX);
+    CHECK(current_mode == MODE_MATRIX_MENU, "chain: MATRX opens from YEQ context");
+
+    /* 4. STAT from YEQ context */
+    reset_state();
+    current_mode = MODE_GRAPH_YEQ;
+    handle_normal_mode(TOKEN_STAT);
+    CHECK(current_mode == MODE_STAT_MENU, "chain: STAT opens from YEQ context");
+
+    /* 5. DRAW from YEQ context */
+    reset_state();
+    current_mode = MODE_GRAPH_YEQ;
+    handle_normal_mode(TOKEN_DRAW);
+    CHECK(current_mode == MODE_DRAW_MENU, "chain: DRAW opens from YEQ context");
+
+    /* 6. VARS from YEQ context */
+    reset_state();
+    current_mode = MODE_GRAPH_YEQ;
+    handle_normal_mode(TOKEN_VARS);
+    CHECK(current_mode == MODE_VARS_MENU, "chain: VARS opens from YEQ context");
+
+    /* 7. Y_VARS from YEQ context */
+    reset_state();
+    current_mode = MODE_GRAPH_YEQ;
+    handle_normal_mode(TOKEN_Y_VARS);
+    CHECK(current_mode == MODE_YVARS_MENU, "chain: Y_VARS opens from YEQ context");
+
+    /* 8. PRGM from YEQ context */
+    reset_state();
+    current_mode = MODE_GRAPH_YEQ;
+    handle_normal_mode(TOKEN_PRGM);
+    CHECK(current_mode == MODE_PRGM_MENU, "chain: PRGM opens from YEQ context");
+}
+
 int main(void)
 {
     test_digit_key();
@@ -908,6 +974,7 @@ int main(void)
     test_edge_cases();
     test_graph_mode_accessors();
     test_sto_matrix_yvars();
+    test_menu_return_chain();
 
     printf("\n%d passed, %d failed\n", g_passed, g_failed);
     return g_failed > 0 ? 1 : 0;

@@ -238,14 +238,14 @@ void handle_normal_mode(Token_t t)
     case TOKEN_INS:                 Calc_SetInsertMode(!Calc_GetInsertMode());
                                     Update_Calculator_Display(); break;
     case TOKEN_MODE:                ui_mode_open();              break;
-    case TOKEN_MATH:                menu_open(TOKEN_MATH,  MODE_NORMAL); break;
-    case TOKEN_TEST:                menu_open(TOKEN_TEST,  MODE_NORMAL); break;
-    case TOKEN_MATRX:               menu_open(TOKEN_MATRX, MODE_NORMAL); break;
-    case TOKEN_PRGM:                menu_open(TOKEN_PRGM,  MODE_NORMAL); break;
-    case TOKEN_STAT:                menu_open(TOKEN_STAT,  MODE_NORMAL); break;
-    case TOKEN_DRAW:                menu_open(TOKEN_DRAW,  MODE_NORMAL); break;
-    case TOKEN_VARS:                menu_open(TOKEN_VARS,   MODE_NORMAL); break;
-    case TOKEN_Y_VARS:              menu_open(TOKEN_Y_VARS, MODE_NORMAL); break;
+    case TOKEN_MATH:                menu_open(TOKEN_MATH,  Calc_GetMode()); break;
+    case TOKEN_TEST:                menu_open(TOKEN_TEST,  Calc_GetMode()); break;
+    case TOKEN_MATRX:               menu_open(TOKEN_MATRX, Calc_GetMode()); break;
+    case TOKEN_PRGM:                menu_open(TOKEN_PRGM,  Calc_GetMode()); break;
+    case TOKEN_STAT:                menu_open(TOKEN_STAT,  Calc_GetMode()); break;
+    case TOKEN_DRAW:                menu_open(TOKEN_DRAW,  Calc_GetMode()); break;
+    case TOKEN_VARS:                menu_open(TOKEN_VARS,   Calc_GetMode()); break;
+    case TOKEN_Y_VARS:              menu_open(TOKEN_Y_VARS, Calc_GetMode()); break;
     case TOKEN_MTRX_A: case TOKEN_MTRX_B: case TOKEN_MTRX_C:
     case TOKEN_LIST_X: case TOKEN_LIST_Y:
     case TOKEN_SIN: case TOKEN_COS: case TOKEN_TAN:

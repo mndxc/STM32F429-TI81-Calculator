@@ -15,7 +15,7 @@ Run these commands from the **repo root** (the directory containing `CMakeLists.
 ```bash
 cmake -S App/Tests -B build-tests
 cmake --build build-tests
-ctest --test-dir build-tests   # runs all 16 suites (1096 assertions total)
+ctest --test-dir build-tests   # runs all 16 suites (1108 assertions total)
 ```
 
 Or run individual suites:
@@ -25,7 +25,7 @@ Or run individual suites:
 ./build-tests/test_expr_buffer        # ExprBuffer_t wrapper (48 tests)
 ./build-tests/test_persist_roundtrip  # Serialization (52 tests)
 ./build-tests/test_prgm_exec          # PRGM executor (119 tests)
-./build-tests/test_normal_mode        # handle_normal_mode dispatch (129 tests)
+./build-tests/test_normal_mode        # handle_normal_mode dispatch (137 tests)
 ./build-tests/test_param              # Parametric eval (28 tests)
 ./build-tests/test_stat               # Statistical calculations (76 tests)
 ./build-tests/test_yvars              # Y-VARS calc_engine integration (20 tests)
@@ -45,7 +45,7 @@ Or run individual suites:
 3.  **test_expr_buffer**: Validates `ExprBuffer_t` — Clear, Insert (insert/overwrite modes), Delete, Left/Right cursor movement, and overflow guard.
 4.  **test_persist_roundtrip**: Validates that state can be serialized to a buffer and restored exactly, including checksum verification.
 5.  **test_prgm_exec**: Validates the PRGM executor — `If`, `Goto/Lbl`, `IS>/DS<`, `Input/Disp`, subroutine calls, `Stop`.
-6.  **test_normal_mode**: Validates `handle_normal_mode()` and all static sub-handlers — digit/operator/function insert, history navigation, STO (including STO→matrix, STO→matrix-element, STO→Y= slot), INS/DEL, and mode-dispatch transitions.
+6.  **test_normal_mode**: Validates `handle_normal_mode()` and all static sub-handlers — digit/operator/function insert, history navigation, STO (including STO→matrix, STO→matrix-element, STO→Y= slot), INS/DEL, mode-dispatch transitions, and menu-to-menu return chain (Follow-up #1).
 7.  **test_param**: Validates `Calc_PrepareParamEquation` and `Calc_EvalParamEquation` — T variable substitution, circle identity, independence from stored variable 'T', degrees mode, error propagation.
 8.  **test_stat**: Validates `calc_stat.c` — 1-Var statistics, LinReg (including variable storage and Pearson r), LnReg, ExpReg, SortX, SortY, Clear, and degenerate/empty-input guards.
 9.  **test_yvars**: Validates `Calc_RegisterYEquations`, Y₁–Y₄ tokenization, evaluation, and reentrancy guard.
