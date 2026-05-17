@@ -31,7 +31,7 @@ Snapshot as of **2026-05-07** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 973 lines, prgm_editor.c 538 lines, graph_ui.c 1403 lines, calculator_core.c 1702 lines, graph.c 1374 lines, graph_ui_range.c 743 lines, ui_matrix.c 579 lines — graph_ui.c/calculator_core.c/graph.c all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 15 suites, 1031 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), STO→matrix/element/Y= host tests, error code string + error_offset tests, and CalcMode_IsValidTransition guard tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 973 lines, prgm_editor.c 538 lines, graph_ui.c 1403 lines, calculator_core.c 1702 lines, graph.c 1374 lines, graph_ui_range.c 743 lines, ui_matrix.c 579 lines — graph_ui.c/calculator_core.c/graph.c all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 16 suites, 1096 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), STO→matrix/element/Y= host tests, error code string + error_offset tests, CalcMode_IsValidTransition guard tests, and MenuScreen_t navigation tests.
 
 Full scorecard change history: [docs/PROJECT_HISTORY.md — Scorecard Change Log](docs/PROJECT_HISTORY.md).
 
@@ -63,7 +63,7 @@ Session log and completed features: [docs/PROJECT_HISTORY.md](docs/PROJECT_HISTO
 
 | Area | Est. Done | Notes |
 |---|---|---|
-| MATRIX | ~100% | Variable dimensions 1–6×6 per matrix; scrolling cell editor with dim mode; `det(` and `T` ops in MATRX menu; row operations (RowSwap/Row+/*Row/*Row+) fully implemented in MATRX MATH menu and engine; arithmetic (+, −, ×, scalar×matrix) fully evaluated; `det(ANS)` / `[A]+ANS` chains work; persist across power-off; `[A]`/`[B]`/`[C]` cursor/DEL atomicity fixed; matrix tokens blocked in Y= editor. Pending: hardware validation (see HARDWARE_VALIDATION_ALL.md Section 10). |
+| MATRIX | ~100% | Variable dimensions 1–6×6 per matrix; scrolling cell editor with dim mode; `det(` and `T` ops in MATRX menu; row operations (RowSwap/Row+/*Row/*Row+) fully implemented in MATRX MATH menu and engine; arithmetic (+, −, ×, scalar×matrix) fully evaluated; `det(ANS)` / `[A]+ANS` chains work; persist across power-off; `[A]`/`[B]`/`[C]` cursor/DEL atomicity fixed; matrix tokens blocked in Y= editor. Pending: hardware validation. |
 | PRGM | ~95% | UI (menus, editor, CTL/I/O sub-menus) and executor (`prgm_exec.c`) fully implemented. Supported: `If` (single-line), `Goto/Lbl`, `Disp/Input/ClrHome/Pause/Stop/prgm(subroutine)/STO/IS>(DS</DispHome/DispGraph`. Removed per TI-81 spec: `Then/Else/While/For/Return/Prompt/Output(/Menu(`. Execution model: EXEC inserts `prgmNAME` into expression; ENTER runs and shows `Done`. Remaining: hardware validation (P10). |
 
 ---
@@ -102,16 +102,21 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 #### Refactoring — surfaced by 2026-05-07 codebase audit
 
+**[refactor] Menu refactor — generic renderer and navigator** — Multi-session work tracked in [docs/MENU_REFACTOR_PLAN.md](docs/MENU_REFACTOR_PLAN.md). Consolidates 8 menu modules behind the existing `MenuScreen_t` API, fixes a passthrough bug (`ui_menu_screen.c:131`) that blocks menu-opening keys in PRGM sub-menus, and resolves three TI-81 guidebook divergences (VARS/PRGM tab wrap, Y-VARS tab order). Read the plan's Progress Dashboard at session start to pick the next step. **Pair Step 0 with Follow-up #1** (return_mode chain) to avoid temporarily worse PRGM-editor behavior.
 
+**[bug] handle_normal_mode return_mode chain (Menu Refactor Follow-up #1)** — When opening a menu from inside another menu, walk past intermediate menu modes to find the non-menu origin so CLEAR (and post-select insert) returns to the user's actual previous screen, not Home. Files: `App/Src/ui_input.c:241-248` or `menu_open()` in `App/Src/calculator_core.c`.
 
+**[bug] PRGM editor routes only MATH/TEST/PRGM/MODE to menus (Menu Refactor Follow-up #2)** — `App/Src/prgm_editor.c:461` falls into `editor_handle_insert` for VARS/MATRX/Y_VARS/STAT/DRAW. Add explicit cases calling `menu_open(TOKEN_X, MODE_PRGM_EDITOR)` for each; add corresponding `return_mode == MODE_PRGM_EDITOR → PrgmEditor_MenuInsert` branches to each menu's insert helper (mirror `ui_math_menu.c:257`).
+
+**[bug] PRGM NEW name-entry guidebook conformance (Menu Refactor Follow-up #3)** — `App/Src/ui_prgm.c:541-633`: allowed chars missing θ and `.` (guidebook p. 8-4); alpha-lock model uses MODE_ALPHA + manual re-engage instead of MODE_ALPHA_LOCK (so every digit requires its own ALPHA press); `default: return true` (`:632`) absorbs RANGE/GRAPH/Y= etc. instead of leaving the edit screen (p. 1-25).
 
 #### Hardware validation — no new code, test on device
 
-Full test procedures: [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md).
+PRGM test protocol: [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md).
 
 | Item | Feature | Relevant files |
 |---|---|---|
-| P28 | cursor_render() refactor | [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md) Section 1 |
+| P28 | cursor_render() refactor | App/Src/calculator_core.c, App/Src/ui_input.c |
 | P10 | PRGM execution | [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md), App/Src/ui_prgm.c, App/Src/prgm_exec.c |
 | — | Free-cursor + TRACE toggle | App/Src/graph_ui_cursor.c, App/Src/graph.c |
 | — | `Input` no-arg graph exploration | App/Src/prgm_exec.c, App/Src/graph_ui_cursor.c, App/Src/ui_prgm.c |

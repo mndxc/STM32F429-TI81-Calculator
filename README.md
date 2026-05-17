@@ -27,7 +27,7 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 ## Status
 
-~95% implemented against the original TI-81 guidebook and daily-usable on the STM32F429I-DISC1 development board. Hardware validation is ongoing — see [HARDWARE_VALIDATION_ALL.md](HARDWARE_VALIDATION_ALL.md) for per-feature test results. A custom PCB to replace the original TI-81 internals while keeping the original shell is in progress.
+~95% implemented against the original TI-81 guidebook and daily-usable on the STM32F429I-DISC1 development board. Hardware validation is ongoing — see [docs/prgm_manual_tests.md](docs/prgm_manual_tests.md) for the PRGM test protocol. A custom PCB to replace the original TI-81 internals while keeping the original shell is in progress.
 
 **Working today:**
 - Arithmetic, expression evaluation, operator precedence, parentheses, history recall
@@ -57,7 +57,7 @@ cmake -S App/Tests -B build-tests && cmake --build build-tests
 ctest --test-dir build-tests
 ```
 
-All host tests pass on plain x86/ARM Linux and macOS with any standard C compiler — see [docs/TESTING.md](docs/TESTING.md) for the current suite breakdown. No toolchain, no board, no USB cable needed.
+All host tests pass on plain x86/ARM Linux and macOS with any standard C compiler — see [docs/TESTING.md](docs/TESTING.md) for the current suite breakdown (16 suites, 1096 assertions). No toolchain, no board, no USB cable needed.
 
 ---
 
