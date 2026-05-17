@@ -22,7 +22,7 @@
 | 2f | Migrate MATH menu | ✅ DONE | 2026-05-16 | 2eb3e8c | 1.5 h |
 | 2g | Migrate ZOOM menu | ✅ DONE | 2026-05-16 | 0921109 | 1.5 h |
 | 2h | Migrate PRGM main menu (incl. `wrap_tabs`) | ✅ DONE | 2026-05-16 | a4f74be | 2 h |
-| 3 | Migrate MATRX 2-tab menu | ⬜ TODO | — | — | 2 h |
+| 3 | Migrate MATRX 2-tab menu | ✅ DONE | 2026-05-17 | — | 2 h |
 
 **Total estimated effort:** ~18 hours, spread across multiple sessions. Each step is independently shippable (test suite must pass + manual smoke test before proceeding).
 
@@ -241,20 +241,21 @@ Guidebook p. 1-19 explicitly uses ZOOM as the canonical menu example.
 
 ## Step 3 — MATRIX 2-Tab Menu
 
-**Status:** ⬜ TODO
+**Status:** ✅ DONE (2026-05-17)
 **File:** `App/Src/ui_matrix.c`
 **Estimate:** 2 h
 
 Guidebook p. 6-2 confirms MATRX is a standard 2-tab menu.
 
 ### Sub-tasks
-- [ ] Replace menu-tab state with `MenuScreen_t s_matrix_ms`
-- [ ] 2 `MenuTabDesc_t` entries (MATRIX: 6 function items, EDIT: 3 slots [A]/[B]/[C])
-- [ ] MATRIX-tab `on_select`: insert function name at cursor via existing helper
-- [ ] EDIT-tab `on_select`: set active matrix slot + transition to MODE_MATRX_EDIT
-- [ ] `on_cancel = menu_close(TOKEN_MATRX)`
-- [ ] Matrix edit screen completely unchanged
-- [ ] Tests pass; manual smoke
+- [x] Replace menu-tab state with `MenuScreen_t s_matrix_ms`
+- [x] 2 `MenuTabDesc_t` entries (MATRIX: 6 items via `matrix_matrx_labels[]`; EDIT: 3 slots via `matrix_edit_get_label` dynamic labels)
+- [x] MATRIX-tab `matrix_matrx_on_select`: hide menu screen + `menu_insert_text(matrix_op_insert[idx])`
+- [x] EDIT-tab `matrix_edit_on_select`: set active matrix slot + transition to MODE_MATRIX_EDIT
+- [x] `matrix_on_cancel = menu_close(TOKEN_MATRX)`
+- [x] `matrix_on_extra`: TOKEN_MATRX → close+return true; others → DefaultExtra
+- [x] Matrix edit screen completely unchanged except 3 `ui_matrix_screen` refs → `s_matrix_ms.screen`
+- [x] Tests pass (all 16 host suites); manual smoke pending hardware
 
 ---
 
@@ -271,7 +272,7 @@ Guidebook p. 6-2 confirms MATRX is a standard 2-tab menu.
 | `App/Src/ui_vars.c` | 2d |
 | `App/Src/ui_yvars.c` | 2e |
 | `App/Src/ui_zoom.c` (NEW) or `App/Src/graph_ui.c` | 2g |
-| `App/Src/ui_matrix.c` | 3 |
+| `App/Src/ui_matrix.c` | 3 ✅ |
 | `tests/test_ui_menu_screen.c` (NEW) | 1 |
 | `tests/CMakeLists.txt` | 1 |
 | `docs/TESTING.md` | 1 (and any step that adds assertions) |
@@ -354,6 +355,7 @@ No `[complexity]` item needed in CLAUDE.md after the refactor completes. Update 
 
 Add a one-line entry per session in reverse-chronological order. Include date, step(s) advanced, commit SHA, and any notes/decisions.
 
+- **2026-05-17** — Step 3 complete. MATRX migrated to `MenuScreen_t`: removed `matrix_menu_state`, `ui_matrix_screen`, `matrix_tab_labels[]`, `matrix_item_labels[]`; added `s_matrix_ms`, `matrix_matrx_labels[]` (pre-formatted), `matrix_edit_get_label` (dynamic EDIT tab), `matrix_matrx_on_select`, `matrix_edit_on_select`, `matrix_on_cancel`, `matrix_on_extra` (TOKEN_MATRX→close+true; others→DefaultExtra); 3 `ui_matrix_screen` refs in `handle_matrix_edit` updated to `s_matrix_ms.screen`; `handle_matrix_menu` is 1-line wrapper. All 16 host suites pass.
 - **2026-05-16** — Steps 2d–2h complete. VARS (7c7855d): 5-tab wrap_tabs; vars_on_extra handles TOKEN_VARS. Y-VARS (03b048d): tab reorder OFF/Y/ON, default_tab=1. MATH (2eb3e8c): 4-tab get_label, shared math_on_select, math_on_extra. ZOOM (0921109): 8 items, zoom_on_extra, zoom_on_cancel skips menu_close (TOKEN_ZOOM not in dispatch). PRGM (a4f74be): 3-tab wrap_tabs, prgm_get_label for 37 slots, prgm_on_extra handles A-Z/θ shortcuts, erase_confirm rendered into s_prgm_ms.item_labels[], editor_return_to_menu uses MenuScreen_SetTab. All 16 host suites pass after each step.
 - **2026-05-16** — Step 2c complete. STAT migrated: replaced stat_menu_state / stat_tab_labels[] / stat_item_labels[] / ui_stat_screen with MenuScreen_t (s_stat_ms). Three per-tab on_select callbacks handle CALC→stat_run_calc, DRAW→stat_run_draw, DATA→inline actions. handle_stat_menu is a 1-line wrapper. ui_update_stat_display kept as thin wrapper (called by ui_stat_edit.c). All 16 host suites pass.
 - **2026-05-16** — Step 2a complete (commit 88afabc). DRAW migrated to `MenuScreen_t`: removed `draw_menu_state`, `ui_draw_screen` global, `draw_item_labels[]`, `ui_update_draw_display`; added `s_ms`/`s_tab`/`s_desc` with `draw_on_select` and `draw_on_cancel`; `handle_draw_menu` is now a 1-line wrapper. Removed `ui_draw_screen` stubs from test files. All 16 host suites pass.

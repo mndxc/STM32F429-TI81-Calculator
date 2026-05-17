@@ -8,6 +8,7 @@
  */
 
 #include "ui_matrix.h"
+#include "ui_menu_screen.h"
 #include "ui_palette.h"
 #include "ui_shared.h"
 #include "calculator_core.h"
@@ -19,10 +20,9 @@
 /*---------------------------------------------------------------------------
  * Matrix UI State
  *---------------------------------------------------------------------------*/
-static lv_obj_t *ui_matrix_screen      = NULL;
 static lv_obj_t *ui_matrix_edit_screen = NULL;
 
-static MenuState_t matrix_menu_state = {0};
+static MenuScreen_t s_matrix_ms;
 
 static uint8_t    matrix_edit_idx        = 0;   /* 0=[A], 1=[B], 2=[C] */
 static int16_t    matrix_edit_cursor     = 0;   /* flat cell index; -1 = dim mode */
@@ -32,11 +32,8 @@ static char       matrix_edit_buf[16]    = {0};
 static uint8_t    matrix_edit_len        = 0;
 static uint8_t    matrix_edit_val_cursor = 0;
 
-static lv_obj_t *matrix_tab_labels[2];
-static lv_obj_t *matrix_item_labels[MENU_VISIBLE_ROWS];
-
 static lv_obj_t *matrix_edit_title_lbl  = NULL;
-static lv_obj_t *matrix_list_labels[7]; // MATRIX_LIST_VISIBLE is 7
+static lv_obj_t *matrix_list_labels[7]; /* MATRIX_LIST_VISIBLE is 7 */
 static lv_obj_t *matrix_edit_up_lbl     = NULL;
 static lv_obj_t *matrix_edit_down_lbl   = NULL;
 
@@ -44,12 +41,10 @@ static lv_obj_t *matrix_edit_cursor_box    = NULL;
 static lv_obj_t *matrix_edit_cursor_inner  = NULL;
 
 /* Strings / Constants */
-static const char * const matrix_tab_names[2]     = {"MATRX", "EDIT"};
-static const uint8_t matrix_tab_item_count[2]     = {6, 3};
-static const char * const matrix_op_names[6]      = {
-    "rowSwap(", "row+(", "*row(", "*row+(", "det(", "T"
+static const char * const matrix_matrx_labels[6] = {
+    "1:rowSwap(", "2:row+(", "3:*row(", "4:*row+(", "5:det(", "6:T"
 };
-static const char * const matrix_op_insert[6]     = {
+static const char * const matrix_op_insert[6] = {
     "rowSwap(", "row+(", "*row(", "*row+(", "det(", "^T"
 };
 static const char * const matrix_edit_item_names[3] = {"[A]", "[B]", "[C]"};
@@ -91,13 +86,91 @@ static void matrix_edit_load_cell(void)
 }
 
 /*---------------------------------------------------------------------------
+ * MenuScreen_t descriptor and callbacks
+ *---------------------------------------------------------------------------*/
+
+static void matrix_matrx_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+    const char *ins = matrix_op_insert[idx];
+    if (ins != NULL) {
+        lvgl_lock();
+        lv_obj_add_flag(s_matrix_ms.screen, LV_OBJ_FLAG_HIDDEN);
+        lvgl_unlock();
+        menu_insert_text(ins, &s_matrix_ms.nav.return_mode);
+    }
+}
+
+static void matrix_edit_get_label(int idx, char *buf, size_t bufsz)
+{
+    snprintf(buf, bufsz, "%d:%s %dx%d",
+             idx + 1, matrix_edit_item_names[idx],
+             calc_matrices[idx].rows, calc_matrices[idx].cols);
+}
+
+static void matrix_edit_on_select(int idx, lv_obj_t *screen)
+{
+    (void)screen;
+    matrix_edit_idx       = (uint8_t)idx;
+    matrix_edit_cursor    = 0;
+    matrix_edit_scroll    = 0;
+    matrix_edit_dim_field = 0;
+    matrix_edit_len       = 0;
+    matrix_edit_buf[0]    = '\0';
+    Calc_SetMode(MODE_MATRIX_EDIT);
+    lvgl_lock();
+    lv_obj_add_flag(s_matrix_ms.screen, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
+    ui_update_matrix_edit_display();
+    lvgl_unlock();
+}
+
+static void matrix_on_cancel(lv_obj_t *screen)
+{
+    (void)screen;
+    menu_close(TOKEN_MATRX);
+}
+
+static bool matrix_on_extra(Token_t t, MenuScreen_t *ms)
+{
+    if (t == TOKEN_MATRX) {
+        menu_close(TOKEN_MATRX);
+        return true;
+    }
+    return MenuScreen_DefaultExtra(t, ms);
+}
+
+static const char * const matrix_tab_names[2] = {"MATRX", "EDIT"};
+static const int           matrix_tab_x[2]    = {4, 100};
+
+static const MenuTabDesc_t matrix_tabs[2] = {
+    { 6, matrix_matrx_labels, NULL,                  matrix_matrx_on_select },
+    { 3, NULL,                 matrix_edit_get_label, matrix_edit_on_select  },
+};
+
+static const MenuScreenDesc_t matrix_desc = {
+    .tab_count     = 2,
+    .tab_names     = matrix_tab_names,
+    .tab_x         = matrix_tab_x,
+    .default_tab   = 0,
+    .wrap_tabs     = false,
+    .title         = NULL,
+    .tabs          = matrix_tabs,
+    .left_mode     = 0,
+    .right_mode    = 0,
+    .on_cancel     = matrix_on_cancel,
+    .on_tab_switch = NULL,
+    .on_extra      = matrix_on_extra,
+};
+
+/*---------------------------------------------------------------------------
  * Screen show/hide/visibility
  *---------------------------------------------------------------------------*/
 
-void Matrix_ShowMenuScreen(void) { lv_obj_clear_flag(ui_matrix_screen,      LV_OBJ_FLAG_HIDDEN); }
-void Matrix_HideMenuScreen(void) { lv_obj_add_flag(ui_matrix_screen,        LV_OBJ_FLAG_HIDDEN); }
-void Matrix_ShowEditScreen(void) { lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN); }
-void Matrix_HideEditScreen(void) { lv_obj_add_flag(ui_matrix_edit_screen,   LV_OBJ_FLAG_HIDDEN); }
+void Matrix_ShowMenuScreen(void) { lv_obj_clear_flag(s_matrix_ms.screen,    LV_OBJ_FLAG_HIDDEN); }
+void Matrix_HideMenuScreen(void) { lv_obj_add_flag  (s_matrix_ms.screen,    LV_OBJ_FLAG_HIDDEN); }
+void Matrix_ShowEditScreen(void) { lv_obj_clear_flag(ui_matrix_edit_screen,  LV_OBJ_FLAG_HIDDEN); }
+void Matrix_HideEditScreen(void) { lv_obj_add_flag  (ui_matrix_edit_screen,  LV_OBJ_FLAG_HIDDEN); }
 bool Matrix_IsEditScreenVisible(void)
 {
     return ui_matrix_edit_screen != NULL &&
@@ -110,27 +183,10 @@ bool Matrix_IsEditScreenVisible(void)
 void ui_init_matrix_screen(void)
 {
     lv_obj_t *scr = lv_scr_act();
-    ui_matrix_screen = screen_create(scr);
-
-    static const int16_t matrix_tab_x[2] = {4, 100};
-    for (int i = 0; i < 2; i++) {
-        matrix_tab_labels[i] = lv_label_create(ui_matrix_screen);
-        lv_obj_set_pos(matrix_tab_labels[i], matrix_tab_x[i], 4);
-        lv_obj_set_style_text_font(matrix_tab_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(matrix_tab_labels[i], lv_color_hex(COLOR_GREY_INACTIVE), 0);
-        lv_label_set_text(matrix_tab_labels[i], matrix_tab_names[i]);
-    }
-
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        matrix_item_labels[i] = lv_label_create(ui_matrix_screen);
-        lv_obj_set_pos(matrix_item_labels[i], 4, 30 + i * 30);
-        lv_obj_set_style_text_font(matrix_item_labels[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(matrix_item_labels[i], lv_color_hex(COLOR_WHITE), 0);
-        lv_label_set_text(matrix_item_labels[i], "");
-    }
+    MenuScreen_Init(&s_matrix_ms, &matrix_desc, scr);
 
     ui_matrix_edit_screen = lv_obj_create(scr);
-    lv_obj_set_size(ui_matrix_edit_screen, 320, 240); // DISPLAY_W, DISPLAY_H
+    lv_obj_set_size(ui_matrix_edit_screen, 320, 240); /* DISPLAY_W, DISPLAY_H */
     lv_obj_set_pos(ui_matrix_edit_screen, 0, 0);
     lv_obj_set_style_bg_color(ui_matrix_edit_screen, lv_color_hex(COLOR_BLACK), 0);
     lv_obj_set_style_border_width(ui_matrix_edit_screen, 0, 0);
@@ -175,29 +231,7 @@ void ui_init_matrix_screen(void)
  *---------------------------------------------------------------------------*/
 void ui_update_matrix_display(void)
 {
-    for (int i = 0; i < 2; i++) {
-        lv_obj_set_style_text_color(matrix_tab_labels[i],
-            (i == (int)matrix_menu_state.tab) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_GREY_INACTIVE), 0);
-    }
-
-    uint8_t item_count = matrix_tab_item_count[matrix_menu_state.tab];
-    for (int i = 0; i < MENU_VISIBLE_ROWS; i++) {
-        if (i < (int)item_count) {
-            char buf[32];
-            if (matrix_menu_state.tab == 0) {
-                snprintf(buf, sizeof(buf), "%d:%s", i + 1, matrix_op_names[i]);
-            } else {
-                snprintf(buf, sizeof(buf), "%d:%s %dx%d",
-                         i + 1, matrix_edit_item_names[i],
-                         calc_matrices[i].rows, calc_matrices[i].cols);
-            }
-            lv_obj_set_style_text_color(matrix_item_labels[i],
-                (i == (int)matrix_menu_state.cursor) ? lv_color_hex(COLOR_YELLOW) : lv_color_hex(COLOR_WHITE), 0);
-            lv_label_set_text(matrix_item_labels[i], buf);
-        } else {
-            lv_label_set_text(matrix_item_labels[i], "");
-        }
-    }
+    MenuScreen_UpdateDisplay(&s_matrix_ms);
 }
 
 void ui_update_matrix_edit_display(void)
@@ -257,116 +291,7 @@ void ui_update_matrix_edit_display(void)
  *---------------------------------------------------------------------------*/
 bool handle_matrix_menu(Token_t t)
 {
-    MenuState_t *s = &matrix_menu_state;
-    switch (t) {
-    case TOKEN_LEFT:
-        tab_move(&s->tab, &s->cursor, NULL, 2, true, ui_update_matrix_display);
-        return true;
-    case TOKEN_RIGHT:
-        tab_move(&s->tab, &s->cursor, NULL, 2, false, ui_update_matrix_display);
-        return true;
-    case TOKEN_UP:
-        MenuState_MoveUp(s, matrix_tab_item_count[s->tab], MENU_VISIBLE_ROWS);
-        lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
-        return true;
-    case TOKEN_DOWN:
-        MenuState_MoveDown(s, matrix_tab_item_count[s->tab], MENU_VISIBLE_ROWS);
-        lvgl_lock(); ui_update_matrix_display(); lvgl_unlock();
-        return true;
-    case TOKEN_ENTER: {
-        if (s->tab == 0) {
-            const char *ins = matrix_op_insert[s->cursor];
-            if (ins != NULL) {
-                lvgl_lock();
-                lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-                lvgl_unlock();
-                menu_insert_text(ins, &s->return_mode);
-            }
-        } else {
-            matrix_edit_idx    = s->cursor;
-            matrix_edit_cursor     = 0;
-            matrix_edit_scroll     = 0;
-            matrix_edit_dim_field  = 0;
-            Calc_SetMode(MODE_MATRIX_EDIT);
-            matrix_edit_load_cell();
-            lvgl_lock();
-            lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-            ui_update_matrix_edit_display();
-            lvgl_unlock();
-        }
-        return true;
-    }
-    case TOKEN_1 ... TOKEN_6: {
-        int idx = (int)(t - TOKEN_0) - 1;
-        if (idx >= 0 && idx < (int)matrix_tab_item_count[s->tab]) {
-            s->cursor = (uint8_t)idx;
-            if (s->tab == 0) {
-                const char *ins = matrix_op_insert[idx];
-                if (ins != NULL) {
-                    lvgl_lock();
-                    lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-                    lvgl_unlock();
-                    menu_insert_text(ins, &s->return_mode);
-                }
-            } else {
-                matrix_edit_idx    = (uint8_t)idx;
-                matrix_edit_cursor = 0;
-                matrix_edit_scroll = 0;
-                matrix_edit_dim_field = 0;
-                matrix_edit_len    = 0;
-                matrix_edit_buf[0] = '\0';
-                Calc_SetMode(MODE_MATRIX_EDIT);
-                lvgl_lock();
-                lv_obj_add_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_clear_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-                ui_update_matrix_edit_display();
-                lvgl_unlock();
-            }
-        }
-        return true;
-    }
-    case TOKEN_CLEAR:
-    case TOKEN_MATRX:
-        menu_close(TOKEN_MATRX);
-        return true;
-    case TOKEN_Y_EQUALS:
-        s->return_mode = MODE_NORMAL;
-        s->tab         = 0;
-        s->cursor      = 0;
-        nav_to(MODE_GRAPH_YEQ);
-        return true;
-    case TOKEN_RANGE:
-        s->return_mode = MODE_NORMAL;
-        s->tab         = 0;
-        s->cursor      = 0;
-        nav_to(MODE_GRAPH_RANGE);
-        return true;
-    case TOKEN_ZOOM:
-        s->return_mode = MODE_NORMAL;
-        s->tab         = 0;
-        s->cursor      = 0;
-        nav_to(MODE_GRAPH_ZOOM);
-        return true;
-    case TOKEN_GRAPH:
-        s->return_mode = MODE_NORMAL;
-        s->tab         = 0;
-        s->cursor      = 0;
-        nav_to(MODE_GRAPH_FREE_CURSOR);
-        return true;
-    case TOKEN_TRACE:
-        s->return_mode = MODE_NORMAL;
-        s->tab         = 0;
-        s->cursor      = 0;
-        nav_to(MODE_GRAPH_TRACE);
-        return true;
-    default: {
-        CalcMode_t ret = menu_close(TOKEN_MATRX);
-        if (ret == MODE_GRAPH_YEQ) return true;
-        return false; /* fall through to main switch */
-    }
-    }
-    return true;
+    return MenuScreen_HandleToken(&s_matrix_ms, t);
 }
 
 void handle_matrix_edit(Token_t t)
@@ -428,7 +353,7 @@ void handle_matrix_edit(Token_t t)
             Calc_SetMode(MODE_MATRIX_MENU);
             lvgl_lock();
             lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(s_matrix_ms.screen, LV_OBJ_FLAG_HIDDEN);
             ui_update_matrix_display();
             lvgl_unlock();
             return;
@@ -538,7 +463,7 @@ void handle_matrix_edit(Token_t t)
             Calc_SetMode(MODE_MATRIX_MENU);
             lvgl_lock();
             lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(s_matrix_ms.screen, LV_OBJ_FLAG_HIDDEN);
             ui_update_matrix_display();
             lvgl_unlock();
         }
@@ -548,7 +473,7 @@ void handle_matrix_edit(Token_t t)
         Calc_SetMode(MODE_MATRIX_MENU);
         lvgl_lock();
         lv_obj_add_flag(ui_matrix_edit_screen, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(ui_matrix_screen, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_matrix_ms.screen, LV_OBJ_FLAG_HIDDEN);
         ui_update_matrix_display();
         lvgl_unlock();
         return;
@@ -566,19 +491,15 @@ void handle_matrix_edit(Token_t t)
 
 void Matrix_MenuOpen(CalcMode_t return_to)
 {
-    matrix_menu_state.return_mode = return_to;
-    matrix_menu_state.tab         = 0;
-    matrix_menu_state.cursor      = 0;
+    s_matrix_ms.nav.return_mode = return_to;
     Calc_SetMode(MODE_MATRIX_MENU);
-    Matrix_ShowMenuScreen();
-    ui_update_matrix_display();
+    lv_obj_clear_flag(s_matrix_ms.screen, LV_OBJ_FLAG_HIDDEN);
+    MenuScreen_ResetAndShow(&s_matrix_ms);
 }
 
 CalcMode_t Matrix_MenuClose(void)
 {
-    CalcMode_t ret                = matrix_menu_state.return_mode;
-    matrix_menu_state.return_mode = MODE_NORMAL;
-    matrix_menu_state.tab         = 0;
-    matrix_menu_state.cursor      = 0;
+    CalcMode_t ret              = s_matrix_ms.nav.return_mode;
+    s_matrix_ms.nav.return_mode = MODE_NORMAL;
     return ret;
 }
