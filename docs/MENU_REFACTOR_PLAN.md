@@ -22,7 +22,7 @@
 | 2f | Migrate MATH menu | ✅ DONE | 2026-05-16 | 2eb3e8c | 1.5 h |
 | 2g | Migrate ZOOM menu | ✅ DONE | 2026-05-16 | 0921109 | 1.5 h |
 | 2h | Migrate PRGM main menu (incl. `wrap_tabs`) | ✅ DONE | 2026-05-16 | a4f74be | 2 h |
-| 3 | Migrate MATRX 2-tab menu | ✅ DONE | 2026-05-17 | — | 2 h |
+| 3 | Migrate MATRX 2-tab menu | ✅ DONE | 2026-05-17 | b3a9d3a | 2 h |
 
 **Total estimated effort:** ~18 hours, spread across multiple sessions. Each step is independently shippable (test suite must pass + manual smoke test before proceeding).
 
