@@ -232,7 +232,7 @@ bool MenuScreen_HandleToken(MenuScreen_t *ms, Token_t t)
     default:
         if (d->on_extra)
             return d->on_extra(t, ms);
-        return false;
+        return MenuScreen_DefaultExtra(t, ms);
     }
 }
 

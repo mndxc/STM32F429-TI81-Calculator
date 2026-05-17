@@ -375,22 +375,34 @@ static void test_clear(void)
 }
 
 /* -------------------------------------------------------------------------- */
-/* Group 6: unknown token returns false (no on_extra)                          */
+/* Group 6: no on_extra — DefaultExtra called for menu-opening / graph-nav keys */
 /* -------------------------------------------------------------------------- */
 
 static void test_unknown_token(void)
 {
-    printf("Group 6: unknown token returns false\n");
+    printf("Group 6: no on_extra — DefaultExtra fallback\n");
     MenuScreen_t ms;
     ms_init(&ms, &s5_desc);
 
-    /* TOKEN_ALPHA is not handled — should return false */
+    /* TOKEN_ALPHA: not a menu-opening or graph-nav key — returns false,
+     * on_cancel NOT called */
+    reset_callbacks();
     bool ret = MenuScreen_HandleToken(&ms, TOKEN_ALPHA);
     EXPECT_FALSE(ret, "TOKEN_ALPHA with no on_extra returns false");
+    EXPECT_FALSE(g_cancel_called, "TOKEN_ALPHA with no on_extra: on_cancel NOT called");
 
-    /* TOKEN_MATH also falls through */
+    /* TOKEN_MATH: menu-opening key — DefaultExtra fires, on_cancel IS called,
+     * returns false so dispatch continues with restored mode */
+    reset_callbacks();
     ret = MenuScreen_HandleToken(&ms, TOKEN_MATH);
     EXPECT_FALSE(ret, "TOKEN_MATH with no on_extra returns false");
+    EXPECT_TRUE(g_cancel_called, "TOKEN_MATH with no on_extra: on_cancel called");
+
+    /* TOKEN_GRAPH: graph-nav key — same behaviour as menu-opening key */
+    reset_callbacks();
+    ret = MenuScreen_HandleToken(&ms, TOKEN_GRAPH);
+    EXPECT_FALSE(ret, "TOKEN_GRAPH with no on_extra returns false");
+    EXPECT_TRUE(g_cancel_called, "TOKEN_GRAPH with no on_extra: on_cancel called");
 }
 
 /* -------------------------------------------------------------------------- */
