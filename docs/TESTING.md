@@ -15,7 +15,7 @@ Run these commands from the **repo root** (the directory containing `CMakeLists.
 ```bash
 cmake -S App/Tests -B build-tests
 cmake --build build-tests
-ctest --test-dir build-tests   # runs all 15 suites (1027 assertions total)
+ctest --test-dir build-tests   # runs all 16 suites (1096 assertions total)
 ```
 
 Or run individual suites:
@@ -35,6 +35,7 @@ Or run individual suites:
 ./build-tests/test_mode_topology      # CalcMode_t routing topology — F2 (1 test)
 ./build-tests/test_graph_render       # Graph render integration — F3 (21 tests)
 ./build-tests/test_error_codes        # Error string format + error_offset propagation (25 tests)
+./build-tests/test_ui_menu_screen     # MenuScreen_t navigation: HandleToken, SetTab, IsMenuOpeningKey, DefaultExtra (69 tests)
 ```
 
 ### Test Executables
@@ -54,6 +55,7 @@ Or run individual suites:
 13. **test_mode_topology**: Validates `CalcMode_t` routing topology (F2) — every mode value appears in exactly one of the route table or the known-special-cases list; no mode is silently unhandled.
 14. **test_graph_render**: End-to-end integration test for the graph render pipeline (F3). Compiles `graph.c` and `graph_draw.c` under HOST_TEST (SDRAM buffers redirected to in-memory arrays); asserts correct RGB565 pixel values at computed canvas coordinates for constant equations, validates cache invalidation on equation change, and confirms disabled/malformed equations draw nothing. Also verifies all four `graph_coord_*` transforms against known boundary values.
 15. **test_error_codes**: Validates `Calc_GetErrorString()` produces correct TI-81-format error strings for all `CalcError_t` values; validates `error_offset` propagation through `Calc_Evaluate`, `Calc_Parse`, and `Calc_Eval` for errors with cursor-positioning requirements.
+16. **test_ui_menu_screen**: Validates `MenuScreen_t` navigation logic — digit shortcuts, UP/DOWN boundary behaviour with scroll, LEFT/RIGHT within-menu tab switching (wrap and no-wrap), sibling-mode tab switching via `on_tab_switch`, CLEAR callback, unknown-token fall-through, `on_extra` precedence, `MenuScreen_DefaultExtra` close-and-pass-through, and `MenuScreen_IsMenuOpeningKey`.
 
 ### Adding a New Test
 

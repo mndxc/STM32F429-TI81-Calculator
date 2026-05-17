@@ -45,17 +45,24 @@ static void ctl_on_select(int idx, lv_obj_t *screen)
     prgm_submenu_return_to_editor(screen);
 }
 
+/* tabs[3]: index 0 = CTL items; indices 1-2 are empty placeholders for the
+ * visual tab bar (I/O and EXEC are on separate screens). */
+static const MenuTabDesc_t s_ctl_tabs[3] = {
+    { PRGM_CTL_ITEM_COUNT, prgm_ctl_display, NULL, ctl_on_select },
+    { 0, NULL, NULL, NULL },
+    { 0, NULL, NULL, NULL },
+};
+
 static const MenuScreenDesc_t s_ctl_desc = {
     .tab_count      = 3,
     .tab_names      = s_tab_names,
     .tab_x          = s_tab_x,
-    .active_tab     = 0,
-    .item_count     = PRGM_CTL_ITEM_COUNT,
-    .display_labels = prgm_ctl_display,
-    .get_label      = NULL,
+    .default_tab    = 0,
+    .wrap_tabs      = false,
+    .title          = NULL,
+    .tabs           = s_ctl_tabs,
     .left_mode      = MODE_PRGM_EXEC_MENU,
     .right_mode     = MODE_PRGM_IO_MENU,
-    .on_select      = ctl_on_select,
     .on_cancel      = prgm_submenu_return_to_editor,
     .on_tab_switch  = prgm_submenu_tab_switch,
     .on_extra       = NULL,

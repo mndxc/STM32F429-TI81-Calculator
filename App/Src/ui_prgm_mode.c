@@ -73,17 +73,29 @@ static void gph_on_select(int idx, lv_obj_t *screen)
     prgm_submenu_return_to_editor(screen);
 }
 
+/* NUMBER screen: tabs[2] — index 0 = NUMBER items; index 1 = empty placeholder
+ * (GRAPH is on a separate screen navigated via on_tab_switch). */
+static const MenuTabDesc_t s_num_tabs[2] = {
+    { PRGM_MODE_NUM_COUNT, prgm_mode_num_display, NULL, num_on_select },
+    { 0, NULL, NULL, NULL },
+};
+
+/* GRAPH screen: tabs[2] — index 0 = empty placeholder; index 1 = GRAPH items. */
+static const MenuTabDesc_t s_gph_tabs[2] = {
+    { 0, NULL, NULL, NULL },
+    { PRGM_MODE_GPH_COUNT, prgm_mode_gph_display, NULL, gph_on_select },
+};
+
 static const MenuScreenDesc_t s_num_desc = {
     .tab_count      = 2,
     .tab_names      = s_tab_names,
     .tab_x          = s_tab_x,
-    .active_tab     = 0,
-    .item_count     = PRGM_MODE_NUM_COUNT,
-    .display_labels = prgm_mode_num_display,
-    .get_label      = NULL,
-    .left_mode      = 0,                   /* no LEFT in NUMBER tab */
+    .default_tab    = 0,
+    .wrap_tabs      = false,
+    .title          = NULL,
+    .tabs           = s_num_tabs,
+    .left_mode      = 0,                    /* no LEFT in NUMBER tab */
     .right_mode     = MODE_PRGM_MODE_GRAPH,
-    .on_select      = num_on_select,
     .on_cancel      = prgm_submenu_return_to_editor,
     .on_tab_switch  = prgm_submenu_tab_switch,
     .on_extra       = NULL,
@@ -93,13 +105,12 @@ static const MenuScreenDesc_t s_gph_desc = {
     .tab_count      = 2,
     .tab_names      = s_tab_names,
     .tab_x          = s_tab_x,
-    .active_tab     = 1,
-    .item_count     = PRGM_MODE_GPH_COUNT,
-    .display_labels = prgm_mode_gph_display,
-    .get_label      = NULL,
+    .default_tab    = 1,
+    .wrap_tabs      = false,
+    .title          = NULL,
+    .tabs           = s_gph_tabs,
     .left_mode      = MODE_PRGM_MODE_NUMBER,
-    .right_mode     = 0,                   /* no RIGHT in GRAPH tab */
-    .on_select      = gph_on_select,
+    .right_mode     = 0,                    /* no RIGHT in GRAPH tab */
     .on_cancel      = prgm_submenu_return_to_editor,
     .on_tab_switch  = prgm_submenu_tab_switch,
     .on_extra       = NULL,

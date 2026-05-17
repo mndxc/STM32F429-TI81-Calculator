@@ -13,7 +13,7 @@
 | # | Step | Status | Date | Commit | Est. |
 |---|------|--------|------|--------|------|
 | 0 | Passthrough bug fix (`ui_menu_screen.c:131`) | ✅ DONE | 2026-05-16 | 16c8b34 | 5 min |
-| 1 | Extend `MenuScreen_t` API + rewrite 5 PRGM sub-menu descriptors + add host test | ⬜ TODO | — | — | 3 h |
+| 1 | Extend `MenuScreen_t` API + rewrite 5 PRGM sub-menu descriptors + add host test | ✅ DONE | 2026-05-16 | — | 3 h |
 | 2a | Migrate DRAW menu | ⬜ TODO | — | — | 1 h |
 | 2b | Migrate TEST menu | ⬜ TODO | — | — | 1 h |
 | 2c | Migrate STAT menu | ⬜ TODO | — | — | 1 h |
@@ -98,25 +98,25 @@ All 5 PRGM sub-menus pass unrecognized tokens through to `handle_normal_mode`. C
 
 ## Step 1 — Extend `MenuScreen_t` for Within-Menu Tab Navigation
 
-**Status:** ⬜ TODO
+**Status:** ✅ DONE (2026-05-16)
 **Files:** `App/Inc/ui_menu_screen.h`, `App/Src/ui_menu_screen.c`, `App/Src/ui_prgm.c` (sub-menu descriptors), `tests/test_ui_menu_screen.c` (new), `tests/CMakeLists.txt`
 **Estimate:** 3 h (breaking API change — must rewrite all 5 PRGM sub-menu descriptors in same commit)
 
 ### Sub-tasks
-- [ ] Add `MenuTabDesc_t` (per-tab item descriptor with own `item_count`, `display_labels`/`get_label`, `on_select(int, lv_obj_t*)`)
-- [ ] Restructure `MenuScreenDesc_t`: replace top-level `item_count`/`display_labels`/`on_select` with `const MenuTabDesc_t *tabs`; add `title`, `default_tab`, `wrap_tabs`
-- [ ] Bump `MENU_SCREEN_MAX_TABS` from 3 to 5 (VARS has 5 tabs)
-- [ ] Add `active_tab` and `title_label` fields to `MenuScreen_t`
-- [ ] Implement `MenuScreen_SetTab(ms, idx)` — recolor tab bar, reset cursor/scroll, refresh display (under lvgl_lock)
-- [ ] Implement `MenuScreen_IsMenuOpeningKey(t)` — TOKEN_MATH/TEST/VARS/MATRX/PRGM/Y_VARS/STAT/DRAW
-- [ ] Implement `MenuScreen_DefaultExtra(t, ms)` — closes current menu and passes graph nav (Y_EQUALS/RANGE/ZOOM/GRAPH/TRACE) and menu-opening keys through to `handle_normal_mode`
-- [ ] Update `MenuScreen_HandleToken` LEFT/RIGHT to honor `wrap_tabs` (see code block below)
-- [ ] Update `MenuScreen_UpdateDisplay` to use `desc->tabs[ms->active_tab]` for item lookups
-- [ ] Render `title` label when `tab_count == 0 && title != NULL` (yellow, top of screen)
-- [ ] Rewrite 5 PRGM sub-menu descriptors (`prgm_ctl_desc`, `prgm_io_desc`, `prgm_exec_desc`, `prgm_mode_number_desc`, `prgm_mode_graph_desc`) to use new `tabs[]` form
-- [ ] Create `tests/test_ui_menu_screen.c` with cases: digit shortcut, UP/DOWN with scroll, LEFT/RIGHT with and without wrap, CLEAR, unknown-token returns false, `on_extra` precedence
-- [ ] Register new test in `tests/CMakeLists.txt`
-- [ ] Update `docs/TESTING.md` suite count and assertion total
+- [x] Add `MenuTabDesc_t` (per-tab item descriptor with own `item_count`, `display_labels`/`get_label`, `on_select(int, lv_obj_t*)`)
+- [x] Restructure `MenuScreenDesc_t`: replace top-level `item_count`/`display_labels`/`on_select` with `const MenuTabDesc_t *tabs`; add `title`, `default_tab`, `wrap_tabs`
+- [x] Bump `MENU_SCREEN_MAX_TABS` from 3 to 5 (VARS has 5 tabs)
+- [x] Add `active_tab` and `title_label` fields to `MenuScreen_t`
+- [x] Implement `MenuScreen_SetTab(ms, idx)` — recolor tab bar, reset cursor/scroll, refresh display (under lvgl_lock)
+- [x] Implement `MenuScreen_IsMenuOpeningKey(t)` — TOKEN_MATH/TEST/VARS/MATRX/PRGM/Y_VARS/STAT/DRAW
+- [x] Implement `MenuScreen_DefaultExtra(t, ms)` — closes current menu and passes graph nav (Y_EQUALS/RANGE/ZOOM/GRAPH/TRACE) and menu-opening keys through to `handle_normal_mode`
+- [x] Update `MenuScreen_HandleToken` LEFT/RIGHT to honor `wrap_tabs` (see code block below)
+- [x] Update `MenuScreen_UpdateDisplay` to use `desc->tabs[ms->active_tab]` for item lookups
+- [x] Render `title` label when `tab_count == 0 && title != NULL` (yellow, top of screen)
+- [x] Rewrite 5 PRGM sub-menu descriptors (`prgm_ctl_desc`, `prgm_io_desc`, `prgm_exec_desc`, `prgm_mode_number_desc`, `prgm_mode_graph_desc`) to use new `tabs[]` form
+- [x] Create `tests/test_ui_menu_screen.c` with cases: digit shortcut, UP/DOWN with scroll, LEFT/RIGHT with and without wrap, CLEAR, unknown-token returns false, `on_extra` precedence
+- [x] Register new test in `tests/CMakeLists.txt`
+- [x] Update `docs/TESTING.md` suite count and assertion total
 
 ### Updated LEFT/RIGHT logic
 ```c
@@ -356,5 +356,6 @@ No `[complexity]` item needed in CLAUDE.md after the refactor completes. Update 
 
 Add a one-line entry per session in reverse-chronological order. Include date, step(s) advanced, commit SHA, and any notes/decisions.
 
+- **2026-05-16** — Step 1 complete. Added `MenuTabDesc_t`, restructured `MenuScreenDesc_t` (tabs[] replaces item_count/display_labels/on_select; adds title/default_tab/wrap_tabs); added `active_tab`/`title_label` to `MenuScreen_t`; bumped `MENU_SCREEN_MAX_TABS` 3→5; implemented `SetTab`, `IsMenuOpeningKey`, `DefaultExtra`; rewrote 5 PRGM sub-menu descriptors to tabs[] form; added `test_ui_menu_screen.c` (69 assertions). All 16 host suites pass. Manual smoke pending hardware.
 - **2026-05-16** — Step 0 complete (commit 16c8b34). One-line fix: `return true` → `return false` in `MenuScreen_HandleToken` default branch. All 15 host suites pass. Manual smoke pending hardware.
 - **2026-05-16** — Plan created; saved as `docs/MENU_REFACTOR_PLAN.md`. CLAUDE.md "Next session priorities" updated with pointer. Awaiting Step 0 start.

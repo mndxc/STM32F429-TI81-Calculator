@@ -322,6 +322,27 @@ if(COVERAGE)
     target_link_options(test_error_codes PRIVATE --coverage)
 endif()
 
+# --- test_ui_menu_screen ---
+# MenuScreen_t navigation logic (HandleToken, SetTab, IsMenuOpeningKey, DefaultExtra).
+# HOST_TEST stubs out LVGL; lvgl_lock/unlock are provided in the test file.
+
+add_executable(test_ui_menu_screen
+    test_ui_menu_screen.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/ui_menu_screen.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../Src/menu_state.c
+)
+
+target_include_directories(test_ui_menu_screen PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../HW/Keypad
+)
+
+target_compile_options(test_ui_menu_screen PRIVATE -Wall -Wextra -DHOST_TEST=1)
+
+if(COVERAGE)
+    target_compile_options(test_ui_menu_screen PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+    target_link_options(test_ui_menu_screen PRIVATE --coverage)
+endif()
+
 # CTest integration — run with: ctest --test-dir build/tests
 enable_testing()
 add_test(NAME calc_engine       COMMAND test_calc_engine)
@@ -339,3 +360,4 @@ add_test(NAME parse_eval        COMMAND test_parse_eval)
 add_test(NAME mode_topology     COMMAND test_mode_topology)
 add_test(NAME graph_render      COMMAND test_graph_render)
 add_test(NAME error_codes       COMMAND test_error_codes)
+add_test(NAME ui_menu_screen    COMMAND test_ui_menu_screen)

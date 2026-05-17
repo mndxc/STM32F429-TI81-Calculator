@@ -60,17 +60,24 @@ static bool exec_on_extra(Token_t t, MenuScreen_t *ms)
     return true;
 }
 
+/* tabs[3]: index 2 = EXEC items; indices 0 and 1 are empty placeholders
+ * for the visual tab bar (CTL and I/O are on separate screens). */
+static const MenuTabDesc_t s_exec_tabs[3] = {
+    { 0, NULL, NULL, NULL },
+    { 0, NULL, NULL, NULL },
+    { PRGM_MAX_PROGRAMS, NULL, exec_get_label, exec_on_select },
+};
+
 static const MenuScreenDesc_t s_exec_desc = {
     .tab_count      = 3,
     .tab_names      = s_tab_names,
     .tab_x          = s_tab_x,
-    .active_tab     = 2,
-    .item_count     = PRGM_MAX_PROGRAMS,
-    .display_labels = NULL,
-    .get_label      = exec_get_label,
+    .default_tab    = 2,
+    .wrap_tabs      = false,
+    .title          = NULL,
+    .tabs           = s_exec_tabs,
     .left_mode      = MODE_PRGM_IO_MENU,
     .right_mode     = MODE_PRGM_CTL_MENU,
-    .on_select      = exec_on_select,
     .on_cancel      = prgm_submenu_return_to_editor,
     .on_tab_switch  = prgm_submenu_tab_switch,
     .on_extra       = exec_on_extra,
