@@ -16,8 +16,10 @@
 #include <ctype.h>
 
 /* Scientific-notation display thresholds for Calc_FormatResult */
-#define CALC_SCI_HI        1e7f   /* values >= this use scientific notation */
-#define CALC_SCI_LO        1e-3f  /* non-zero values < this use scientific notation (TI-81: .001) */
+#define CALC_SCI_HI        1e7f   /* values >= this use scientific notation (TI-81: 10000000) */
+#define CALC_SCI_LO        1e-3f  /* non-zero |values| < this use scientific notation (TI-81: .001).
+                                   * Changing either threshold is a deliberate deviation — document in
+                                   * "Deliberate Deviations" in CLAUDE.md if you alter these. */
 #define CALC_INT_EPS       1e-4f  /* max fractional part to display as integer */
 #define CALC_SINGULARITY_EPS 1e-10f /* pivot threshold below which matrix is singular */
 #define CALC_PI_VALUE      3.14159265358979f /* IEEE 754 single — matches TI-81 precision */

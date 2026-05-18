@@ -12,7 +12,7 @@
  * Bank 2), independently of the calculator variable/graph persist block.
  * All FLASH write routines carry .RamFunc to execute from RAM during AHB stall.
  *
- * FLASH sector map (STM32F429ZIT6):
+ * FLASH sector map (STM32F429ZIT6) — abbreviated; authoritative map in persist.h:
  *   Sector 10: 0x080C0000 — occupied by firmware (as of 2026-04-28, ~820 KB)
  *   Sector 11: 0x080E0000 — persist block (persist.h / persist.c)
  *   Sector 12: 0x08100000 — program storage (this module, Bank 2)
@@ -145,13 +145,18 @@ void Prgm_SetOutput(const PrgmOutput_t *out);
  * g_prgm_store is no longer exported; prgm_exec.c owns it exclusively.
  *---------------------------------------------------------------------------*/
 
-/** @brief Return the null-terminated name for @p slot (may be empty string). */
+/** @brief Return the null-terminated name for @p slot (may be empty string).
+ *  @p slot is a 0-based index (0–36), NOT the display ID character ('1','A',etc.).
+ *  To convert a display ID to a slot index use Prgm_LookupSlot(). */
 const char *Prgm_GetName(uint8_t slot);
 
-/** @brief Return the null-terminated newline-delimited body for @p slot. */
+/** @brief Return the null-terminated newline-delimited body for @p slot.
+ *  @p slot is a 0-based index (0–36), NOT the display ID character.
+ *  Display-ID to slot mapping: '1'–'9' → 0–8, '0' → 9, 'A'–'Z' → 10–35, 'θ' → 36. */
 const char *Prgm_GetBody(uint8_t slot);
 
-/** @brief Return true when @p slot has a non-empty name (i.e. is occupied). */
+/** @brief Return true when @p slot has a non-empty name (i.e. is occupied).
+ *  @p slot is a 0-based index (0–36). */
 bool Prgm_IsSlotOccupied(uint8_t slot);
 
 /**

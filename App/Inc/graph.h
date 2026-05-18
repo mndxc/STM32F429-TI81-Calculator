@@ -184,8 +184,14 @@ bool Graph_HandleKey(Token_t t);
 /*---------------------------------------------------------------------------
  * Cursor state types and accessors
  *
+ * These three structs are separate from GraphState_t (which owns equations,
+ * window, and mode flags).  Cursor state is transient — it is never persisted
+ * to FLASH and is reset whenever graph rendering restarts.
+ *
  * Owned by graph.c; graph_ui.c reads via const pointers and writes via the
- * named setters below.
+ * named setters below.  All setters are thin wrappers with no lock acquisition;
+ * callers must hold lvgl_lock() when a setter is followed by a draw call in
+ * the same critical section.
  *--------------------------------------------------------------------------*/
 
 typedef struct {

@@ -67,13 +67,23 @@ void       Stat_MenuOpen(CalcMode_t return_to);
 /** Resets STAT menu state and returns the saved return mode. Called from menu_close(). */
 CalcMode_t Stat_MenuClose(void);
 
-/** Token handler for MODE_STAT_MENU.  Returns true to consume token. */
+/** Token handler for MODE_STAT_MENU.
+ *  Consumes: TOKEN_UP/DOWN (tab navigation), TOKEN_ENTER (open selected item),
+ *  TOKEN_CLEAR / TOKEN_2ND_QUIT (close menu, return to return_mode).
+ *  Returns true to consume token, false to let the caller handle it. */
 bool handle_stat_menu(Token_t t);
 
-/** Token handler for MODE_STAT_EDIT.  Returns true to consume token. */
+/** Token handler for MODE_STAT_EDIT (DATA list editor).
+ *  Consumes: TOKEN_UP/DOWN (row navigation), TOKEN_LEFT/RIGHT (x/y column),
+ *  digit/decimal keys (cell entry), TOKEN_ENTER (commit cell), TOKEN_DEL (backspace),
+ *  TOKEN_CLEAR / TOKEN_2ND_QUIT (exit editor).
+ *  Returns true to consume token. */
 bool handle_stat_edit(Token_t t);
 
-/** Token handler for MODE_STAT_RESULTS.  Returns true to consume token. */
+/** Token handler for MODE_STAT_RESULTS.
+ *  Consumes: TOKEN_CLEAR / TOKEN_2ND_QUIT (return to STAT menu).
+ *  All other tokens return false (not consumed).
+ *  Returns true to consume token. */
 bool handle_stat_results(Token_t t);
 
 #endif /* APP_UI_STAT_H */

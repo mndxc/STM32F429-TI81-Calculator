@@ -51,6 +51,17 @@ void Calc_ClearExpr(void);
  *     Calc_SetMode() / Calc_SetReturnMode().
  *   - These are plain setters — no business logic, no lock acquisition.
  *     Callers hold lvgl_lock() when needed, same as before.
+ *
+ * Modal lifecycle pattern (e.g. entering MATRIX_MENU from NORMAL):
+ *   1. Calc_SetReturnMode(Calc_GetMode())  — save the mode to restore on exit
+ *   2. Calc_SetMode(MODE_MATRIX_MENU)      — enter the overlay mode
+ *   On exit (CLEAR / QUIT):
+ *   3. Calc_SetMode(Calc_GetReturnMode())  — restore saved mode
+ *
+ * Calc_SetMode()       — use for immediate, unconditional mode changes.
+ * Calc_SetReturnMode() — use to record which mode to restore when an overlay
+ *                        (menu, editor) closes.  Never set this without also
+ *                        calling Calc_SetMode() to enter the overlay.
  */
 void        Calc_SetMode(CalcMode_t mode);
 void        Calc_SetReturnMode(CalcMode_t mode);

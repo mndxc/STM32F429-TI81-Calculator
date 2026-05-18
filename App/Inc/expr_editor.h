@@ -49,7 +49,9 @@ const char *ExprEditor_GetBuf(void);
 /** Current byte length of the expression (does not count the null terminator). */
 int ExprEditor_GetLen(void);
 
-/** Current cursor insertion point (byte offset into the expression string). */
+/** Current cursor insertion point (byte offset into the expression string, not glyph index).
+ *  0 is a valid position (cursor before first character) — not a sentinel or error value.
+ *  Always points to the start byte of a UTF-8 character sequence. */
 int ExprEditor_GetCursor(void);
 
 /** Set cursor to @p pos (clamped to [0, len] by the caller). */
@@ -60,6 +62,11 @@ void ExprEditor_SetCursor(int pos);
  *---------------------------------------------------------------------------*/
 
 bool ExprEditor_GetStoPending(void);
+/** Set or clear the STO-pending transient prefix flag.
+ *  When true, the next ExprEditor_CursorUpdate() call renders the cursor in
+ *  MODE_STO (green 'A') regardless of the mode argument — this is the STO
+ *  synthesis rule.  Set to true when TOKEN_STO is pressed; cleared on the
+ *  next keypress that consumes or cancels the STO action. */
 void ExprEditor_SetStoPending(bool v);
 
 /*---------------------------------------------------------------------------

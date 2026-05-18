@@ -27,7 +27,7 @@
 
 /* Matrix dimensions */
 #define CALC_MATRIX_MAX_DIM  6  /* Maximum 6×6; actual size stored in rows/cols */
-#define CALC_MATRIX_COUNT    4  /* [A]=0 [B]=1 [C]=2 ANS=3 */
+#define CALC_MATRIX_COUNT    4  /* [A]=0 [B]=1 [C]=2 ANS=3 — ANS (index 3) is transient; not persisted to FLASH */
 
 /*---------------------------------------------------------------------------
  * Types
@@ -139,6 +139,8 @@ typedef enum {
     MATH_FUNC_LIST_X,       /* {x}(n) — nth stat x data point (1-based) */
     MATH_FUNC_LIST_Y,       /* {y}(n) — nth stat y data point (1-based) */
     MATH_COMMA,             /* , — argument separator (consumed by ShuntingYard, never in RPN) */
+    /* No MATH_TOKEN_COUNT sentinel — this enum is never iterated; values appear only in
+     * switch() dispatch tables. Adding a count would require updating every switch() default. */
 } MathTokenType_t;
 
 typedef struct {
@@ -163,7 +165,10 @@ typedef struct {
     char        error_msg[24];  /* Human readable error string */
     bool        has_matrix;     /* True if result is a matrix, not a scalar */
     uint8_t     matrix_idx;     /* Index into calc_matrices[] when has_matrix is true */
-    uint16_t    error_offset;   /* Byte offset in source expression where fault was detected (0 if unknown) */
+    uint16_t    error_offset;   /* Byte offset in source expression where fault was detected.
+                                 * Populated for CALC_ERR_SYNTAX and CALC_ERR_OVERFLOW only.
+                                 * 0 for all other error codes (domain/math errors have no source location).
+                                 * NOTE: 0 is also a valid byte offset — distinguish via the error field. */
 } CalcResult_t;
 
 /**
@@ -196,7 +201,9 @@ typedef struct {
 /** User variable storage — A through Z, indexed by (ch - 'A'); [26] = θ. */
 extern float calc_variables[27];
 
-/** Matrix storage — [A]=0, [B]=1, [C]=2, ANS=3. */
+/** Matrix storage — [A]=0, [B]=1, [C]=2, ANS=3.
+ *  INVARIANT: calc_matrices[3] (ANS) is transient — it is never written to FLASH.
+ *  Do not rely on its value surviving a power cycle or a Persist_Reset() call. */
 extern CalcMatrix_t calc_matrices[CALC_MATRIX_COUNT];
 
 
