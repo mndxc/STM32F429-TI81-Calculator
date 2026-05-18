@@ -813,7 +813,9 @@ void ui_output_row(uint8_t row_1based, const char *text)
  */
 void menu_insert_text(const char *ins, CalcMode_t *ret_mode)
 {
-    if (*ret_mode == MODE_GRAPH_YEQ) {
+    if (*ret_mode == MODE_PRGM_EDITOR) {
+        PrgmEditor_MenuInsert(ins);
+    } else if (*ret_mode == MODE_GRAPH_YEQ) {
         Calc_SetMode(MODE_GRAPH_YEQ);
         graph_ui_yeq_insert(ins);
     } else {

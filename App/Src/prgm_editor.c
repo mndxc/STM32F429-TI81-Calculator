@@ -458,6 +458,21 @@ bool PrgmEditor_HandleToken(Token_t t)
         ui_prgm_mode_num_reset_and_show();
         lvgl_unlock();
         return true;
+    case TOKEN_VARS:
+        menu_open(TOKEN_VARS, MODE_PRGM_EDITOR);
+        return true;
+    case TOKEN_MATRX:
+        menu_open(TOKEN_MATRX, MODE_PRGM_EDITOR);
+        return true;
+    case TOKEN_Y_VARS:
+        menu_open(TOKEN_Y_VARS, MODE_PRGM_EDITOR);
+        return true;
+    case TOKEN_STAT:
+        menu_open(TOKEN_STAT, MODE_PRGM_EDITOR);
+        return true;
+    case TOKEN_DRAW:
+        menu_open(TOKEN_DRAW, MODE_PRGM_EDITOR);
+        return true;
     default:
         editor_handle_insert(t);
         return true;

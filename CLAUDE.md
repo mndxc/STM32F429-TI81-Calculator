@@ -100,10 +100,6 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 **[complexity] handle_vars_menu (65 lines, depth 5) and handle_yvars_menu (73 lines, depth 5) exceed both thresholds** — E17 sweep. Both are dispatch tables wrapped in nested conditional logic; extract the token-dispatch switch body into a static helper that returns the insert string, then call it from a thin top-level function. Files: `App/Src/ui_vars.c`, `App/Src/ui_yvars.c`.
 
-#### Refactoring — surfaced by 2026-05-07 codebase audit
-
-**[bug] PRGM editor routes only MATH/TEST/PRGM/MODE to menus (Menu Refactor Follow-up #2)** — `App/Src/prgm_editor.c:461` falls into `editor_handle_insert` for VARS/MATRX/Y_VARS/STAT/DRAW. Add explicit cases calling `menu_open(TOKEN_X, MODE_PRGM_EDITOR)` for each; add corresponding `return_mode == MODE_PRGM_EDITOR → PrgmEditor_MenuInsert` branches to each menu's insert helper (mirror `ui_math_menu.c:257`).
-
 #### Hardware validation — no new code, test on device
 
 Hardware validation checklist: [docs/hardware_checklist.md](docs/hardware_checklist.md).
