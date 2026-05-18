@@ -96,7 +96,7 @@ void Graph_Shade(const char *lower_expr, const char *upper_expr,
 
     const GraphState_t *gs = Graph_GetState();
     float x_range = gs->x_max - gs->x_min;
-    if (fabsf(x_range) < 1e-9f) return;
+    if (fabsf(x_range) < GRAPH_COORD_MIN_RANGE) return;
 
     /* Convert math-world boundaries to pixel columns */
     if (x_beg > x_end) { float tmp = x_beg; x_beg = x_end; x_end = tmp; }

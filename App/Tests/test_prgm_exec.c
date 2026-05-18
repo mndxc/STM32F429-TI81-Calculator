@@ -15,6 +15,11 @@
  *     history[].result, history[].expression.
  *   - MODE_NORMAL after run = program completed.
  *   - MODE_PRGM_RUNNING after run = program paused (Pause/Input/Prompt).
+ *
+ * Coverage gaps (intentional): Prgm_ContinueAfterInput / Prgm_ResumeAfterPause flows
+ * (require simulating UI-side input entry after MODE_PRGM_RUNNING); DispGraph/ClrDraw
+ * pixel verification (no canvas in host tests — callback is wired but not verifiable);
+ * graph-exploration Input (input_graph stub is a no-op in test builds).
  */
 
 #include <stdio.h>
@@ -136,6 +141,12 @@ static void run_program(const char *body)
 /* -------------------------------------------------------------------------
  * Group 1: Goto / Lbl (5 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Goto transfers control to the line immediately after the matching Lbl; intervening lines skipped.
+ *   - Goto to a non-existent label terminates the program cleanly (no crash, mode=NORMAL).
+ *   - Lbl is a no-op during sequential execution — it does not consume or alter state.
+ *   - NOT tested: two Goto statements jumping to the same label.                          */
 static void test_goto_lbl(void)
 {
     printf("Group 1: Goto/Lbl\n");
@@ -175,6 +186,12 @@ static void test_goto_lbl(void)
 /* -------------------------------------------------------------------------
  * Group 2: If single-line (5 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - A false condition skips exactly one line (the line immediately following If).
+ *   - A true condition executes the next line and continues normally.
+ *   - If at the last line of the program with no following statement does not crash.
+ *   - NOT tested: nested If (Then/Else are removed per TI-81 spec — only single-line If exists). */
 static void test_if_single(void)
 {
     printf("Group 2: If single-line\n");
@@ -210,6 +227,12 @@ static void test_if_single(void)
 /* -------------------------------------------------------------------------
  * Group 6: IS> / DS< (6 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - IS>(var, t): increments var FIRST then skips the next line only if new value > t (strict).
+ *   - DS<(var, t): decrements var FIRST then skips the next line only if new value < t (strict).
+ *   - At-threshold: IS> with new value == t does NOT skip; DS< with new value == t does NOT skip.
+ *   - NOT tested: IS>/DS< at the last line of a program (no next line to skip).           */
 static void test_is_ds(void)
 {
     printf("Group 6: IS>/DS<\n");
@@ -266,6 +289,12 @@ static void test_is_ds(void)
 /* -------------------------------------------------------------------------
  * Group 7: Stop / Pause / Return (5 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Stop terminates the program; subsequent lines do not execute; mode=NORMAL.
+ *   - Pause suspends without executing lines after it; mode=PRGM_RUNNING.
+ *   - Normal end (falling off the last line) is equivalent to Stop — mode=NORMAL.
+ *   - NOT tested: Pause resume path (requires Prgm_ContinueAfterInput from the UI side). */
 static void test_stop_pause_return(void)
 {
     printf("Group 7: Stop/Pause/Return\n");
@@ -300,6 +329,11 @@ static void test_stop_pause_return(void)
 /* -------------------------------------------------------------------------
  * Group 8: STO (6 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - "expr->VAR" evaluates the left side and stores the result; updates ans.
+ *   - A syntax error in the expression leaves the variable unchanged; mode=NORMAL (non-fatal).
+ *   - NOT tested: STO to matrix element or Y= slot (those are in test_normal_mode.c Group 12). */
 static void test_sto(void)
 {
     printf("Group 8: STO\n");
@@ -343,6 +377,11 @@ static void test_sto(void)
 /* -------------------------------------------------------------------------
  * Group 9: General expression lines (4 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Expression lines update ans but do not store to any named variable.
+ *   - An evaluation error on a line is non-fatal; subsequent lines still execute.
+ *   - NOT tested: expression lines that produce matrix results inside a program. */
 static void test_general_expr(void)
 {
     printf("Group 9: General expression\n");
@@ -374,6 +413,12 @@ static void test_general_expr(void)
 /* -------------------------------------------------------------------------
  * Group 10: Disp (5 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Disp "string" places the text in the expression column (left-aligned) with an empty result.
+ *   - Disp <var/expr> places the formatted value in the result column.
+ *   - Each Disp call increments history_count by exactly 1.
+ *   - NOT tested: Disp with matrix result, Disp with no argument.                         */
 static void test_disp(void)
 {
     printf("Group 10: Disp\n");
@@ -411,6 +456,11 @@ static void test_disp(void)
 /* -------------------------------------------------------------------------
  * Group 11: Input / Prompt (4 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Input suspends execution (current_mode=PRGM_RUNNING) and creates a prompt history entry.
+ *   - The history entry makes the variable name visible on screen while waiting.
+ *   - NOT tested: resume path (Prgm_ContinueAfterInput), Input with a string prompt argument. */
 static void test_input_prompt(void)
 {
     printf("Group 11: Input/Prompt\n");
@@ -434,6 +484,11 @@ static void test_input_prompt(void)
 /* -------------------------------------------------------------------------
  * Group 12: ClrHome (3 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - ClrHome resets history_count and history_recall_offset to 0.
+ *   - A subsequent Disp after ClrHome begins counting from 0 again.
+ *   - NOT tested: ClrHome inside a subroutine (affects the same global state as the caller). */
 static void test_clrhome(void)
 {
     printf("Group 12: ClrHome\n");
@@ -460,6 +515,12 @@ static void test_clrhome(void)
 /* -------------------------------------------------------------------------
  * Group 13: Subroutine call (5 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - prgmID calls the named slot synchronously; the caller resumes on the line after prgmID.
+ *   - Subroutine shares the same calc_variables[] namespace as the caller.
+ *   - An unknown prgmID is a no-op — caller continues with the next line (no crash).
+ *   - NOT tested: subroutine that calls itself (self-recursion, only tested via overflow in Group 17). */
 static void test_subroutine(void)
 {
     printf("Group 13: Subroutine call\n");
@@ -500,6 +561,10 @@ static void test_subroutine(void)
 /* -------------------------------------------------------------------------
  * Group 14: Complex programs (8 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - A Goto-based counted loop produces a deterministic result (2^8=256 verified).
+ *   - NOT tested: programs mixing If, Goto, and subroutine calls simultaneously.          */
 static void test_complex_programs(void)
 {
     printf("Group 14: Complex programs\n");
@@ -521,6 +586,11 @@ static void test_complex_programs(void)
 /* -------------------------------------------------------------------------
  * Group 15: Empty body — T19 (run an empty/body-only slot)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - An empty or newline-only body runs to completion: mode=NORMAL, history_count=0.
+ *   - A slot with no user name still executes when addressed by slot index via Prgm_RunStart.
+ *   - NOT tested: body containing only whitespace characters other than '\n'.              */
 static void test_empty_body(void)
 {
     printf("Group 15: Empty body\n");
@@ -548,6 +618,12 @@ static void test_empty_body(void)
 /* -------------------------------------------------------------------------
  * Group 16: Prgm_LookupSlot — T35 / T35b (prgmNAME execution model)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Resolution order: user name match → canonical ID match; name match wins a collision.
+ *   - Canonical IDs: '1'..'9' → slots 0..8; '0' → slot 9; 'A'..'Z' → slots 10+.
+ *   - Unknown name or empty string returns -1.
+ *   - NOT tested: slots with duplicate user names (first match wins by insertion order).   */
 static void test_lookup_slot(void)
 {
     printf("Group 16: Prgm_LookupSlot\n");
@@ -586,6 +662,11 @@ static void test_lookup_slot(void)
 /* -------------------------------------------------------------------------
  * Group 17: Two-level nested subroutine — T34
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Two-level chains execute depth-first: innermost runs first, then mid, then main.
+ *   - Call stack overflow at depth 5 is silently ignored — the call is skipped, no crash.
+ *   - NOT tested: 3- and 4-level chains (only 2-level clean and 5-deep overflow are verified). */
 static void test_nested_subroutine(void)
 {
     printf("Group 17: Nested subroutine 2 levels\n");
@@ -623,6 +704,12 @@ static void test_nested_subroutine(void)
 /* -------------------------------------------------------------------------
  * Group 18: End command (6 tests) — guidebook p. 8-11
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - End at top level terminates the program (equivalent to Stop); mode=NORMAL.
+ *   - End inside a subroutine returns control to the caller (equivalent to Return).
+ *   - End in a nested subroutine returns exactly one level; the caller continues normally.
+ *   - NOT tested: End in a Goto-only program where End is never reached.                  */
 static void test_end_command(void)
 {
     printf("Group 18: End command\n");
@@ -678,6 +765,12 @@ static void test_end_command(void)
  * program.  Graph_Set* commands are host-guarded so only the number/angle
  * commands are verifiable here.
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Norm/Sci/Eng/Float/Fix N set notation and decimal modes; changes persist to subsequent lines.
+ *   - Rad/Deg set angle_degrees; this affects trig evaluation in subsequent expression lines.
+ *   - Fix with a non-digit argument is a no-op (mode unchanged).
+ *   - NOT tested: graph mode commands (Connected/Dot, Sequential/Simul) — no graph module here. */
 static void test_prgm_mode_cmds(void)
 {
     printf("Group 14: PRGM MODE commands\n");

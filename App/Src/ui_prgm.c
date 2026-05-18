@@ -32,6 +32,13 @@
 #include <stdio.h>
 #include <string.h>
 
+/*
+ * Owns:     PRGM menu screens (s_prgm_ms, s_prgm_edit_ms), the name-entry
+ *           editor, and key dispatch for MODE_PRGM_*.
+ * Not owns: Program FLASH storage or execution (owned by prgm_exec.c).
+ * Locks:    All LVGL calls require lvgl_lock() from the caller.
+ */
+
 /* PRGM menu/editor geometry */
 #define PRGM_TAB_COUNT          3   /* EXEC, EDIT, NEW */
 /* PRGM_MAX_LINES and PRGM_MAX_LINE_LEN are defined in prgm_exec.h (via ui_prgm.h) */
@@ -269,7 +276,7 @@ static uint32_t prgm_name_glyph_count(const char *s, uint8_t byte_len)
     return count;
 }
 
-/* Positions the new-name cursor box without updating the label text. */
+/* Must NOT acquire lvgl_lock() — called from LVGL timer; lock already held. */
 void prgm_new_cursor_update(void)
 {
     if (prgm_new_cursor_box == NULL || prgm_new_title_lbl == NULL) return;
@@ -279,7 +286,7 @@ void prgm_new_cursor_update(void)
                   Calc_GetCursorVisible(), Calc_GetMode(), false);
 }
 
-/* Updates the new-program name-entry label and cursor. */
+/* Updates the new-program name-entry label and cursor.  Caller must hold lvgl_lock(). */
 void ui_update_prgm_new_display(void)
 {
     /* Build "PrgmX:typed_name" in one buffer; cursor glyph index = 6 + name glyphs.
@@ -775,18 +782,21 @@ void ui_init_prgm_screens(void)
     ui_init_prgm_mode_screens(scr);
 }
 
+/* Caller must hold lvgl_lock(). */
 bool Prgm_IsEditorScreenVisible(void)
 {
     lv_obj_t *s = PrgmEditor_GetScreen();
     return s != NULL && !lv_obj_has_flag(s, LV_OBJ_FLAG_HIDDEN);
 }
 
+/* Caller must hold lvgl_lock(). */
 bool Prgm_IsNewScreenVisible(void)
 {
     return ui_prgm_new_screen != NULL &&
            !lv_obj_has_flag(ui_prgm_new_screen, LV_OBJ_FLAG_HIDDEN);
 }
 
+/* Caller must hold lvgl_lock(). */
 void hide_prgm_screens(void)
 {
     if (s_prgm_ms.screen)       lv_obj_add_flag(s_prgm_ms.screen,       LV_OBJ_FLAG_HIDDEN);

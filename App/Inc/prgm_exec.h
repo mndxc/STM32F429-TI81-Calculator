@@ -115,13 +115,16 @@ _Static_assert(sizeof(ProgramStore_t) % 4 == 0,
  *                (guidebook p. 8-13).  May be NULL in host-test builds.
  */
 typedef struct {
-    void (*disp_text)(const char *expr, const char *result);
-    void (*prog_done)(void);
-    void (*clr_home)(void);
-    void (*disp_graph)(void);
-    void (*show_home)(void);
-    void (*input_ready)(void);
-    void (*input_graph)(void);
+    void (*disp_text)(const char *expr, const char *result); /**< Disp/Output: expr=raw token string (may be ""),
+                                                               *   result=formatted numeric/matrix string (may be ""). */
+    void (*prog_done)(void);   /**< Stop or fall-off-end: show "Done" and refresh display. */
+    void (*clr_home)(void);    /**< After CalcHistory_Clear(); triggers display refresh. */
+    void (*disp_graph)(void);  /**< DispGraph: switch to graph screen and render. */
+    void (*show_home)(void);   /**< DispHome / program start: switch to home screen. */
+    void (*input_ready)(void); /**< After "?" prompt committed; refresh expression-buffer display. */
+    void (*input_graph)(void); /**< Input (no arg): activate graph free-cursor; suspend execution
+                                 *   until ENTER stores X/Y and resumes (guidebook p. 8-13).
+                                 *   May be NULL in host-test builds.                            */
 } PrgmOutput_t;
 
 /**

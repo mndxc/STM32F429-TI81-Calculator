@@ -17,6 +17,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+/*
+ * Owns:     Matrix cell editor state (matrix_edit_cursor, matrix_edit_dim_field,
+ *           LVGL cell grid) and key dispatch for matrix editor modes.
+ * Not owns: CalcMatrix_t data arrays (owned by calculator_core.c / persist).
+ * Locks:    All LVGL calls require lvgl_lock() from the caller.
+ *
+ * Invariant: matrix_edit_cursor ranges [-1, rows*cols-1]; -1 means cursor is
+ *            on the dimension row.
+ */
+
 /*---------------------------------------------------------------------------
  * Matrix UI State
  *---------------------------------------------------------------------------*/
@@ -40,6 +50,17 @@ static lv_obj_t *matrix_edit_down_lbl   = NULL;
 static lv_obj_t *matrix_edit_cursor_box    = NULL;
 static lv_obj_t *matrix_edit_cursor_inner  = NULL;
 
+/* Matrix dim-editor cursor column layout:
+ *   col 0–1: row-label glyph ("R " / "C ")
+ *   col 2–3: current value digits
+ *   col 4:   cursor sits here for ROWS field
+ *   col 5–6: '×' separator + next digit
+ *   col 6:   cursor sits here for COLS field            */
+#define MATRIX_DIM_CURSOR_ROWS_COL  4u
+#define MATRIX_DIM_CURSOR_COLS_COL  6u
+/* Cell value editor starts at col 4 (same layout as dim-row digit columns) */
+#define MATRIX_CELL_VALUE_COL_BASE  4u
+
 /* Strings / Constants */
 static const char * const matrix_matrx_labels[6] = {
     "1:rowSwap(", "2:row+(", "3:*row(", "4:*row+(", "5:det(", "6:T"
@@ -52,12 +73,13 @@ static const char * const matrix_edit_item_names[3] = {"[A]", "[B]", "[C]"};
 /*---------------------------------------------------------------------------
  * Internal helpers
  *---------------------------------------------------------------------------*/
+/* Must NOT acquire lvgl_lock() — called from LVGL timer; lock already held. */
 void matrix_edit_cursor_update(void)
 {
     if (matrix_edit_cursor_box == NULL) return;
 
     if (matrix_edit_cursor == -1) {
-        uint32_t char_pos = (matrix_edit_dim_field == 0) ? 4u : 6u;
+        uint32_t char_pos = (matrix_edit_dim_field == 0) ? MATRIX_DIM_CURSOR_ROWS_COL : MATRIX_DIM_CURSOR_COLS_COL;
         cursor_render(matrix_edit_cursor_box, matrix_edit_cursor_inner,
                       matrix_edit_title_lbl, char_pos,
                       Calc_GetCursorVisible(), Calc_GetMode(), false);
@@ -67,7 +89,7 @@ void matrix_edit_cursor_update(void)
             lv_obj_add_flag(matrix_edit_cursor_box, LV_OBJ_FLAG_HIDDEN);
             return;
         }
-        uint32_t char_pos = 4u + (uint32_t)matrix_edit_val_cursor;
+        uint32_t char_pos = MATRIX_CELL_VALUE_COL_BASE + (uint32_t)matrix_edit_val_cursor;
         cursor_render(matrix_edit_cursor_box, matrix_edit_cursor_inner,
                       matrix_list_labels[vis_idx], char_pos,
                       Calc_GetCursorVisible(), Calc_GetMode(), false);
@@ -167,10 +189,15 @@ static const MenuScreenDesc_t matrix_desc = {
  * Screen show/hide/visibility
  *---------------------------------------------------------------------------*/
 
+/* Caller must hold lvgl_lock(). */
 void Matrix_ShowMenuScreen(void) { lv_obj_clear_flag(s_matrix_ms.screen,    LV_OBJ_FLAG_HIDDEN); }
+/* Caller must hold lvgl_lock(). */
 void Matrix_HideMenuScreen(void) { lv_obj_add_flag  (s_matrix_ms.screen,    LV_OBJ_FLAG_HIDDEN); }
+/* Caller must hold lvgl_lock(). */
 void Matrix_ShowEditScreen(void) { lv_obj_clear_flag(ui_matrix_edit_screen,  LV_OBJ_FLAG_HIDDEN); }
+/* Caller must hold lvgl_lock(). */
 void Matrix_HideEditScreen(void) { lv_obj_add_flag  (ui_matrix_edit_screen,  LV_OBJ_FLAG_HIDDEN); }
+/* Caller must hold lvgl_lock(). */
 bool Matrix_IsEditScreenVisible(void)
 {
     return ui_matrix_edit_screen != NULL &&
@@ -229,11 +256,13 @@ void ui_init_matrix_screen(void)
 /*---------------------------------------------------------------------------
  * Display Updates
  *---------------------------------------------------------------------------*/
+/* Caller must hold lvgl_lock(). */
 void ui_update_matrix_display(void)
 {
     MenuScreen_UpdateDisplay(&s_matrix_ms);
 }
 
+/* Caller must hold lvgl_lock(). */
 void ui_update_matrix_edit_display(void)
 {
     CalcMatrix_t *m = &calc_matrices[matrix_edit_idx];
@@ -489,6 +518,7 @@ void handle_matrix_edit(Token_t t)
  * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
  *---------------------------------------------------------------------------*/
 
+/* Caller must hold lvgl_lock(). */
 void Matrix_MenuOpen(CalcMode_t return_to)
 {
     s_matrix_ms.nav.return_mode = return_to;

@@ -20,6 +20,13 @@
 #include <string.h>
 #include <stdlib.h>
 
+/*
+ * Owns:     s_stat_ms (MenuScreen_t for STAT), stat display labels, and key
+ *           dispatch for MODE_STAT.
+ * Not owns: stat_data[] and stat_results (owned by calc_stat.c).
+ * Locks:    All label-update calls require lvgl_lock() from the caller.
+ */
+
 /*---------------------------------------------------------------------------
  * Constants
  *---------------------------------------------------------------------------*/
@@ -181,9 +188,13 @@ static const MenuScreenDesc_t s_desc = {
  * Screen show/hide
  *---------------------------------------------------------------------------*/
 
+/* Caller must hold lvgl_lock(). */
 void Stat_ShowMenuScreen(void)    { lv_obj_clear_flag(s_stat_ms.screen,       LV_OBJ_FLAG_HIDDEN); }
+/* Caller must hold lvgl_lock(). */
 void Stat_HideMenuScreen(void)    { lv_obj_add_flag  (s_stat_ms.screen,       LV_OBJ_FLAG_HIDDEN); }
+/* Caller must hold lvgl_lock(). */
 void Stat_ShowResultsScreen(void) { lv_obj_clear_flag(ui_stat_results_screen, LV_OBJ_FLAG_HIDDEN); }
+/* Caller must hold lvgl_lock(). */
 void Stat_HideResultsScreen(void) { lv_obj_add_flag  (ui_stat_results_screen, LV_OBJ_FLAG_HIDDEN); }
 
 /*---------------------------------------------------------------------------
@@ -212,11 +223,13 @@ void ui_init_stat_results_screen(void)
  * Display Updates
  *---------------------------------------------------------------------------*/
 
+/* Caller must hold lvgl_lock(). */
 void ui_update_stat_display(void)
 {
     MenuScreen_UpdateDisplay(&s_stat_ms);
 }
 
+/* Caller must hold lvgl_lock(). */
 void ui_update_stat_results_display(void)
 {
     char buf[256];
@@ -291,6 +304,7 @@ bool handle_stat_results(Token_t t)
  * Open / close helpers (called from menu_open / menu_close in calculator_core.c)
  *---------------------------------------------------------------------------*/
 
+/* Caller must hold lvgl_lock(). */
 void Stat_MenuOpen(CalcMode_t return_to)
 {
     s_stat_ms.nav.return_mode = return_to;

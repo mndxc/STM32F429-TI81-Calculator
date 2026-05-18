@@ -103,6 +103,10 @@ static int32_t expected_row(float y_math)
  * Tests
  * ---------------------------------------------------------------------- */
 
+/* Invariants:
+ *   - With no enabled equations and no axes inside the viewport, every pixel in the
+ *     framebuffer is 0x0000 (background colour).
+ *   - NOT tested: empty render with axes visible (axis pixels would be non-zero).          */
 static void test_render_empty(void)
 {
     printf("test_render_empty\n");
@@ -121,6 +125,11 @@ static void test_render_empty(void)
           "empty: centre pixel is background (0)");
 }
 
+/* Invariants:
+ *   - A constant equation Y1=C renders exactly one horizontal row of EXPECTED_Y1_PX colour
+ *     at the canvas row predicted by math_y_to_px(C) — same formula as graph_coord.h.
+ *   - Every pixel not on the curve row (and not on an axis) remains 0x0000.
+ *   - NOT tested: Y2–Y4 curve colours, two equations whose Y values map to the same row.  */
 static void test_render_constant_y1(void)
 {
     printf("test_render_constant_y1\n");
@@ -150,6 +159,10 @@ static void test_render_constant_y1(void)
           "Y1=5: row 200 is background");
 }
 
+/* Invariants:
+ *   - enabled=false suppresses all curve pixels regardless of the equation string.
+ *   - The equation string and window are otherwise valid — the flag is the only difference.
+ *   - NOT tested: re-enabling an equation on a subsequent render (covered by cache test).  */
 static void test_render_disabled_equation(void)
 {
     printf("test_render_disabled_equation\n");
@@ -167,6 +180,11 @@ static void test_render_disabled_equation(void)
           "disabled Y1=5: no curve pixels at expected row");
 }
 
+/* Invariants:
+ *   - Changing the equation string between renders causes Graph_Render() to re-parse
+ *     (detected via strncmp — no explicit invalidation call is needed).
+ *   - After re-render the old curve row is cleared (memset) and the new row is drawn.
+ *   - NOT tested: window change without equation change (separate invalidation path).      */
 static void test_render_cache_invalidation(void)
 {
     printf("test_render_cache_invalidation\n");
@@ -199,6 +217,11 @@ static void test_render_cache_invalidation(void)
           "cache: old curve row 119 cleared after re-render with Y1=2");
 }
 
+/* Invariants:
+ *   - math_x_to_px: x_min → px=0, x_max → px=GRAPH_W-1; linear in between.
+ *   - math_y_to_px: y_max → row=0 (top), y_min → row=GRAPH_H-1 (bottom) — Y axis is inverted.
+ *   - px_to_math_x and px_to_math_y are the exact inverses of the above within 1e-4 tolerance.
+ *   - NOT tested: x/y outside the window (extrapolation), degenerate zero-range windows.     */
 /* Verify graph_coord_* transforms against known values for the baseline window
  * x=[1,11], y=[0,10] (GRAPH_W=320, GRAPH_H=240). */
 static void test_coord_transforms(void)
@@ -239,6 +262,10 @@ static void test_coord_transforms(void)
           "coord: px_to_math_y(GRAPH_H-1) == y_min");
 }
 
+/* Invariants:
+ *   - A malformed expression that fails Calc_Parse produces no curve pixels.
+ *   - Graph_Render() must not crash; framebuffer remains all-background.
+ *   - NOT tested: expressions that parse OK but fail at Calc_Eval time (per-column error). */
 static void test_render_invalid_expression(void)
 {
     printf("test_render_invalid_expression\n");

@@ -23,9 +23,10 @@
  *--------------------------------------------------------------------------*/
 
 typedef struct {
-    uint8_t  selected;    /* Which row (0–PARAM_YEQ_ROW_COUNT-1) is active */
-    uint8_t  cursor_pos;  /* Byte offset of insertion point within the equation */
-    bool     on_equal;    /* True if cursor is on the '=' sign */
+    uint8_t  selected;   /**< Which row is active (0–PARAM_YEQ_ROW_COUNT-1). */
+    uint8_t  cursor_pos; /**< Byte offset into the parametric expression string; LEFT/RIGHT step
+                          *   by UTF-8 character, not by byte (π=2B, √=3B). */
+    bool     on_equal;   /**< True when cursor sits on the '=' sign; edits are blocked. */
 } ParamYeqState_t;
 
 /*---------------------------------------------------------------------------

@@ -148,6 +148,11 @@ static void load_expr(const char *s)
 /* -------------------------------------------------------------------------
  * Group 1: handle_digit_key — expression buffer mutations (11 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - TOKEN_0..TOKEN_9 insert their ASCII character at cursor_pos; TOKEN_DECIMAL inserts '.'.
+ *   - Digits do not auto-prepend ANS (only binary arithmetic operators do).
+ *   - NOT tested: digit insertion in insert_mode, digit near MAX_EXPR_LEN boundary.       */
 static void test_digit_key(void)
 {
     printf("Group 1: handle_digit_key\n");
@@ -201,6 +206,13 @@ static void test_digit_key(void)
 /* -------------------------------------------------------------------------
  * Group 2: handle_arithmetic_op — ANS prepend + operator insertion (14 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Binary operators (+, -, *, /, ^) on empty expression auto-prepend "ANS" then insert.
+ *   - On a non-empty expression the operator is appended without any ANS prepend.
+ *   - L_PAR and TOKEN_NEG never prepend ANS even on an empty expression.
+ *   - SQUARE and X_INV are postfix — they append "^2" / "^-1" to existing content.
+ *   - NOT tested: operators at MAX_EXPR_LEN boundary, operators in insert_mode.           */
 static void test_arithmetic_op(void)
 {
     printf("Group 2: handle_arithmetic_op\n");
@@ -281,6 +293,12 @@ static void test_arithmetic_op(void)
 /* -------------------------------------------------------------------------
  * Group 3: handle_function_insert — insert strings (16 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Function tokens insert their keyword string including the opening '(' where applicable.
+ *   - Multi-byte UTF-8 tokens (TOKEN_SQRT=3B √, TOKEN_PI=2B π) insert correct byte sequences.
+ *   - Cursor always advances to the end of the inserted string.
+ *   - NOT tested: function insertion in insert_mode, insertion when expr is near MAX_EXPR_LEN. */
 static void test_function_insert(void)
 {
     printf("Group 3: handle_function_insert\n");
@@ -373,6 +391,13 @@ static void test_function_insert(void)
 /* -------------------------------------------------------------------------
  * Group 4: handle_history_nav — UP/DOWN/ENTER/ENTRY/LEFT/RIGHT (13 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - ENTER evaluates, stores to history, clears expression, and resets recall offset.
+ *   - ENTER on empty re-evaluates the last history entry (TI-81 repeat-last behaviour).
+ *   - UP increments recall_offset and loads the corresponding history expression.
+ *   - LEFT/RIGHT step by one byte; tests use ASCII-only to sidestep UTF-8 multi-byte.
+ *   - NOT tested: UP/DOWN cycling past history bounds, UTF-8 cursor stepping.             */
 static void test_history_nav(void)
 {
     printf("Group 4: handle_history_nav\n");
@@ -477,6 +502,12 @@ static void test_history_nav(void)
 /* -------------------------------------------------------------------------
  * Group 5: handle_clear_key — TOKEN_CLEAR (3 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - CLEAR zeroes expr_len, resets cursor_pos to 0, and null-terminates the buffer.
+ *   - CLEAR on an already-empty expression is a no-op (no crash, state unchanged).
+ *   - CLEAR does not modify history (history is only written by ENTER and Disp).
+ *   - NOT tested: CLEAR while sto_pending is true.                                        */
 static void test_clear_key(void)
 {
     printf("Group 5: handle_clear_key\n");
@@ -507,6 +538,12 @@ static void test_clear_key(void)
 /* -------------------------------------------------------------------------
  * Group 6: handle_sto_key — TOKEN_STO (4 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - TOKEN_STO sets sto_pending=true; subsequent tokens are dispatched to handle_sto_pending.
+ *   - On empty expression, STO auto-prepends ANS before setting sto_pending.
+ *   - STO on a non-empty expression does not alter the expression content.
+ *   - NOT tested: the full STO→variable commit path (handle_sto_pending, tested in Group 12). */
 static void test_sto_key(void)
 {
     printf("Group 6: handle_sto_key\n");
@@ -539,6 +576,12 @@ static void test_sto_key(void)
 /* -------------------------------------------------------------------------
  * Group 7: INSERT toggle and DEL key (5 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - TOKEN_INS toggles insert_mode (false↔true); does not affect expression content.
+ *   - TOKEN_DEL removes the byte immediately before cursor_pos; cursor decrements by 1.
+ *   - DEL on empty expression is a no-op (expr_len stays 0, no crash).
+ *   - NOT tested: DEL of a multi-byte UTF-8 character (must remove all N bytes, step to start). */
 static void test_ins_del(void)
 {
     printf("Group 7: INS toggle and DEL\n");
@@ -579,6 +622,12 @@ static void test_ins_del(void)
 /* -------------------------------------------------------------------------
  * Group 8: dispatch — handle_normal_mode routes tokens to correct mode (7 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Menu-open tokens set current_mode to the corresponding menu mode constant.
+ *   - TOKEN_GRAPH → MODE_GRAPH_FREE_CURSOR; TOKEN_TRACE → MODE_GRAPH_TRACE.
+ *   - NOT tested: 2nd-function tokens (DRAW, STAT, VARS, Y_VARS, RANGE) — some are in Group 10.
+ *   - NOT tested: TOKEN_ON (power-off path requires hardware or a special stub).          */
 static void test_dispatch(void)
 {
     printf("Group 8: dispatch — mode transitions\n");
@@ -622,6 +671,13 @@ static void test_dispatch(void)
 /* -------------------------------------------------------------------------
  * Group 9: multi-step expression building (5 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Chained keystrokes build a valid expression; ENTER evaluates and stores to ans.
+ *   - ANS auto-prepend on a binary operator after ENTER enables arithmetic continuation.
+ *   - handle_sto_pending is dispatched from Execute_Token, not handle_normal_mode; the
+ *     test manually resets sto_pending to avoid invoking that path.
+ *   - NOT tested: expression building in overlay editors (Y=, RANGE, matrix — own handlers). */
 static void test_expr_building(void)
 {
     printf("Group 9: multi-step expression building\n");
@@ -678,6 +734,12 @@ static void test_expr_building(void)
 /* -------------------------------------------------------------------------
  * Group 10: edge cases (6 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - TOKEN_COMMA and TOKEN_SPACE insert their characters without ANS prepend.
+ *   - Inserting beyond MAX_EXPR_LEN-1 is silently capped (no overflow or crash).
+ *   - A division-by-zero expression commits to history with an ERR result (non-fatal).
+ *   - NOT tested: TOKEN_ZOOM, TOKEN_DRAW in normal context; these open graph sub-menus.   */
 static void test_edge_cases(void)
 {
     printf("Group 10: edge cases\n");
@@ -721,6 +783,12 @@ static void test_edge_cases(void)
 /* -------------------------------------------------------------------------
  * Group 11: graph mode accessors (6 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Graph_GetState() returns a pointer to the live GraphState_t; mutations persist.
+ *   - Connected/Dot and Sequential/Simultaneous are independent orthogonal flags.
+ *   - Default state (after reset) has plot_connected=true and plot_sequential=true.
+ *   - NOT tested: parametric mode, polar mode, grid-on flag (separate accessor calls).    */
 static void test_graph_mode_accessors(void)
 {
     printf("Group 11: graph mode accessors\n");
@@ -757,6 +825,13 @@ static void test_graph_mode_accessors(void)
 /* -------------------------------------------------------------------------
  * Group 12: STO → matrix / matrix element / Y= slot (10 tests)
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - STO→[M] fills all elements with the scalar; sets ans_is_matrix=true and ans=matrix index.
+ *   - STO→[M](r,c) stores the scalar to the specified cell (1-based row/col); updates ans to scalar.
+ *   - Dimension errors (0×0 matrix, out-of-range row/col) commit an ERR history entry, no crash.
+ *   - STO→Y_VARS clears sto_pending, clears the expr buffer, and opens MODE_YVARS_MENU.
+ *   - NOT tested: STO→[M](r,c) with a compound expression for r or c.                    */
 static void test_sto_matrix_yvars(void)
 {
     printf("Group 12: STO → matrix / element / Y= slot\n");
@@ -903,6 +978,12 @@ static void test_sto_matrix_yvars(void)
  * the observable here is that the correct menu mode is set; the return_to value
  * is verified by the code path: Calc_GetMode() == origin at call time.
  * ---------------------------------------------------------------------- */
+
+/* Invariants:
+ *   - Menu-open tokens work correctly when current_mode is already a non-NORMAL origin
+ *     (e.g. MODE_GRAPH_YEQ after on_cancel restored it) — the correct menu mode is set.
+ *   - return_to is set to the origin so the menu can restore it on cancel.
+ *   - NOT tested: nested menu chains (menu A → menu B → back to A), NORMAL as origin.    */
 static void test_menu_return_chain(void)
 {
     printf("Group 13: menu-to-menu return chain\n");

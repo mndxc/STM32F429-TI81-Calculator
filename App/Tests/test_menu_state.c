@@ -30,6 +30,11 @@ static int g_fail = 0;
 /* Group 1: MenuState_MoveUp boundaries                                        */
 /* -------------------------------------------------------------------------- */
 
+/* Invariants:
+ *   - Cursor decrements within the visible window; scroll only decrements when cursor is 0.
+ *   - At absolute top (cursor=0, scroll=0) no state changes — move is idempotent.
+ *   - Single-item list: no movement regardless of initial state.
+ *   - NOT tested: window_size > total_items (all items visible, scroll always 0).         */
 static void test_move_up(void)
 {
     printf("Group 1: MenuState_MoveUp\n");
@@ -70,6 +75,12 @@ static void test_move_up(void)
 /* Group 2: MenuState_MoveDown boundaries                                      */
 /* -------------------------------------------------------------------------- */
 
+/* Invariants:
+ *   - Cursor increments within the visible window; scroll only increments when cursor is
+ *     at visible-1 AND the next item below actually exists.
+ *   - At absolute last item (scroll+cursor == total-1) no state changes.
+ *   - Symmetric to test_move_up: any asymmetry between Up and Down is a bug.
+ *   - NOT tested: list where total == window_size (scroll stays 0 throughout).            */
 static void test_move_down(void)
 {
     printf("Group 2: MenuState_MoveDown\n");
@@ -113,6 +124,10 @@ static void test_move_down(void)
 /* Group 3: MenuState_PrevTab / MenuState_NextTab                              */
 /* -------------------------------------------------------------------------- */
 
+/* Invariants:
+ *   - Any tab switch (prev or next) resets cursor and scroll to 0 regardless of prior state.
+ *   - Tab clamps at 0 (PrevTab) and num_tabs-1 (NextTab) — does not wrap.
+ *   - NOT tested: num_tabs=0, tabs with differing visible-window sizes.                   */
 static void test_tab_move(void)
 {
     printf("Group 3: MenuState_PrevTab / MenuState_NextTab\n");
@@ -150,6 +165,11 @@ static void test_tab_move(void)
 /* Group 4: MenuState_DigitToIndex                                             */
 /* -------------------------------------------------------------------------- */
 
+/* Invariants:
+ *   - TOKEN_1..TOKEN_9 map to indices 0..8; TOKEN_0 maps to index 9 (TI-81 10-key layout).
+ *   - Returns -1 when the computed index >= total or token is not a digit.
+ *   - Boundary: TOKEN_N with total=N returns N-1 (valid); total=N-1 returns -1.
+ *   - NOT tested: total=0 edge case.                                                      */
 static void test_digit_to_index(void)
 {
     printf("Group 4: MenuState_DigitToIndex\n");
@@ -179,6 +199,10 @@ static void test_digit_to_index(void)
 /* Group 5: MenuState_AbsoluteIndex                                            */
 /* -------------------------------------------------------------------------- */
 
+/* Invariants:
+ *   - AbsoluteIndex = scroll + cursor, with no bounds clamping applied inside the function.
+ *   - Callers are responsible for ensuring the result is within [0, total-1].
+ *   - NOT tested: overflow when scroll+cursor wraps a uint8_t.                            */
 static void test_absolute_index(void)
 {
     printf("Group 5: MenuState_AbsoluteIndex\n");

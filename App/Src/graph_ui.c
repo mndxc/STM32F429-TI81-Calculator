@@ -28,14 +28,26 @@
 #include <string.h>
 #include <stdlib.h>
 
+/*
+ * Owns:     Y= editor state (YeqEditorState_t s_yeq), LVGL screen objects for
+ *           graph modes (ui_graph_yeq_screen, zoom box overlays), and key
+ *           dispatch for MODE_GRAPH_YEQ, MODE_GRAPH_RANGE, MODE_GRAPH_ZOOM_FACTORS.
+ * Not owns: Pixel canvas, coordinate transforms, or RPN evaluation (graph.c);
+ *           range/zoom parameter storage (GraphState_t in graph.c).
+ * Locks:    All LVGL-calling helpers require lvgl_lock() from the caller.
+ *           cursor_timer_cb must NOT acquire lvgl_lock() — called from LVGL
+ *           timer; mutex is already held (Gotcha #4 in CLAUDE.md).
+ */
+
 /*---------------------------------------------------------------------------
  * Private types
  *---------------------------------------------------------------------------*/
 
 typedef struct {
-    uint8_t  selected;          /* Which Y= row is active */
-    uint8_t  cursor_pos;        /* Byte offset of insertion point within the equation */
-    bool     on_equal;          /* True if cursor is on the '=' sign */
+    uint8_t  selected;   /**< Which Y= row is active (0-based). */
+    uint8_t  cursor_pos; /**< Byte offset into the Y= expression string; LEFT/RIGHT step
+                          *   by UTF-8 character, not by byte (π=2B, √=3B). */
+    bool     on_equal;   /**< True when cursor sits on the '=' sign; edits are blocked. */
 } YeqEditorState_t;
 
 /*---------------------------------------------------------------------------
@@ -73,11 +85,14 @@ static bool yeq_row_switch(Token_t t);
 static void yeq_del_at_cursor(void);
 
 /*---------------------------------------------------------------------------
- * Screen show/hide/visibility
+ * Screen show/hide/visibility — caller must hold lvgl_lock()
  *---------------------------------------------------------------------------*/
 
+/* Caller must hold lvgl_lock(). */
 void Graph_ShowYeqScreen(void) { lv_obj_clear_flag(ui_graph_yeq_screen, LV_OBJ_FLAG_HIDDEN); }
+/* Caller must hold lvgl_lock(). */
 void Graph_HideYeqScreen(void) { lv_obj_add_flag(ui_graph_yeq_screen,   LV_OBJ_FLAG_HIDDEN); }
+/* Caller must hold lvgl_lock(). */
 bool Graph_IsYeqScreenVisible(void)
 {
     return ui_graph_yeq_screen != NULL &&
@@ -316,7 +331,8 @@ void draw_enter_cursor_pick(uint8_t op)
  * Y= helpers called from calculator_core.c
  *---------------------------------------------------------------------------*/
 
-/** Sync all Y= equation labels from graph_state after a persist load. */
+/** Sync all Y= equation labels from graph_state after a persist load.
+ *  Caller must hold lvgl_lock(). */
 void graph_ui_sync_yeq_labels(void)
 {
     for (int i = 0; i < GRAPH_NUM_EQ; i++)

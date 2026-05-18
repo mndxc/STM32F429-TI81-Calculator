@@ -82,6 +82,16 @@ static int g_failed = 0;
     }                                                                \
 } while (0)
 
+/* Invariants (all tests are in main — no separate test_* functions):
+ *   - calc_mode_topology_validate() must return true iff every CalcMode_t value in
+ *     [0, MODE_COUNT) appears in exactly one of k_route_table[] or known_special_cases[];
+ *     adding a new mode without updating either table causes this test to fail.
+ *   - CalcMode_IsValidTransition returns false for MODE_STO (synthetic), MODE_COUNT
+ *     (sentinel), and any value >= MODE_COUNT; returns true for all real modes [0, MODE_STO).
+ *   - The mode set tested is exhaustive for defined values and representative for
+ *     out-of-range inputs.
+ *   - NOT tested: specific topology edges (valid mode A → valid mode B); those belong
+ *     in handle_normal_mode integration tests.                                          */
 int main(void)
 {
     printf("=== test_mode_topology ===\n");

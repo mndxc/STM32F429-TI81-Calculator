@@ -200,9 +200,10 @@ typedef struct {
 } FreeCursorState_t;
 
 typedef struct {
-    int32_t  px,  py;     /* Current cursor pixel position */
-    int32_t  px1, py1;    /* First corner (valid once corner1_set is true) */
-    bool     corner1_set;
+    int32_t  px,  py;   /**< Current crosshair cursor position, in pixels. */
+    int32_t  px1, py1;  /**< First anchored corner, in pixels; valid only when corner1_set
+                          *   is true. No ordering guarantee vs. (px,py) — normalize before use. */
+    bool     corner1_set; /**< True after the user has pressed ENTER to anchor the first corner. */
 } ZBoxState_t;
 
 const TraceState_t      *Graph_GetTraceState(void);

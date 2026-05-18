@@ -11,17 +11,19 @@
 #include <math.h>   /* fabsf */
 #include <stdint.h>
 
+#define GRAPH_COORD_MIN_RANGE  1e-9f  /* degenerate range guard — below float resolution */
+
 static inline int32_t graph_coord_math_x_to_px(const GraphState_t *s, float x)
 {
     float range = s->x_max - s->x_min;
-    if (fabsf(range) < 1e-9f) return 0;
+    if (fabsf(range) < GRAPH_COORD_MIN_RANGE) return 0;
     return (int32_t)((x - s->x_min) / range * (GRAPH_W - 1));
 }
 
 static inline int32_t graph_coord_math_y_to_px(const GraphState_t *s, float y)
 {
     float range = s->y_max - s->y_min;
-    if (fabsf(range) < 1e-9f) return 0;
+    if (fabsf(range) < GRAPH_COORD_MIN_RANGE) return 0;
     return (int32_t)((s->y_max - y) / range * (GRAPH_H - 1));
 }
 

@@ -349,7 +349,6 @@ static void graph_render_setup(void)
 
 void Graph_Init(lv_obj_t *parent)
 {
-    /* Container screen */
     graph_screen = lv_obj_create(parent);
     lv_obj_set_size(graph_screen, GRAPH_W, GRAPH_H);
     lv_obj_set_pos(graph_screen, 0, 0);
@@ -1236,7 +1235,7 @@ void Graph_DrawHistogram(const StatData_t *d)
     if (d->list_len == 0) { Graph_SetVisible(true); return; }
 
     float range = graph_state.x_max - graph_state.x_min;
-    if (fabsf(range) < 1e-9f) { Graph_SetVisible(true); return; }
+    if (fabsf(range) < GRAPH_COORD_MIN_RANGE) { Graph_SetVisible(true); return; }
 
 #define HIST_BINS 10
     int32_t counts[HIST_BINS] = {0};

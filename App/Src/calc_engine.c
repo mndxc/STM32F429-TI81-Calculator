@@ -20,6 +20,7 @@
 #define CALC_SCI_LO        1e-3f  /* non-zero values < this use scientific notation (TI-81: .001) */
 #define CALC_INT_EPS       1e-4f  /* max fractional part to display as integer */
 #define CALC_SINGULARITY_EPS 1e-10f /* pivot threshold below which matrix is singular */
+#define CALC_PI_VALUE      3.14159265358979f /* IEEE 754 single — matches TI-81 precision */
 
 /* User variable storage — A through Z, indexed by (ch - 'A'); [26] = θ */
 float calc_variables[27] = {0};
@@ -302,7 +303,7 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
         ((unsigned char)(*p)[0] == 0xCFu && (unsigned char)(*p)[1] == 0x80u)) {
         if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
         out->tokens[out->count].type  = MATH_NUMBER;
-        out->tokens[out->count].value = 3.14159265358979f;
+        out->tokens[out->count].value = CALC_PI_VALUE;
         out->count++;
         *p += 2; /* "pi" and UTF-8 π (0xCF 0x80) are both 2 bytes */
         *matched = true;
@@ -1136,7 +1137,7 @@ static bool eval_unary_func(MathTokenType_t type,
      *   r  in RAD mode: no-op (value is already in radians)
      *   r  in DEG mode: convert radians→degrees (x * 180/π) so trig's deg_factor cancels */
     case MATH_OP_DEGREE:
-        stack[*top] = a * (3.14159265358979f / 180.0f) / deg_factor;
+        stack[*top] = a * (CALC_PI_VALUE / 180.0f) / deg_factor;
         break;
     case MATH_OP_RADIAN:
         stack[*top] = a / deg_factor;
@@ -1308,12 +1309,12 @@ static int rpn_eval_special(MathTokenType_t tt, float *stack, bool *is_matrix, i
         if (tt == MATH_FUNC_R_TO_P) {
             float r     = sqrtf(a * a + b * b);
             float theta = atan2f(b, a);
-            if (angle_degrees) theta *= (180.0f / 3.14159265358979f);
+            if (angle_degrees) theta *= (180.0f / CALC_PI_VALUE); /* degrees ↔ radians */
             calc_variables['R' - 'A'] = r;
             calc_variables[26]        = theta;
             stack[*top] = r;
         } else {
-            float theta_rad = angle_degrees ? b * (3.14159265358979f / 180.0f) : b;
+            float theta_rad = angle_degrees ? b * (CALC_PI_VALUE / 180.0f) : b;
             float x = a * cosf(theta_rad);
             float y = a * sinf(theta_rad);
             calc_variables['X' - 'A'] = x;
@@ -1352,7 +1353,7 @@ static CalcResult_t EvaluateRPN_ex(const TokenList_t *rpn, float x_val, float t_
     bool  is_matrix[CALC_MAX_STACK];
     int   top = -1;
 
-    float deg_factor = angle_degrees ? (3.14159265358979f / 180.0f) : 1.0f;
+    float deg_factor = angle_degrees ? (CALC_PI_VALUE / 180.0f) : 1.0f;
 
     for (int i = 0; i < rpn->count; i++) {
         MathToken_t     tok = rpn->tokens[i];
@@ -1566,7 +1567,6 @@ static void format_eng(float value, int fix_decimals, char *buf, uint8_t buf_len
     char fmt[16];
     snprintf(fmt, sizeof(fmt), "%%.%df", dec);
 
-    /* Format mantissa into a temp buffer, then append the exponent */
     char tmp[32];
     snprintf(tmp, sizeof(tmp), fmt, (double)mantissa);
     if (fix_decimals < 0) trim_trailing_zeros(tmp);

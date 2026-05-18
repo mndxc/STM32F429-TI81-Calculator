@@ -436,6 +436,7 @@ static inline bool handle_prgm_mode_number(Token_t t) { (void)t; return false; }
 static inline bool handle_prgm_mode_graph(Token_t t)  { (void)t; return false; }
 static inline bool handle_prgm_running(Token_t t)     { (void)t; return false; }
 static inline void prgm_editor_menu_insert(const char *s) { (void)s; }
+static inline void PrgmEditor_MenuInsert(const char *s)   { (void)s; }
 static inline void ui_prgm_menu_show(const char *title,
     const char texts[][PRGM_MAX_LINE_LEN], uint8_t count,
     uint8_t cursor, uint8_t scroll)

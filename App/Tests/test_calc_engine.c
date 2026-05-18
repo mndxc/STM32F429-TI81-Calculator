@@ -55,6 +55,11 @@ static void reset_state(void)
 /* =========================================================================
  * Group 1 — Basic arithmetic
  * ====================================================================== */
+
+/* Invariants:
+ *   - Operator precedence: ^ > * = / > + = -; left-associative for equal precedence.
+ *   - Addition and multiplication of small integers must be exact in float32.
+ *   - NOT tested: operator chaining with parentheses (Group 3), arithmetic overflow.      */
 static void test_arithmetic(void)
 {
     printf("[1]  Basic arithmetic\n");
@@ -90,6 +95,13 @@ static void test_arithmetic(void)
 /* =========================================================================
  * Group 2 — Negative numbers and unary minus
  * ====================================================================== */
+
+/* Invariants:
+ *   - TI-81 convention: unary minus has lower precedence than ^, so -3^2 = -9, not 9.
+ *   - '-' after '^' and before a digit or '.' is tokenized as a negative literal, not
+ *     binary subtraction (Gotcha #10 in CLAUDE.md); e.g. 2^-3 = 0.125.
+ *   - (-3)^2 = 9 because the parenthesis changes the base before ^ is applied.
+ *   - NOT tested: double negation (--), unary minus applied to a function result.         */
 static void test_negation(void)
 {
     printf("[2]  Negative numbers / unary minus\n");
@@ -118,6 +130,11 @@ static void test_negation(void)
 /* =========================================================================
  * Group 3 — Parentheses and nesting
  * ====================================================================== */
+
+/* Invariants:
+ *   - Parenthesized sub-expressions evaluate before outer operators (standard math order).
+ *   - Unclosed '(' before end-of-expression is treated as closed (TI-81 implicit close).
+ *   - NOT tested: mismatched close-before-open (covered in Group 12 error cases).         */
 static void test_parentheses(void)
 {
     printf("[3]  Parentheses\n");
@@ -139,6 +156,12 @@ static void test_parentheses(void)
 /* =========================================================================
  * Group 4 — Trig functions (radians)
  * ====================================================================== */
+
+/* Invariants:
+ *   - All trig functions interpret their argument in radians when degree_mode=false.
+ *   - Standard identities hold within NEAR tolerance (1e-4): sin(0)=0, cos(0)=1, sin(π/2)=1.
+ *   - Inverse trig results are in radians; asin(1)=π/2, acos(1)=0, atan(1)=π/4.
+ *   - NOT tested: values near discontinuity (tan(π/2)), negative inputs to inverse trig. */
 static void test_trig_radians(void)
 {
     printf("[4]  Trig (radians)\n");
@@ -176,6 +199,12 @@ static void test_trig_radians(void)
 /* =========================================================================
  * Group 5 — Trig functions (degrees)
  * ====================================================================== */
+
+/* Invariants:
+ *   - Trig functions convert input from degrees to radians internally when degree_mode=true.
+ *   - sin(90°)=1, cos(180°)=-1, tan(45°)=1 are exact cardinal-angle values.
+ *   - Inverse trig returns values in degrees: asin(1)=90, acos(-1)=180.
+ *   - NOT tested: identities at non-cardinal angles, inverse trig in both modes same session. */
 static void test_trig_degrees(void)
 {
     printf("[5]  Trig (degrees)\n");
@@ -200,6 +229,13 @@ static void test_trig_degrees(void)
 /* =========================================================================
  * Group 5b — Hyperbolic functions
  * ====================================================================== */
+
+/* Invariants:
+ *   - Hyperbolic functions are keyword-matched; 'sinh' must not tokenize as 'sin'+'h'
+ *     (prefix-order guard in cmd_table[] — see T1-A in CLAUDE.md Quality Scorecard).
+ *   - Inverse hyperbolics are round-trippable: asinh(sinh(1)) ≈ 1.
+ *   - Domain errors: acosh(<1), atanh(±1) return CALC_ERR_DOMAIN.
+ *   - NOT tested: large-argument overflow (sinh(1000)), negative domain for acosh.         */
 static void test_hyp_functions(void)
 {
     printf("[5b] Hyperbolic functions\n");
@@ -264,6 +300,12 @@ static void test_hyp_functions(void)
 /* =========================================================================
  * Group 6 — Math functions
  * ====================================================================== */
+
+/* Invariants:
+ *   - sqrt is tokenized via the √ UTF-8 glyph (U+221A, 3 bytes), not the ASCII "sqrt" keyword.
+ *   - iPart truncates toward zero (not floor); fPart preserves sign; int() is floor.
+ *   - round(x, n): n is the number of decimal places; round(3.7,0) = 4.
+ *   - NOT tested: round on negative values with half-rounding ambiguity.                  */
 static void test_math_functions(void)
 {
     printf("[6]  Math functions\n");
@@ -328,6 +370,11 @@ static void test_math_functions(void)
  * Group 7 — TEST comparison operators
  * UTF-8: ≠=\xE2\x89\xA0  ≥=\xE2\x89\xA5  ≤=\xE2\x89\xA4
  * ====================================================================== */
+
+/* Invariants:
+ *   - All six operators (=, ≠, <, >, ≤, ≥) return 1.0 (true) or 0.0 (false).
+ *   - Non-ASCII operators are multi-byte UTF-8 tokens; the tokenizer must not confuse them.
+ *   - NOT tested: chained comparisons (1<2<3), comparison of matrix operands.             */
 static void test_comparison_operators(void)
 {
     printf("[7]  TEST comparison operators\n");
@@ -379,6 +426,11 @@ static void test_comparison_operators(void)
 /* =========================================================================
  * Group 8 — Probability functions (nPr, nCr)
  * ====================================================================== */
+
+/* Invariants:
+ *   - nPr and nCr use standard combinatorics formulas; results are exact for small integers.
+ *   - r > n is CALC_ERR_DOMAIN for both nPr and nCr; r == n is valid (= 1).
+ *   - NOT tested: non-integer n or r (float input), large factorials near float precision limit. */
 static void test_probability(void)
 {
     printf("[8]  Probability functions\n");
@@ -409,6 +461,11 @@ static void test_probability(void)
 /* =========================================================================
  * Group 9 — ANS substitution
  * ====================================================================== */
+
+/* Invariants:
+ *   - ANS is a parameter passed to Calc_Evaluate, not a mutable global read by the engine.
+ *   - ANS is substituted at evaluation time, enabling ANS+1, ANS*2, etc.
+ *   - NOT tested: ANS combined with variable substitution, ANS holding a matrix result.   */
 static void test_ans_substitution(void)
 {
     printf("[9]  ANS substitution\n");
@@ -430,6 +487,11 @@ static void test_ans_substitution(void)
 /* =========================================================================
  * Group 10 — Variable substitution (A–Z)
  * ====================================================================== */
+
+/* Invariants:
+ *   - Variables are indexed as calc_variables['A'-'A'] through calc_variables['Z'-'A'].
+ *   - Variable values persist across Calc_Evaluate calls (global state, not reset per eval).
+ *   - NOT tested: theta variable, variable inside a function argument list.                */
 static void test_variables(void)
 {
     printf("[10] Variable substitution\n");
@@ -453,6 +515,11 @@ static void test_variables(void)
 /* =========================================================================
  * Group 11 — Calc_EvaluateAt (graphing x-substitution)
  * ====================================================================== */
+
+/* Invariants:
+ *   - Calc_EvaluateAt temporarily overrides calc_variables['X'-'A'] for the duration of the call.
+ *   - The override does not persist after the call returns.
+ *   - NOT tested: Y1–Y4 equation references that themselves contain X.                    */
 static void test_evaluate_at(void)
 {
     printf("[11] Calc_EvaluateAt (x-substitution)\n");
@@ -480,6 +547,12 @@ static void test_evaluate_at(void)
 /* =========================================================================
  * Group 12 — Error handling
  * ====================================================================== */
+
+/* Invariants:
+ *   - 1/0 → CALC_ERR_DIV_ZERO; domain violations (sqrt(-1), ln(-1), asin(2)) → CALC_ERR_DOMAIN.
+ *   - Implicit close paren at end of expression: "(2+2" evaluates to 4 (TI-81 behaviour).
+ *   - Unbalanced close paren "2+2)" is CALC_ERR_SYNTAX; double operator "2++2" is CALC_ERR_SYNTAX.
+ *   - NOT tested: evaluation stack depth exhaustion, overflow to float infinity.           */
 static void test_errors(void)
 {
     printf("[12] Error handling\n");
@@ -525,6 +598,12 @@ static void test_errors(void)
 /* =========================================================================
  * Group 13 — Calc_FormatResult
  * ====================================================================== */
+
+/* Invariants:
+ *   - Integers format without a decimal point in Float mode; trailing zeros are trimmed.
+ *   - Scientific notation (uppercase E) appears for |x| >= 1e7 or (0 < |x| < 1e-3).
+ *   - Fix N mode shows exactly N decimal places, padding with trailing zeros if needed.
+ *   - NOT tested: NaN/Inf formatting, results that overflow the output buffer.            */
 static void test_format_result(void)
 {
     printf("[13] Calc_FormatResult\n");
@@ -573,6 +652,11 @@ static void test_format_result(void)
  * Group 14 — Matrix operations
  * Setup: [A]=[[1,2],[3,4]]  [B]=[[5,6],[7,8]]
  * ====================================================================== */
+
+/* Invariants:
+ *   - det, T (transpose), +, * require dimension compatibility; mismatch → CALC_ERR_DOMAIN.
+ *   - Matrix operation results are placed in the scratch slot (calc_matrices[3]).
+ *   - NOT tested: matrix division, matrix inversion.                                       */
 static void test_matrix_ops(void)
 {
     printf("[14] Matrix operations\n");
@@ -639,6 +723,11 @@ static void test_matrix_ops(void)
  * Group 15 — Matrix row operations
  * Setup: [A]=[[1,2],[3,4]] (2×2)
  * ====================================================================== */
+
+/* Invariants:
+ *   - rowSwap, row+, *row, *row+ are non-destructive on the source; result goes to scratch slot.
+ *   - Row indices are 1-based (TI-81 convention); row 0 or row > rows → CALC_ERR_DOMAIN.
+ *   - NOT tested: column operations, row ops on rectangular (non-square) matrices.        */
 static void test_matrix_row_ops(void)
 {
     printf("[15] Matrix row operations\n");
@@ -700,6 +789,11 @@ static void test_matrix_row_ops(void)
  * Group 16 — Matrix subtraction and scalar scaling
  * Setup: [A]=[[1,2],[3,4]]  [B]=[[5,6],[7,8]]  [C]=3×3 (default)
  * ====================================================================== */
+
+/* Invariants:
+ *   - Dimension mismatch between matrices is CALC_ERR_DOMAIN (not silent truncation).
+ *   - Scalar-matrix multiplication is commutative: 2*[A] and [A]*2 give the same result.
+ *   - NOT tested: matrix-matrix division (undefined on TI-81).                            */
 static void test_matrix_sub_scale(void)
 {
     printf("[16] Matrix subtraction and scalar scaling\n");
@@ -751,6 +845,11 @@ static void test_matrix_sub_scale(void)
 /* =========================================================================
  * Group 17 — ANS as matrix reference (ans_is_matrix=true)
  * ====================================================================== */
+
+/* Invariants:
+ *   - When ans_is_matrix=true, ANS in an expression refers to calc_matrices[3] (scratch slot).
+ *   - Matrix ANS participates in the same operations as named matrices ([A], [B], etc.).
+ *   - NOT tested: ANS as a matrix inside a program (executor path).                       */
 static void test_ans_matrix(void)
 {
     printf("[17] ANS as matrix reference\n");
@@ -796,6 +895,10 @@ static void test_ans_matrix(void)
  * Group 18 — round([M], n): element-wise matrix rounding
  * Setup: [A]=[[1.4, 2.6],[3.14, 0.05]]
  * ====================================================================== */
+
+/* Invariants:
+ *   - round([M], n) applies element-wise to every cell; result placed in scratch slot.
+ *   - NOT tested: round([M], n) with n < 0 or n > 9, or a non-square matrix.             */
 static void test_matrix_round(void)
 {
     printf("[18] round([M], n) element-wise\n");
@@ -829,6 +932,12 @@ static void test_matrix_round(void)
 /* =========================================================================
  * Group 19 — Boundary and edge cases
  * ====================================================================== */
+
+/* Invariants:
+ *   - 0! = 1 (by definition); n! for n < 0 → CALC_ERR_DOMAIN.
+ *   - det of a non-square matrix → CALC_ERR_DOMAIN; det of a 1×1 matrix = the element.
+ *   - nCr: r == n is valid (returns 1); r == n+1 → CALC_ERR_DOMAIN (boundary).
+ *   - NOT tested: n! overflow for n > 13 (exceeds float32 precision).                    */
 static void test_boundary(void)
 {
     printf("[19] Boundary and edge cases\n");
@@ -887,6 +996,14 @@ static void test_boundary(void)
  * Group 20 — Tokenizer coverage: pi constant, e constant,
  *            implicit multiplication, T-after-paren
  * ====================================================================== */
+
+/* Invariants:
+ *   - Both ASCII "pi" keyword and UTF-8 π (U+03C0) evaluate to the same constant.
+ *   - "e" as a standalone token is Euler's number, not a variable.
+ *   - Implicit multiplication is recognised: number-before-paren (2(3+1)), number-before-function
+ *     (2sin(0)), number-before-constant (2pi).
+ *   - 'T' (transpose) is recognised after ')' as well as after ']'.
+ *   - NOT tested: implicit multiplication after a closing paren ((2)(3)).                 */
 static void test_tokenizer_coverage(void)
 {
     printf("[20] Tokenizer coverage (pi, e, implicit mul, T-after-paren)\n");
@@ -961,6 +1078,10 @@ static void test_tokenizer_coverage(void)
 /* =========================================================================
  * Group 19 — Property: sin²(x)+cos²(x) = 1 for 1,000 values in [0, 4π)
  * ====================================================================== */
+
+/* Invariants:
+ *   - sin²(x)+cos²(x) = 1 holds within 1e-3 for every sample (float32 rounding budget).
+ *   - NOT tested: samples outside [0, 4π), values that require catastrophic cancellation. */
 static void test_pythagorean_identity(void)
 {
     printf("[19] Property: sin²(x)+cos²(x) = 1 (1000 samples)\n");
@@ -992,6 +1113,12 @@ static void test_pythagorean_identity(void)
  * Threshold (Normal mode): |val| >= 1e7 or (|val| < 1e-3 and val != 0)
  * All scientific output uses uppercase 'E'.
  * ====================================================================== */
+
+/* Invariants:
+ *   - Scientific notation (uppercase E) is used for |x| >= 1e7 or (0 < |x| < 1e-3).
+ *   - Values in the normal range must NOT use scientific notation.
+ *   - Zero never uses scientific notation.
+ *   - NOT tested: very large negatives, values at the exact 1e7 float-precision boundary. */
 static void test_format_sci_boundary(void)
 {
     printf("[20] Property: Calc_FormatResult sci-notation boundaries\n");
@@ -1033,6 +1160,12 @@ static void test_format_sci_boundary(void)
 /* =========================================================================
  * Group 21 — Sci and Eng notation modes
  * ====================================================================== */
+
+/* Invariants:
+ *   - Sci mode: all non-zero values expressed as mantissa × 10^n; zero stays "0".
+ *   - Eng mode: exponent is always a multiple of 3; mantissa is in [1, 1000).
+ *   - Fix N interacts with Sci/Eng: mantissa is formatted to exactly N decimal places.
+ *   - NOT tested: Sci and Eng simultaneously active (only one notation mode at a time). */
 static void test_notation_modes(void)
 {
     printf("[21] Sci and Eng notation modes\n");
@@ -1138,6 +1271,12 @@ static void test_notation_modes(void)
  * Group 5c — nDeriv( numerical derivative
  * ====================================================================== */
 
+/* Invariants:
+ *   - Uses central-difference (f(x+ε)-f(x-ε))/(2ε) with a fixed ε.
+ *   - Float32 catastrophic cancellation limits accuracy to ~5e-4 for polynomials; NEAR_D used.
+ *   - d/dX of a linear function is exact; d/dX of sin at x=0 has no cancellation (NEAR used).
+ *   - NOT tested: nDeriv of discontinuous functions, nDeriv with variable other than X.   */
+
 /* Float32 catastrophic cancellation in (f(x+ε)-f(x-ε)) limits accuracy to
  * ~5e-4 for polynomial expressions at values around 2–5.  Use a wider
  * tolerance here while keeping standard NEAR for transcendental functions
@@ -1183,6 +1322,12 @@ static void test_nderiv(void)
  * both boundary functions are compiled once then evaluated per-column.
  * Uses the guidebook p. 5-10 example: lower=X+1, upper=X^3-8*X.
  * ====================================================================== */
+
+/* Invariants:
+ *   - Calc_PrepareGraphEquation compiles once; Calc_EvalGraphEquation evaluates per column.
+ *   - Tests both a shaded region (upper > lower) and an unshaded region (lower > upper).
+ *   - An invalid expression that fails PrepareGraphEquation must not crash on eval.
+ *   - NOT tested: overlapping boundaries (equal values), non-X variable in Shade expression. */
 static void test_shade_expressions(void)
 {
     printf("[5e] Shade( expression pre-compilation\n");
@@ -1243,6 +1388,12 @@ static void test_shade_expressions(void)
 /* =========================================================================
  * Group 5d — {x}(n) / {y}(n) stat list element access
  * ====================================================================== */
+
+/* Invariants:
+ *   - {x}(n) and {y}(n) use 1-based indices (TI-81 convention); index 0 → CALC_ERR_DOMAIN.
+ *   - Index > list_length → CALC_ERR_DOMAIN; index == list_length is valid.
+ *   - Unregistered accessors (NULL pointers) return CALC_ERR_DOMAIN on any access.
+ *   - NOT tested: negative index, accessor that returns NaN or Inf.                       */
 
 static float s_tx[] = { 1.0f, 3.0f, 5.0f, 7.0f, 9.0f };
 static float s_ty[] = { 2.0f, 4.0f, 6.0f, 8.0f, 10.0f };
@@ -1308,6 +1459,12 @@ static void test_list_access(void)
 /* =========================================================================
  * Group [5f] — ° and r angle-override postfix operators (guidebook p. 2-3/2-5)
  * ====================================================================== */
+
+/* Invariants:
+ *   - '°' postfix converts argument to radians regardless of current angle mode.
+ *   - 'r' postfix forces radians regardless of current angle mode.
+ *   - Each operator is a no-op when the active mode already matches the override.
+ *   - NOT tested: postfix applied to compound sub-expressions, postfix chaining (e.g. 45°r). */
 static void test_angle_postfix(void)
 {
     printf("[5f] Degree (\xC2\xB0) and radian (r) angle-override postfix\n");
