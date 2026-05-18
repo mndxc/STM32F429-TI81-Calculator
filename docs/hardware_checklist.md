@@ -306,6 +306,7 @@ _Host test: test_stat covers Clear._
 - I/O sub-menu has exactly **5 items**: Disp, Input, DispHome, DispGraph, ClrHome.
 - Subroutines auto-return when the last line is reached. Max call depth is 4.
 - T17 requires a full USB power cycle (unplug/replug), not just SWD reset.
+- **FLASH sector 12 erase required before first run** — commit `a8eab53` widened `ProgramStore_t.names` from 37×9 to 37×17 bytes (struct: 19280 → 19576 B). Any device flashed before that commit has an incompatible on-FLASH layout. Before running T17, T35, T35b, or any power-cycle program test, erase sector 12 (`openocd -c "flash erase_sector 0 12 12"`). Failure to erase will cause corrupted program bodies on load.
 
 ---
 
@@ -414,6 +415,7 @@ RESULT:
 
 ### T17 — Programs survive power cycle
 Create slot 1 program named `SAVE` with body `Disp "OK"`. Press 2nd+ON to save state. Perform a **full USB power cycle** (unplug/replug — not SWD reset). Open PRGM. Verify `1:Prgm1  SAVE` in list and body intact when opened.
+> **Pre-condition**: erase FLASH sector 12 before this test if the device was flashed before commit `a8eab53` — see Quick Reference above.
 RESULT:
 
 ---
