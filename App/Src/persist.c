@@ -329,7 +329,7 @@ void Persist_Reset(void)
     block.graph.x_scl  =   1.0f;  block.graph.y_scl  =   1.0f;
     block.graph.x_res  =   1.0f;
     block.graph.t_min  =   0.0f;  block.graph.t_max  =   6.2832f;
-    block.graph.t_step =   0.1309f;
+    block.graph.t_step =   0.10472f; /* π/30, guidebook p. 4-5 */
 
     /* Zoom factors: 4 (guidebook p. 1-28) */
     block.graph.zoom_x_fact = 4.0f;

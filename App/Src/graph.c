@@ -41,7 +41,7 @@ static GraphState_t graph_state = {
     .active     = false,
     .t_min      =   0.0f,
     .t_max      =   6.2832f,   /* 2π */
-    .t_step     =   0.1309f,   /* π/24 */
+    .t_step     =   0.10472f,  /* π/30 */
     .param_mode       = false,
     .plot_connected   = true,
     .plot_sequential  = true,
@@ -406,6 +406,16 @@ void Graph_Render(void)
 #ifndef HOST_TEST
     if (graph_canvas == NULL) return;
 #endif
+
+    /* Guidebook p. 5-3: DRAW content is erased whenever the graph is replotted. */
+    Graph_DrawLayerClear();
+
+    /* Guidebook p. 5-3: Xmin < Xmax and Ymin < Ymax must hold or ERROR 11 RANGE. */
+    if (graph_state.x_min >= graph_state.x_max ||
+        graph_state.y_min >= graph_state.y_max) {
+        return;
+    }
+
     bool angle_degrees = Calc_GetAngleDegrees();
 
     /* Dispatch to parametric renderer when in parametric mode */
@@ -1237,22 +1247,35 @@ void Graph_DrawHistogram(const StatData_t *d)
     float range = graph_state.x_max - graph_state.x_min;
     if (fabsf(range) < GRAPH_COORD_MIN_RANGE) { Graph_SetVisible(true); return; }
 
-#define HIST_BINS 10
-    int32_t counts[HIST_BINS] = {0};
-    float   bin_width = range / (float)HIST_BINS;
+    /* Guidebook p. 7-15: bin width is Xscl; first bin left edge aligns to a
+     * multiple of Xscl.  Boundary values go into the bar to the right. */
+    float bin_width = graph_state.x_scl;
     if (bin_width <= 0.0f) { Graph_SetVisible(true); return; }
+
+    float first_bin_left = floorf(graph_state.x_min / bin_width) * bin_width;
+
+    /* Cap bin count at GRAPH_W (one pixel wide minimum per bin) */
+    int32_t n_bins = (int32_t)ceilf((graph_state.x_max - first_bin_left) / bin_width);
+    if (n_bins <= 0) { Graph_SetVisible(true); return; }
+    if (n_bins > GRAPH_W) n_bins = GRAPH_W;
+
+    /* Fixed-size stack array sized to the maximum capped bin count (320 × 4 = 1280 bytes) */
+#define HIST_MAX_BINS GRAPH_W
+    int32_t counts[HIST_MAX_BINS];
+    for (int32_t b = 0; b < n_bins; b++) counts[b] = 0;
 
     for (uint8_t i = 0; i < d->list_len; i++) {
         float x = d->list_x[i];
-        int bin = (int)((x - graph_state.x_min) / bin_width);
+        /* floorf gives left-edge open boundary: value on edge goes right (next bin) */
+        int32_t bin = (int32_t)floorf((x - first_bin_left) / bin_width);
         if (bin < 0) bin = 0;
-        if (bin >= HIST_BINS) bin = HIST_BINS - 1;
+        if (bin >= n_bins) bin = n_bins - 1;
         counts[bin]++;
     }
 
     /* Find max count for y scaling */
     int32_t max_count = 1;
-    for (int b = 0; b < HIST_BINS; b++)
+    for (int32_t b = 0; b < n_bins; b++)
         if (counts[b] > max_count) max_count = counts[b];
 
     uint16_t c = lv_color_to_u16(lv_color_hex(COLOR_CURVE_Y1));
@@ -1260,20 +1283,23 @@ void Graph_DrawHistogram(const StatData_t *d)
     if (baseline_py < 0)          baseline_py = 0;
     if (baseline_py >= GRAPH_H)   baseline_py = GRAPH_H - 1;
 
-    /* Each bin occupies GRAPH_W / HIST_BINS columns */
-    int32_t bin_px_w = GRAPH_W / HIST_BINS;
-
-    for (int b = 0; b < HIST_BINS; b++) {
+    for (int32_t b = 0; b < n_bins; b++) {
         if (counts[b] == 0) continue;
+
+        /* Pixel columns for this bin based on math-world bin edges */
+        float bin_math_left  = first_bin_left + (float)b * bin_width;
+        float bin_math_right = bin_math_left + bin_width;
+        int32_t x_start = graph_coord_math_x_to_px(&graph_state, bin_math_left);
+        int32_t x_end   = graph_coord_math_x_to_px(&graph_state, bin_math_right) - 1;
+        if (x_start < 0) x_start = 0;
+        if (x_end >= GRAPH_W) x_end = GRAPH_W - 1;
+        if (x_start > x_end) continue;
+
         float bar_top_y = graph_state.y_min +
             (float)counts[b] / (float)max_count * (graph_state.y_max - graph_state.y_min);
         int32_t bar_top_py = graph_coord_math_y_to_px(&graph_state,bar_top_y);
         if (bar_top_py < 0) bar_top_py = 0;
         if (bar_top_py > GRAPH_H - 1) bar_top_py = GRAPH_H - 1;
-
-        int32_t x_start = b * bin_px_w;
-        int32_t x_end   = x_start + bin_px_w - 1;
-        if (x_end >= GRAPH_W) x_end = GRAPH_W - 1;
 
         int32_t y_top    = bar_top_py;
         int32_t y_bottom = baseline_py;
@@ -1285,7 +1311,7 @@ void Graph_DrawHistogram(const StatData_t *d)
             }
         }
     }
-#undef HIST_BINS
+#undef HIST_MAX_BINS
     lv_obj_invalidate(graph_canvas);
     Graph_SetVisible(true);
 }

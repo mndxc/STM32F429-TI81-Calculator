@@ -63,27 +63,34 @@ void CalcStat_Compute1Var(const StatData_t *d, StatResults_t *r)
     r->valid = false;
     if (d->list_len == 0) return;
 
-    float n    = (float)d->list_len;
-    float sx   = 0.0f, sx2 = 0.0f;
+    /* Guidebook p. 7-3, 7-7: list_y[i] is the frequency (repeat count) of
+     * list_x[i].  Zero or negative frequencies are skipped.  Effective n is
+     * Σy[i]; Σx = Σ(x[i]·y[i]); Σx² = Σ(x[i]²·y[i]). */
+    float n = 0.0f, sx = 0.0f, sx2 = 0.0f;
     for (uint8_t i = 0; i < d->list_len; i++) {
-        sx  += d->list_x[i];
-        sx2 += d->list_x[i] * d->list_x[i];
+        float freq = d->list_y[i];
+        if (freq <= 0.0f) continue;   /* skip zero or negative frequencies */
+        n   += freq;
+        sx  += d->list_x[i] * freq;
+        sx2 += d->list_x[i] * d->list_x[i] * freq;
     }
+
+    if (n == 0.0f) return;   /* all frequencies were zero/negative */
 
     r->n      = n;
     r->sum_x  = sx;
     r->sum_x2 = sx2;
     r->mean_x = sx / n;
 
-    /* Sample stdev Sx = sqrt(Σ(xi-x̄)² / (n-1)) */
-    if (d->list_len >= 2) {
+    /* Sample stdev Sx = sqrt(Σfreq·(xi-x̄)² / (n-1)) */
+    if (n >= 2.0f) {
         float var_s = (sx2 - sx * sx / n) / (n - 1.0f);
         r->sx = (var_s > 0.0f) ? sqrtf(var_s) : 0.0f;
     } else {
         r->sx = 0.0f;
     }
 
-    /* Population stdev σx = sqrt(Σ(xi-x̄)² / n) */
+    /* Population stdev σx = sqrt(Σfreq·(xi-x̄)² / n) */
     {
         float var_p = (sx2 - sx * sx / n) / n;
         r->sigma_x = (var_p > 0.0f) ? sqrtf(var_p) : 0.0f;
@@ -98,13 +105,14 @@ bool CalcStat_ComputeLinReg(const StatData_t *d, StatResults_t *r)
     if (!linreg_raw(d->list_x, d->list_y, d->list_len, &slope, &intercept, &rval))
         return false;
 
-    r->reg_a = slope;
-    r->reg_b = intercept;
+    /* Guidebook p. 7-9: y = a + bX, a = intercept, b = slope */
+    r->reg_a = intercept;
+    r->reg_b = slope;
     r->reg_r = rval;
 
     /* TI-81 convention: store a in variable A (index 0), b in variable B (index 1) */
-    calc_variables[0] = slope;
-    calc_variables[1] = intercept;
+    calc_variables[0] = intercept;
+    calc_variables[1] = slope;
 
     return true;
 }
@@ -124,12 +132,12 @@ bool CalcStat_ComputeLnReg(const StatData_t *d, StatResults_t *r)
     if (!linreg_raw(u, d->list_y, d->list_len, &slope, &intercept, &rval))
         return false;
 
-    /* y = intercept + slope * ln(x)  →  a = slope, b = intercept */
-    r->reg_a = slope;
-    r->reg_b = intercept;
+    /* Guidebook p. 7-9: y = a + b*ln(X), a = intercept, b = slope */
+    r->reg_a = intercept;
+    r->reg_b = slope;
     r->reg_r = rval;
-    calc_variables[0] = slope;
-    calc_variables[1] = intercept;
+    calc_variables[0] = intercept;
+    calc_variables[1] = slope;
     return true;
 }
 
@@ -148,12 +156,12 @@ bool CalcStat_ComputeExpReg(const StatData_t *d, StatResults_t *r)
     if (!linreg_raw(d->list_x, v, d->list_len, &slope, &intercept, &rval))
         return false;
 
-    /* y = e^intercept * e^(slope*x)  →  a = e^intercept, b = slope */
+    /* Guidebook p. 7-9: y = a*b^X, a = e^intercept, b = e^slope */
     r->reg_a = expf(intercept);
-    r->reg_b = slope;
+    r->reg_b = expf(slope);
     r->reg_r = rval;
     calc_variables[0] = r->reg_a;
-    calc_variables[1] = slope;
+    calc_variables[1] = r->reg_b;
     return true;
 }
 

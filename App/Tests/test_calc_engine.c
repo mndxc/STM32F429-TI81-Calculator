@@ -1311,6 +1311,18 @@ static void test_nderiv(void)
     /* val can be a compound expression: nDeriv(X^2,X,1+1) = 4 */
     r = Calc_Evaluate("nDeriv(X^2,X,1+1)", 0, false, false);
     CHECK(r.error == CALC_OK && NEAR_D(r.value, 4.0f), "nDeriv(X^2,X,1+1)=4");
+
+    /* 4-arg form: nDeriv(X^2, X, 3, 0.001) — user-supplied ΔX=0.001; d/dX[X²] at 3 = 6 */
+    r = Calc_Evaluate("nDeriv(X^2,X,3,0.001)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR_D(r.value, 6.0f), "nDeriv(X^2,X,3,0.001)=6");
+
+    /* 4-arg form: user-supplied ΔX=0.01 (larger eps, less float32 cancellation) */
+    r = Calc_Evaluate("nDeriv(X^2,X,3,0.01)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR_D(r.value, 6.0f), "nDeriv(X^2,X,3,0.01)=6");
+
+    /* 4-arg form: ΔX=0 falls back to default 1e-3 (no divide-by-zero) */
+    r = Calc_Evaluate("nDeriv(X^2,X,3,0)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR_D(r.value, 6.0f), "nDeriv(X^2,X,3,0) fallback=6");
 }
 
 #undef NEAR_D

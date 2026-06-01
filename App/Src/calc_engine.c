@@ -349,9 +349,26 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
         GraphEquation_t *nderiv_target = (nderiv_out != NULL) ? nderiv_out : &s_nderiv_eq;
         CalcError_t cerr = Calc_PrepareGraphEquation(arg1_buf, ans, nderiv_target);
         if (cerr != CALC_OK) return cerr;
+        /* Count commas at depth 0 in the remaining args (q+1 to closing ')') to
+         * determine whether the optional 4th ΔX argument is present.
+         * nDeriv(expr, X, val)       → 1 comma → no ΔX (use default 1e-3)
+         * nDeriv(expr, X, val, ΔX)  → 2 commas → ΔX present (use user value) */
+        int remaining_commas = 0;
+        {
+            const char *r = q + 1; /* start of arg2 */
+            int rd = 0;
+            while (*r != '\0') {
+                if      (*r == '(')              { rd++; }
+                else if (*r == ')' && rd == 0)   { break; }
+                else if (*r == ')')              { rd--; }
+                else if (*r == ',' && rd == 0)   { remaining_commas++; }
+                r++;
+            }
+        }
+        bool has_eps_arg = (remaining_commas >= 2);
         if (out->count + 2 > CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
         out->tokens[out->count].type  = MATH_FUNC_NDERIV;
-        out->tokens[out->count].value = 0.0f;
+        out->tokens[out->count].value = has_eps_arg ? 1.0f : 0.0f;
         out->count++;
         out->tokens[out->count].type  = MATH_PAREN_LEFT;
         out->tokens[out->count].value = 0.0f;
@@ -1300,10 +1317,11 @@ static int rpn_eval_push(const MathToken_t *tok, float x_val, float t_val,
 
 /* 1=handled (caller should continue), 0=not a special op (fall through), -1=error.
  * Covers R>P / P>R (coordinate conversion with variable side-effects) and nDeriv. */
-static int rpn_eval_special(MathTokenType_t tt, float *stack, bool *is_matrix, int *top,
+static int rpn_eval_special(MathToken_t tok, float *stack, bool *is_matrix, int *top,
                               bool angle_degrees, const GraphEquation_t *nderiv_eq,
                               CalcResult_t *res)
 {
+    MathTokenType_t tt = tok.type;
     if (tt == MATH_FUNC_R_TO_P || tt == MATH_FUNC_P_TO_R) {
         if (*top < 1) { rpn_set_error(res, CALC_ERR_SYNTAX, "Syntax error"); return -1; }
         float b = stack[(*top)--];
@@ -1327,11 +1345,20 @@ static int rpn_eval_special(MathTokenType_t tt, float *stack, bool *is_matrix, i
         return 1;
     }
     if (tt == MATH_FUNC_NDERIV) {
-        /* Stack on entry: [X_ref, val] (top = val). */
-        if (*top < 1) { rpn_set_error(res, CALC_ERR_SYNTAX, "Syntax error"); return -1; }
-        float val = stack[(*top)--];
-        (*top)--;
+        /* Stack on entry (3-arg form): [X_ref, val] (top = val).
+         * Stack on entry (4-arg form): [X_ref, val, eps] (top = eps).
+         * tok.value == 1.0f signals the optional 4th ΔX argument was supplied;
+         * tok.value == 0.0f means no ΔX — fall back to the default 1e-3. */
+        bool has_eps_arg = (tok.value != 0.0f);
+        int min_stack    = has_eps_arg ? 2 : 1;
+        if (*top < min_stack) { rpn_set_error(res, CALC_ERR_SYNTAX, "Syntax error"); return -1; }
         float eps = 1e-3f;
+        if (has_eps_arg) {
+            eps = stack[(*top)--];
+            if (eps == 0.0f) eps = 1e-3f; /* guard against zero ΔX */
+        }
+        float val = stack[(*top)--];
+        (*top)--; /* discard X_ref */
         CalcResult_t fp = Calc_EvalGraphEquation(nderiv_eq, val + eps, angle_degrees);
         if (fp.error != CALC_OK) { *res = fp; return -1; }
         CalcResult_t fm = Calc_EvalGraphEquation(nderiv_eq, val - eps, angle_degrees);
@@ -1365,7 +1392,7 @@ static CalcResult_t EvaluateRPN_ex(const TokenList_t *rpn, float x_val, float t_
         if (r < 0) return res;
         if (r > 0) continue;
 
-        r = rpn_eval_special(tt, stack, is_matrix, &top, angle_degrees, nderiv_eq, &res);
+        r = rpn_eval_special(tok, stack, is_matrix, &top, angle_degrees, nderiv_eq, &res);
         if (r < 0) return res;
         if (r > 0) continue;
 

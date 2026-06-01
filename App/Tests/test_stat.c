@@ -55,8 +55,9 @@ static void test_1var_basic(void)
     StatData_t d = {0};
     StatResults_t r = {0};
 
+    /* y[i] = 1: each point has frequency 1, so results match the unweighted case */
     float xs[5] = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
-    float ys[5] = {0};
+    float ys[5] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
     fill_xy(&d, xs, ys, 5);
 
     CalcStat_Compute1Var(&d, &r);
@@ -78,7 +79,8 @@ static void test_1var_single(void)
     StatData_t d = {0};
     StatResults_t r = {0};
 
-    float xs[1] = {7.0f}, ys[1] = {0};
+    /* y[i] = 1: frequency of 1, so single-point result is valid */
+    float xs[1] = {7.0f}, ys[1] = {1.0f};
     fill_xy(&d, xs, ys, 1);
     CalcStat_Compute1Var(&d, &r);
 
@@ -98,10 +100,69 @@ static void test_1var_empty(void)
     CHECK(!r.valid, "1var_empty: not valid");
 }
 
+static void test_1var_freq_weighted(void)
+{
+    printf("test_1var_freq_weighted\n");
+    /* Data: x={2, 5}, y={3, 2} means x=2 appears 3 times, x=5 appears 2 times.
+     * Equivalent unweighted dataset: {2, 2, 2, 5, 5}
+     * n = 5, Σx = 3*2 + 2*5 = 16, mean = 16/5 = 3.2
+     * Σx² = 3*4 + 2*25 = 62
+     * Var_s = (62 - 16²/5) / (5-1) = (62 - 51.2) / 4 = 10.8/4 = 2.7  → Sx = sqrt(2.7) ≈ 1.6432
+     * Var_p = (62 - 51.2) / 5 = 10.8/5 = 2.16                          → σx = sqrt(2.16) ≈ 1.4697
+     */
+    StatData_t d = {0};
+    StatResults_t r = {0};
+    float xs[2] = {2.0f, 5.0f};
+    float ys[2] = {3.0f, 2.0f};
+    fill_xy(&d, xs, ys, 2);
+
+    CalcStat_Compute1Var(&d, &r);
+
+    CHECK(r.valid,                               "1var_freq: valid");
+    CHECK(NEAR(r.n, 5.0f),                       "1var_freq: n=5");
+    CHECK(NEAR(r.sum_x, 16.0f),                  "1var_freq: sumx=16");
+    CHECK(NEAR(r.sum_x2, 62.0f),                 "1var_freq: sumx2=62");
+    CHECK(NEARF(r.mean_x, 3.2f, 0.001f),         "1var_freq: mean=3.2");
+    CHECK(NEARF(r.sx,     1.6432f, 0.001f),      "1var_freq: sx≈1.6432");
+    CHECK(NEARF(r.sigma_x, 1.4697f, 0.001f),     "1var_freq: sigma_x≈1.4697");
+}
+
+static void test_1var_zero_freq_skipped(void)
+{
+    printf("test_1var_zero_freq_skipped\n");
+    /* x=3 has freq=0 — must be skipped; x=4 has freq=1 — only valid point */
+    StatData_t d = {0};
+    StatResults_t r = {0};
+    float xs[2] = {3.0f, 4.0f};
+    float ys[2] = {0.0f, 1.0f};
+    fill_xy(&d, xs, ys, 2);
+
+    CalcStat_Compute1Var(&d, &r);
+
+    CHECK(r.valid,          "1var_zero_freq: valid");
+    CHECK(NEAR(r.n, 1.0f),  "1var_zero_freq: n=1 (zero-freq point skipped)");
+    CHECK(NEAR(r.mean_x, 4.0f), "1var_zero_freq: mean=4");
+}
+
+static void test_1var_all_zero_freq(void)
+{
+    printf("test_1var_all_zero_freq\n");
+    /* All frequencies are zero — result must be invalid */
+    StatData_t d = {0};
+    StatResults_t r = {0};
+    float xs[3] = {1.0f, 2.0f, 3.0f};
+    float ys[3] = {0.0f, 0.0f, 0.0f};
+    fill_xy(&d, xs, ys, 3);
+
+    CalcStat_Compute1Var(&d, &r);
+
+    CHECK(!r.valid, "1var_all_zero_freq: not valid");
+}
+
 static void test_linreg_perfect(void)
 {
     printf("test_linreg_perfect\n");
-    /* y = 2x + 1 => a=2, b=1, r=1.0 */
+    /* y = 2x + 1: guidebook y = a + bX => a=1 (intercept), b=2 (slope), r=1.0 */
     StatData_t d = {0};
     StatResults_t r = {0};
     float xs[3] = {1.0f, 2.0f, 3.0f};
@@ -111,8 +172,8 @@ static void test_linreg_perfect(void)
     bool ok = CalcStat_ComputeLinReg(&d, &r);
 
     CHECK(ok, "linreg_perfect: ok");
-    CHECK(NEARF(r.reg_a, 2.0f, 0.001f), "linreg_perfect: a=2");
-    CHECK(NEARF(r.reg_b, 1.0f, 0.001f), "linreg_perfect: b=1");
+    CHECK(NEARF(r.reg_a, 1.0f, 0.001f), "linreg_perfect: a=1 (intercept)");
+    CHECK(NEARF(r.reg_b, 2.0f, 0.001f), "linreg_perfect: b=2 (slope)");
     CHECK(NEARF(r.reg_r, 1.0f, 0.001f), "linreg_perfect: r=1");
 }
 
@@ -129,9 +190,9 @@ static void test_linreg_stores_vars(void)
     for (int i = 0; i < 26; i++) calc_variables[i] = 0.0f;
     CalcStat_ComputeLinReg(&d, &r);
 
-    /* TI-81: a → variable A (index 0), b → variable B (index 1) */
-    CHECK(NEARF(calc_variables[0], 2.0f, 0.001f), "linreg_vars: A=a=2");
-    CHECK(NEARF(calc_variables[1], 1.0f, 0.001f), "linreg_vars: B=b=1");
+    /* TI-81 p. 7-9: a → variable A (index 0) = intercept=1, b → variable B (index 1) = slope=2 */
+    CHECK(NEARF(calc_variables[0], 1.0f, 0.001f), "linreg_vars: A=a=1 (intercept)");
+    CHECK(NEARF(calc_variables[1], 2.0f, 0.001f), "linreg_vars: B=b=2 (slope)");
 }
 
 static void test_linreg_degenerate(void)
@@ -163,13 +224,12 @@ static void test_linreg_too_few(void)
 static void test_lnreg(void)
 {
     printf("test_lnreg\n");
-    /* y = 1 + 2*ln(x) => a=2, b=1 */
+    /* y = 1 + 2*ln(x): guidebook y = a + b*ln(X) => a=1 (intercept), b=2 (slope) */
     StatData_t d = {0};
     StatResults_t r = {0};
     float xs[4] = {1.0f, 2.0f, 4.0f, 8.0f};
     float ln_xs[4];
     for (int i = 0; i < 4; i++) ln_xs[i] = logf(xs[i]);
-    /* y = 1 + 2*ln(x) */
     float ys[4];
     for (int i = 0; i < 4; i++) ys[i] = 1.0f + 2.0f * ln_xs[i];
     fill_xy(&d, xs, ys, 4);
@@ -177,15 +237,18 @@ static void test_lnreg(void)
     bool ok = CalcStat_ComputeLnReg(&d, &r);
 
     CHECK(ok, "lnreg: ok");
-    CHECK(NEARF(r.reg_a, 2.0f, 0.01f), "lnreg: a=2");
-    CHECK(NEARF(r.reg_b, 1.0f, 0.01f), "lnreg: b=1");
+    CHECK(NEARF(r.reg_a, 1.0f, 0.01f), "lnreg: a=1 (intercept)");
+    CHECK(NEARF(r.reg_b, 2.0f, 0.01f), "lnreg: b=2 (slope)");
     CHECK(NEARF(r.reg_r, 1.0f, 0.01f), "lnreg: r=1");
 }
 
 static void test_expreg(void)
 {
     printf("test_expreg\n");
-    /* y = 2 * e^(0.5*x) => a=2, b=0.5 */
+    /* y = 2 * e^(0.5*x) = 2 * (e^0.5)^x: guidebook y = a*b^X =>
+     * a = 2, b = e^0.5 ≈ 1.6487.
+     * Linearized: ln(y) = ln(2) + 0.5*x, intercept=ln(2), slope=0.5
+     * After fix: reg_a = exp(intercept) = 2, reg_b = exp(slope) = exp(0.5) ≈ 1.6487 */
     StatData_t d = {0};
     StatResults_t r = {0};
     float xs[4] = {0.0f, 1.0f, 2.0f, 3.0f};
@@ -196,9 +259,9 @@ static void test_expreg(void)
     bool ok = CalcStat_ComputeExpReg(&d, &r);
 
     CHECK(ok, "expreg: ok");
-    CHECK(NEARF(r.reg_a, 2.0f, 0.01f), "expreg: a=2");
-    CHECK(NEARF(r.reg_b, 0.5f, 0.01f), "expreg: b=0.5");
-    CHECK(NEARF(r.reg_r, 1.0f, 0.01f), "expreg: r=1");
+    CHECK(NEARF(r.reg_a, 2.0f,   0.01f), "expreg: a=2");
+    CHECK(NEARF(r.reg_b, expf(0.5f), 0.01f), "expreg: b=exp(0.5)≈1.6487");
+    CHECK(NEARF(r.reg_r, 1.0f,   0.01f), "expreg: r=1");
 }
 
 static void test_sort_x(void)
@@ -370,6 +433,9 @@ int main(void)
     test_1var_basic();
     test_1var_single();
     test_1var_empty();
+    test_1var_freq_weighted();
+    test_1var_zero_freq_skipped();
+    test_1var_all_zero_freq();
     test_linreg_perfect();
     test_linreg_stores_vars();
     test_linreg_degenerate();
