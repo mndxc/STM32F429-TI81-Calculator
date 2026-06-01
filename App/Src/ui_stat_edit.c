@@ -13,6 +13,7 @@
  */
 
 #include "ui_stat.h"
+#include "ui_cursor.h"
 #include "calc_stat.h"
 #include "calc_engine.h"
 #include "calculator_core.h"
@@ -36,6 +37,8 @@ void Stat_HideEditScreen(void) { lv_obj_add_flag  (ui_stat_edit_screen, LV_OBJ_F
 /*---------------------------------------------------------------------------
  * Editor state
  *---------------------------------------------------------------------------*/
+
+static UICursor_t s_stat_cursor;
 
 static uint8_t  stat_edit_row    = 0;
 static uint8_t  stat_edit_col    = 0;   /* 0=X, 1=Y, 2=row-select (= cursor) */
@@ -200,7 +203,7 @@ void ui_update_stat_edit_display(void)
             ybuf[0] = '\0';
         }
 
-        bool is_cursor_row = (row == (int)stat_edit_row);
+        bool is_cursor_row = s_stat_cursor.visible && (row == (int)stat_edit_row);
 
         /* Override the active cell with the edit buffer (col 0 or 1 only). */
         if (is_cursor_row) {
@@ -237,6 +240,8 @@ void Stat_EditOpen(void)
     stat_edit_row    = 0;
     stat_edit_col    = 0;
     stat_edit_scroll = 0;
+    UICursor_Init(&s_stat_cursor);
+    s_stat_cursor.visible = true;
     stat_edit_load_cell();
     Calc_SetMode(MODE_STAT_EDIT);
     lvgl_lock();
@@ -456,6 +461,7 @@ bool handle_stat_edit(Token_t t)
     case TOKEN_CLEAR:
         if (stat_edit_col == 2 || stat_edit_len == 0) {
             if (stat_edit_col != 2) stat_edit_commit();
+            UICursor_Stop(&s_stat_cursor);
             Calc_SetMode(MODE_STAT_MENU);
             lvgl_lock();
             Stat_HideEditScreen();

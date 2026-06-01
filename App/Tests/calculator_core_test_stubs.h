@@ -85,30 +85,30 @@ static inline lv_timer_t *lv_timer_create(void *cb, uint32_t ms, void *ud)
 #define lv_obj_add_style(o, s, v)                     ((void)(o))
 
 /* LVGL geometry / position */
-#define lv_obj_set_size(o, w, h)                      ((void)(o))
-#define lv_obj_set_height(o, h)                       ((void)(o))
-#define lv_obj_set_width(o, w)                        ((void)(o))
-#define lv_obj_set_pos(o, x, y)                       ((void)(o))
+#define lv_obj_set_size(o, w, h)                      ((void)(o), (void)(w), (void)(h))
+#define lv_obj_set_height(o, h)                       ((void)(o), (void)(h))
+#define lv_obj_set_width(o, w)                        ((void)(o), (void)(w))
+#define lv_obj_set_pos(o, x, y)                       ((void)(o), (void)(x), (void)(y))
 #define lv_obj_center(o)                              ((void)(o))
 #define lv_obj_align(o, a, x, y)                      ((void)(o))
 static inline int32_t lv_obj_get_x(lv_obj_t *o)      { (void)o; return 0; }
 static inline int32_t lv_obj_get_y(lv_obj_t *o)      { (void)o; return 0; }
 
 /* LVGL style setters */
-#define lv_obj_set_style_bg_color(o, c, v)            ((void)(o))
+#define lv_obj_set_style_bg_color(o, c, v)            ((void)(o), (void)(c))
 #define lv_obj_set_style_bg_opa(o, v, s)              ((void)(o))
 #define lv_obj_set_style_border_width(o, v, s)        ((void)(o))
 #define lv_obj_set_style_pad_all(o, v, s)             ((void)(o))
 #define lv_obj_set_style_radius(o, v, s)              ((void)(o))
 #define lv_obj_set_style_text_font(o, f, v)           ((void)(o))
-#define lv_obj_set_style_text_color(o, c, v)          ((void)(o))
+#define lv_obj_set_style_text_color(o, c, v)          ((void)(o), (void)(c))
 #define lv_obj_set_style_text_align(o, a, v)          ((void)(o))
 
 /* LVGL label helpers */
 #define lv_label_set_long_mode(o, m)                  ((void)(o))
 #define lv_label_set_text(o, t)                       ((void)(o), (void)(t))
 #define lv_label_set_text_fmt(o, ...)                 ((void)(o))
-#define lv_label_get_letter_pos(o, p, pt)             ((void)(o))
+#define lv_label_get_letter_pos(o, p, pt)             ((void)(o), (void)(p), (void)(pt))
 
 /* LVGL flag manipulation */
 #define lv_obj_add_flag(o, f)                         ((void)(o))

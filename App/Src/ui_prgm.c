@@ -27,7 +27,7 @@
 #include "prgm_exec.h"
 #include "calc_engine.h"
 #include "graph.h"
-#include "graph_ui.h"
+#include "graph_ui_cursor.h"
 #include "ui_menu_screen.h"
 #include <stdio.h>
 #include <string.h>

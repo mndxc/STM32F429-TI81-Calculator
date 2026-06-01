@@ -80,6 +80,7 @@ static void apply_zoom_preset(uint8_t preset)
     switch (preset) {
     case 1: /* ZStandard */
         Graph_SetWindow(-10.0f, 10.0f, -10.0f, 10.0f, 1.0f, 1.0f, gs->x_res);
+        if (gs->param_mode) Graph_SetParamWindow(0.0f, 6.2832f, 0.10472f);
         break;
     case 2: /* ZTrig */
         Graph_SetWindow(-6.2832f, 6.2832f, -3.0f, 3.0f, 1.5708f, 0.25f, gs->x_res);

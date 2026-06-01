@@ -14,12 +14,12 @@
 #include "graph_ui_cursor.h"
 #include "graph_ui.h"
 #include "ui_shared.h"
+#include "ui_cursor.h"
 #include "graph.h"
 #include "graph_draw.h"
 #include "ui_graph_zoom.h"
 #include "calc_engine.h"
 #include "calculator_core.h"
-#include "ui_shared.h"
 #include "lvgl.h"
 #include <string.h>
 
@@ -27,9 +27,9 @@
  * Module-private state
  *---------------------------------------------------------------------------*/
 
-static lv_timer_t               *s_free_blink_timer = NULL;
-static GraphFreeCursorEnterCb_t  s_prgm_enter_cb    = NULL;
-static GraphFreeCursorAbortCb_t  s_prgm_abort_cb    = NULL;
+static UICursor_t                s_free_cursor;
+static GraphFreeCursorEnterCb_t  s_prgm_enter_cb = NULL;
+static GraphFreeCursorAbortCb_t  s_prgm_abort_cb = NULL;
 
 /*---------------------------------------------------------------------------
  * Internal helpers
@@ -42,6 +42,7 @@ static void free_cursor_blink_cb(lv_timer_t *t)
     const FreeCursorState_t *fc = Graph_GetFreeCursorState();
     bool visible = !fc->cursor_visible;
     Graph_SetFreeCursorVisible(visible);
+    s_free_cursor.visible = visible;
     if (visible)
         Graph_DrawFreeCursor(fc->x_math, fc->y_math);
     else
@@ -51,10 +52,7 @@ static void free_cursor_blink_cb(lv_timer_t *t)
 /* Called under lvgl_lock(). Stops the blink timer and removes cursor pixels. */
 static void free_cursor_stop(void)
 {
-    if (s_free_blink_timer) {
-        lv_timer_delete(s_free_blink_timer);
-        s_free_blink_timer = NULL;
-    }
+    UICursor_Stop(&s_free_cursor);
     Graph_EraseFreeCursor();
 }
 
@@ -64,7 +62,7 @@ static void free_cursor_stop(void)
 
 void GraphCursor_StartBlink(void)
 {
-    s_free_blink_timer = lv_timer_create(free_cursor_blink_cb, 500, NULL);
+    UICursor_Start(&s_free_cursor, free_cursor_blink_cb, 500);
 }
 
 void Graph_StartPrgmInput(GraphFreeCursorEnterCb_t on_enter,
@@ -203,7 +201,7 @@ bool handle_trace_mode(Token_t t)
     }
     case TOKEN_Y_EQUALS:
         lvgl_lock(); Graph_ClearTrace(); lvgl_unlock();
-        nav_to(MODE_GRAPH_YEQ);
+        nav_to(gs->param_mode ? MODE_GRAPH_PARAM_YEQ : MODE_GRAPH_YEQ);
         return true;
     case TOKEN_RANGE:
         lvgl_lock(); Graph_ClearTrace(); lvgl_unlock();
@@ -245,7 +243,7 @@ bool handle_free_cursor_mode(Token_t t)
         Graph_SetFreeCursorPos(x, y);
         Graph_SetFreeCursorVisible(true);
         lvgl_lock();
-        if (s_free_blink_timer) lv_timer_reset(s_free_blink_timer);
+        UICursor_Reset(&s_free_cursor);
         Graph_DrawFreeCursor(x, y);
         lvgl_unlock();
         return true;
@@ -257,7 +255,7 @@ bool handle_free_cursor_mode(Token_t t)
         Graph_SetFreeCursorPos(x, y);
         Graph_SetFreeCursorVisible(true);
         lvgl_lock();
-        if (s_free_blink_timer) lv_timer_reset(s_free_blink_timer);
+        UICursor_Reset(&s_free_cursor);
         Graph_DrawFreeCursor(x, y);
         lvgl_unlock();
         return true;
@@ -269,7 +267,7 @@ bool handle_free_cursor_mode(Token_t t)
         Graph_SetFreeCursorPos(x, y);
         Graph_SetFreeCursorVisible(true);
         lvgl_lock();
-        if (s_free_blink_timer) lv_timer_reset(s_free_blink_timer);
+        UICursor_Reset(&s_free_cursor);
         Graph_DrawFreeCursor(x, y);
         lvgl_unlock();
         return true;
@@ -281,7 +279,7 @@ bool handle_free_cursor_mode(Token_t t)
         Graph_SetFreeCursorPos(x, y);
         Graph_SetFreeCursorVisible(true);
         lvgl_lock();
-        if (s_free_blink_timer) lv_timer_reset(s_free_blink_timer);
+        UICursor_Reset(&s_free_cursor);
         Graph_DrawFreeCursor(x, y);
         lvgl_unlock();
         return true;
@@ -307,13 +305,13 @@ bool handle_free_cursor_mode(Token_t t)
         Graph_Render();
         Graph_SetFreeCursorVisible(true);
         Graph_DrawFreeCursor(fc_x, fc_y);
-        s_free_blink_timer = lv_timer_create(free_cursor_blink_cb, 500, NULL);
+        UICursor_Start(&s_free_cursor, free_cursor_blink_cb, 500);
         lvgl_unlock();
         return true;
     }
     case TOKEN_Y_EQUALS:
         lvgl_lock(); free_cursor_stop(); lvgl_unlock();
-        nav_to(MODE_GRAPH_YEQ);
+        nav_to(gs->param_mode ? MODE_GRAPH_PARAM_YEQ : MODE_GRAPH_YEQ);
         return true;
     case TOKEN_RANGE:
         lvgl_lock(); free_cursor_stop(); lvgl_unlock();

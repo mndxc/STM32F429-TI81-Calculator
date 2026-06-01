@@ -20,6 +20,9 @@
 #include "ui_graph_zoom.h"  /* zoom_menu_reset(), Zoom_ShowScreen(), ui_update_zoom_display() */
 #include "ui_palette.h"
 #include "lvgl.h"
+#ifndef HOST_TEST
+#  include "ui_error.h"
+#endif
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -378,7 +381,7 @@ static void zoom_factors_commit_field(void)
 {
     if (s_zf.len == 0) return;
     float val = strtof(s_zf.buf, NULL);
-    if (val <= 0.0f) return;
+    if (val < 1.0f) return;
     if (s_zf.field == 0) s_zf.x_fact = val;
     else                 s_zf.y_fact = val;
 }
@@ -591,6 +594,19 @@ bool handle_range_mode(Token_t t)
 
     case TOKEN_GRAPH:
         range_commit_field();
+        /* Guidebook: Xmin >= Xmax or Ymin >= Ymax fires ERROR 11 RANGE at [GRAPH]. */
+        {
+            const GraphState_t *gs = Graph_GetState();
+            if (gs->x_min >= gs->x_max || gs->y_min >= gs->y_max) {
+#ifndef HOST_TEST
+                lvgl_lock();
+                hide_all_screens();
+                Error_Open(CALC_ERR_RANGE, "", 0, false);
+                lvgl_unlock();
+#endif
+                return true;
+            }
+        }
         nav_to(MODE_GRAPH_FREE_CURSOR);
         return true;
 

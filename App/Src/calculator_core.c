@@ -1,23 +1,22 @@
 /**
  * @file  calculator_core.c
- * @brief Central coordinator for LVGL UI layout, mode routing, and history display.
+ * @brief Pure calculator state: mode, ANS, angle, insert-mode, and history.
  *
- * This file carries two remaining responsibilities (two others have been extracted):
- *   1. LVGL UI object creation and layout — owns the main screen, label hierarchy,
- *      and cursor LVGL objects (target for future ui_expr.c extraction).
- *   2. Mode routing / token dispatch — stays here as coordinator; delegates to
- *      per-mode handler modules via Execute_Token().
+ * Remaining responsibilities after extraction:
+ *   1. Pure state variables (current_mode, return_mode, ans, ans_is_matrix,
+ *      angle_degrees, insert_mode) and their getter/setter API.
+ *   2. LVGL mutex helpers (lvgl_lock / lvgl_unlock).
+ *   3. History evaluation and navigation (commit_history_entry,
+ *      history_enter_evaluate, handle_history_nav, Calc_CommitMatrixToHistory).
  *
- * Extracted responsibilities (no longer here):
- *   - Expression buffer state → expr_editor.c (ARCHITECTURE_OPPORTUNITIES item 4)
- *   - History display updates → calc_history.c via CalcHistory_RegisterDisplayCallback()
+ * Extracted responsibilities:
+ *   - LVGL UI object creation and display rendering → ui_main_display.c
+ *   - Token dispatch table and FreeRTOS task → mode_dispatcher.c
+ *   - Expression buffer state → expr_editor.c
+ *   - History ring-buffer state → calc_history.c
  */
 
 #ifdef HOST_TEST
-/* Host-test build: replace all LVGL/RTOS/platform headers with stubs.
- * app_common.h (CalcMode_t, Token_t, GraphState_t) and the safe engine
- * headers are included first; the stubs header follows to provide LVGL
- * type/function no-ops and declarations for cross-module symbols. */
 #  include "app_common.h"
 #  include "app_init.h"
 #  include "calc_engine.h"
@@ -70,6 +69,7 @@
 #  include "main.h"
 #  include "calc_mode_topology.h"
 #endif
+#include "ui_main_display.h"
 #include <assert.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -77,67 +77,17 @@
 #include <string.h>
 
 /*---------------------------------------------------------------------------
- * Stat list accessors — forwarded to calc_engine via Calc_RegisterStatAccessors().
- * Guarded: Stat_GetData() is unavailable in HOST_TEST builds.
- *---------------------------------------------------------------------------*/
-#ifndef HOST_TEST
-static float calc_stat_get_x(int n)   { return Stat_GetData()->list_x[n - 1]; }
-static float calc_stat_get_y(int n)   { return Stat_GetData()->list_y[n - 1]; }
-static int   calc_stat_get_len(void)  { return Stat_GetData()->list_len; }
-#endif
-
-/*---------------------------------------------------------------------------
- * Constants
- *---------------------------------------------------------------------------*/
-
-/* Scrollable menu geometry */
-#define MATRIX_MAX_DIM      CALC_MATRIX_MAX_DIM  /* alias — actual size in calc_engine.h */
-#define MATRIX_LIST_VISIBLE 7                    /* visible cell rows in the list editor */
-#define MATRIX_TAB_COUNT    2           /* MATRX and EDIT tabs */
-#define MATRIX_MATRX_ITEMS  6           /* Items in the MATRX operations tab */
-#define MATRIX_EDIT_ITEMS   3           /* Items in the EDIT tab */
-
-
-
-/*---------------------------------------------------------------------------
- * External references
- *---------------------------------------------------------------------------*/
-
-extern const uint32_t TI81_LookupTable_Size;
-
-/*---------------------------------------------------------------------------
- * Private types
- *---------------------------------------------------------------------------*/
-
-
-/* Editor / cursor state structs — group logically related static variables so they
- * can be snapshot, serialized, and reasoned about as a unit. */
-
-/*---------------------------------------------------------------------------
  * Private variables
  *---------------------------------------------------------------------------*/
 
-/* LVGL objects — main display */
-static lv_obj_t *disp_rows[DISP_ROW_COUNT]; /* Full-width text rows (Montserrat 24) */
-
-/* Cursor blink state */
-static lv_timer_t *cursor_timer = NULL;
-/* cursor_box / cursor_inner / cursor_visible moved to expr_editor.c */
-
-/* Styles */
-static lv_style_t style_bg;
-
-/* Calculator state */
 /* expr / sto_pending / cursor_visible moved to expr_editor.c */
 #ifdef HOST_TEST
-bool insert_mode = false; /* false=overwrite (default), true=insert */
+bool insert_mode = false;
 #else
-static bool insert_mode = false; /* false=overwrite (default), true=insert */
+static bool insert_mode = false;
 #endif
-static uint8_t expr_chars_per_row = 22; /* Chars that fit on one display row; set at init */
+
 #ifdef HOST_TEST
-/* In test builds, current_mode and return_mode remain non-static so test code
- * can observe and set them directly via the extern declarations in the stubs header. */
 CalcMode_t   current_mode = MODE_NORMAL;
 CalcMode_t   return_mode  = MODE_NORMAL;
 #else
@@ -147,35 +97,12 @@ static CalcMode_t   return_mode  = MODE_NORMAL;
 bool         angle_degrees = true;
 
 #ifdef HOST_TEST
-/* In test builds, ans and ans_is_matrix remain non-static so test code can
- * observe and set them directly via the extern declarations in the stubs header. */
 float ans           = 0.0f;
 bool  ans_is_matrix = false;
 #else
 static float ans           = 0.0f;
-static bool  ans_is_matrix = false; /* true when ans holds a matrix slot index */
+static bool  ans_is_matrix = false;
 #endif
-/* sto_pending moved to expr_editor.c */
-
-/* History ring buffer state is now private to calc_history.c.
- * Use CalcHistory_* accessors (declared in calc_history.h, included above). */
-
-/* Matrix history ring buffer — stores CalcMatrix_t for the last MATRIX_RING_COUNT results */
-static CalcMatrix_t matrix_ring[MATRIX_RING_COUNT];
-static uint8_t      matrix_ring_gen_table[MATRIX_RING_COUNT]; /* generation written to each slot */
-static uint8_t      matrix_ring_write_count = 0;              /* total writes, wraps at 256 */
-
-/* graph_state is defined and owned by graph.c; access via Graph_GetState() / setters. */
-
-/* Matrix data lives in calc_matrices[] (calc_engine.c) — accessed via extern.
- * MATH/TEST menu state, data tables, and LVGL objects live in ui_math_menu.c. */
-
-/* MATRIX menu state */
-
-/* MATRIX EDIT sub-screen state */
-
-
-
 
 /*---------------------------------------------------------------------------
  * ANS getter/setter API (declared in calculator_core.h)
@@ -216,15 +143,6 @@ bool          Calc_GetCursorVisible(void)   { return ExprEditor_GetCursorVisible
 void          Calc_SetCursorVisible(bool v) { ExprEditor_SetCursorVisible(v); }
 
 /*---------------------------------------------------------------------------
- * Forward declarations for helpers defined later in this file
- *---------------------------------------------------------------------------*/
-
-/* Private sub-handlers that remain here (use private statics) */
-static void history_load_offset(uint8_t offset);
-static void history_enter_evaluate(void);
-void        handle_history_nav(Token_t t);  /* non-static: called from ui_input.c */
-
-/*---------------------------------------------------------------------------
  * LVGL thread safety helpers
  *---------------------------------------------------------------------------*/
 
@@ -243,754 +161,30 @@ void lvgl_unlock(void) {
 }
 
 /*---------------------------------------------------------------------------
- * UI initialisation
+ * Forward declarations for helpers defined later in this file
  *---------------------------------------------------------------------------*/
 
-/* Initialises the three shared LVGL styles used across the calculator UI. */
-static void ui_init_styles(void)
-{
-    /* Background */
-    lv_style_init(&style_bg);
-    lv_style_set_bg_color(&style_bg, lv_color_hex(COLOR_BLACK));
-    lv_style_set_bg_opa(&style_bg, LV_OPA_COVER);
-    lv_style_set_border_width(&style_bg, 0);
-    lv_style_set_pad_all(&style_bg, 0);
-}
-
-/* Creates a block cursor box (14×26 px) with an inner label child.
- * All cursor objects across every screen are built through this single function.
- * Change the size, font, or style properties here and all cursors update at once. */
-void cursor_box_create(lv_obj_t *parent, bool start_hidden,
-                               lv_obj_t **out_box, lv_obj_t **out_inner)
-{
-    lv_obj_t *box = lv_obj_create(parent);
-    lv_obj_set_size(box, 14, 26);
-    lv_obj_set_style_bg_color(box, lv_color_hex(COLOR_GREY_LIGHT), 0);
-    lv_obj_set_style_bg_opa(box, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(box, 0, 0);
-    lv_obj_set_style_pad_all(box, 0, 0);
-    lv_obj_set_style_radius(box, 0, 0);
-    lv_obj_clear_flag(box, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(box, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
-
-    lv_obj_t *inner = lv_label_create(box);
-    lv_obj_set_style_text_font(inner, &jetbrains_mono_24, 0);
-    lv_obj_set_style_text_color(inner, lv_color_hex(COLOR_BLACK), 0);
-    lv_obj_center(inner);
-    lv_label_set_text(inner, "");
-
-    if (start_hidden)
-        lv_obj_add_flag(box, LV_OBJ_FLAG_HIDDEN);
-
-    *out_box   = box;
-    *out_inner = inner;
-}
-
-/* Creates the main calculator screen: history rows, angle label, and cursor. */
-static void ui_init_screen(void)
-{
-    lv_obj_t *scr = lv_scr_act();
-    lv_obj_add_style(scr, &style_bg, 0);
-    lv_obj_set_size(scr, DISPLAY_W, DISPLAY_H);
-
-    /* DISP_ROW_COUNT full-width text rows — Montserrat 24, DISP_ROW_H px each */
-    for (int i = 0; i < DISP_ROW_COUNT; i++) {
-        disp_rows[i] = lv_label_create(scr);
-        lv_obj_set_pos(disp_rows[i], 4, i * DISP_ROW_H + 2);
-        lv_obj_set_width(disp_rows[i], DISPLAY_W - 8);
-        lv_obj_set_style_text_font(disp_rows[i], &jetbrains_mono_24, 0);
-        lv_obj_set_style_text_color(disp_rows[i],
-                                    lv_color_hex(COLOR_GREY_MED), 0);
-        lv_label_set_long_mode(disp_rows[i], LV_LABEL_LONG_CLIP);
-        lv_label_set_text(disp_rows[i], "");
-    }
-
-    /* Cursor block — filled rectangle that overlays the insertion point. */
-    ExprEditor_Init(scr);
-
-    /* Measure how many monospaced characters fit on one display row. */
-    uint16_t glyph_w = lv_font_get_glyph_width(&jetbrains_mono_24, 'X', 0);
-    if (glyph_w > 0)
-        expr_chars_per_row = (uint8_t)((DISPLAY_W - 8) / glyph_w);
-}
+static void history_load_offset(uint8_t offset);
+static void history_enter_evaluate(void);
+void        handle_history_nav(Token_t t);  /* non-static: called from ui_input.c */
 
 /*---------------------------------------------------------------------------
- * Graph screen initialisation
+ * History commit helpers
  *---------------------------------------------------------------------------*/
-
-/* Creates a full-screen opaque black LVGL panel, hidden by default.
- * Used as the base for all overlay screens (MODE, MATH, TEST, MATRIX). */
-lv_obj_t *screen_create(lv_obj_t *parent)
-{
-    lv_obj_t *scr = lv_obj_create(parent);
-    lv_obj_set_size(scr, LV_HOR_RES, LV_VER_RES);
-    lv_obj_set_pos(scr, 0, 0);
-    lv_obj_set_style_bg_color(scr, lv_color_hex(COLOR_BLACK), 0);
-    lv_obj_set_style_border_width(scr, 0, 0);
-    lv_obj_set_style_pad_all(scr, 0, 0);
-    lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_add_flag(scr, LV_OBJ_FLAG_HIDDEN);
-    return scr;
-}
-
-/* ui_init_math_screen() and ui_init_test_screen() moved to ui_math_menu.c. */
-
-/*---------------------------------------------------------------------------
- * UI update functions
- *---------------------------------------------------------------------------*/
-
-/**
- * @brief Generic block-cursor placement.
- *
- * All cursor appearance logic — visibility, color, inner character, and
- * insert/overwrite shape — is driven by explicit parameters rather than
- * module-level globals.
- *
- * Cursor inner-char key:
- *   MODE_STO        → green 'A'  (STO-pending synthetic mode)
- *   MODE_2ND        → amber '^'
- *   MODE_ALPHA/LOCK → green 'A'
- *   insert=true     → grey underline style  (overwrite = default: blank grey block)
- *
- * @param box          The cursor rectangle LVGL object to move/show/hide.
- * @param inner        The label child of box that shows the inner character.
- * @param parent_label The LVGL label whose text provides the reference position.
- * @param glyph_pos    Glyph index within parent_label at which to place the cursor.
- * @param visible      Whether the cursor is currently in the visible blink phase.
- * @param mode         Calculator mode driving cursor color/inner-char appearance.
- *                     Pass MODE_STO (synthesised from sto_pending) for STO-pending state.
- * @param insert       True when insert mode is active (renders underscore-style cursor).
- */
-void cursor_render(lv_obj_t *box, lv_obj_t *inner,
-                   lv_obj_t *parent_label, uint32_t glyph_pos,
-                   bool visible, CalcMode_t mode, bool insert)
-{
-    if (box == NULL) return;
-
-    lv_color_t box_color;
-    const char *inner_text;
-
-    switch (mode) {
-        case MODE_STO:
-            box_color  = lv_color_hex(COLOR_ALPHA);
-            inner_text = "A";
-            break;
-        case MODE_2ND:
-            box_color  = lv_color_hex(COLOR_2ND);
-            inner_text = "^";
-            break;
-        case MODE_ALPHA:
-        case MODE_ALPHA_LOCK:
-            box_color  = lv_color_hex(COLOR_ALPHA);
-            inner_text = "A";
-            break;
-        default:
-            box_color  = lv_color_hex(COLOR_GREY_LIGHT);
-            inner_text = "";  /* insert mode shown by underscore shape, not letter */
-            break;
-    }
-
-    if (!visible) {
-        lv_obj_add_flag(box, LV_OBJ_FLAG_HIDDEN);
-        return;
-    }
-
-    lv_point_t pos;
-    lv_label_get_letter_pos(parent_label, glyph_pos, &pos);
-
-    int32_t lx = lv_obj_get_x(parent_label);
-    int32_t ly = lv_obj_get_y(parent_label);
-
-    /* Insert mode: underscore-style cursor (3 px at character baseline).
-     * Overwrite mode: full-height block cursor (26 px).
-     * In insert mode the box is 3 px tall; the inner label (^/A) overflows
-     * above the underline via LV_OBJ_FLAG_OVERFLOW_VISIBLE, giving a combined
-     * "underline + mode indicator" visual for insert+2ND or insert+ALPHA. */
-    bool in_insert = insert && (mode != MODE_STO);
-    lv_obj_set_height(box, in_insert ? 3 : 26);
-    lv_obj_set_pos(box, lx + pos.x, ly + pos.y + (in_insert ? 23 : 0));
-
-    lv_obj_set_style_bg_color(box, box_color, 0);
-    lv_label_set_text(inner, inner_text);
-    lv_obj_clear_flag(box, LV_OBJ_FLAG_HIDDEN);
-}
-
-
-/**
- * @brief Redraws all DISP_ROW_COUNT display rows from the history buffer
- *        and the current input expression.
- *
- * Each history entry occupies ceil(expr_len/cpr) expression sub-rows + 1 result
- * row, so long committed expressions wrap just as the active expression does.
- * Current expression sub-rows follow immediately after all history rows.
- */
-/**
- * @brief Format a CalcResult_t into a displayable string.
- *
- * For scalar results: delegates to Calc_FormatResult.
- * For matrix results: produces a newline-separated grid "[a b c]\n[d e f]\n[g h i]".
- * Updates *ans_out only on successful scalar results.
- */
-void format_calc_result(const CalcResult_t *r, char *buf, int buf_size)
-{
-    Calc_FormatResultStr(r, buf, buf_size);
-    if (r->error == CALC_OK) {
-        if (r->has_matrix) {
-            ans_is_matrix = true;
-            ans = (float)r->matrix_idx;
-        } else {
-            ans_is_matrix = false;
-            ans = r->value;
-        }
-    }
-}
-
-/** Returns the number of display lines a result string occupies (newline-separated). */
-static int count_result_lines(const char *result)
-{
-    int n = 1;
-    for (; *result; result++)
-        if (*result == '\n') n++;
-    return n;
-}
-
-/**
- * @brief Copy line @p line_idx (0-based) from a newline-separated string into buf.
- *
- * Returns false if line_idx exceeds the number of lines in src.
- */
-static bool get_result_line(const char *src, int line_idx, char *buf, int buf_size)
-{
-    const char *p = src;
-    for (int k = 0; k < line_idx; k++) {
-        while (*p && *p != '\n') p++;
-        if (*p == '\n') p++;
-        else return false;  /* line_idx out of range */
-    }
-    int len = 0;
-    while (p[len] && p[len] != '\n' && len < buf_size - 1) len++;
-    memcpy(buf, p, (size_t)len);
-    buf[len] = '\0';
-    return true;
-}
-
-/* Compute the maximum formatted-cell width for each column of matrix m. */
-static void matrix_col_widths(const CalcMatrix_t *m,
-                               uint8_t widths[CALC_MATRIX_MAX_DIM])
-{
-    for (int c = 0; c < CALC_MATRIX_MAX_DIM; c++) widths[c] = 0;
-    for (int r = 0; r < (int)m->rows; r++) {
-        for (int c = 0; c < (int)m->cols; c++) {
-            char cell[12];
-            Calc_FormatResult(m->data[r][c], cell, sizeof(cell));
-            cell[8] = '\0';
-            uint8_t len = (uint8_t)strlen(cell);
-            if (len > widths[c]) widths[c] = len;
-        }
-    }
-}
-
-/* Total characters needed for one formatted row: [ col0 col1 … coln ] */
-static int matrix_row_total_width(const CalcMatrix_t *m)
-{
-    uint8_t widths[CALC_MATRIX_MAX_DIM];
-    matrix_col_widths(m, widths);
-    int total = 2; /* [ and ] */
-    for (int c = 0; c < (int)m->cols; c++) {
-        if (c > 0) total++; /* space separator */
-        total += widths[c];
-    }
-    return total;
-}
-
-/*
- * Build a display string for one row of matrix m with horizontal scroll applied.
- *
- * display_cols: number of character columns visible (typically expr_chars_per_row).
- * Shows '>' at the right edge when more content is to the right.
- * Shows '<' at the left edge when scrolled past content.
- * buf must be at least display_cols + 2 bytes.
- */
-static void matrix_format_row(const CalcMatrix_t *m, int row_idx,
-                               int scroll_offset, int display_cols,
-                               char *buf, int buf_size)
-{
-    uint8_t widths[CALC_MATRIX_MAX_DIM];
-    matrix_col_widths(m, widths);
-
-    /* Build the full unclipped row string */
-    char full[80];
-    int pos = 0;
-    full[pos++] = '[';
-    for (int c = 0; c < (int)m->cols && pos < (int)sizeof(full) - 2; c++) {
-        if (c > 0) full[pos++] = ' ';
-        char cell[12];
-        Calc_FormatResult(m->data[row_idx][c], cell, sizeof(cell));
-        cell[8] = '\0';
-        int cl = (int)strlen(cell);
-        int cw = (int)widths[c];
-        /* Right-pad cell to column width */
-        for (int p = 0; p < cw && pos < (int)sizeof(full) - 1; p++)
-            full[pos++] = (p < cl) ? cell[p] : ' ';
-    }
-    if (pos < (int)sizeof(full) - 1) full[pos++] = ']';
-    full[pos] = '\0';
-    int full_len = pos;
-
-    bool clip_left  = (scroll_offset > 0);
-    bool clip_right = (scroll_offset + display_cols < full_len);
-
-    /* Source range: shrink by 1 char on each clipped side for the indicator */
-    int src_start = scroll_offset + (clip_left  ? 1 : 0);
-    int src_end   = scroll_offset + display_cols - (clip_right ? 1 : 0);
-    if (src_end > full_len) src_end = full_len;
-
-    int out = 0;
-    if (clip_left  && out < buf_size - 1) buf[out++] = '<';
-    for (int src = src_start; src < src_end && out < buf_size - 2; src++)
-        buf[out++] = full[src];
-    if (clip_right && out < buf_size - 1) buf[out++] = '>';
-    buf[out] = '\0';
-}
-
-/** Returns the CalcMatrix_t for history entry @p e, or NULL if evicted from the ring. */
-static const CalcMatrix_t *history_get_matrix(const HistoryEntry_t *e)
-{
-    if (!e->has_matrix) return NULL;
-    uint8_t slot = e->matrix_ring_idx;
-    if (matrix_ring_gen_table[slot] != e->matrix_ring_gen) return NULL;
-    return &matrix_ring[slot];
-}
-
-/**
- * @brief Render one history result row onto @p label.
- *
- * Sets the label colour to COLOR_WHITE, then either formats a matrix row
- * (column-aligned, left-aligned, with horizontal scroll applied) or a scalar
- * result line (right-aligned), and sets the label text.
- */
-static void render_result_row(lv_obj_t *label, const HistoryEntry_t *entry,
-                               int entry_idx, int result_line)
-{
-    char rbuf[MAX_RESULT_LEN];
-    lv_obj_set_style_text_color(label, lv_color_hex(COLOR_WHITE), 0);
-    if (entry->has_matrix) {
-        const CalcMatrix_t *m = history_get_matrix(entry);
-        if (m != NULL) {
-            int off = (CalcHistory_GetMatrixScrollFocus() == (int8_t)entry_idx)
-                      ? (int)CalcHistory_GetMatrixScrollOffset() : 0;
-            matrix_format_row(m, result_line,
-                              off, (int)expr_chars_per_row, rbuf, sizeof(rbuf));
-        } else {
-            /* Matrix evicted from ring — fall back to pre-formatted result string */
-            get_result_line(entry->result, result_line, rbuf, sizeof(rbuf));
-        }
-        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_LEFT, 0);
-    } else {
-        get_result_line(entry->result, result_line, rbuf, sizeof(rbuf));
-        lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_RIGHT, 0);
-    }
-    lv_label_set_text(label, rbuf);
-}
-
-void ui_refresh_display(void)
-{
-    if (disp_rows[0] == NULL) return;
-
-    int cpr = (int)expr_chars_per_row;
-    int expr_len = ExprEditor_GetLen();
-    int expr_rows = (expr_len == 0) ? 1 : (expr_len + cpr - 1) / cpr;
-
-    /* Number of history entries visible (circular buffer cap) */
-    int cnt = (int)CalcHistory_GetCount();
-    int num_entries = (cnt < HISTORY_LINE_COUNT) ? cnt : HISTORY_LINE_COUNT;
-
-    /* Total display lines consumed by history (variable per entry).
-       Matrix results occupy multiple result lines (one per matrix row). */
-    int total_history_lines = 0;
-    for (int d = 0; d < num_entries; d++) {
-        int idx = (int)((cnt - num_entries + d) % HISTORY_LINE_COUNT);
-        const HistoryEntry_t *e = CalcHistory_GetEntry((uint8_t)idx);
-        int elen = (int)strlen(e->expression);
-        int erows = (elen + cpr - 1) / cpr;
-        int rlines = e->has_matrix
-                     ? (int)e->matrix_rows_cache
-                     : count_result_lines(e->result);
-        total_history_lines += erows + rlines;
-    }
-
-    int total = total_history_lines + expr_rows;
-    int start = (total > DISP_ROW_COUNT) ? (total - DISP_ROW_COUNT) : 0;
-
-    /* Which expression sub-row holds the cursor, and column within that row */
-    int expr_cursor     = ExprEditor_GetCursor();
-    int cursor_expr_row = expr_cursor / cpr;
-    int cursor_col      = expr_cursor % cpr;
-
-    /* Build a flat map of the DISP_ROW_COUNT visible logical lines in one
-       forward pass — eliminates the per-row inner walk in the original.
-       entry_idx == -1 flags current-expression rows; is_result distinguishes
-       history expression sub-rows from result lines. */
-    struct { int entry_idx; int sub_row; bool is_result; } line_map[DISP_ROW_COUNT];
-    int map_len = 0;
-    int line    = 0;
-
-    for (int d = 0; d < num_entries; d++) {
-        int idx = (int)((cnt - num_entries + d) % HISTORY_LINE_COUNT);
-        const HistoryEntry_t *e = CalcHistory_GetEntry((uint8_t)idx);
-        int elen  = (int)strlen(e->expression);
-        int erows = (elen + cpr - 1) / cpr;
-        int rlines = e->has_matrix
-                     ? (int)e->matrix_rows_cache
-                     : count_result_lines(e->result);
-
-        for (int er = 0; er < erows; er++, line++) {
-            if (line >= start && map_len < DISP_ROW_COUNT) {
-                line_map[map_len].entry_idx = idx;
-                line_map[map_len].sub_row   = er;
-                line_map[map_len].is_result = false;
-                map_len++;
-            }
-        }
-        for (int rl = 0; rl < rlines; rl++, line++) {
-            if (line >= start && map_len < DISP_ROW_COUNT) {
-                line_map[map_len].entry_idx = idx;
-                line_map[map_len].sub_row   = rl;
-                line_map[map_len].is_result = true;
-                map_len++;
-            }
-        }
-    }
-    for (int el = 0; el < expr_rows; el++, line++) {
-        if (line >= start && map_len < DISP_ROW_COUNT) {
-            line_map[map_len].entry_idx = -1;
-            line_map[map_len].sub_row   = el;
-            line_map[map_len].is_result = false;
-            map_len++;
-        }
-    }
-
-    /* Render each visible row using the pre-built map — O(1) lookup per row */
-    for (int row = 0; row < DISP_ROW_COUNT; row++) {
-        if (row >= map_len) {
-            lv_label_set_text(disp_rows[row], "");
-            continue;
-        }
-
-        int  eidx      = line_map[row].entry_idx;
-        int  sub_row   = line_map[row].sub_row;
-        bool is_result = line_map[row].is_result;
-
-        if (eidx >= 0 && !is_result) {
-            /* History expression sub-row */
-            const HistoryEntry_t *e = CalcHistory_GetEntry((uint8_t)eidx);
-            int elen = (int)strlen(e->expression);
-            int char_start = sub_row * cpr;
-            int char_end   = char_start + cpr;
-            if (char_end > elen) char_end = elen;
-            int seg_len = char_end - char_start;
-            if (seg_len < 0) seg_len = 0;
-            char row_buf[MAX_EXPR_LEN + 1];
-            memcpy(row_buf, e->expression + char_start, (size_t)seg_len);
-            row_buf[seg_len] = '\0';
-            lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_GREY_MED), 0);
-            lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
-            lv_label_set_text(disp_rows[row], row_buf);
-        } else if (eidx >= 0) {
-            /* History result line */
-            render_result_row(disp_rows[row], CalcHistory_GetEntry((uint8_t)eidx), eidx, sub_row);
-        } else {
-            /* Current expression sub-row */
-            int char_start = sub_row * cpr;
-            int char_end   = char_start + cpr;
-            if (char_end > expr_len) char_end = expr_len;
-            int seg_len = char_end - char_start;
-            if (seg_len < 0) seg_len = 0;
-            char row_buf[MAX_EXPR_LEN + 1];
-            memcpy(row_buf, ExprEditor_GetBuf() + char_start, (size_t)seg_len);
-            row_buf[seg_len] = '\0';
-            lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_GREY_LIGHT), 0);
-            lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
-            lv_label_set_text(disp_rows[row], row_buf);
-            if (sub_row == cursor_expr_row)
-                ExprEditor_CursorUpdate(disp_rows[row], (uint32_t)cursor_col,
-                                        current_mode, insert_mode);
-        }
-    }
-
-    /* If the cursor's sub-row scrolled off-screen, hide the cursor */
-    if (total_history_lines + cursor_expr_row < start)
-        ExprEditor_CursorHide();
-}
-
-static void update_overlay_cursor(void)
-{
-    if (Graph_IsYeqScreenVisible())
-        yeq_cursor_update();
-    else if (Graph_IsRangeScreenVisible())
-        range_cursor_update();
-    else if (Graph_IsZoomFactorsScreenVisible())
-        zoom_factors_cursor_update();
-    else if (Matrix_IsEditScreenVisible())
-        matrix_edit_cursor_update();
-    else if (Prgm_IsEditorScreenVisible())
-        PrgmEditor_CursorUpdate();
-    else if (Prgm_IsNewScreenVisible())
-        prgm_new_cursor_update();
-}
-
-/**
- * @brief LVGL timer callback — blinks the cursor every CURSOR_BLINK_MS.
- *
- * Called from lv_task_handler() — DefaultTask already holds the LVGL mutex.
- * Do NOT call lvgl_lock() here or it will deadlock.
- *
- * Updates the main screen cursor and, when an overlay input screen is active,
- * also blinks the corresponding overlay cursor box.
- */
-static void cursor_timer_cb(lv_timer_t *timer)
-{
-    (void)timer;
-    ExprEditor_SetCursorVisible(!ExprEditor_GetCursorVisible());
-    ui_refresh_display();
-    /* Blink the overlay-screen cursor based on visibility, not current_mode,
-     * so it keeps blinking during transient modifier modes (MODE_2ND/ALPHA). */
-    update_overlay_cursor();
-}
-
-/**
- * @brief Refreshes the cursor on all screens to reflect the current mode.
- *        The cursor block color and inner character encode 2nd/ALPHA/STO state.
- *        Checks screen visibility directly because current_mode may already be
- *        MODE_2ND/MODE_ALPHA when called from Process_Hardware_Key.
- */
-void ui_update_status_bar(void)
-{
-    ExprEditor_SetCursorVisible(true);
-    ui_refresh_display();
-    update_overlay_cursor();
-}
-
-/**
- * @brief Refreshes the display with the current expression and cursor.
- *        Called after every keypress that modifies the expression.
- */
-void Update_Calculator_Display(void)
-{
-    if (disp_rows[0] == NULL) return;
-    lvgl_lock();
-    ui_refresh_display();
-    lvgl_unlock();
-}
-
-/* expr_prepend_ans_if_empty, expr_insert_char, expr_insert_str,
- * expr_delete_at_cursor moved to ui_input.c; declared in ui_input.h. */
-
-/** Write @p text directly to display row @p row_1based (1–8) without
- *  touching the history ring buffer.  Must be called under lvgl_lock(). */
-void ui_output_row(uint8_t row_1based, const char *text)
-{
-    if (row_1based < 1 || row_1based > DISP_ROW_COUNT) return;
-    if (disp_rows[0] == NULL) return;
-    uint8_t row = row_1based - 1;
-    lv_obj_set_style_text_color(disp_rows[row], lv_color_hex(COLOR_WHITE), 0);
-    lv_obj_set_style_text_align(disp_rows[row], LV_TEXT_ALIGN_LEFT, 0);
-    lv_label_set_text(disp_rows[row], text);
-}
-
-/* ui_update_math_display(), ui_update_test_display(), math_menu_insert(),
- * test_menu_insert(), menu_handle_nav_keys(), handle_math_menu(), and
- * handle_test_menu() moved to ui_math_menu.c. */
-
-/*---------------------------------------------------------------------------
- * Token execution
- *---------------------------------------------------------------------------*/
-
-/**
- * @brief Generic cross-module helper that takes a menu item and inserts it
- *        into either the Y= editor or the normal calculator context, then
- *        returns context via pointers.
- */
-void menu_insert_text(const char *ins, CalcMode_t *ret_mode)
-{
-    if (*ret_mode == MODE_PRGM_EDITOR) {
-        PrgmEditor_MenuInsert(ins);
-    } else if (*ret_mode == MODE_GRAPH_YEQ) {
-        Calc_SetMode(MODE_GRAPH_YEQ);
-        graph_ui_yeq_insert(ins);
-    } else {
-        Calc_SetMode(MODE_NORMAL);
-        expr_insert_str(ins);
-        Update_Calculator_Display();
-    }
-    *ret_mode = MODE_NORMAL;
-}
-
-/*---------------------------------------------------------------------------
- * Navigation helper functions
- *---------------------------------------------------------------------------*/
-
-/* Hides every graph editor, menu overlay, and the graph canvas.
- * Must be called inside lvgl_lock(). */
-void hide_all_screens(void)
-{
-    Graph_HideYeqScreen();
-    ParamYeq_HideScreen();
-    Graph_HideRangeScreen();
-    Zoom_HideScreen();
-    Graph_HideZoomFactorsScreen();
-    Mode_HideScreen();
-    Math_HideScreen();
-    Test_HideScreen();
-    Matrix_HideMenuScreen();
-    Matrix_HideEditScreen();
-    Stat_HideMenuScreen();
-    Stat_HideEditScreen();
-    Stat_HideResultsScreen();
-    Draw_HideScreen();
-    Vars_HideScreen();
-    Yvars_HideScreen();
-    Reset_HideScreen();
-    Error_HideScreen();
-    hide_prgm_screens();
-    Graph_SetVisible(false);
-}
-
-/* Opens a menu (MATH, TEST, or MATRIX) from any screen.
- * return_to: the mode to restore when the menu is closed.
- * Hides all screens first so no overlay leaks through. */
-void menu_open(Token_t menu_token, CalcMode_t return_to)
-{
-    lvgl_lock();
-    hide_all_screens();
-    switch (menu_token) {
-    case TOKEN_MATH:
-        math_menu_open(return_to);
-        break;
-    case TOKEN_TEST:
-        test_menu_open(return_to);
-        break;
-    case TOKEN_MATRX:
-        Matrix_MenuOpen(return_to);
-        break;
-    case TOKEN_PRGM:
-        prgm_menu_open(return_to);
-        break;
-    case TOKEN_STAT:
-        Stat_MenuOpen(return_to);
-        break;
-    case TOKEN_DRAW:
-        Draw_MenuOpen(return_to);
-        break;
-    case TOKEN_VARS:
-        Vars_MenuOpen(return_to);
-        break;
-    case TOKEN_Y_VARS:
-        Yvars_MenuOpen(return_to);
-        break;
-    default:
-        break;
-    }
-    lvgl_unlock();
-}
-
-/* Closes a menu and restores the calling screen.
- * Returns the restored CalcMode_t (MODE_NORMAL or MODE_GRAPH_YEQ).
- * Does NOT fall through; callers decide whether to return or break. */
-CalcMode_t menu_close(Token_t menu_token)
-{
-    CalcMode_t ret;
-    switch (menu_token) {
-    case TOKEN_MATH:
-        ret = math_menu_close();
-        break;
-    case TOKEN_TEST:
-        ret = test_menu_close();
-        break;
-    case TOKEN_MATRX:
-        ret = Matrix_MenuClose();
-        break;
-    case TOKEN_PRGM:
-        ret = prgm_menu_close();
-        break;
-    case TOKEN_STAT:
-        ret = Stat_MenuClose();
-        break;
-    case TOKEN_DRAW:
-        ret = Draw_MenuClose();
-        break;
-    case TOKEN_VARS:
-        ret = Vars_MenuClose();
-        break;
-    case TOKEN_Y_VARS:
-        ret = Yvars_MenuClose();
-        break;
-    default:
-        ret = MODE_NORMAL;
-        break;
-    }
-    Calc_SetMode(ret);
-    lvgl_lock();
-    Math_HideScreen();
-    Test_HideScreen();
-    Matrix_HideMenuScreen();
-    Stat_HideMenuScreen();
-    Stat_HideEditScreen();
-    Stat_HideResultsScreen();
-    Draw_HideScreen();
-    Vars_HideScreen();
-    Yvars_HideScreen();
-    hide_prgm_screens();
-    if (ret == MODE_GRAPH_YEQ)
-        Graph_ShowYeqScreen();
-    lvgl_unlock();
-    return ret;
-}
-
-/* Moves the active tab in a multi-tab menu left or right.
- * Resets item cursor and scroll offset on tab change. */
-void tab_move(uint8_t *tab, uint8_t *cursor, uint8_t *scroll,
-                     uint8_t tab_count, bool left, void (*update)(void))
-{
-    if (left) {
-        if (*tab > 0) { (*tab)--; *cursor = 0; if (scroll) *scroll = 0; }
-    } else {
-        if (*tab < tab_count - 1) { (*tab)++; *cursor = 0; if (scroll) *scroll = 0; }
-    }
-    lvgl_lock(); update(); lvgl_unlock();
-}
-
-/*---------------------------------------------------------------------------
- * Per-mode token handlers (non-graph)
- * Each returns true if the token was fully handled (Execute_Token should
- * return), false if execution should fall through to the next handler.
- *---------------------------------------------------------------------------*/
-
-/* handle_mode_screen() moved to ui_mode.c; declared in ui_mode.h.
- * handle_math_menu(), handle_test_menu(), menu_handle_nav_keys() moved to ui_math_menu.c.
- * handle_sto_pending, handle_digit_key, handle_arithmetic_op moved to ui_input.c. */
 
 /**
  * @brief Write a completed evaluation into the next history slot and refresh the display.
  *
- * Stores @p expr and @p result_str into history[history_count % HISTORY_LINE_COUNT],
- * copies matrix data when @p r->has_matrix is set, advances history_count, and
- * triggers a UI update under the LVGL mutex.
- *
- * The caller is responsible for any expression-buffer reset and history_recall_offset
- * update that should happen after the commit.
+ * Calls UiDisplay_PushMatrixToRing when the result contains a matrix, then
+ * commits to the history ring buffer and triggers a UI refresh.
  */
 static void commit_history_entry(const char *expr_buf, const char *result_str,
                                  const CalcResult_t *r)
 {
     uint8_t ring_idx = 0, ring_gen = 0, rows_cache = 0;
     if (r->has_matrix) {
-        ring_idx   = (uint8_t)(matrix_ring_write_count % MATRIX_RING_COUNT);
-        ring_gen   = matrix_ring_write_count;
-        rows_cache = calc_matrices[r->matrix_idx].rows;
-        matrix_ring[ring_idx]           = calc_matrices[r->matrix_idx];
-        matrix_ring_gen_table[ring_idx] = matrix_ring_write_count;
-        matrix_ring_write_count++;
+        UiDisplay_PushMatrixToRing((uint8_t)r->matrix_idx,
+                                   &ring_idx, &ring_gen, &rows_cache);
     }
     CalcHistory_Commit(expr_buf, result_str, r->has_matrix, ring_idx, ring_gen, rows_cache);
     lvgl_lock();
@@ -1001,12 +195,8 @@ static void commit_history_entry(const char *expr_buf, const char *result_str,
 void Calc_CommitMatrixToHistory(const char *expr_text, uint8_t mat_idx)
 {
     static const char * const mat_names[4] = {"[A]", "[B]", "[C]", "[ANS]"};
-    uint8_t ring_idx = (uint8_t)(matrix_ring_write_count % MATRIX_RING_COUNT);
-    uint8_t ring_gen = matrix_ring_write_count;
-    uint8_t rows_cache = calc_matrices[mat_idx].rows;
-    matrix_ring[ring_idx]           = calc_matrices[mat_idx];
-    matrix_ring_gen_table[ring_idx] = matrix_ring_write_count;
-    matrix_ring_write_count++;
+    uint8_t ring_idx, ring_gen, rows_cache;
+    UiDisplay_PushMatrixToRing(mat_idx, &ring_idx, &ring_gen, &rows_cache);
     CalcHistory_Commit(expr_text, mat_idx < 4 ? mat_names[mat_idx] : "?",
                        true, ring_idx, ring_gen, rows_cache);
     lvgl_lock();
@@ -1023,15 +213,11 @@ static void history_load_offset(uint8_t offset)
     Update_Calculator_Display();
 }
 
-/* eval_draw_arg(), parse_draw_args(), try_execute_draw_command() moved to ui_draw.c.
- * try_execute_draw_command() is declared in ui_draw.h (already included above). */
-
 /* Evaluate (or run) the current expression on TOKEN_ENTER.
  * Called only when expr_len > 0. */
 static void history_enter_evaluate(void)
 {
     const char *ebuf = ExprEditor_GetBuf();
-    /* prgmNAME expression: insert into history and run the program */
     if (strncmp(ebuf, "prgm", 4) == 0) {
         int8_t slot = Prgm_LookupSlot(ebuf + 4);
         CalcHistory_Commit(ebuf, "", false, 0, 0, 0);
@@ -1043,7 +229,6 @@ static void history_enter_evaluate(void)
         return;
     }
 #ifndef HOST_TEST
-    /* DRAW commands execute as statements — display "Done", skip Calc_Evaluate */
     if (try_execute_draw_command()) {
         CalcHistory_Commit(ebuf, "Done", false, 0, 0, 0);
         ExprEditor_Clear();
@@ -1058,12 +243,10 @@ static void history_enter_evaluate(void)
     CalcResult_t result = Calc_Evaluate(ebuf, ans, ans_is_matrix, angle_degrees);
     if (result.error != CALC_OK) {
 #ifndef HOST_TEST
-        /* Show TI-81 error overlay — expression is preserved in ui_error module state */
         Error_Open(result.error, ebuf, result.error_offset, true);
         ExprEditor_Clear();
         CalcHistory_ResetRecallOffset();
 #else
-        /* Host-test build: commit error to history for testability */
         char result_str[MAX_RESULT_LEN];
         format_calc_result(&result, result_str, MAX_RESULT_LEN);
         commit_history_entry(ebuf, result_str, &result);
@@ -1087,7 +270,7 @@ void handle_history_nav(Token_t t)
         {
             int8_t focus = CalcHistory_GetMatrixScrollFocus();
             if (ExprEditor_GetLen() == 0 && focus >= 0 &&
-                history_get_matrix(CalcHistory_GetEntry((uint8_t)focus)) != NULL) {
+                UiDisplay_GetHistoryMatrix(CalcHistory_GetEntry((uint8_t)focus)) != NULL) {
                 uint8_t off = CalcHistory_GetMatrixScrollOffset();
                 if (off > 0) {
                     CalcHistory_SetMatrixScrollOffset(off - 1);
@@ -1105,11 +288,27 @@ void handle_history_nav(Token_t t)
             int8_t focus = CalcHistory_GetMatrixScrollFocus();
             if (ExprEditor_GetLen() == 0 && focus >= 0) {
                 const CalcMatrix_t *m =
-                    history_get_matrix(CalcHistory_GetEntry((uint8_t)focus));
+                    UiDisplay_GetHistoryMatrix(CalcHistory_GetEntry((uint8_t)focus));
                 if (m != NULL) {
-                    int total_w = matrix_row_total_width(m);
-                    int max_off = (total_w > (int)expr_chars_per_row)
-                                  ? (total_w - (int)expr_chars_per_row) : 0;
+                    /* matrix_row_total_width computation: [ + cols*width + separators + ] */
+                    /* Re-derive total width inline using the same formula as ui_main_display.c */
+                    uint8_t widths[CALC_MATRIX_MAX_DIM] = {0};
+                    for (int r = 0; r < (int)m->rows; r++) {
+                        for (int c = 0; c < (int)m->cols; c++) {
+                            char cell[12];
+                            Calc_FormatResult(m->data[r][c], cell, sizeof(cell));
+                            cell[8] = '\0';
+                            uint8_t len = (uint8_t)strlen(cell);
+                            if (len > widths[c]) widths[c] = len;
+                        }
+                    }
+                    int total_w = 2;
+                    for (int c = 0; c < (int)m->cols; c++) {
+                        if (c > 0) total_w++;
+                        total_w += widths[c];
+                    }
+                    int cpr = (int)UiDisplay_GetExprCharsPerRow();
+                    int max_off = (total_w > cpr) ? (total_w - cpr) : 0;
                     uint8_t off = CalcHistory_GetMatrixScrollOffset();
                     if ((int)off < max_off) {
                         CalcHistory_SetMatrixScrollOffset(off + 1);
@@ -1153,7 +352,6 @@ void handle_history_nav(Token_t t)
 
     case TOKEN_ENTER:
         if (ExprEditor_GetLen() == 0 && CalcHistory_GetCount() > 0) {
-            /* Re-evaluate the last history entry */
             uint8_t last_idx = (CalcHistory_GetCount() - 1u) % HISTORY_LINE_COUNT;
             const HistoryEntry_t *last = CalcHistory_GetEntry(last_idx);
             CalcResult_t result = Calc_Evaluate(last->expression,
@@ -1169,8 +367,8 @@ void handle_history_nav(Token_t t)
 
     case TOKEN_ENTRY:
         if (CalcHistory_GetCount() > 0) {
-            CalcHistory_ResetRecallOffset();  /* ensure we start from 0 */
-            CalcHistory_RecallUp();            /* set to 1 */
+            CalcHistory_ResetRecallOffset();
+            CalcHistory_RecallUp();
             history_load_offset(1);
         }
         break;
@@ -1178,487 +376,3 @@ void handle_history_nav(Token_t t)
     default: break;
     }
 }
-
-/* handle_function_insert, handle_clear_key, handle_sto_key,
- * handle_normal_graph_nav, handle_normal_mode moved to ui_input.c. */
-
-/*---------------------------------------------------------------------------
- * Execute_Token dispatch infrastructure
- *---------------------------------------------------------------------------*/
-
-typedef bool (*ModeHandler_fn)(Token_t);
-typedef bool (*ModePredicate_fn)(Token_t);
-
-/**
- * Registers one routing path in Execute_Token's dispatch table.
- * If pred is NULL, the entry fires when current_mode == mode.
- * If pred is non-NULL, pred(t) is called instead of the mode comparison.
- * The final table entry uses pred_always (always returns true) as the fallback.
- */
-typedef struct {
-    CalcMode_t       mode;    /* primary mode this entry handles */
-    ModePredicate_fn pred;    /* if non-NULL, overrides mode comparison */
-    ModeHandler_fn   handler;
-} ModeRegistration_t;
-
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-
-/* Thin wrappers for handlers whose signatures differ from ModeHandler_fn. */
-static bool dispatch_matrix_menu(Token_t t) { return handle_matrix_menu(t); }
-static bool dispatch_matrix_edit(Token_t t) { handle_matrix_edit(t); return true; }
-static bool dispatch_stat_menu(Token_t t)   { return handle_stat_menu(t); }
-
-/*---------------------------------------------------------------------------
- * Route handlers — extracted from the former inline blocks in Execute_Token
- *---------------------------------------------------------------------------*/
-
-static bool route_token_on(Token_t t)
-{
-    (void)t;
-    bool power_down = (current_mode == MODE_2ND);
-
-    lvgl_lock();
-    lv_obj_t *saving_lbl = lv_label_create(lv_scr_act());
-    lv_label_set_text(saving_lbl, "Saving...");
-    lv_obj_set_style_text_color(saving_lbl, lv_color_hex(COLOR_AMBER), 0);
-    lv_obj_align(saving_lbl, LV_ALIGN_BOTTOM_MID, 0, -6);
-    lvgl_unlock();
-    osDelay(20);
-
-    PersistBlock_t block = Persist_BuildBlock();
-    Persist_Save(&block);
-    Prgm_Save();
-
-    Calc_SetMode(MODE_NORMAL);
-    return_mode = MODE_NORMAL;
-    ExprEditor_SetStoPending(false);
-    Prgm_ResetExecutionState();
-    lvgl_lock();
-    lv_obj_del(saving_lbl);
-    hide_all_screens();
-    ui_update_status_bar();
-    lvgl_unlock();
-
-    if (power_down) {
-        Power_DisplayBlankAndMessage();
-    }
-    return true;
-}
-
-static bool route_token_quit(Token_t t)
-{
-    (void)t;
-    Calc_SetMode(MODE_NORMAL);
-    return_mode = MODE_NORMAL;
-    ExprEditor_SetStoPending(false);
-    Prgm_ResetExecutionState();
-    lvgl_lock();
-    hide_all_screens();
-    ui_update_status_bar();
-    lvgl_unlock();
-    return true;
-}
-
-static bool route_token_mode(Token_t t)  { (void)t; ui_mode_open(); return true; }
-
-static bool route_token_reset(Token_t t)
-{
-    (void)t;
-    lvgl_lock();
-    hide_all_screens();
-    lvgl_unlock();
-    Reset_MenuOpen(current_mode);
-    return true;
-}
-
-/* MODE_PRGM_RUNNING always consumes the token regardless of handler return. */
-static bool route_prgm_running(Token_t t) { handle_prgm_running(t); return true; }
-
-/* Normal-mode fallback: always fires last, always consumes the token. */
-static bool route_normal_mode(Token_t t)  { handle_normal_mode(t);  return true; }
-
-/*---------------------------------------------------------------------------
- * Route predicates — used for token-based, compound, and state conditions.
- * Simple mode-based entries use pred = NULL and rely on the mode field.
- *---------------------------------------------------------------------------*/
-
-/* Token overrides — fire regardless of current mode */
-static bool pred_token_on   (Token_t t) { return t == TOKEN_ON;    }
-static bool pred_token_quit (Token_t t) { return t == TOKEN_QUIT;  }
-static bool pred_token_mode (Token_t t) { return t == TOKEN_MODE;  }
-static bool pred_token_reset(Token_t t) { return t == TOKEN_RESET; }
-
-/* ALPHA_LOCK compounds: also fire when current_mode == ALPHA_LOCK + matching return_mode. */
-static bool pred_prgm_new_name(Token_t t) {
-    (void)t;
-    return current_mode == MODE_PRGM_NEW_NAME ||
-           (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_NEW_NAME);
-}
-static bool pred_prgm_editor(Token_t t) {
-    (void)t;
-    return current_mode == MODE_PRGM_EDITOR ||
-           (current_mode == MODE_ALPHA_LOCK && return_mode == MODE_PRGM_EDITOR);
-}
-
-/* Graph sub-modes — all routed through Graph_HandleKey in graph.c. */
-static bool pred_graph_mode(Token_t t) {
-    (void)t;
-    return current_mode == MODE_GRAPH_YEQ          ||
-           current_mode == MODE_GRAPH_RANGE         ||
-           current_mode == MODE_GRAPH_ZOOM          ||
-           current_mode == MODE_GRAPH_ZOOM_FACTORS  ||
-           current_mode == MODE_GRAPH_ZBOX          ||
-           current_mode == MODE_GRAPH_ZOOM_CURSOR   ||
-           current_mode == MODE_GRAPH_DRAW_CURSOR   ||
-           current_mode == MODE_GRAPH_TRACE         ||
-           current_mode == MODE_GRAPH_FREE_CURSOR   ||
-           current_mode == MODE_GRAPH_PARAM_YEQ;
-}
-
-static bool pred_sto_pending(Token_t t) { (void)t; return ExprEditor_GetStoPending(); }
-static bool pred_always     (Token_t t) { (void)t; return true; }
-
-/*---------------------------------------------------------------------------
- * Unified routing table — every Execute_Token path in dispatch order.
- * If pred is NULL, the entry fires when current_mode == mode.
- * If pred is non-NULL, pred(t) determines whether the entry fires.
- * First matching entry whose handler returns true stops dispatch.
- * To add a new mode: insert one { .mode = MODE_XXX, .pred = NULL, .handler = yyy } row.
- *---------------------------------------------------------------------------*/
-static const ModeRegistration_t k_route_table[] = {
-    /* Global token overrides — highest priority regardless of mode ----------*/
-    { MODE_NORMAL,             pred_token_on,    route_token_on          },
-    { MODE_NORMAL,             pred_token_quit,  route_token_quit        },
-    { MODE_NORMAL,             pred_token_mode,  route_token_mode        },
-    { MODE_NORMAL,             pred_token_reset, route_token_reset       },
-    /* Program execution intercept (before per-mode table) ------------------*/
-    { MODE_PRGM_RUNNING,       NULL,             route_prgm_running      },
-    /* Graph sub-modes — single entry; Graph_HandleKey in graph.c dispatches. */
-    { MODE_NORMAL,             pred_graph_mode,  Graph_HandleKey         },
-    { MODE_MODE_SCREEN,        NULL,             handle_mode_screen      },
-    { MODE_MATH_MENU,          NULL,             handle_math_menu        },
-    { MODE_TEST_MENU,          NULL,             handle_test_menu        },
-    { MODE_MATRIX_MENU,        NULL,             dispatch_matrix_menu    },
-    { MODE_MATRIX_EDIT,        NULL,             dispatch_matrix_edit    },
-    { MODE_STAT_MENU,          NULL,             dispatch_stat_menu      },
-    { MODE_STAT_EDIT,          NULL,             handle_stat_edit        },
-    { MODE_STAT_RESULTS,       NULL,             handle_stat_results     },
-    { MODE_DRAW_MENU,          NULL,             handle_draw_menu        },
-    { MODE_VARS_MENU,          NULL,             handle_vars_menu        },
-    { MODE_YVARS_MENU,         NULL,             handle_yvars_menu       },
-    { MODE_PRGM_MENU,          NULL,             handle_prgm_menu        },
-    { MODE_PRGM_CTL_MENU,      NULL,             handle_prgm_ctl_menu    },
-    { MODE_PRGM_IO_MENU,       NULL,             handle_prgm_io_menu     },
-    { MODE_PRGM_EXEC_MENU,     NULL,             handle_prgm_exec_menu   },
-    { MODE_PRGM_MODE_NUMBER,   NULL,             handle_prgm_mode_number },
-    { MODE_PRGM_MODE_GRAPH,    NULL,             handle_prgm_mode_graph  },
-    { MODE_RESET_CONFIRM,      NULL,             handle_reset_confirm    },
-    { MODE_ERROR_SCREEN,       NULL,             handle_error_screen     },
-    /* ALPHA_LOCK compound conditions (also fire when ALPHA_LOCK+return_mode) */
-    { MODE_PRGM_NEW_NAME,      pred_prgm_new_name, handle_prgm_new_name },
-    { MODE_PRGM_EDITOR,        pred_prgm_editor,   handle_prgm_editor   },
-    /* STO intercept and normal-mode fallback --------------------------------*/
-    { MODE_NORMAL,             pred_sto_pending, handle_sto_pending      },
-    { MODE_NORMAL,             pred_always,      route_normal_mode       },
-};
-
-/**
- * @brief Processes a single calculator token from the keypad queue.
- * @param t  Token to execute.
- */
-void Execute_Token(Token_t t)
-{
-    for (size_t i = 0; i < ARRAY_SIZE(k_route_table); i++) {
-        const ModeRegistration_t *e = &k_route_table[i];
-        bool fires = e->pred ? e->pred(t) : (current_mode == e->mode);
-        if (fires && e->handler(t)) return;
-    }
-}
-
-/*---------------------------------------------------------------------------
- * Keypad event handler
- *---------------------------------------------------------------------------*/
-
-/**
- * @brief Translates a hardware key ID into a token and posts it to the queue.
- * @param key_id  Raw hardware key identifier from Keypad_Scan().
- */
-void Process_Hardware_Key(uint8_t key_id)
-{
-    if (key_id == 0)
-        return;
-
-    if (key_id >= TI81_LookupTable_Size)
-        return;
-
-    KeyDefinition_t key        = TI81_LookupTable[key_id];
-    Token_t         token_to_send = TOKEN_NONE;
-
-    if (Calc_GetMode() == MODE_2ND) {
-        token_to_send  = key.second;
-        Calc_SetMode(Calc_GetReturnMode());   /* restore the mode that was active before 2nd */
-        Calc_SetReturnMode(MODE_NORMAL);
-        if (token_to_send == TOKEN_NONE) {
-            lvgl_lock();
-            ui_update_status_bar();
-            lvgl_unlock();
-            return;
-        }
-    } else if (Calc_GetMode() == MODE_ALPHA) {
-        token_to_send  = key.alpha;
-        Calc_SetMode(Calc_GetReturnMode());   /* restore the mode that was active before ALPHA */
-        Calc_SetReturnMode(MODE_NORMAL);
-        if (token_to_send == TOKEN_NONE) {
-            /* A2: fall back to normal function (e.g. ENTER/DEL/CLEAR in name-entry) */
-            token_to_send = key.normal;
-            if (token_to_send == TOKEN_NONE) {
-                lvgl_lock();
-                ui_update_status_bar();
-                lvgl_unlock();
-                return;
-            }
-        }
-    } else if (Calc_GetMode() == MODE_ALPHA_LOCK) {
-        if (key.normal == TOKEN_ALPHA) {
-            /* ALPHA pressed while locked — exit alpha lock */
-            Calc_SetMode(Calc_GetReturnMode());
-            Calc_SetReturnMode(MODE_NORMAL);
-            lvgl_lock();
-            ui_update_status_bar();
-            lvgl_unlock();
-            return;
-        }
-        token_to_send = key.alpha;  /* stay locked — do not restore mode */
-    } else if (ExprEditor_GetStoPending()) {
-        /* STO implicitly uses the alpha layer for the destination key */
-        token_to_send = key.alpha;
-    } else {
-        token_to_send  = key.normal;
-    }
-
-    /* Handle sticky modifier keys — pressing again cancels the mode */
-    if (token_to_send == TOKEN_2ND) {
-        if (Calc_GetMode() == MODE_2ND) {
-            Calc_SetMode(Calc_GetReturnMode());
-            Calc_SetReturnMode(MODE_NORMAL);
-        } else {
-            Calc_SetReturnMode(Calc_GetMode());
-            Calc_SetMode(MODE_2ND);
-        }
-        lvgl_lock();
-        ui_update_status_bar();
-        lvgl_unlock();
-        return;
-    }
-    if (token_to_send == TOKEN_ALPHA) {
-        if (Calc_GetMode() == MODE_ALPHA) {
-            Calc_SetMode(Calc_GetReturnMode());
-            Calc_SetReturnMode(MODE_NORMAL);
-        } else {
-            Calc_SetReturnMode(Calc_GetMode());
-            Calc_SetMode(MODE_ALPHA);
-        }
-        lvgl_lock();
-        ui_update_status_bar();
-        lvgl_unlock();
-        return;
-    }
-    if (token_to_send == TOKEN_A_LOCK) {
-        Calc_SetReturnMode(Calc_GetMode());
-        Calc_SetMode(MODE_ALPHA_LOCK);
-        lvgl_lock();
-        ui_update_status_bar();
-        lvgl_unlock();
-        return;
-    }
-
-    if (token_to_send != TOKEN_NONE) {
-        /* F1: on CLEAR, abort any running program immediately from keypadTask so
-         * Prgm_RunLoop() (on CalcCoreTask) exits on its next iteration check. */
-        if (token_to_send == TOKEN_CLEAR)
-            Prgm_RequestAbort();  /* no-op if not running */
-        if (xQueueSend(keypadQueueHandle, &token_to_send, 0) != pdPASS) {
-            /* Queue full — keypress dropped */
-        }
-    }
-}
-
-/*---------------------------------------------------------------------------
- * FreeRTOS task
- *---------------------------------------------------------------------------*/
-
-/**
- * @brief Calculator core task.
- *        Waits for LVGL initialisation, creates the UI, then processes
- *        keypad tokens from the queue indefinitely.
- */
-void StartCalcCoreTask(void const *argument)
-{
-    (void)argument;
-    xSemaphoreTake(xLVGL_Ready, portMAX_DELAY);
-
-    lvgl_lock();
-    ui_init_styles();
-    ui_init_screen();
-    CalcHistory_RegisterDisplayCallback(ui_refresh_display);
-    ui_init_graph_screens();
-    ui_mode_init();
-    ui_init_math_screen();
-    ui_init_test_screen();
-    ui_init_matrix_screen();
-    ui_init_stat_screen();
-    ui_init_stat_edit_screen();
-    ui_init_stat_results_screen();
-    ui_init_draw_screen();
-    ui_init_vars_screen();
-    ui_init_yvars_screen();
-    ui_init_reset_screen();
-    ui_init_error_screen();
-    ui_init_prgm_screens();
-    cursor_timer = lv_timer_create(cursor_timer_cb, CURSOR_BLINK_MS, NULL);
-    ui_update_zoom_display();   /* populate ZOOM labels with initial scroll=0 (defined in graph_ui.c) */
-    ui_update_mode_display();
-    ui_update_math_display();
-    ui_update_matrix_display();
-    ui_update_matrix_edit_display();
-    ui_update_stat_display();
-    ui_update_vars_display();
-    ui_update_yvars_display();
-    Calc_RegisterYEquations(
-        Graph_GetState()->equations,
-        GRAPH_NUM_EQ);
-#ifndef HOST_TEST
-    Calc_RegisterStatAccessors(calc_stat_get_x, calc_stat_get_y, calc_stat_get_len);
-#endif
-    /* Load programs from FLASH sector 11 before populating the PRGM menu */
-    Prgm_Init();
-
-    ui_refresh_display();
-
-    /* Restore saved state from FLASH sector 10 if present and valid */
-    {
-        PersistBlock_t saved;
-        if (Persist_Load(&saved)) {
-            Persist_ApplyBlock(&saved);
-            ui_refresh_display();   /* show loaded ANS in expression display */
-            /* Sync Y= labels with loaded equations */
-            graph_ui_sync_yeq_labels();
-            /* Sync MODE screen cursor/highlight with loaded s_mode.committed */
-            ui_update_mode_display();
-            /* Sync RANGE field labels with loaded graph_state values */
-            ui_update_range_display();
-            /* Sync ZOOM FACTORS labels with loaded s_zf.x_fact / s_zf.y_fact */
-            ui_update_zoom_factors_display();
-        }
-    }
-
-    lvgl_unlock();
-
-    if (keypadQueueHandle == NULL) {
-        vTaskDelete(NULL);
-        return;
-    }
-
-    Token_t received_token;
-    for (;;) {
-        if (xQueueReceive(keypadQueueHandle, &received_token,
-                          portMAX_DELAY) == pdPASS) {
-            Execute_Token(received_token);
-        }
-    }
-}
-
-#ifdef HOST_TEST
-/*---------------------------------------------------------------------------
- * Routing topology validator — HOST_TEST only
- *---------------------------------------------------------------------------*/
-
-/**
- * @brief Validate that every CalcMode_t value is covered by the routing table.
- *
- * Each mode in [0, MODE_COUNT) must appear in exactly one of:
- *   (a) k_route_table[] — a non-fallback pred fires when current_mode == mode
- *       (uses TOKEN_ENTER as a neutral token; sto_pending and return_mode at
- *        their default values so only mode-based predicates can fire), or
- *   (b) known_special_cases[] — modes intentionally handled by the fallback.
- *
- * The last table entry (pred_always → route_normal_mode) is the fallback and is
- * excluded from the "dedicated entry" check.
- *
- * Adding a 32nd mode without updating either the table or known_special_cases
- * causes this function to return false and print a diagnostic.
- */
-bool calc_mode_topology_validate(void)
-{
-    static const CalcMode_t known_special_cases[] = {
-        MODE_NORMAL,      /* base mode: no dedicated entry; falls to handle_normal_mode */
-        MODE_2ND,         /* overlay: no dedicated entry; falls to handle_normal_mode */
-        MODE_ALPHA,       /* overlay: no dedicated entry; falls to handle_normal_mode */
-        MODE_ALPHA_LOCK,  /* compound preds (pred_prgm_new_name/pred_prgm_editor) cover
-                           * the ALPHA_LOCK+return_mode sub-cases; base case falls through */
-        MODE_STO,         /* synthetic: never stored in current_mode */
-    };
-    static const size_t n_special =
-        sizeof(known_special_cases) / sizeof(known_special_cases[0]);
-
-    /* Neutral token: does not match TOKEN_ON, TOKEN_QUIT, TOKEN_MODE, TOKEN_RESET */
-    const Token_t neutral = TOKEN_ENTER;
-
-    /* Save and reset state so predicates see a clean baseline */
-    CalcMode_t saved_mode = current_mode;
-    CalcMode_t saved_ret  = return_mode;
-    bool       saved_sto  = ExprEditor_GetStoPending();
-    return_mode = MODE_NORMAL;
-    ExprEditor_SetStoPending(false);
-
-    bool ok = true;
-
-    /* 1. Every mode must be in the route table XOR known_special_cases */
-    for (int m = 0; m < MODE_COUNT; m++) {
-        CalcMode_t mode = (CalcMode_t)m;
-        current_mode = mode;  /* direct assignment: iterates through synthetic/sentinel values; bypasses Calc_SetMode() intentionally */
-
-        /* Check for a dedicated (non-fallback) routing entry.
-         * The last table entry uses pred_always — skip it. */
-        bool has_dedicated = false;
-        for (size_t i = 0; i < ARRAY_SIZE(k_route_table) - 1; i++) {
-            const ModeRegistration_t *e = &k_route_table[i];
-            bool fires = e->pred ? e->pred(neutral) : (current_mode == e->mode);
-            if (fires) {
-                has_dedicated = true;
-                break;
-            }
-        }
-
-        bool is_special = false;
-        for (size_t j = 0; j < n_special; j++) {
-            if (known_special_cases[j] == mode) {
-                is_special = true;
-                break;
-            }
-        }
-
-        if (has_dedicated && is_special) {
-            printf("  FAIL mode %d: in both route table and known_special_cases\n", m);
-            ok = false;
-        } else if (!has_dedicated && !is_special) {
-            printf("  FAIL mode %d: no routing entry and not in known_special_cases\n", m);
-            ok = false;
-        }
-    }
-
-    /* 2. No stale (out-of-range) entries in known_special_cases */
-    for (size_t j = 0; j < n_special; j++) {
-        if ((int)known_special_cases[j] >= MODE_COUNT) {
-            printf("  FAIL known_special_cases[%zu] = %d is out of range [0, MODE_COUNT)\n",
-                   j, (int)known_special_cases[j]);
-            ok = false;
-        }
-    }
-
-    current_mode = saved_mode;
-    return_mode  = saved_ret;
-    ExprEditor_SetStoPending(saved_sto);
-    return ok;
-}
-#endif /* HOST_TEST */
