@@ -252,6 +252,123 @@ void Stat_EditOpen(void)
 }
 
 /*---------------------------------------------------------------------------
+ * Token handler helpers
+ *---------------------------------------------------------------------------*/
+
+static void stat_edit_refresh(void)
+{
+    lvgl_lock();
+    ui_update_stat_edit_display();
+    lvgl_unlock();
+}
+
+static bool stat_edit_append_digit(Token_t t)
+{
+    if (stat_edit_len >= (uint8_t)(sizeof(stat_edit_buf) - 1)) return false;
+    static const char digit_ch[10] = "0123456789";
+    int idx = (int)t - (int)TOKEN_0;
+    if (idx < 0 || idx >= 10) return false;
+    stat_edit_buf[stat_edit_len++] = digit_ch[idx];
+    stat_edit_buf[stat_edit_len]   = '\0';
+    return true;
+}
+
+static void handle_stat_edit_neg(void)
+{
+    if (stat_edit_len == 0 ||
+        (stat_edit_len == 1 && stat_edit_buf[0] == '-')) {
+        if (stat_edit_buf[0] == '-') {
+            memmove(stat_edit_buf, stat_edit_buf + 1, (size_t)stat_edit_len);
+            stat_edit_len--;
+        } else {
+            memmove(stat_edit_buf + 1, stat_edit_buf, (size_t)stat_edit_len + 1);
+            stat_edit_buf[0] = '-';
+            stat_edit_len++;
+        }
+    } else if (stat_edit_buf[0] != '-') {
+        if (stat_edit_len < (uint8_t)(sizeof(stat_edit_buf) - 1)) {
+            memmove(stat_edit_buf + 1, stat_edit_buf, (size_t)stat_edit_len + 1);
+            stat_edit_buf[0] = '-';
+            stat_edit_len++;
+        }
+    }
+    stat_edit_refresh();
+}
+
+/* DEL — char delete when editing a cell; row delete in row-select mode */
+static void handle_stat_edit_del(void)
+{
+    if (stat_edit_col == 2) {
+        const StatData_t *d = Stat_GetData();
+        if (stat_edit_row < d->list_len) {
+            StatData_t tmp;
+            memcpy(&tmp, d, sizeof(tmp));
+            CalcStat_DeleteRow(&tmp, stat_edit_row);
+            Stat_SetData(&tmp);
+            d = Stat_GetData();
+            if (d->list_len > 0 && stat_edit_row >= d->list_len)
+                stat_edit_row = (uint8_t)(d->list_len - 1);
+            stat_edit_fix_scroll();
+            stat_edit_load_cell();
+            stat_edit_refresh();
+        }
+    } else if (stat_edit_len > 0) {
+        stat_edit_len--;
+        stat_edit_buf[stat_edit_len] = '\0';
+        stat_edit_refresh();
+    }
+}
+
+/* ENTER/DOWN — advance col→row in edit mode; advance row in row-select */
+static void handle_stat_edit_enter_down(void)
+{
+    const StatData_t *d = Stat_GetData();
+    uint8_t total = (d->list_len < STAT_MAX_POINTS)
+                    ? d->list_len + 1u : STAT_MAX_POINTS;
+    if (stat_edit_col == 2) {
+        if ((int)stat_edit_row + 1 < (int)total)
+            stat_edit_row++;
+    } else {
+        stat_edit_commit();
+        if (stat_edit_col == 0) {
+            stat_edit_col = 1;
+        } else {
+            stat_edit_col = 0;
+            if ((int)stat_edit_row + 1 < (int)STAT_MAX_POINTS) {
+                stat_edit_row++;
+                d     = Stat_GetData();
+                total = (d->list_len < STAT_MAX_POINTS)
+                        ? d->list_len + 1u : STAT_MAX_POINTS;
+                if (stat_edit_row >= total)
+                    stat_edit_row = (uint8_t)(total - 1);
+            }
+        }
+    }
+    stat_edit_fix_scroll();
+    stat_edit_load_cell();
+    stat_edit_refresh();
+}
+
+/* UP — retreat col→row in edit mode; retreat row in row-select */
+static void handle_stat_edit_up(void)
+{
+    if (stat_edit_col == 2) {
+        if (stat_edit_row > 0) stat_edit_row--;
+    } else {
+        stat_edit_commit();
+        if (stat_edit_col == 1) {
+            stat_edit_col = 0;
+        } else if (stat_edit_row > 0) {
+            stat_edit_row--;
+            stat_edit_col = 1;
+        }
+    }
+    stat_edit_fix_scroll();
+    stat_edit_load_cell();
+    stat_edit_refresh();
+}
+
+/*---------------------------------------------------------------------------
  * Token handler for MODE_STAT_EDIT
  *---------------------------------------------------------------------------*/
 
@@ -275,22 +392,11 @@ bool handle_stat_edit(Token_t t)
     }
 
     switch (t) {
-    /* Digit and decimal input */
     case TOKEN_0: case TOKEN_1: case TOKEN_2: case TOKEN_3: case TOKEN_4:
-    case TOKEN_5: case TOKEN_6: case TOKEN_7: case TOKEN_8: case TOKEN_9: {
-        if (stat_edit_len < (uint8_t)(sizeof(stat_edit_buf) - 1)) {
-            static const char digit_ch[10] = "0123456789";
-            int idx = (int)t - (int)TOKEN_0;
-            if (idx >= 0 && idx < 10) {
-                stat_edit_buf[stat_edit_len++] = digit_ch[idx];
-                stat_edit_buf[stat_edit_len]   = '\0';
-            }
-            lvgl_lock();
-            ui_update_stat_edit_display();
-            lvgl_unlock();
-        }
+    case TOKEN_5: case TOKEN_6: case TOKEN_7: case TOKEN_8: case TOKEN_9:
+        if (stat_edit_append_digit(t))
+            stat_edit_refresh();
         return true;
-    }
     case TOKEN_DECIMAL:
         if (stat_edit_len < (uint8_t)(sizeof(stat_edit_buf) - 1)) {
             bool has_dot = false;
@@ -299,63 +405,16 @@ bool handle_stat_edit(Token_t t)
             if (!has_dot) {
                 stat_edit_buf[stat_edit_len++] = '.';
                 stat_edit_buf[stat_edit_len]   = '\0';
-                lvgl_lock();
-                ui_update_stat_edit_display();
-                lvgl_unlock();
+                stat_edit_refresh();
             }
         }
         return true;
     case TOKEN_NEG:
-        if (stat_edit_len == 0 ||
-            (stat_edit_len == 1 && stat_edit_buf[0] == '-')) {
-            if (stat_edit_buf[0] == '-') {
-                memmove(stat_edit_buf, stat_edit_buf + 1, (size_t)stat_edit_len);
-                stat_edit_len--;
-            } else {
-                memmove(stat_edit_buf + 1, stat_edit_buf, (size_t)stat_edit_len + 1);
-                stat_edit_buf[0] = '-';
-                stat_edit_len++;
-            }
-        } else if (stat_edit_buf[0] != '-') {
-            if (stat_edit_len < (uint8_t)(sizeof(stat_edit_buf) - 1)) {
-                memmove(stat_edit_buf + 1, stat_edit_buf, (size_t)stat_edit_len + 1);
-                stat_edit_buf[0] = '-';
-                stat_edit_len++;
-            }
-        }
-        lvgl_lock();
-        ui_update_stat_edit_display();
-        lvgl_unlock();
+        handle_stat_edit_neg();
         return true;
-
-    /* DEL — character delete when editing a cell; row delete in row-select mode */
     case TOKEN_DEL:
-        if (stat_edit_col == 2) {
-            /* Row-level delete (guidebook p. 7-5) */
-            if (stat_edit_row < d->list_len) {
-                StatData_t tmp;
-                memcpy(&tmp, d, sizeof(tmp));
-                CalcStat_DeleteRow(&tmp, stat_edit_row);
-                Stat_SetData(&tmp);
-                /* Clamp cursor after deletion */
-                d = Stat_GetData();
-                if (d->list_len > 0 && stat_edit_row >= d->list_len)
-                    stat_edit_row = (uint8_t)(d->list_len - 1);
-                stat_edit_fix_scroll();
-                stat_edit_load_cell();
-                lvgl_lock();
-                ui_update_stat_edit_display();
-                lvgl_unlock();
-            }
-        } else if (stat_edit_len > 0) {
-            stat_edit_len--;
-            stat_edit_buf[stat_edit_len] = '\0';
-            lvgl_lock();
-            ui_update_stat_edit_display();
-            lvgl_unlock();
-        }
+        handle_stat_edit_del();
         return true;
-
     /* INS — insert a new (0,0) row before the cursor in row-select mode */
     case TOKEN_INS:
         if (stat_edit_col == 2) {
@@ -366,81 +425,29 @@ bool handle_stat_edit(Token_t t)
                 stat_edit_col = 0;
                 stat_edit_fix_scroll();
                 stat_edit_load_cell();
-                lvgl_lock();
-                ui_update_stat_edit_display();
-                lvgl_unlock();
+                stat_edit_refresh();
             }
         }
         return true;
-
     case TOKEN_ENTER:
-    case TOKEN_DOWN: {
-        if (stat_edit_col == 2) {
-            /* In row-select mode: advance one row, stay in row-select */
-            d     = Stat_GetData();
-            total = (d->list_len < STAT_MAX_POINTS)
-                    ? d->list_len + 1u : STAT_MAX_POINTS;
-            if ((int)stat_edit_row + 1 < (int)total)
-                stat_edit_row++;
-        } else {
-            stat_edit_commit();
-            if (stat_edit_col == 0) {
-                stat_edit_col = 1;
-            } else {
-                stat_edit_col = 0;
-                if ((int)stat_edit_row + 1 < (int)STAT_MAX_POINTS) {
-                    stat_edit_row++;
-                    d     = Stat_GetData();
-                    total = (d->list_len < STAT_MAX_POINTS)
-                            ? d->list_len + 1u : STAT_MAX_POINTS;
-                    if (stat_edit_row >= total) stat_edit_row = (uint8_t)(total - 1);
-                }
-            }
-        }
-        stat_edit_fix_scroll();
-        stat_edit_load_cell();
-        lvgl_lock();
-        ui_update_stat_edit_display();
-        lvgl_unlock();
+    case TOKEN_DOWN:
+        handle_stat_edit_enter_down();
         return true;
-    }
-    case TOKEN_UP: {
-        if (stat_edit_col == 2) {
-            /* In row-select mode: move up one row, stay in row-select */
-            if (stat_edit_row > 0) stat_edit_row--;
-        } else {
-            stat_edit_commit();
-            if (stat_edit_col == 1) {
-                stat_edit_col = 0;
-            } else {
-                if (stat_edit_row > 0) {
-                    stat_edit_row--;
-                    stat_edit_col = 1;
-                }
-            }
-        }
-        stat_edit_fix_scroll();
-        stat_edit_load_cell();
-        lvgl_lock();
-        ui_update_stat_edit_display();
-        lvgl_unlock();
+    case TOKEN_UP:
+        handle_stat_edit_up();
         return true;
-    }
     case TOKEN_LEFT:
         stat_edit_commit();
         if (stat_edit_col == 1) {
             stat_edit_col = 0;
         } else if (stat_edit_col == 0) {
             stat_edit_col = 2;          /* enter row-select (= cursor) */
-        } else {                        /* col == 2 */
-            if (stat_edit_row > 0) stat_edit_row--;
-            /* stay in col=2 */
+        } else if (stat_edit_row > 0) {
+            stat_edit_row--;            /* stay in col=2 */
         }
         stat_edit_fix_scroll();
         stat_edit_load_cell();
-        lvgl_lock();
-        ui_update_stat_edit_display();
-        lvgl_unlock();
+        stat_edit_refresh();
         return true;
     case TOKEN_RIGHT:
         stat_edit_commit();
@@ -454,9 +461,7 @@ bool handle_stat_edit(Token_t t)
         }
         stat_edit_fix_scroll();
         stat_edit_load_cell();
-        lvgl_lock();
-        ui_update_stat_edit_display();
-        lvgl_unlock();
+        stat_edit_refresh();
         return true;
     case TOKEN_CLEAR:
         if (stat_edit_col == 2 || stat_edit_len == 0) {
@@ -471,9 +476,7 @@ bool handle_stat_edit(Token_t t)
         } else {
             stat_edit_len    = 0;
             stat_edit_buf[0] = '\0';
-            lvgl_lock();
-            ui_update_stat_edit_display();
-            lvgl_unlock();
+            stat_edit_refresh();
         }
         return true;
     default:

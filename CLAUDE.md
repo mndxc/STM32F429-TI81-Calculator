@@ -31,7 +31,7 @@ Snapshot as of **2026-05-07** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 973 lines, prgm_editor.c 538 lines, graph_ui.c 1403 lines, calculator_core.c 1702 lines, graph.c 1374 lines, graph_ui_range.c 743 lines, ui_matrix.c 579 lines — graph_ui.c/calculator_core.c/graph.c all over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 16 suites, 1112 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), STO→matrix/element/Y= host tests, error code string + error_offset tests, CalcMode_IsValidTransition guard tests, and MenuScreen_t navigation tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 973 lines, prgm_editor.c 538 lines, graph_ui.c 1403 lines, graph.c 1361 lines, graph_ui_range.c 743 lines, ui_matrix.c 579 lines, calc_engine.c 1988 lines, ui_sto.c 523 lines — graph_ui.c/graph.c/calc_engine.c over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 16 suites, 1112 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), STO→matrix/element/Y= host tests, error code string + error_offset tests, CalcMode_IsValidTransition guard tests, and MenuScreen_t navigation tests.
 
 Full scorecard change history: [docs/PROJECT_HISTORY.md — Scorecard Change Log](docs/PROJECT_HISTORY.md).
 
@@ -96,13 +96,7 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 #### Complexity debt — surfaced by 2026-05-07 periodic code review
 
-**[complexity] calculator_core.c (1702 lines) carries 4 independent responsibilities** — UI-object creation, expression editing, history management, and mode routing live in one file; begin with migrating the matrix-ring history state and callbacks into `App/Src/calc_history.c` (currently underused). Zero behaviour change. Files: `App/Src/calculator_core.c`, `App/Src/calc_history.c`.
-
-**[complexity] handle_stat_edit (224 lines, depth 6) and handle_stat_menu (85 lines, depth 5) exceed both thresholds** — E17 sweep confirmed both functions in `App/Src/ui_stat_edit.c` and `App/Src/ui_stat.c` exceed 60 lines at nesting depth > 4. `handle_stat_edit` is the priority: extract the display-update block, the data-entry switch arms, and the ENTER/DEL dispatch into static helpers. Files: `App/Src/ui_stat_edit.c`, `App/Src/ui_stat.c`.
-
 **[complexity] Graph_Render (176 lines, depth 6) and Graph_RenderParametric (203 lines, depth 7) exceed both thresholds** — E17 sweep confirmed both in `App/Src/graph.c`. Extract the per-pixel sample-and-plot inner loop, the asymptote/discontinuity detection, and the connected-dot segment draw into static helpers. Files: `App/Src/graph.c`.
-
-**[complexity] handle_vars_menu (65 lines, depth 5) and handle_yvars_menu (73 lines, depth 5) exceed both thresholds** — E17 sweep. Both are dispatch tables wrapped in nested conditional logic; extract the token-dispatch switch body into a static helper that returns the insert string, then call it from a thin top-level function. Files: `App/Src/ui_vars.c`, `App/Src/ui_yvars.c`.
 
 **[complexity] ui_sto.c crossed 500-line threshold (now 523 lines)** — `{x}(n)/{y}(n)` STO state machine added 133 lines in 2026-06-01 session. Consider extracting `StoListPhase_t` state machine into a dedicated helper similar to how `StoMatPhase_t` is structured. File: `App/Src/ui_sto.c`.
 
