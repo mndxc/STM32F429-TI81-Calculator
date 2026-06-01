@@ -24,6 +24,7 @@
 #  include "ui_yvars.h"
 #  include "ui_error.h"
 #  include "expr_editor.h"
+#  include "ui_stat.h"
 #endif
 #include "expr_util.h"
 #include <stdint.h>
@@ -248,6 +249,126 @@ static bool handle_sto_mat_elem(Token_t t)
 }
 
 /*---------------------------------------------------------------------------
+ * STO→{x}(n) / {y}(n) state machine
+ *---------------------------------------------------------------------------*/
+
+typedef enum {
+    STO_LIST_INDEX,   /* received list token; collecting index digits */
+    STO_LIST_RPAREN,  /* one or more digits received; waiting for ) */
+    STO_LIST_COMMIT,  /* ) seen; waiting for ENTER to commit */
+} StoListPhase_t;
+
+static uint8_t       s_sto_list_is_y = 0xFF; /* 0xFF=none; 0={x}, 1={y} */
+static StoListPhase_t s_sto_list_phase;
+static uint16_t      s_sto_list_idx;          /* accumulates digit(s); 1-based */
+
+static bool sto_list_cancel(void)
+{
+    ExprEditor_SetStoPending(false);
+    s_sto_list_is_y = 0xFF;
+    lvgl_lock();
+    ui_update_status_bar();
+    lvgl_unlock();
+    return false;
+}
+
+static bool sto_list_commit(void)
+{
+    const char *ebuf = ExprEditor_GetBuf();
+    uint8_t is_y  = s_sto_list_is_y;
+    uint8_t idx   = (uint8_t)s_sto_list_idx;
+
+    ExprEditor_SetStoPending(false);
+    s_sto_list_is_y = 0xFF;
+
+    CalcResult_t r = Calc_Evaluate(ebuf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                   Calc_GetAngleDegrees());
+
+    char expr_hist[MAX_EXPR_LEN + 12];
+    snprintf(expr_hist, sizeof(expr_hist), "%s->{%c}(%u)",
+             ebuf, is_y ? 'y' : 'x', (unsigned)idx);
+
+    char result_str[MAX_RESULT_LEN];
+    if (r.error != CALC_OK) {
+#ifndef HOST_TEST
+        char saved[MAX_EXPR_LEN];
+        strncpy(saved, ebuf, MAX_EXPR_LEN - 1);
+        saved[MAX_EXPR_LEN - 1] = '\0';
+        ExprEditor_Clear();
+        CalcHistory_ResetRecallOffset();
+        Error_Open(r.error, saved, r.error_offset, true);
+        return true;
+#else
+        strncpy(result_str, r.error_msg, MAX_RESULT_LEN - 1);
+        result_str[MAX_RESULT_LEN - 1] = '\0';
+        CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
+        ExprEditor_Clear();
+        CalcHistory_ResetRecallOffset();
+        lvgl_lock();
+        CalcHistory_UpdateDisplay();
+        ui_update_status_bar();
+        lvgl_unlock();
+        return true;
+#endif
+    } else if (r.has_matrix) {
+        strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
+        result_str[MAX_RESULT_LEN - 1] = '\0';
+    } else {
+#ifndef HOST_TEST
+        if (is_y)
+            Stat_WriteListY(idx, r.value);
+        else
+            Stat_WriteListX(idx, r.value);
+#endif
+        Calc_SetAnsScalar(r.value);
+        Calc_FormatResult(r.value, result_str, MAX_RESULT_LEN);
+    }
+
+    CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
+    ExprEditor_Clear();
+    CalcHistory_ResetRecallOffset();
+    lvgl_lock();
+    CalcHistory_UpdateDisplay();
+    ui_update_status_bar();
+    lvgl_unlock();
+    return true;
+}
+
+static bool handle_sto_list_elem(Token_t t)
+{
+    switch (s_sto_list_phase) {
+    case STO_LIST_INDEX:
+        if (t >= TOKEN_1 && t <= TOKEN_9) {
+            s_sto_list_idx  = (uint16_t)(t - TOKEN_0);
+            s_sto_list_phase = STO_LIST_RPAREN;
+            return true;
+        }
+        return sto_list_cancel();
+
+    case STO_LIST_RPAREN:
+        if (t >= TOKEN_0 && t <= TOKEN_9) {
+            /* allow multi-digit index up to 150 */
+            uint16_t next = s_sto_list_idx * 10u + (uint16_t)(t - TOKEN_0);
+            if (next <= STAT_MAX_POINTS) s_sto_list_idx = next;
+            return true;
+        }
+        if (t == TOKEN_R_PAR) {
+            s_sto_list_phase = STO_LIST_COMMIT;
+            return true;
+        }
+        return sto_list_cancel();
+
+    case STO_LIST_COMMIT:
+        if (t == TOKEN_ENTER)
+            return sto_list_commit();
+        if (t == TOKEN_CLEAR)
+            return sto_list_cancel();
+        return sto_list_cancel();
+    }
+    return sto_list_cancel();
+}
+
+/*---------------------------------------------------------------------------
  * STO pending handler
  *---------------------------------------------------------------------------*/
 
@@ -256,6 +377,10 @@ bool handle_sto_pending(Token_t t)
     /* Matrix-element collection in progress — delegate entire phase */
     if (s_sto_mat_dst != 0xFF)
         return handle_sto_mat_elem(t);
+
+    /* Stat-list element collection in progress — delegate entire phase */
+    if (s_sto_list_is_y != 0xFF)
+        return handle_sto_list_elem(t);
 
     if (t >= TOKEN_A && t <= TOKEN_Z) {
         ExprEditor_SetStoPending(false);
@@ -361,6 +486,14 @@ bool handle_sto_pending(Token_t t)
         s_sto_mat_row   = 0;
         s_sto_mat_col   = 0;
         /* sto_pending stays true so the cursor keeps showing the → glyph */
+        return true;
+
+    } else if (t == TOKEN_LIST_X || t == TOKEN_LIST_Y) {
+        /* STO→{x}(n) or STO→{y}(n) — enter list-element phase */
+        s_sto_list_is_y  = (t == TOKEN_LIST_Y) ? 1u : 0u;
+        s_sto_list_phase = STO_LIST_INDEX;
+        s_sto_list_idx   = 0;
+        /* sto_pending stays true */
         return true;
 
     } else if (t == TOKEN_Y_VARS) {

@@ -278,6 +278,8 @@ static inline void handle_matrix_edit(Token_t t) { (void)t; }
 
 /* Stat_GetData / Stat_GetResults / Stat_SetData are not called from HOST_TEST paths. */
 
+static inline void Stat_WriteListX(uint8_t i, float v) { (void)i; (void)v; }
+static inline void Stat_WriteListY(uint8_t i, float v) { (void)i; (void)v; }
 static inline void Stat_ShowMenuScreen(void)    {}
 static inline void Stat_HideMenuScreen(void)    {}
 static inline void Stat_ShowEditScreen(void)    {}

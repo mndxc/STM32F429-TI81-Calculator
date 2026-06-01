@@ -109,6 +109,7 @@ bool CalcStat_ComputeLinReg(const StatData_t *d, StatResults_t *r)
     r->reg_a = intercept;
     r->reg_b = slope;
     r->reg_r = rval;
+    r->last_model = 0;
 
     /* TI-81 convention: store a in variable A (index 0), b in variable B (index 1) */
     calc_variables[0] = intercept;
@@ -136,6 +137,7 @@ bool CalcStat_ComputeLnReg(const StatData_t *d, StatResults_t *r)
     r->reg_a = intercept;
     r->reg_b = slope;
     r->reg_r = rval;
+    r->last_model = 1;
     calc_variables[0] = intercept;
     calc_variables[1] = slope;
     return true;
@@ -160,6 +162,7 @@ bool CalcStat_ComputeExpReg(const StatData_t *d, StatResults_t *r)
     r->reg_a = expf(intercept);
     r->reg_b = expf(slope);
     r->reg_r = rval;
+    r->last_model = 2;
     calc_variables[0] = r->reg_a;
     calc_variables[1] = r->reg_b;
     return true;
@@ -185,6 +188,7 @@ bool CalcStat_ComputePwrReg(const StatData_t *d, StatResults_t *r)
     r->reg_a = expf(intercept);
     r->reg_b = slope;
     r->reg_r = rval;
+    r->last_model = 3;
     calc_variables[0] = r->reg_a;
     calc_variables[1] = slope;
     return true;

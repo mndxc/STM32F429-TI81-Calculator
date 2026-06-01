@@ -26,6 +26,12 @@ const StatResults_t *Stat_GetResults(void);
 /** Overwrites the stat data list from *src (used by persist restore). */
 void Stat_SetData(const StatData_t *src);
 
+/** Writes value to list_x[index-1] (1-based).  No-op if index out of range. */
+void Stat_WriteListX(uint8_t index, float value);
+
+/** Writes value to list_y[index-1] (1-based).  No-op if index out of range. */
+void Stat_WriteListY(uint8_t index, float value);
+
 /*---------------------------------------------------------------------------
  * Screen show/hide API (caller holds lvgl_lock)
  *---------------------------------------------------------------------------*/

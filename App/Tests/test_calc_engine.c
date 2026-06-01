@@ -1524,6 +1524,118 @@ static void test_angle_postfix(void)
 }
 
 /* =========================================================================
+ * Group 22 — Matrix inversion, squaring, and negation (Bug 8)
+ * Setup: [A]=[[1,2],[3,4]] (2×2, det=-2, invertible)
+ *        [C]=[[1,0],[0,1]] (2×2 identity, for ^2 verification)
+ * ====================================================================== */
+
+/* Invariants:
+ *   - [A]^-1 produces A^-1 such that [A]*[A]^-1 ≈ identity.
+ *   - [A]^2 is equivalent to [A]*[A].
+ *   - -[A] negates all elements element-wise.
+ *   - Inverting a singular matrix returns CALC_ERR_DOMAIN.
+ *   - [A]^3 and other unsupported exponents return CALC_ERR_DOMAIN.
+ *   - NOT tested: non-square matrix inversion, inversion of 1×1 matrix.      */
+static void test_matrix_invert_sq_neg(void)
+{
+    printf("[22] Matrix inversion, squaring, and negation\n");
+    CalcResult_t r;
+
+    calc_matrices[0].rows = 2; calc_matrices[0].cols = 2;
+    calc_matrices[0].data[0][0] = 1.0f; calc_matrices[0].data[0][1] = 2.0f;
+    calc_matrices[0].data[1][0] = 3.0f; calc_matrices[0].data[1][1] = 4.0f;
+
+    /* [A]^-1 → [[-2, 1],[1.5, -0.5]] (inverse of [[1,2],[3,4]]) */
+    r = Calc_Evaluate("[A]^-1", 0, false, false);
+    CHECK(r.error == CALC_OK && r.has_matrix, "[A]^-1 → matrix result");
+    if (r.has_matrix && r.matrix_idx < CALC_MATRIX_COUNT) {
+        CalcMatrix_t *m = &calc_matrices[r.matrix_idx];
+        CHECK(NEAR(m->data[0][0], -2.0f)  && NEAR(m->data[0][1],  1.0f) &&
+              NEAR(m->data[1][0],  1.5f)  && NEAR(m->data[1][1], -0.5f),
+              "[A]^-1 values: [[-2,1],[1.5,-0.5]]");
+    } else { g_failed++; printf("  FAIL: [A]^-1 invalid matrix_idx\n"); }
+
+    /* [A]^2 → [A]*[A] = [[7,10],[15,22]] */
+    r = Calc_Evaluate("[A]^2", 0, false, false);
+    CHECK(r.error == CALC_OK && r.has_matrix, "[A]^2 → matrix result");
+    if (r.has_matrix && r.matrix_idx < CALC_MATRIX_COUNT) {
+        CalcMatrix_t *m = &calc_matrices[r.matrix_idx];
+        CHECK(NEAR(m->data[0][0],  7.0f) && NEAR(m->data[0][1], 10.0f) &&
+              NEAR(m->data[1][0], 15.0f) && NEAR(m->data[1][1], 22.0f),
+              "[A]^2 values: [[7,10],[15,22]]");
+    } else { g_failed++; printf("  FAIL: [A]^2 invalid matrix_idx\n"); }
+
+    /* -[A] → [[-1,-2],[-3,-4]] */
+    r = Calc_Evaluate("-[A]", 0, false, false);
+    CHECK(r.error == CALC_OK && r.has_matrix, "-[A] → matrix result");
+    if (r.has_matrix && r.matrix_idx < CALC_MATRIX_COUNT) {
+        CalcMatrix_t *m = &calc_matrices[r.matrix_idx];
+        CHECK(NEAR(m->data[0][0], -1.0f) && NEAR(m->data[0][1], -2.0f) &&
+              NEAR(m->data[1][0], -3.0f) && NEAR(m->data[1][1], -4.0f),
+              "-[A] values: [[-1,-2],[-3,-4]]");
+    } else { g_failed++; printf("  FAIL: -[A] invalid matrix_idx\n"); }
+
+    /* Singular matrix ^-1 → CALC_ERR_DOMAIN */
+    calc_matrices[1].rows = 2; calc_matrices[1].cols = 2;
+    calc_matrices[1].data[0][0] = 1.0f; calc_matrices[1].data[0][1] = 2.0f;
+    calc_matrices[1].data[1][0] = 2.0f; calc_matrices[1].data[1][1] = 4.0f;
+    r = Calc_Evaluate("[B]^-1", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "singular [B]^-1 → DOMAIN");
+
+    /* Unsupported exponent [A]^3 → CALC_ERR_DOMAIN */
+    r = Calc_Evaluate("[A]^3", 0, false, false);
+    CHECK(r.error == CALC_ERR_DOMAIN, "[A]^3 (unsupported) → DOMAIN");
+}
+
+/* =========================================================================
+ * Group 23 — Matrix element read [A](r,c) as expression operand (Bug 9)
+ * Setup: [A]=[[10,20],[30,40]] (2×2)
+ * ====================================================================== */
+
+/* Invariants:
+ *   - [A](r,c) returns the scalar at (row r, col c) using 1-based indices.
+ *   - [A](r,c) can appear in compound expressions ([A](1,1)+[A](2,2)=50).
+ *   - Out-of-bounds index (row or col > matrix dim) → CALC_ERR_INVALID.
+ *   - NOT tested: [A](0,1) (zero row index), decimal index (behaviour undefined). */
+static void test_matrix_element_read(void)
+{
+    printf("[23] Matrix element read [A](r,c)\n");
+    CalcResult_t r;
+
+    calc_matrices[0].rows = 2; calc_matrices[0].cols = 2;
+    calc_matrices[0].data[0][0] = 10.0f; calc_matrices[0].data[0][1] = 20.0f;
+    calc_matrices[0].data[1][0] = 30.0f; calc_matrices[0].data[1][1] = 40.0f;
+
+    r = Calc_Evaluate("[A](1,1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 10.0f), "[A](1,1) = 10");
+
+    r = Calc_Evaluate("[A](1,2)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 20.0f), "[A](1,2) = 20");
+
+    r = Calc_Evaluate("[A](2,1)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 30.0f), "[A](2,1) = 30");
+
+    r = Calc_Evaluate("[A](2,2)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 40.0f), "[A](2,2) = 40");
+
+    /* Compound expression: [A](1,1)+[A](2,2) = 10+40 = 50 */
+    r = Calc_Evaluate("[A](1,1)+[A](2,2)", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, 50.0f), "[A](1,1)+[A](2,2) = 50");
+
+    /* Out-of-bounds: row 3 in a 2×2 matrix → CALC_ERR_INVALID */
+    r = Calc_Evaluate("[A](3,1)", 0, false, false);
+    CHECK(r.error == CALC_ERR_INVALID, "[A](3,1) out-of-bounds → INVALID");
+
+    /* Out-of-bounds: col 3 in a 2×2 matrix → CALC_ERR_INVALID */
+    r = Calc_Evaluate("[A](1,3)", 0, false, false);
+    CHECK(r.error == CALC_ERR_INVALID, "[A](1,3) out-of-bounds → INVALID");
+
+    /* No element access pattern: [A] alone still produces a whole-matrix ref */
+    r = Calc_Evaluate("det([A])", 0, false, false);
+    CHECK(r.error == CALC_OK && NEAR(r.value, -200.0f), "det([A]) = -200 (10*40-20*30)");
+}
+
+/* =========================================================================
  * main
  * ====================================================================== */
 int main(void)
@@ -1613,6 +1725,12 @@ int main(void)
 
     reset_state();
     test_notation_modes();
+
+    reset_state();
+    test_matrix_invert_sq_neg();
+
+    reset_state();
+    test_matrix_element_read();
 
     int total = g_passed + g_failed;
     printf("\n=== Results: %d/%d passed", g_passed, total);

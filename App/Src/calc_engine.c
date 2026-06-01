@@ -258,13 +258,39 @@ static CalcError_t try_tokenize_identifier(const char **p, TokenList_t *out,
     }
 
     /* Matrix references [A], [B], [C] — must be checked before the
-       uppercase variable handler so 'A'/'B'/'C' are not consumed first. */
+       uppercase variable handler so 'A'/'B'/'C' are not consumed first.
+       If '(' immediately follows ']', try to parse [M](row,col) element access
+       (1-based indices, guidebook p. 6-10).  Fall through to whole-matrix ref
+       if the peek fails (no int,int) pattern). */
     if ((*p)[0] == '[' &&
         ((*p)[1] == 'A' || (*p)[1] == 'B' || (*p)[1] == 'C') &&
         (*p)[2] == ']') {
+        int slot = (*p)[1] - 'A';
+        const char *after_bracket = *p + 3;
+        if (*after_bracket == '(') {
+            /* Peek ahead for (int,int) — 1-based row/col */
+            char *end1, *end2;
+            long row = strtol(after_bracket + 1, &end1, 10);
+            if (end1 != after_bracket + 1 && *end1 == ',') {
+                long col = strtol(end1 + 1, &end2, 10);
+                if (end2 != end1 + 1 && *end2 == ')') {
+                    /* Valid [M](r,c) element access */
+                    const CalcMatrix_t *m = &calc_matrices[slot];
+                    if (row < 1 || row > m->rows || col < 1 || col > m->cols)
+                        return CALC_ERR_INVALID;
+                    if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
+                    out->tokens[out->count].type  = MATH_NUMBER;
+                    out->tokens[out->count].value = m->data[row - 1][col - 1];
+                    out->count++;
+                    *p = end2 + 1; /* advance past ')' */
+                    *matched = true;
+                    return CALC_OK;
+                }
+            }
+        }
         if (out->count >= CALC_MAX_TOKENS) return CALC_ERR_OVERFLOW;
         out->tokens[out->count].type  = MATH_MATRIX_VAL;
-        out->tokens[out->count].value = (float)((*p)[1] - 'A');
+        out->tokens[out->count].value = (float)slot;
         out->count++;
         *p += 3;
         *matched = true;
@@ -956,6 +982,59 @@ static void mat_scale(float k, const CalcMatrix_t *m, CalcMatrix_t *dst)
             dst->data[r][c] = k * m->data[r][c];
 }
 
+/** Element-wise negate: -M → dst. */
+static void mat_negate(const CalcMatrix_t *m, CalcMatrix_t *dst)
+{
+    dst->rows = m->rows; dst->cols = m->cols;
+    for (int r = 0; r < m->rows; r++)
+        for (int c = 0; c < m->cols; c++)
+            dst->data[r][c] = -m->data[r][c];
+}
+
+/** Gauss-Jordan inversion: M^-1 → dst.  Returns false if M is singular. */
+static bool mat_invert(const CalcMatrix_t *m, CalcMatrix_t *dst)
+{
+    int n = m->rows;
+    if (n != m->cols) return false;
+    float a[CALC_MATRIX_MAX_DIM][CALC_MATRIX_MAX_DIM * 2];
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++)
+            a[i][j]     = m->data[i][j];
+        for (int j = 0; j < n; j++)
+            a[i][j + n] = (i == j) ? 1.0f : 0.0f;
+    }
+    for (int col = 0; col < n; col++) {
+        int pivot = col;
+        float max_val = fabsf(a[col][col]);
+        for (int row = col + 1; row < n; row++) {
+            if (fabsf(a[row][col]) > max_val) {
+                max_val = fabsf(a[row][col]);
+                pivot = row;
+            }
+        }
+        if (max_val < CALC_SINGULARITY_EPS) return false;
+        if (pivot != col) {
+            for (int j = 0; j < 2 * n; j++) {
+                float tmp = a[col][j]; a[col][j] = a[pivot][j]; a[pivot][j] = tmp;
+            }
+        }
+        float diag = a[col][col];
+        for (int j = 0; j < 2 * n; j++)
+            a[col][j] /= diag;
+        for (int row = 0; row < n; row++) {
+            if (row == col) continue;
+            float factor = a[row][col];
+            for (int j = 0; j < 2 * n; j++)
+                a[row][j] -= factor * a[col][j];
+        }
+    }
+    dst->rows = n; dst->cols = n;
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < n; j++)
+            dst->data[i][j] = a[i][j + n];
+    return true;
+}
+
 /*---------------------------------------------------------------------------
  * Stage 3 — RPN evaluator dispatch helpers
  *--------------------------------------------------------------------------*/
@@ -1113,6 +1192,41 @@ static bool eval_mat_arith(MathTokenType_t type, float *stack, bool *is_matrix, 
     }
     stack[*top] = 3.0f;
     is_matrix[*top] = true;
+    return true;
+}
+
+#undef MAT_ERR
+
+#define MAT_ERR(res, code, msg) do { rpn_set_error((res), (code), (msg)); return false; } while(0)
+
+static bool eval_mat_negate(float *stack, bool *is_matrix, int *top, CalcResult_t *res)
+{
+    if (*top < 0 || !is_matrix[*top]) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    int idx = (int)roundf(stack[*top]);
+    if (idx < 0 || idx >= CALC_MATRIX_COUNT) MAT_ERR(res, CALC_ERR_DOMAIN, "Bad matrix index");
+    mat_negate(&calc_matrices[idx], &calc_matrices[3]);
+    stack[*top] = 3.0f; is_matrix[*top] = true;
+    return true;
+}
+
+static bool eval_mat_pow(float *stack, bool *is_matrix, int *top, CalcResult_t *res)
+{
+    if (*top < 1) MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    float exp_val = stack[(*top)--];
+    int   idx     = (int)roundf(stack[*top]);
+    if (!is_matrix[*top] || idx < 0 || idx >= CALC_MATRIX_COUNT)
+        MAT_ERR(res, CALC_ERR_SYNTAX, "Syntax error");
+    const CalcMatrix_t *src = &calc_matrices[idx];
+    if (src->rows != src->cols) MAT_ERR(res, CALC_ERR_DOMAIN, "Matrix must be square");
+    int exp_int = (int)roundf(exp_val);
+    if (exp_int == -1) {
+        if (!mat_invert(src, &calc_matrices[3])) MAT_ERR(res, CALC_ERR_DOMAIN, "Singular matrix");
+    } else if (exp_int == 2) {
+        if (!mat_mul(src, src, &calc_matrices[3])) MAT_ERR(res, CALC_ERR_DOMAIN, "Dimension mismatch");
+    } else {
+        MAT_ERR(res, CALC_ERR_DOMAIN, "Matrix exponent not supported");
+    }
+    stack[*top] = 3.0f; is_matrix[*top] = true;
     return true;
 }
 
@@ -1355,7 +1469,7 @@ static int rpn_eval_special(MathToken_t tok, float *stack, bool *is_matrix, int 
         float eps = 1e-3f;
         if (has_eps_arg) {
             eps = stack[(*top)--];
-            if (eps == 0.0f) eps = 1e-3f; /* guard against zero ΔX */
+            if (eps <= 0.0f || !isfinite(eps)) eps = 1e-3f;
         }
         float val = stack[(*top)--];
         (*top)--; /* discard X_ref */
@@ -1399,6 +1513,10 @@ static CalcResult_t EvaluateRPN_ex(const TokenList_t *rpn, float x_val, float t_
         /* Route ADD/SUB/MUL to matrix handler when either operand is a matrix */
         bool mat_arith = (tt == MATH_OP_ADD || tt == MATH_OP_SUB || tt == MATH_OP_MUL)
                          && top >= 1 && (is_matrix[top] || is_matrix[top - 1]);
+        /* Route NEG to matrix handler when the operand is a matrix */
+        bool mat_neg = (tt == MATH_OP_NEG) && top >= 0 && is_matrix[top];
+        /* Route POW to matrix handler when the base (below exponent) is a matrix */
+        bool mat_pow = (tt == MATH_OP_POW) && top >= 1 && is_matrix[top - 1];
 
         bool ok;
         if (tt == MATH_OP_TRANSPOSE || tt == MATH_FUNC_DET     ||
@@ -1407,6 +1525,10 @@ static CalcResult_t EvaluateRPN_ex(const TokenList_t *rpn, float x_val, float t_
             tt == MATH_FUNC_ROUND   || mat_arith)
         {
             ok = eval_matrix_func(tt, stack, is_matrix, &top, &res);
+        } else if (mat_neg) {
+            ok = eval_mat_negate(stack, is_matrix, &top, &res);
+        } else if (mat_pow) {
+            ok = eval_mat_pow(stack, is_matrix, &top, &res);
         } else if (tt == MATH_OP_NEG  || tt == MATH_OP_FACT   ||
                    tt == MATH_OP_DEGREE || tt == MATH_OP_RADIAN ||
                    is_function(tt)) {

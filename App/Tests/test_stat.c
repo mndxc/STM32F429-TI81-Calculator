@@ -175,6 +175,7 @@ static void test_linreg_perfect(void)
     CHECK(NEARF(r.reg_a, 1.0f, 0.001f), "linreg_perfect: a=1 (intercept)");
     CHECK(NEARF(r.reg_b, 2.0f, 0.001f), "linreg_perfect: b=2 (slope)");
     CHECK(NEARF(r.reg_r, 1.0f, 0.001f), "linreg_perfect: r=1");
+    CHECK(r.last_model == 0,             "linreg_perfect: last_model=0");
 }
 
 static void test_linreg_stores_vars(void)
@@ -240,6 +241,7 @@ static void test_lnreg(void)
     CHECK(NEARF(r.reg_a, 1.0f, 0.01f), "lnreg: a=1 (intercept)");
     CHECK(NEARF(r.reg_b, 2.0f, 0.01f), "lnreg: b=2 (slope)");
     CHECK(NEARF(r.reg_r, 1.0f, 0.01f), "lnreg: r=1");
+    CHECK(r.last_model == 1,            "lnreg: last_model=1");
 }
 
 static void test_expreg(void)
@@ -262,6 +264,26 @@ static void test_expreg(void)
     CHECK(NEARF(r.reg_a, 2.0f,   0.01f), "expreg: a=2");
     CHECK(NEARF(r.reg_b, expf(0.5f), 0.01f), "expreg: b=exp(0.5)≈1.6487");
     CHECK(NEARF(r.reg_r, 1.0f,   0.01f), "expreg: r=1");
+    CHECK(r.last_model == 2,              "expreg: last_model=2");
+}
+
+static void test_pwrreg_perfect(void)
+{
+    printf("test_pwrreg_perfect\n");
+    /* y = 2*x^3: guidebook y = a*X^b => a=2, b=3, r=1.0 */
+    StatData_t d = {0};
+    StatResults_t r = {0};
+    float xs[4] = {1.0f, 2.0f, 3.0f, 4.0f};
+    float ys[4] = {2.0f, 16.0f, 54.0f, 128.0f};
+    fill_xy(&d, xs, ys, 4);
+
+    bool ok = CalcStat_ComputePwrReg(&d, &r);
+
+    CHECK(ok, "pwrreg_perfect: ok");
+    CHECK(NEARF(r.reg_a, 2.0f, 0.01f), "pwrreg_perfect: a=2");
+    CHECK(NEARF(r.reg_b, 3.0f, 0.01f), "pwrreg_perfect: b=3");
+    CHECK(NEARF(r.reg_r, 1.0f, 0.01f), "pwrreg_perfect: r=1");
+    CHECK(r.last_model == 3,            "pwrreg_perfect: last_model=3");
 }
 
 static void test_sort_x(void)
@@ -442,6 +464,7 @@ int main(void)
     test_linreg_too_few();
     test_lnreg();
     test_expreg();
+    test_pwrreg_perfect();
     test_sort_x();
     test_sort_y();
     test_ystat();

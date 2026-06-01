@@ -128,11 +128,16 @@ static void vars_format_value(uint8_t tab, uint8_t item, char *buf, size_t len)
     case 2: /* LR */
         if (!sr->valid) { snprintf(buf, len, "0"); return; }
         if (item == 3) {
-            /* RegEQ: build "aX+b" from regression coefficients */
+            /* RegEQ: model-aware string per guidebook p. 7-9 */
             char abuf[16], bbuf[16];
             Calc_FormatResult(sr->reg_a, abuf, (uint8_t)sizeof(abuf));
             Calc_FormatResult(sr->reg_b, bbuf, (uint8_t)sizeof(bbuf));
-            snprintf(buf, len, "%sX+%s", abuf, bbuf);
+            switch (sr->last_model) {
+            case 1:  snprintf(buf, len, "%s+%s*ln(X)", abuf, bbuf); break; /* LnReg */
+            case 2:  snprintf(buf, len, "%s*%s^X",     abuf, bbuf); break; /* ExpReg */
+            case 3:  snprintf(buf, len, "%s*X^%s",     abuf, bbuf); break; /* PwrReg */
+            default: snprintf(buf, len, "%s+%sX",      abuf, bbuf); break; /* LinReg */
+            }
             return;
         }
         switch (item) {

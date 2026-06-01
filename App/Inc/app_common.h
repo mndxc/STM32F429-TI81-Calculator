@@ -238,6 +238,7 @@ typedef struct {
     float n, mean_x, sx, sigma_x, sum_x, sum_x2;
     float reg_a, reg_b, reg_r;
     bool  valid;
+    uint8_t last_model;  /* 0=Lin, 1=Ln, 2=Exp, 3=Pwr */
 } StatResults_t;
 
 /*---------------------------------------------------------------------------

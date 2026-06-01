@@ -62,6 +62,10 @@ static StatResults_t stat_results = {0};
 const StatData_t    *Stat_GetData(void)    { return &stat_data; }
 const StatResults_t *Stat_GetResults(void) { return &stat_results; }
 void                 Stat_SetData(const StatData_t *src) { memcpy(&stat_data, src, sizeof(stat_data)); }
+void Stat_WriteListX(uint8_t index, float value)
+    { if (index >= 1 && index <= stat_data.list_len) stat_data.list_x[index - 1] = value; }
+void Stat_WriteListY(uint8_t index, float value)
+    { if (index >= 1 && index <= stat_data.list_len) stat_data.list_y[index - 1] = value; }
 
 /* LVGL objects — results screen */
 static lv_obj_t *stat_results_lbl = NULL;
