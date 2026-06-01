@@ -344,6 +344,161 @@ static void graph_render_setup(void)
 }
 
 /*---------------------------------------------------------------------------
+ * Render helpers (static — used only by Graph_Render / Graph_RenderParametric)
+ *--------------------------------------------------------------------------*/
+
+/* Validate or rebuild the postfix cache for a Y= equation. */
+static bool ensure_eq_postfix(uint8_t eq)
+{
+    const char *eqstr = graph_state.equations[eq];
+    if (eq_postfix_valid[eq] &&
+        strncmp(eqstr, eq_postfix_str[eq], sizeof(eq_postfix_str[eq])) == 0)
+        return true;
+    if (Calc_Parse(eqstr, 0.0f, false, false, &eq_postfix[eq]) == CALC_OK) {
+        strncpy(eq_postfix_str[eq], eqstr, sizeof(eq_postfix_str[eq]) - 1);
+        eq_postfix_str[eq][sizeof(eq_postfix_str[eq]) - 1] = '\0';
+        eq_postfix_valid[eq] = true;
+        return true;
+    }
+    eq_postfix_valid[eq] = false;
+    return false;
+}
+
+/* Validate or rebuild the postfix cache for a parametric X/Y pair. */
+static bool ensure_param_postfix(uint8_t p)
+{
+    const char *xstr = graph_state.param_x[p];
+    const char *ystr = graph_state.param_y[p];
+    if (!param_postfix_valid[p] ||
+        strncmp(xstr, param_postfix_x_str[p], sizeof(param_postfix_x_str[p])) != 0) {
+        if (Calc_Parse(xstr, 0.0f, false, true, &param_postfix_x[p]) == CALC_OK) {
+            strncpy(param_postfix_x_str[p], xstr, sizeof(param_postfix_x_str[p]) - 1);
+            param_postfix_x_str[p][sizeof(param_postfix_x_str[p]) - 1] = '\0';
+        } else {
+            param_postfix_valid[p] = false;
+            return false;
+        }
+    }
+    if (!param_postfix_valid[p] ||
+        strncmp(ystr, param_postfix_y_str[p], sizeof(param_postfix_y_str[p])) != 0) {
+        if (Calc_Parse(ystr, 0.0f, false, true, &param_postfix_y[p]) == CALC_OK) {
+            strncpy(param_postfix_y_str[p], ystr, sizeof(param_postfix_y_str[p]) - 1);
+            param_postfix_y_str[p][sizeof(param_postfix_y_str[p]) - 1] = '\0';
+            param_postfix_valid[p] = true;
+        } else {
+            param_postfix_valid[p] = false;
+            return false;
+        }
+    }
+    return true;
+}
+
+/*
+ * Interpolated left-to-right segment fill for function mode.
+ * px always > prev_px (x advances monotonically), so span > 0 is guaranteed.
+ */
+static void draw_connected_func(int32_t prev_px, int32_t prev_py,
+                                int32_t px, int32_t py, uint16_t color)
+{
+    int32_t span        = px - prev_px;
+    int32_t last_interp = prev_py;
+    for (int32_t cx = prev_px + 1; cx <= px; cx++) {
+        int32_t cur_interp = prev_py +
+            (int32_t)((float)(cx - prev_px) / (float)span * (py - prev_py));
+        int32_t y_start = last_interp < cur_interp ? last_interp : cur_interp;
+        int32_t y_end   = last_interp < cur_interp ? cur_interp   : last_interp;
+        if (y_start < 0)        y_start = 0;
+        if (y_end >= GRAPH_H)   y_end   = GRAPH_H - 1;
+        for (int32_t y = y_start; y <= y_end; y++)
+            graph_buf[y * GRAPH_W + cx] = color;
+        last_interp = cur_interp;
+    }
+}
+
+/*
+ * Interpolated segment fill for parametric mode.
+ * Handles span == 0 (vertical) and both positive and negative span directions.
+ */
+static void draw_connected_param(int32_t prev_px, int32_t prev_py,
+                                 int32_t px, int32_t py, uint16_t color)
+{
+    int32_t span = px - prev_px;
+    if (span == 0) {
+        int32_t y_lo = prev_py < py ? prev_py : py;
+        int32_t y_hi = prev_py < py ? py      : prev_py;
+        for (int32_t y = y_lo; y <= y_hi; y++)
+            graph_buf[y * GRAPH_W + px] = color;
+    } else {
+        int32_t dir  = span > 0 ? 1 : -1;
+        int32_t last = prev_py;
+        for (int32_t cx = prev_px + dir; cx != px + dir; cx += dir) {
+            int32_t cur  = prev_py +
+                (int32_t)((float)(cx - prev_px) / (float)span * (float)(py - prev_py));
+            int32_t y_lo = last < cur ? last : cur;
+            int32_t y_hi = last < cur ? cur  : last;
+            if (y_lo < 0)       y_lo = 0;
+            if (y_hi >= GRAPH_H) y_hi = GRAPH_H - 1;
+            for (int32_t y = y_lo; y <= y_hi; y++)
+                graph_buf[y * GRAPH_W + cx] = color;
+            last = cur;
+        }
+    }
+}
+
+/* Evaluate one function sample at pixel column px and plot it. */
+static void plot_func_sample(uint8_t eq, int32_t px, float x,
+                             bool connected, uint16_t color, bool angle_degrees,
+                             int32_t *prev_px, int32_t *prev_py, bool *prev_valid)
+{
+    CalcResult_t r = Calc_Eval(&eq_postfix[eq], x, 0.0f, angle_degrees);
+    if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
+        *prev_valid = false;
+        return;
+    }
+    int32_t py = graph_coord_math_y_to_px(&graph_state, r.value);
+    if (py < 0 || py >= GRAPH_H) {
+        *prev_valid = false;
+        return;
+    }
+    if (connected && *prev_valid)
+        draw_connected_func(*prev_px, *prev_py, px, py, color);
+    else
+        graph_buf[py * GRAPH_W + px] = color;
+    *prev_px    = px;
+    *prev_py    = py;
+    *prev_valid = true;
+}
+
+/* Evaluate one parametric sample at parameter t and plot it. */
+static void plot_param_sample(uint8_t p, float t,
+                              bool connected, uint16_t color, bool angle_degrees,
+                              int32_t *prev_px, int32_t *prev_py, bool *prev_valid)
+{
+    CalcResult_t rx = Calc_Eval(&param_postfix_x[p], calc_variables['X' - 'A'], t, angle_degrees);
+    CalcResult_t ry = Calc_Eval(&param_postfix_y[p], calc_variables['X' - 'A'], t, angle_degrees);
+    if (rx.error != CALC_OK || ry.error != CALC_OK ||
+        isnan(rx.value) || isinf(rx.value) ||
+        isnan(ry.value) || isinf(ry.value)) {
+        *prev_valid = false;
+        return;
+    }
+    int32_t px = graph_coord_math_x_to_px(&graph_state, rx.value);
+    int32_t py = graph_coord_math_y_to_px(&graph_state, ry.value);
+    if (px < 0 || px >= GRAPH_W || py < 0 || py >= GRAPH_H) {
+        *prev_valid = false;
+        return;
+    }
+    bool no_jump = (px - *prev_px < GRAPH_W / 2) && (*prev_px - px < GRAPH_W / 2);
+    if (connected && *prev_valid && no_jump)
+        draw_connected_param(*prev_px, *prev_py, px, py, color);
+    else
+        graph_buf[py * GRAPH_W + px] = color;
+    *prev_px    = px;
+    *prev_py    = py;
+    *prev_valid = true;
+}
+
+/*---------------------------------------------------------------------------
  * Public functions
  *--------------------------------------------------------------------------*/
 
@@ -412,13 +567,11 @@ void Graph_Render(void)
 
     /* Guidebook p. 5-3: Xmin < Xmax and Ymin < Ymax must hold or ERROR 11 RANGE. */
     if (graph_state.x_min >= graph_state.x_max ||
-        graph_state.y_min >= graph_state.y_max) {
+        graph_state.y_min >= graph_state.y_max)
         return;
-    }
 
     bool angle_degrees = Calc_GetAngleDegrees();
 
-    /* Dispatch to parametric renderer when in parametric mode */
     if (graph_state.param_mode) {
         Graph_RenderParametric();
         return;
@@ -440,96 +593,35 @@ void Graph_Render(void)
     if (graph_state.plot_sequential) {
         /* Sequential: complete one curve entirely before starting the next */
         for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
-            const char *eqstr = graph_state.equations[eq];
-            if (strlen(eqstr) == 0 || !graph_state.enabled[eq]) continue;
+            if (strlen(graph_state.equations[eq]) == 0 || !graph_state.enabled[eq]) continue;
+            if (!ensure_eq_postfix(eq)) continue;
 
-            if (!eq_postfix_valid[eq] ||
-                strncmp(eqstr, eq_postfix_str[eq], sizeof(eq_postfix_str[eq])) != 0) {
-                if (Calc_Parse(eqstr, 0.0f, false, false, &eq_postfix[eq]) == CALC_OK) {
-                    strncpy(eq_postfix_str[eq], eqstr, sizeof(eq_postfix_str[eq]) - 1);
-                    eq_postfix_str[eq][sizeof(eq_postfix_str[eq]) - 1] = '\0';
-                    eq_postfix_valid[eq] = true;
-                } else {
-                    eq_postfix_valid[eq] = false;
-                    continue;
-                }
-            }
-
-            uint16_t curve_px = lv_color_to_u16(lv_color_hex(eq_palette[eq]));
-            int32_t prev_py    = -1;
-            int32_t prev_px    = -1;
-            bool    prev_valid = false;
+            uint16_t color     = lv_color_to_u16(lv_color_hex(eq_palette[eq]));
+            int32_t  prev_px   = -1, prev_py = -1;
+            bool     prev_valid = false;
 
             for (int32_t px = 0; px < GRAPH_W; px += step) {
                 float x = graph_state.x_min +
                           (float)px / (float)(GRAPH_W - 1) *
                           (graph_state.x_max - graph_state.x_min);
-
-                CalcResult_t r = Calc_Eval(&eq_postfix[eq], x, 0.0f, angle_degrees);
-
-                if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
-                    prev_valid = false;
-                    continue;
-                }
-
-                int32_t py = graph_coord_math_y_to_px(&graph_state,r.value);
-
-                if (py < 0 || py >= GRAPH_H) {
-                    prev_valid = false;
-                    continue;
-                }
-
-                if (graph_state.plot_connected && prev_valid) {
-                    /* Interpolate across all columns from prev_px+1 to px */
-                    int32_t span = px - prev_px;
-                    int32_t last_interp = prev_py;
-                    for (int32_t cx = prev_px + 1; cx <= px; cx++) {
-                        int32_t cur_interp = prev_py + (int32_t)((float)(cx - prev_px) / (float)span * (py - prev_py));
-                        int32_t y_start = last_interp < cur_interp ? last_interp : cur_interp;
-                        int32_t y_end   = last_interp < cur_interp ? cur_interp : last_interp;
-
-                        /* Clamp to canvas bounds to prevent massive loops on singularities */
-                        if (y_start < 0) y_start = 0;
-                        if (y_end >= GRAPH_H) y_end = GRAPH_H - 1;
-
-                        for (int32_t y = y_start; y <= y_end; y++)
-                            graph_buf[y * GRAPH_W + cx] = curve_px;
-                        last_interp = cur_interp;
-                    }
-                } else {
-                    graph_buf[py * GRAPH_W + px] = curve_px;
-                }
-
-                prev_py    = py;
-                prev_px    = px;
-                prev_valid = true;
+                plot_func_sample(eq, px, x, graph_state.plot_connected, color,
+                                 angle_degrees, &prev_px, &prev_py, &prev_valid);
             }
         }
     } else {
         /* Simultaneous: all curves advance one pixel column at a time */
         bool     skip[GRAPH_NUM_EQ];
         uint16_t colors[GRAPH_NUM_EQ];
-        int32_t    prev_py[GRAPH_NUM_EQ], prev_px_s[GRAPH_NUM_EQ];
-        bool       prev_valid[GRAPH_NUM_EQ];
+        int32_t  prev_py[GRAPH_NUM_EQ], prev_px_s[GRAPH_NUM_EQ];
+        bool     prev_valid[GRAPH_NUM_EQ];
 
         for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
             skip[eq]       = true;
             prev_py[eq]    = -1;
             prev_px_s[eq]  = -1;
             prev_valid[eq] = false;
-            const char *eqstr = graph_state.equations[eq];
-            if (strlen(eqstr) == 0 || !graph_state.enabled[eq]) continue;
-            if (!eq_postfix_valid[eq] ||
-                strncmp(eqstr, eq_postfix_str[eq], sizeof(eq_postfix_str[eq])) != 0) {
-                if (Calc_Parse(eqstr, 0.0f, false, false, &eq_postfix[eq]) == CALC_OK) {
-                    strncpy(eq_postfix_str[eq], eqstr, sizeof(eq_postfix_str[eq]) - 1);
-                    eq_postfix_str[eq][sizeof(eq_postfix_str[eq]) - 1] = '\0';
-                    eq_postfix_valid[eq] = true;
-                } else {
-                    eq_postfix_valid[eq] = false;
-                    continue;
-                }
-            }
+            if (strlen(graph_state.equations[eq]) == 0 || !graph_state.enabled[eq]) continue;
+            if (!ensure_eq_postfix(eq)) continue;
             skip[eq]   = false;
             colors[eq] = lv_color_to_u16(lv_color_hex(eq_palette[eq]));
         }
@@ -538,44 +630,10 @@ void Graph_Render(void)
             float x = graph_state.x_min +
                       (float)px / (float)(GRAPH_W - 1) *
                       (graph_state.x_max - graph_state.x_min);
-
             for (uint8_t eq = 0; eq < GRAPH_NUM_EQ; eq++) {
                 if (skip[eq]) continue;
-
-                CalcResult_t r = Calc_Eval(&eq_postfix[eq], x, 0.0f, angle_degrees);
-
-                if (r.error != CALC_OK || isnan(r.value) || isinf(r.value)) {
-                    prev_valid[eq] = false;
-                    continue;
-                }
-
-                int32_t py = graph_coord_math_y_to_px(&graph_state,r.value);
-
-                if (py < 0 || py >= GRAPH_H) {
-                    prev_valid[eq] = false;
-                    continue;
-                }
-
-                if (graph_state.plot_connected && prev_valid[eq]) {
-                    int32_t span = px - prev_px_s[eq];
-                    int32_t last_interp = prev_py[eq];
-                    for (int32_t cx = prev_px_s[eq] + 1; cx <= px; cx++) {
-                        int32_t cur_interp = prev_py[eq] + (int32_t)((float)(cx - prev_px_s[eq]) / (float)span * (py - prev_py[eq]));
-                        int32_t y_start = last_interp < cur_interp ? last_interp : cur_interp;
-                        int32_t y_end   = last_interp < cur_interp ? cur_interp : last_interp;
-                        if (y_start < 0) y_start = 0;
-                        if (y_end >= GRAPH_H) y_end = GRAPH_H - 1;
-                        for (int32_t y = y_start; y <= y_end; y++)
-                            graph_buf[y * GRAPH_W + cx] = colors[eq];
-                        last_interp = cur_interp;
-                    }
-                } else {
-                    graph_buf[py * GRAPH_W + px] = colors[eq];
-                }
-
-                prev_py[eq]    = py;
-                prev_px_s[eq]  = px;
-                prev_valid[eq] = true;
+                plot_func_sample(eq, px, x, graph_state.plot_connected, colors[eq],
+                                 angle_degrees, &prev_px_s[eq], &prev_py[eq], &prev_valid[eq]);
             }
         }
     }
@@ -614,7 +672,6 @@ void Graph_RenderParametric(void)
     if (graph_canvas == NULL) return;
 #endif
     bool angle_degrees = Calc_GetAngleDegrees();
-
     graph_render_setup();
 
     static const uint32_t pair_palette[GRAPH_NUM_PARAM] = {
@@ -629,120 +686,37 @@ void Graph_RenderParametric(void)
     if (graph_state.plot_sequential) {
         /* Sequential: complete one parametric pair before starting the next */
         for (uint8_t p = 0; p < GRAPH_NUM_PARAM; p++) {
-            const char *xstr = graph_state.param_x[p];
-            const char *ystr = graph_state.param_y[p];
-            if (strlen(xstr) == 0 || strlen(ystr) == 0 || !graph_state.param_enabled[p])
+            if (strlen(graph_state.param_x[p]) == 0 || strlen(graph_state.param_y[p]) == 0 ||
+                !graph_state.param_enabled[p])
                 continue;
+            if (!ensure_param_postfix(p)) continue;
 
-            if (!param_postfix_valid[p] ||
-                strncmp(xstr, param_postfix_x_str[p], sizeof(param_postfix_x_str[p])) != 0) {
-                if (Calc_Parse(xstr, 0.0f, false, true, &param_postfix_x[p]) == CALC_OK) {
-                    strncpy(param_postfix_x_str[p], xstr, sizeof(param_postfix_x_str[p]) - 1);
-                    param_postfix_x_str[p][sizeof(param_postfix_x_str[p]) - 1] = '\0';
-                } else {
-                    param_postfix_valid[p] = false;
-                    continue;
-                }
-            }
-            if (!param_postfix_valid[p] ||
-                strncmp(ystr, param_postfix_y_str[p], sizeof(param_postfix_y_str[p])) != 0) {
-                if (Calc_Parse(ystr, 0.0f, false, true, &param_postfix_y[p]) == CALC_OK) {
-                    strncpy(param_postfix_y_str[p], ystr, sizeof(param_postfix_y_str[p]) - 1);
-                    param_postfix_y_str[p][sizeof(param_postfix_y_str[p]) - 1] = '\0';
-                    param_postfix_valid[p] = true;
-                } else {
-                    param_postfix_valid[p] = false;
-                    continue;
-                }
-            }
-
-            uint16_t curve_px = lv_color_to_u16(lv_color_hex(pair_palette[p]));
-            int32_t prev_px = -1, prev_py = -1;
-            bool    prev_valid = false;
+            uint16_t color     = lv_color_to_u16(lv_color_hex(pair_palette[p]));
+            int32_t  prev_px   = -1, prev_py = -1;
+            bool     prev_valid = false;
 
             for (float t = graph_state.t_min;
                  t <= graph_state.t_max + t_step * 0.5f;
                  t += t_step) {
-
-                CalcResult_t rx = Calc_Eval(&param_postfix_x[p], calc_variables['X' - 'A'], t, angle_degrees);
-                CalcResult_t ry = Calc_Eval(&param_postfix_y[p], calc_variables['X' - 'A'], t, angle_degrees);
-
-                if (rx.error != CALC_OK || ry.error != CALC_OK ||
-                    isnan(rx.value) || isinf(rx.value) ||
-                    isnan(ry.value) || isinf(ry.value)) {
-                    prev_valid = false;
-                    continue;
-                }
-
-                int32_t px = graph_coord_math_x_to_px(&graph_state,rx.value);
-                int32_t py = graph_coord_math_y_to_px(&graph_state,ry.value);
-
-                if (px < 0 || px >= GRAPH_W || py < 0 || py >= GRAPH_H) {
-                    prev_valid = false;
-                    continue;
-                }
-
-                if (graph_state.plot_connected && prev_valid && (px - prev_px < GRAPH_W / 2) && (prev_px - px < GRAPH_W / 2)) {
-                    int32_t span = px - prev_px;
-                    if (span == 0) {
-                        int32_t y_lo = prev_py < py ? prev_py : py;
-                        int32_t y_hi = prev_py < py ? py : prev_py;
-                        for (int32_t y = y_lo; y <= y_hi; y++)
-                            graph_buf[y * GRAPH_W + px] = curve_px;
-                    } else {
-                        int32_t last = prev_py;
-                        for (int32_t cx = prev_px + (span > 0 ? 1 : -1);
-                             cx != px + (span > 0 ? 1 : -1);
-                             cx += (span > 0 ? 1 : -1)) {
-                            int32_t cur = prev_py + (int32_t)((float)(cx - prev_px) / (float)span * (float)(py - prev_py));
-                            int32_t y_lo = last < cur ? last : cur;
-                            int32_t y_hi = last < cur ? cur : last;
-                            if (y_lo < 0) y_lo = 0;
-                            if (y_hi >= GRAPH_H) y_hi = GRAPH_H - 1;
-                            for (int32_t y = y_lo; y <= y_hi; y++)
-                                graph_buf[y * GRAPH_W + cx] = curve_px;
-                            last = cur;
-                        }
-                    }
-                } else {
-                    graph_buf[py * GRAPH_W + px] = curve_px;
-                }
-
-                prev_px    = px;
-                prev_py    = py;
-                prev_valid = true;
+                plot_param_sample(p, t, graph_state.plot_connected, color,
+                                  angle_degrees, &prev_px, &prev_py, &prev_valid);
             }
         }
     } else {
         /* Simultaneous: all parametric pairs advance one T step at a time */
         bool     skip[GRAPH_NUM_PARAM];
         uint16_t colors[GRAPH_NUM_PARAM];
-        int32_t    prev_px_s[GRAPH_NUM_PARAM], prev_py_s[GRAPH_NUM_PARAM];
-        bool       prev_valid[GRAPH_NUM_PARAM];
+        int32_t  prev_px_s[GRAPH_NUM_PARAM], prev_py_s[GRAPH_NUM_PARAM];
+        bool     prev_valid[GRAPH_NUM_PARAM];
 
         for (uint8_t p = 0; p < GRAPH_NUM_PARAM; p++) {
-            skip[p]        = true;
-            prev_px_s[p]   = -1;
-            prev_py_s[p]   = -1;
-            prev_valid[p]  = false;
-            const char *xstr = graph_state.param_x[p];
-            const char *ystr = graph_state.param_y[p];
-            if (strlen(xstr) == 0 || strlen(ystr) == 0 || !graph_state.param_enabled[p]) continue;
-            if (!param_postfix_valid[p] ||
-                strncmp(xstr, param_postfix_x_str[p], sizeof(param_postfix_x_str[p])) != 0) {
-                if (Calc_Parse(xstr, 0.0f, false, true, &param_postfix_x[p]) == CALC_OK) {
-                    strncpy(param_postfix_x_str[p], xstr, sizeof(param_postfix_x_str[p]) - 1);
-                    param_postfix_x_str[p][sizeof(param_postfix_x_str[p]) - 1] = '\0';
-                } else { param_postfix_valid[p] = false; continue; }
-            }
-            if (!param_postfix_valid[p] ||
-                strncmp(ystr, param_postfix_y_str[p], sizeof(param_postfix_y_str[p])) != 0) {
-                if (Calc_Parse(ystr, 0.0f, false, true, &param_postfix_y[p]) == CALC_OK) {
-                    strncpy(param_postfix_y_str[p], ystr, sizeof(param_postfix_y_str[p]) - 1);
-                    param_postfix_y_str[p][sizeof(param_postfix_y_str[p]) - 1] = '\0';
-                    param_postfix_valid[p] = true;
-                } else { param_postfix_valid[p] = false; continue; }
-            }
+            skip[p]       = true;
+            prev_px_s[p]  = -1;
+            prev_py_s[p]  = -1;
+            prev_valid[p] = false;
+            if (strlen(graph_state.param_x[p]) == 0 || strlen(graph_state.param_y[p]) == 0 ||
+                !graph_state.param_enabled[p]) continue;
+            if (!ensure_param_postfix(p)) continue;
             skip[p]   = false;
             colors[p] = lv_color_to_u16(lv_color_hex(pair_palette[p]));
         }
@@ -750,57 +724,10 @@ void Graph_RenderParametric(void)
         for (float t = graph_state.t_min;
              t <= graph_state.t_max + t_step * 0.5f;
              t += t_step) {
-
             for (uint8_t p = 0; p < GRAPH_NUM_PARAM; p++) {
                 if (skip[p]) continue;
-
-                CalcResult_t rx = Calc_Eval(&param_postfix_x[p], calc_variables['X' - 'A'], t, angle_degrees);
-                CalcResult_t ry = Calc_Eval(&param_postfix_y[p], calc_variables['X' - 'A'], t, angle_degrees);
-
-                if (rx.error != CALC_OK || ry.error != CALC_OK ||
-                    isnan(rx.value) || isinf(rx.value) ||
-                    isnan(ry.value) || isinf(ry.value)) {
-                    prev_valid[p] = false;
-                    continue;
-                }
-
-                int32_t px = graph_coord_math_x_to_px(&graph_state,rx.value);
-                int32_t py = graph_coord_math_y_to_px(&graph_state,ry.value);
-
-                if (px < 0 || px >= GRAPH_W || py < 0 || py >= GRAPH_H) {
-                    prev_valid[p] = false;
-                    continue;
-                }
-
-                if (graph_state.plot_connected && prev_valid[p] && (px - prev_px_s[p] < GRAPH_W / 2) && (prev_px_s[p] - px < GRAPH_W / 2)) {
-                    int32_t span = px - prev_px_s[p];
-                    if (span == 0) {
-                        int32_t y_lo = prev_py_s[p] < py ? prev_py_s[p] : py;
-                        int32_t y_hi = prev_py_s[p] < py ? py : prev_py_s[p];
-                        for (int32_t y = y_lo; y <= y_hi; y++)
-                            graph_buf[y * GRAPH_W + px] = colors[p];
-                    } else {
-                        int32_t last = prev_py_s[p];
-                        for (int32_t cx = prev_px_s[p] + (span > 0 ? 1 : -1);
-                             cx != px + (span > 0 ? 1 : -1);
-                             cx += (span > 0 ? 1 : -1)) {
-                            int32_t cur = prev_py_s[p] + (int32_t)((float)(cx - prev_px_s[p]) / (float)span * (float)(py - prev_py_s[p]));
-                            int32_t y_lo = last < cur ? last : cur;
-                            int32_t y_hi = last < cur ? cur : last;
-                            if (y_lo < 0) y_lo = 0;
-                            if (y_hi >= GRAPH_H) y_hi = GRAPH_H - 1;
-                            for (int32_t y = y_lo; y <= y_hi; y++)
-                                graph_buf[y * GRAPH_W + cx] = colors[p];
-                            last = cur;
-                        }
-                    }
-                } else {
-                    graph_buf[py * GRAPH_W + px] = colors[p];
-                }
-
-                prev_px_s[p]  = px;
-                prev_py_s[p]  = py;
-                prev_valid[p] = true;
+                plot_param_sample(p, t, graph_state.plot_connected, colors[p],
+                                  angle_degrees, &prev_px_s[p], &prev_py_s[p], &prev_valid[p]);
             }
         }
     }
