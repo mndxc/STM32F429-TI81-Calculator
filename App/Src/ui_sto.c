@@ -369,6 +369,61 @@ static bool handle_sto_list_elem(Token_t t)
 }
 
 /*---------------------------------------------------------------------------
+ * STO→scalar helper (A–Z, θ)
+ *---------------------------------------------------------------------------*/
+
+static bool sto_commit_scalar(uint8_t var_idx, const char *dest_str)
+{
+    const char *ebuf = ExprEditor_GetBuf();
+    ExprEditor_SetStoPending(false);
+
+    CalcResult_t result = Calc_Evaluate(ebuf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
+                                        Calc_GetAngleDegrees());
+
+    char result_str[MAX_RESULT_LEN];
+    char expr_hist[MAX_EXPR_LEN + 8];
+    snprintf(expr_hist, sizeof(expr_hist), "%s->%s", ebuf, dest_str);
+
+    if (result.error != CALC_OK) {
+#ifndef HOST_TEST
+        char saved[MAX_EXPR_LEN];
+        strncpy(saved, ebuf, MAX_EXPR_LEN - 1);
+        saved[MAX_EXPR_LEN - 1] = '\0';
+        ExprEditor_Clear();
+        CalcHistory_ResetRecallOffset();
+        Error_Open(result.error, saved, result.error_offset, true);
+#else
+        strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
+        result_str[MAX_RESULT_LEN - 1] = '\0';
+        CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
+        ExprEditor_Clear();
+        CalcHistory_ResetRecallOffset();
+        lvgl_lock();
+        CalcHistory_UpdateDisplay();
+        ui_update_status_bar();
+        lvgl_unlock();
+#endif
+        return true;
+    } else if (result.has_matrix) {
+        strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
+        result_str[MAX_RESULT_LEN - 1] = '\0';
+    } else {
+        calc_variables[var_idx] = result.value;
+        Calc_SetAnsScalar(result.value);
+        Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
+    }
+
+    CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
+    ExprEditor_Clear();
+    CalcHistory_ResetRecallOffset();
+    lvgl_lock();
+    CalcHistory_UpdateDisplay();
+    ui_update_status_bar();
+    lvgl_unlock();
+    return true;
+}
+
+/*---------------------------------------------------------------------------
  * STO pending handler
  *---------------------------------------------------------------------------*/
 
@@ -383,101 +438,12 @@ bool handle_sto_pending(Token_t t)
         return handle_sto_list_elem(t);
 
     if (t >= TOKEN_A && t <= TOKEN_Z) {
-        ExprEditor_SetStoPending(false);
-        const char *ebuf = ExprEditor_GetBuf();
         static const char var_names[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        uint8_t var_idx = t - TOKEN_A;
-
-        CalcResult_t result = Calc_Evaluate(ebuf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                            Calc_GetAngleDegrees());
-
-        char result_str[MAX_RESULT_LEN];
-        char expr_hist[MAX_EXPR_LEN + 4];  /* expression + "->A\0" */
-        snprintf(expr_hist, sizeof(expr_hist), "%s->%c", ebuf, var_names[var_idx]);
-
-        if (result.error != CALC_OK) {
-#ifndef HOST_TEST
-            char saved[MAX_EXPR_LEN];
-            strncpy(saved, ebuf, MAX_EXPR_LEN - 1);
-            saved[MAX_EXPR_LEN - 1] = '\0';
-            ExprEditor_Clear();
-            CalcHistory_ResetRecallOffset();
-            Error_Open(result.error, saved, result.error_offset, true);
-#else
-            strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
-            result_str[MAX_RESULT_LEN - 1] = '\0';
-            CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-            ExprEditor_Clear();
-            CalcHistory_ResetRecallOffset();
-            lvgl_lock();
-            CalcHistory_UpdateDisplay();
-            ui_update_status_bar();
-            lvgl_unlock();
-#endif
-            return true;
-        } else if (result.has_matrix) {
-            strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
-            result_str[MAX_RESULT_LEN - 1] = '\0';
-        } else {
-            calc_variables[var_idx] = result.value;
-            Calc_SetAnsScalar(result.value);
-            Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
-        }
-
-        CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-        ExprEditor_Clear();
-        CalcHistory_ResetRecallOffset();
-
-        lvgl_lock();
-        CalcHistory_UpdateDisplay();
-        ui_update_status_bar();
-        lvgl_unlock();
-        return true;
+        char dest[2] = { var_names[t - TOKEN_A], '\0' };
+        return sto_commit_scalar((uint8_t)(t - TOKEN_A), dest);
 
     } else if (t == TOKEN_THETA) {
-        ExprEditor_SetStoPending(false);
-        const char *ebuf = ExprEditor_GetBuf();
-        CalcResult_t result = Calc_Evaluate(ebuf, Calc_GetAns(), Calc_GetAnsIsMatrix(),
-                                            Calc_GetAngleDegrees());
-        char result_str[MAX_RESULT_LEN];
-        char expr_hist[MAX_EXPR_LEN + 6];
-        snprintf(expr_hist, sizeof(expr_hist), "%s->\xCE\xB8", ebuf);  /* ->θ */
-        if (result.error != CALC_OK) {
-#ifndef HOST_TEST
-            char saved[MAX_EXPR_LEN];
-            strncpy(saved, ebuf, MAX_EXPR_LEN - 1);
-            saved[MAX_EXPR_LEN - 1] = '\0';
-            ExprEditor_Clear();
-            CalcHistory_ResetRecallOffset();
-            Error_Open(result.error, saved, result.error_offset, true);
-#else
-            strncpy(result_str, result.error_msg, MAX_RESULT_LEN - 1);
-            result_str[MAX_RESULT_LEN - 1] = '\0';
-            CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-            ExprEditor_Clear();
-            CalcHistory_ResetRecallOffset();
-            lvgl_lock();
-            CalcHistory_UpdateDisplay();
-            ui_update_status_bar();
-            lvgl_unlock();
-#endif
-            return true;
-        } else if (result.has_matrix) {
-            strncpy(result_str, "ERR:DATA TYPE", MAX_RESULT_LEN - 1);
-            result_str[MAX_RESULT_LEN - 1] = '\0';
-        } else {
-            calc_variables[26] = result.value;
-            Calc_SetAnsScalar(result.value);
-            Calc_FormatResult(result.value, result_str, MAX_RESULT_LEN);
-        }
-        CalcHistory_Commit(expr_hist, result_str, false, 0, 0, 0);
-        ExprEditor_Clear();
-        CalcHistory_ResetRecallOffset();
-        lvgl_lock();
-        CalcHistory_UpdateDisplay();
-        ui_update_status_bar();
-        lvgl_unlock();
-        return true;
+        return sto_commit_scalar(26, "\xCE\xB8");  /* θ */
 
     } else if (t == TOKEN_MTRX_A || t == TOKEN_MTRX_B || t == TOKEN_MTRX_C) {
         /* STO→[A/B/C] — enter matrix-destination phase; ENTER=whole, (=element */

@@ -31,7 +31,7 @@ Snapshot as of **2026-05-07** (all INTERFACE_REFACTOR_PLAN items complete; all C
 | Magic numbers / constants | A- |
 | Testing | A |
 
-Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 973 lines, prgm_editor.c 538 lines, graph_ui.c 1403 lines, graph.c 1361 lines, graph_ui_range.c 743 lines, ui_matrix.c 579 lines, calc_engine.c 1988 lines, ui_sto.c 523 lines — graph_ui.c/graph.c/calc_engine.c over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 16 suites, 1112 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), STO→matrix/element/Y= host tests, error code string + error_offset tests, CalcMode_IsValidTransition guard tests, and MenuScreen_t navigation tests.
+Overall: **91–93% production-ready**. Key remaining gaps: PRGM hardware validation pending; code organisation (ui_prgm.c 973 lines, prgm_editor.c 538 lines, graph_ui.c 1403 lines, graph.c 1361 lines, graph_ui_range.c 743 lines, ui_matrix.c 579 lines, calc_engine.c 1988 lines, ui_sto.c 489 lines — graph_ui.c/graph.c/calc_engine.c over 500-line threshold). Key strengths: RTOS integration (A), FLASH/memory-safety (A), API/header design (A+), CI quality gates (-Werror), host test suite (see [docs/TESTING.md](docs/TESTING.md)) — 16 suites, 1112 assertions — with property-based invariant tests, handle_normal_mode coverage, parametric eval tests, stat math tests, MenuState_t navigation tests, cmd_table[] prefix-ordering guard, PrgmOutput_t callback seam (T3-A), Calc_Parse/Eval split (T3-B), CalcMode_t topology enforcement (F2), graph render integration test (F3), STO→matrix/element/Y= host tests, error code string + error_offset tests, CalcMode_IsValidTransition guard tests, and MenuScreen_t navigation tests.
 
 Full scorecard change history: [docs/PROJECT_HISTORY.md — Scorecard Change Log](docs/PROJECT_HISTORY.md).
 
@@ -95,10 +95,6 @@ All custom application code lives under `App/`. `Core/` contains only CubeMX-gen
 Items are ordered so prerequisites come before the items that depend on them; within a dependency tier, easiest first.
 
 #### Complexity debt — surfaced by 2026-05-07 periodic code review
-
-**[complexity] Graph_Render (176 lines, depth 6) and Graph_RenderParametric (203 lines, depth 7) exceed both thresholds** — E17 sweep confirmed both in `App/Src/graph.c`. Extract the per-pixel sample-and-plot inner loop, the asymptote/discontinuity detection, and the connected-dot segment draw into static helpers. Files: `App/Src/graph.c`.
-
-**[complexity] ui_sto.c crossed 500-line threshold (now 523 lines)** — `{x}(n)/{y}(n)` STO state machine added 133 lines in 2026-06-01 session. Consider extracting `StoListPhase_t` state machine into a dedicated helper similar to how `StoMatPhase_t` is structured. File: `App/Src/ui_sto.c`.
 
 **[complexity] calc_engine.c grew to 1988 lines** — Matrix inversion/squaring/negation + element-read tokenizer path added 128 lines in 2026-06-01 session. Long-term: consider splitting matrix-operator eval helpers (`mat_invert`, `mat_negate`, `eval_mat_pow`, `eval_mat_negate`) into a `calc_engine_matrix.c` translation unit. File: `App/Src/calc_engine.c`.
 
