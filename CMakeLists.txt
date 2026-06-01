@@ -64,6 +64,8 @@ set(APP_SOURCES
     App/Src/app_init.c
     App/Src/calc_history.c
     App/Src/calculator_core.c
+    App/Src/mode_dispatcher.c
+    App/Src/ui_main_display.c
     App/Src/ui_mode.c
     App/Src/ui_input.c
     App/Src/ui_sto.c
@@ -94,6 +96,7 @@ set(APP_SOURCES
     App/Src/ui_reset.c
     App/Src/ui_error.c
     App/Src/graph_ui.c
+    App/Src/ui_cursor.c
     App/Src/graph_ui_cursor.c
     App/Src/graph_ui_range.c
     App/Src/ui_graph_zoom.c
