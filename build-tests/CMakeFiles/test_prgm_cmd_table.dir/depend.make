@@ -1,2 +1,0 @@
-# Empty dependencies file for test_prgm_cmd_table.
-# This may be replaced when dependencies are built.
