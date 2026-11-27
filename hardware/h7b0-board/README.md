@@ -1,8 +1,12 @@
-# H7B0 board (next revision)
+# Main board (next revision): STM32H743
 
-The custom board that replaces the STM32F429 Discovery: STM32H7B0VBT6, RT9471 charger and power path, RT8059 3.3 V buck, W25Q128JV OctoSPI flash, and a LiPo. The RT4812 5 V boost is DNF until the Pi Zero 2 W revision.
+The folder is still named `h7b0-board/` from before the MCU change on 2026-11-27.
 
-**Status:** design notes only. There's no KiCad project yet, and the work is paused until the firmware is done.
+The custom board that replaces the STM32F429 Discovery: STM32H743V (LQFP100; was the H7B0VBT6), RT9471 charger and power path, RT8059 3.3 V buck, W25Q128JV QUADSPI flash for user data, and a LiPo. The RT4812 5 V boost is DNF until the Pi Zero 2 W revision.
+
+**Status (2026-11-27):** active. It's being designed together with the display carrier board, so the Discovery can be retired. There's no KiCad project yet.
+
+- **Display bus: 8080 16-bit through FMC** (not RGB/LTDC). Pin assignments: [`PIN_PLAN.md`](PIN_PLAN.md)
 
 - Design notes: [`docs/PCB_DESIGN.md`](../../docs/PCB_DESIGN.md)
 - Parts check, footprint swaps and the open charger/USB items: [`PARTS_VERIFICATION.md`](PARTS_VERIFICATION.md)

@@ -102,7 +102,19 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 **[complexity] calc_engine.c grew to 1988 lines** — Matrix inversion/squaring/negation + element-read tokenizer path added 128 lines in 2026-06-01 session. Long-term: consider splitting matrix-operator eval helpers (`mat_invert`, `mat_negate`, `eval_mat_pow`, `eval_mat_negate`) into a `calc_engine_matrix.c` translation unit. File: `App/Src/calc_engine.c`.
 
-#### H7B0 board — open design items (before starting the schematic)
+#### Display carrier + STM32H743 main board — bring-up (decided 2026-11-27)
+
+Retire the Discovery: design both boards together. MCU changed from the H7B0 to the **STM32H743VGT6** (LQFP100, 1 MB flash, in stock at JLCPCB; the 2 MB VIT6 is a drop-in upgrade), so the firmware runs from internal flash. Keep the firmware under ~1 MB; the W25Q128 holds user data only. The display bus is **8080 16-bit via FMC**, not RGB. Case fit: `hardware/enclosure/CASE_MEASUREMENTS.md`. Pins: `hardware/h7b0-board/PIN_PLAN.md`.
+
+**[hardware] Display carrier KiCad project** (`hardware/display-carrier/`): outline sized to the bay, 2 mounting holes 63.02 mm apart (centre to centre), 50-pin top-contact ZIF toward the deep (top) end, IM[3:0] = 0001 strapped, DB17/DB16 to GND, 40-pin FFC to the main board.
+
+**[hardware] Backlight driver:** 4 parallel LEDs, 70–80 mA total, Vf 3.2–3.4 V. Drive from SYS with a constant-current driver or a PWM'd sink (PD12 / TIM4_CH1).
+
+**Keypad:** own 50-key board as in `neo81-v1` (10 × 5 + KEY_POWER), keys on the main board's front side. Firmware keypad driver must move from the TI-81 7 × 8 matrix.
+
+**Firmware: STM32H743 port** — F4→H7 HAL; FMC region Device/non-cacheable in the MPU; W25Q128 QUADSPI user-data driver (indirect mode). FMC 8080 display driver replaces the LTDC/SDRAM path. LVGL flush writes through FMC to `0x60000000` (command) / `0x60020000` (data); framebuffer in internal RAM.
+
+#### Main board — open design items (before starting the schematic)
 
 **[hardware] USB/charger input design.** Decide between the proposals in `hardware/h7b0-board/PARTS_VERIFICATION.md`: keep the plain RT9471 (recommended); route D+/D− to STM32 PA11/PA12; add 5.1 kΩ Rd on CC1/CC2 (missing today); PSEL high, then firmware sets AICR from CC sensing. Confirm JLCPCB stock for RT9471GQW and H7B0 USB DFU (AN2606). Then update `docs/PCB_DESIGN.md`.
 
@@ -114,7 +126,7 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 **[hardware] IP5310 pin 31 (LIGHT, output) is tied to GND.** This is the only ERC error left. Check it against the IP5310 datasheet: it's a bug unless the datasheet says to tie LIGHT low.
 
-**[hardware] Copper fixes for the next spin** (not done in the review, which kept the ordered copper unchanged): widen the 0.2 mm segments on 5VOUT (15) and V_BUS (4); give the IP5310 center-pad vias full thermal connections on In2.Cu; pull USB-C away from the edge-clearance violation; add board name and revision to the silkscreen. See `hardware/KICAD_CONVENTIONS.md`.
+**[hardware] Copper fixes for the next spin** (not done in the review, which kept the existing copper unchanged; the board was never ordered): widen the 0.2 mm segments on 5VOUT (15) and V_BUS (4); give the IP5310 center-pad vias full thermal connections on In2.Cu; pull USB-C away from the edge-clearance violation; add board name and revision to the silkscreen. See `hardware/KICAD_CONVENTIONS.md`.
 
 #### Hardware validation — no new code, test on device
 

@@ -1,8 +1,8 @@
 # PCB Design Notes
 
-**Status: paused — resuming after software is complete.**
+**Status: active (2026-11-27)** — being designed together with the display carrier board. Display bus is 8080 16-bit via FMC; pin plan in [hardware/h7b0-board/PIN_PLAN.md](../hardware/h7b0-board/PIN_PLAN.md).
 
-Custom PCB targets the STM32H7B0VBT6 as the main MCU (upgrade from the STM32F429 discovery board used for development).
+Custom PCB targets the **STM32H743V (LQFP100)** as the main MCU (upgrade from the STM32F429 discovery board used for development). Changed from the STM32H7B0VBT6 on 2026-11-27: the H7B0's 128 KB flash would have forced the ~820 KB firmware to run from external flash. **Prototypes use the H743VGT6** (1 MB, JLCPCB C730183, in stock). The H743VIT6 (2 MB, C114409, pre-order only) is a drop-in upgrade with the same pinout; see [PIN_PLAN.md](../hardware/h7b0-board/PIN_PLAN.md).
 
 ---
 
@@ -12,8 +12,8 @@ All ICs verified available on JLCPCB:
 
 | IC | Purpose |
 |----|---------|
-| STM32H7B0VBT6 | Main MCU LQFP100 |
-| W25Q128JV | 16MB OctoSPI NOR flash — firmware XIP + user data (variables, programs, settings) |
+| STM32H743VGT6 | Main MCU LQFP100: 1 MB internal flash, 1 MB RAM (VIT6 = 2 MB drop-in) |
+| W25Q128JVSIQ | 16MB QUADSPI NOR flash: user data only (variables, programs, settings). JLCPCB Basic part C97521 |
 | RT9471 | LiPo charger with power path management — I²C programmable, 3A, USB OTG boost, WQFN-24L 4×4 |
 | RT8059 | 3.3V main buck (R_upper=100K, R_lower=22.1K 1%) |
 | RT4812 | 5V boost — **DNF Rev1; reserved for Rev2 when Raspberry Pi Zero 2 W is integrated** |
@@ -46,16 +46,7 @@ USB ──► RT9471 (SYS rail) ──► RT8059 (buck) ──► 3.3V system ra
 
 ## External Flash (W25Q128JV)
 
-Single 16MB device on OCTOSPI1 serves both firmware XIP and user data storage.
-
-**Proposed partition layout:**
-- `0x000000 – 0x0FFFFF` (first 1MB): firmware image (XIP, never written at runtime)
-- `0x100000 – 0xFFFFFF` (remaining 15MB): user data — variables, programs, settings
-
-**Write-freeze gotcha (critical):** W25Q128JV is single-bank NOR. Erasing or writing any sector while OCTOSPI1 is in memory-mapped (XIP) mode stalls the AHB bus and freezes execution. Any erase/write routine touching the user data partition **must** run from RAM:
-- Declare with `__attribute__((section(".RamFunc")))`
-- Switch OCTOSPI1 to indirect mode before erase/write; switch back to memory-mapped mode before returning
-- Keep the routine short — execution is stalled during the switch
+Single 16MB device on QUADSPI bank 1, used in **indirect mode only** for user data: variables, programs, settings. The firmware runs from the H743's internal flash, so there's no XIP partition. The old write-freeze problem (stalling a memory-mapped bus mid-erase) no longer applies, because nothing executes from the W25Q.
 
 **Simpler alternative:** only write flash on `2nd+ON` power-off gesture (same pattern as STM32F429 persistent storage). Limits erase/write to once per session; makes the RAM-execution window short and predictable.
 
