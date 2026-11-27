@@ -1,0 +1,12 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "7b4e3b49-38ad-4bee-b208-cb42154f7ad0")
+	(paper "USLetter")
+	(title_block
+		(title "Neo-81")
+		(date "2025-10-12")
+	)
+	(lib_symbols)
+)

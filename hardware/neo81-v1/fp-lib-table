@@ -1,0 +1,5 @@
+(fp_lib_table
+	(version 7)
+	(lib (name "EasyEDA") (type "KiCad") (uri "${KIPRJMOD}/../libs/EasyEDA.pretty") (options "") (descr "LCSC/EasyEDA footprints used by this project"))
+	(lib (name "softKey") (type "KiCad") (uri "${KIPRJMOD}/../libs/softKey.pretty") (options "") (descr "Calculator key footprints"))
+)

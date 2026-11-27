@@ -1,0 +1,68 @@
+(kicad_sch
+	(version 20250114)
+	(generator "eeschema")
+	(generator_version "9.0")
+	(uuid "4f672e0e-6458-4f8e-b13a-faba1ea9f363")
+	(paper "USLetter")
+	(title_block
+		(title "Neo-81")
+		(date "2025-10-15")
+		(rev "0.1")
+	)
+	(lib_symbols)
+	(text "UART \nTX - Pin 8 (GPIO 14)\nRX - Pin 10 (GPIO 15)"
+		(exclude_from_sim no)
+		(at 150.622 46.482 0)
+		(effects
+			(font
+				(size 2.032 2.032)
+			)
+			(justify left top)
+		)
+		(uuid "1cbcd118-1de5-44f9-b5ec-2ce0358e8c54")
+	)
+	(text "SPI\nSPI0 MOSI - Pin 19 (GPIO 10)\nSPI0 MISO - Pin 21 (GPIO 9)\nSPI0 SCLK - Pin 23 (GPIO 11)\nSPI0 CE0 - Pin 24 (GPIO 8)\nSPI0 CE1 - Pin 26 (GPIO 7)"
+		(exclude_from_sim no)
+		(at 154.432 83.82 0)
+		(effects
+			(font
+				(size 2.032 2.032)
+			)
+			(justify left top)
+		)
+		(uuid "8f4c1aef-4ab6-4e28-979f-2c49f993cef9")
+	)
+	(text "Raspberry Pi Zero 2 W module\nindividually solder wires to it's 40 pin header\nas needed. Connect those wires to a through hole\npin header with connections needed."
+		(exclude_from_sim no)
+		(at 31.75 36.83 0)
+		(effects
+			(font
+				(size 2.032 2.032)
+			)
+			(justify left top)
+		)
+		(uuid "b184fe71-2d4d-43a3-b70c-e34af0b25518")
+	)
+	(text "Interrupt\nPin 12 (GPIO 18)\nPin 16 (GPIO 23)\nPin 18 (GPIO 24)\nPin 22 (GPIO 25)"
+		(exclude_from_sim no)
+		(at 136.398 62.23 0)
+		(effects
+			(font
+				(size 2.032 2.032)
+			)
+			(justify left top)
+		)
+		(uuid "cdec2072-d3c9-42c7-be74-891ccc7cc82a")
+	)
+	(text "Power\nPin 2 - 5V\nPin 4 - 5V\nPin 6 - GND\nPin 9 - GND"
+		(exclude_from_sim no)
+		(at 148.082 25.908 0)
+		(effects
+			(font
+				(size 2.032 2.032)
+			)
+			(justify left top)
+		)
+		(uuid "cf8afdc5-8eaa-4779-992a-612206fa9a33")
+	)
+)

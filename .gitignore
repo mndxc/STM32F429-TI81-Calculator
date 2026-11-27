@@ -59,3 +59,17 @@ Middlewares/Third_Party/lvgl/.devcontainer/
 
 # Obsidian vault settings (no notes)
 /Wiki/
+
+# Hardware (KiCad / FreeCAD): design files are committed; caches, local backups and downloads are not
+hardware/**/*-backups/
+hardware/**/*.kicad_prl
+hardware/**/fp-info-cache
+hardware/**/*-bkp-*.kicad_pcb-bak
+hardware/**/*.kicad_sch_old
+hardware/**/*.lck
+hardware/**/*.FCBak
+hardware/**/jlcpcb/project.db
+hardware/libs/third-party/
+hardware/libs/old/
+# Part datasheets stay local (copyright). The five already tracked before 2026-11-27 remain tracked.
+hardware/datasheets/*

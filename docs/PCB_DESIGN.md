@@ -17,7 +17,9 @@ All ICs verified available on JLCPCB:
 | RT9471 | LiPo charger with power path management — I²C programmable, 3A, USB OTG boost, WQFN-24L 4×4 |
 | RT8059 | 3.3V main buck (R_upper=100K, R_lower=22.1K 1%) |
 | RT4812 | 5V boost — **DNF Rev1; reserved for Rev2 when Raspberry Pi Zero 2 W is integrated** |
-| TPD4E05U06DQAR | USB ESD protection (TI, 4-channel, SOT-563) |
+| TPD4E05U06DQAR | USB ESD protection (TI, 4-channel, USON-10 2.5×1.0 mm; TI makes no SOT-563 version) |
+
+> **Parts check (2026-11-27):** the pinouts, footprints and open design items are in [hardware/h7b0-board/PARTS_VERIFICATION.md](../hardware/h7b0-board/PARTS_VERIFICATION.md). The KiCad files live under [hardware/](../hardware/README.md).
 
 ---
 
@@ -37,7 +39,7 @@ USB ──► RT9471 (SYS rail) ──► RT8059 (buck) ──► 3.3V system ra
 - **RT8059 feedback resistors:** R_upper = 100kΩ, R_lower = 22.1kΩ 1% → 3.3V output. Optionally bias to 3.28V for a few mV of extra dropout margin.
 - **RT9471 I²C:** SCL/SDA to STM32 with 10kΩ pull-ups to 3.3V. Default power-on settings are safe without firmware init, but configure AICR to 1.5A on boot for faster charging. CE pin pulled low to enable charging; INT pin to STM32 GPIO for fault notification.
 - **RT9471 package:** WQFN-24L 4×4 with exposed thermal pad — must be soldered to solid GND copper pour. Requires reflow; not hand-solderable.
-- **TPD4E05U06DQAR:** placed on USB D+/D− lines as close to the connector as possible, before the RT9471 D+/D− pins. SOT-563 package.
+- **TPD4E05U06DQAR:** placed on the USB lines as close to the connector as possible. USON-10 package. ⚠️ **Under review:** an earlier version of this line said "before the RT9471 D+/D− pins", but the plain RT9471 has no D+/D− pins (only the RT9471D does). The proposal is D+/D− → STM32 PA11/PA12, 5.1 kΩ Rd on CC1/CC2 (currently missing), and PSEL high with AICR set from CC sensing. See [PARTS_VERIFICATION.md](../hardware/h7b0-board/PARTS_VERIFICATION.md#charger-usb-detection-rt9471-vs-rt9471d-evaluated-2026-11-27).
 - **RT4812 (DNF Rev1):** footprint placed but unpopulated. Reserved for Rev2 when a Raspberry Pi Zero 2 W is added — the Pi requires a 5V rail the RT4812 will provide by boosting from the LiPo.
 
 ---

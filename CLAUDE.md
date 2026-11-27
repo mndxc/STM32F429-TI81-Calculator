@@ -2,6 +2,10 @@
 
 **Purpose:** AI session continuity and feature backlog. Contains project context, architectural decisions, gotchas, known issues, the active feature/bug backlog (`Next session priorities`), and standing rules for AI-assisted development. Read in full at the start of every session.
 
+## Repository Layout (firmware + hardware)
+
+This one repo holds the whole Neo-81 project. The firmware sits at the root (`App/`, `Core/`, `Drivers/`…), because CubeMX and CMake expect it there; don't move it. The hardware lives in **[hardware/](hardware/README.md)**: `h7b0-board/` (next board, design stage), `neo81-v1/` (first KiCad board and its fab outputs), `libs/` (project KiCad libraries, loaded through `${KIPRJMOD}/../libs`), `enclosure/` (FreeCAD) and `datasheets/` (local only). TI-81 originals and the manual-extraction pipeline are in `_reference/` (local only, excluded in `.git/info/exclude`). Before any hardware work, read `hardware/h7b0-board/PARTS_VERIFICATION.md`; it has open design items.
+
 ## Standards & Maintenance
 
 Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before starting any significant work. It defines the grading criteria for every scorecard dimension (Rises when / Falls when), standing rules that must never regress, and the Numbers to Keep in Sync across files.
@@ -97,6 +101,12 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 #### Complexity debt — surfaced by 2026-05-07 periodic code review
 
 **[complexity] calc_engine.c grew to 1988 lines** — Matrix inversion/squaring/negation + element-read tokenizer path added 128 lines in 2026-06-01 session. Long-term: consider splitting matrix-operator eval helpers (`mat_invert`, `mat_negate`, `eval_mat_pow`, `eval_mat_negate`) into a `calc_engine_matrix.c` translation unit. File: `App/Src/calc_engine.c`.
+
+#### H7B0 board — open design items (before starting the schematic)
+
+**[hardware] USB/charger input design.** Decide between the proposals in `hardware/h7b0-board/PARTS_VERIFICATION.md`: keep the plain RT9471 (recommended); route D+/D− to STM32 PA11/PA12; add 5.1 kΩ Rd on CC1/CC2 (missing today); PSEL high, then firmware sets AICR from CC sensing. Confirm JLCPCB stock for RT9471GQW and H7B0 USB DFU (AN2606). Then update `docs/PCB_DESIGN.md`.
+
+**[hardware] Footprint swaps:** RT9471 → KiCad `QFN-24-1EP_4x4mm_P0.5mm_EP2.6x2.6mm`; JST PH → KiCad `JST_PH_S2B-PH-SM4-TB`; USB-C → `libs/JP-USB-C` + EasyEDA footprint.
 
 #### Hardware validation — no new code, test on device
 
