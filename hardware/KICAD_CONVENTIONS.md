@@ -39,3 +39,19 @@ These came out of the 2026-11-27 review of `neo81-v1`. Each rule names the probl
 - [ ] BOM export has an LCSC/MPN on every line, and no copper-only items
 - [ ] Regenerate gerbers, drill, BOM and CPL into `fab-outputs/<date or rev>/`
 - [ ] Commit, and tag the commit with the board revision
+
+## Checking from the command line
+
+KiCad 10 is installed through Homebrew (`brew upgrade --cask kicad`). The CLI is at `/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli`.
+
+```sh
+K=/Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli
+cd hardware/neo81-v1
+$K sch erc -o /tmp/erc.rpt neo81.kicad_sch
+$K pcb drc --schematic-parity -o /tmp/drc.rpt neo81.kicad_pcb
+$K sch export bom --fields 'Reference,Value,${QUANTITY},LCSC,MPN' --group-by 'Value,Footprint,LCSC' --exclude-dnp -o /tmp/bom.csv neo81.kicad_sch
+```
+
+**Proving a cleanup didn't change copper:** export gerbers from the old commit (`git show <rev>:hardware/neo81-v1/neo81.kicad_pcb`) and from the working copy using `$K pcb export gerbers --no-x2`. Then diff each layer, ignoring the `G04`/`%TF`/`%TA`/`%TD` header lines.
+
+**Custom `.kicad_dru` rules can't lower clearance below the net-class value**; tested on 10.0.0 and 10.0.8. Set clearance in the net class instead.

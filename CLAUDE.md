@@ -108,6 +108,14 @@ Items are ordered so prerequisites come before the items that depend on them; wi
 
 **[hardware] Footprint swaps:** RT9471 → KiCad `QFN-24-1EP_4x4mm_P0.5mm_EP2.6x2.6mm`; JST PH → KiCad `JST_PH_S2B-PH-SM4-TB`; USB-C → `libs/JP-USB-C` + EasyEDA footprint.
 
+#### neo81-v1 board — follow-ups from the 2026-11-27 KiCad review
+
+**[hardware] One-time KiCad 10.0.8 setup:** install the JLCPCB library (*PCM → Install from File* → `hardware/libs/third-party/…zip`). Then open `neo81-v1`, save once (this upgrades the files from KiCad 9 format), and commit.
+
+**[hardware] IP5310 pin 31 (LIGHT, output) is tied to GND.** This is the only ERC error left. Check it against the IP5310 datasheet: it's a bug unless the datasheet says to tie LIGHT low.
+
+**[hardware] Copper fixes for the next spin** (not done in the review, which kept the ordered copper unchanged): widen the 0.2 mm segments on 5VOUT (15) and V_BUS (4); give the IP5310 center-pad vias full thermal connections on In2.Cu; pull USB-C away from the edge-clearance violation; add board name and revision to the silkscreen. See `hardware/KICAD_CONVENTIONS.md`.
+
 #### Hardware validation — no new code, test on device
 
 Hardware validation checklist: [docs/hardware_checklist.md](docs/hardware_checklist.md).
