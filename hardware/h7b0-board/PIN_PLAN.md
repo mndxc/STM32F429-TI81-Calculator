@@ -1,6 +1,6 @@
 # Main board pin plan (STM32H743V, LQFP100)
 
-Updated 2026-11-27, when the MCU changed from the STM32H7B0VBT6 to the **STM32H743** to get the firmware into internal flash. Pins and alternate functions come from `hardware/datasheets/STM32H743VG.pdf`: ST DS12110, which covers both the H743xI and H743xG (Table 9 pin definitions, LQFP100 column, and Tables 10–20 AF tables). **Check the AF numbers in CubeMX before the schematic is frozen.**
+Updated 2026-11-27, when the MCU changed from the STM32H7B0VBT6 to the **STM32H743** to get the firmware into internal flash. Pins and alternate functions come from `_reference/datasheets/STM32H743VG.pdf` (local): ST DS12110, which covers both the H743xI and H743xG (Table 9 pin definitions, LQFP100 column, and Tables 10–20 AF tables). **Check the AF numbers in CubeMX before the schematic is frozen.**
 
 ## Part choice (live JLCPCB data, 2026-11-27)
 

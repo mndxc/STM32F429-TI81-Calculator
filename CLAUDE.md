@@ -4,13 +4,13 @@
 
 ## Repository Layout (firmware + hardware)
 
-This one repo holds the whole Neo-81 project. The firmware sits at the root (`App/`, `Core/`, `Drivers/`…), because CubeMX and CMake expect it there; don't move it. The hardware lives in **[hardware/](hardware/README.md)**: `h7b0-board/` (next board, design stage), `neo81-v1/` (first KiCad board and its fab outputs), `libs/` (project KiCad libraries, loaded through `${KIPRJMOD}/../libs`), `enclosure/` (FreeCAD) and `datasheets/` (local only). TI-81 originals and the manual-extraction pipeline are in `_reference/` (local only, excluded in `.git/info/exclude`). Before any hardware work, read `hardware/h7b0-board/PARTS_VERIFICATION.md`; it has open design items.
+This one repo holds the whole Neo-81 project. The firmware sits at the root (`App/`, `Core/`, `Drivers/`…), because CubeMX and CMake expect it there; don't move it. The hardware lives in **[hardware/](hardware/README.md)**: `h7b0-board/` (next board, design stage), `neo81-v1/` (first KiCad board and its fab outputs), `libs/` (project KiCad libraries, loaded through `${KIPRJMOD}/../libs`), and `enclosure/` (FreeCAD). **All local-only material lives in `_reference/`** (one line in `.gitignore`): `guidebook/` (TI-81 guidebook PDF + Markdown, plus an annotated copy), `datasheets/` (vendor PDFs), `kicad-libs/` (downloaded/old KiCad libraries), `TI-81 Stuff/` (originals, teardown photos) and `manual-extraction/`. Never commit anything from it. Before any hardware work, read `hardware/h7b0-board/PARTS_VERIFICATION.md`; it has open design items.
 
 ## Standards & Maintenance
 
 Read **[docs/MAINTENANCE_STANDARDS.md](docs/MAINTENANCE_STANDARDS.md)** before starting any significant work. It defines the grading criteria for every scorecard dimension (Rises when / Falls when), standing rules that must never regress, and the Numbers to Keep in Sync across files.
 
-**`docs/Datasheets/TI81Guidebook.md` is the behavioral specification for all calculator features.** Before planning or implementing any feature, read the relevant guidebook chapter. When behavior is ambiguous, the guidebook is authoritative. Any deviation from guidebook behavior must be documented in "Deliberate Deviations from Original TI-81" below — an undocumented deviation is a defect, not a design choice.
+**`_reference/guidebook/TI81Guidebook.md` is the behavioral specification for all calculator features.** Before planning or implementing any feature, read the relevant guidebook chapter. When behavior is ambiguous, the guidebook is authoritative. Any deviation from guidebook behavior must be documented in "Deliberate Deviations from Original TI-81" below — an undocumented deviation is a defect, not a design choice.
 
 **Complexity delta rating** — rate neutral / increase / decrease before every commit; if `increase`, add a `[complexity]` item to "Next session priorities".
 
@@ -122,7 +122,7 @@ Retire the Discovery: design both boards together. MCU changed from the H7B0 to 
 
 #### neo81-v1 board — follow-ups from the 2026-11-27 KiCad review
 
-**[hardware] One-time KiCad 10.0.8 setup:** install the JLCPCB library (*PCM → Install from File* → `hardware/libs/third-party/…zip`). Then open `neo81-v1`, save once (this upgrades the files from KiCad 9 format), and commit.
+**[hardware] One-time KiCad 10.0.8 setup:** install the JLCPCB library (*PCM → Install from File* → `_reference/kicad-libs/third-party/…zip`). Then open `neo81-v1`, save once (this upgrades the files from KiCad 9 format), and commit.
 
 **[hardware] IP5310 pin 31 (LIGHT, output) is tied to GND.** This is the only ERC error left. Check it against the IP5310 datasheet: it's a bug unless the datasheet says to tie LIGHT low.
 

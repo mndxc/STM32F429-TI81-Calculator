@@ -34,6 +34,10 @@ We welcome ideas for new features! Please use the **Feature Request** template w
 
 We use CMake and the GCC ARM toolchain. See [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) for detailed setup instructions.
 
+### Local-only files
+
+Datasheets, the TI-81 Guidebook, teardown photos and downloaded KiCad libraries are never committed. Keep them in the single git-ignored folder `_reference/`; don't add new ignored folders elsewhere. See [What's not in this repo](README.md#whats-not-in-this-repo).
+
 ### Code Style
 
 To keep the codebase consistent, please follow these conventions:

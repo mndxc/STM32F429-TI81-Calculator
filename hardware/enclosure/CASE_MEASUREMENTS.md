@@ -18,7 +18,7 @@ Caliper readings from the front shell (blue case, version B). Photos are in `_re
 
 ## ER-TFT028A2-4 dimensions (from the datasheet drawing)
 
-Source: `hardware/datasheets/ER-TFT028A2-4_Datasheet.pdf`, page 6, "3.1 ER-TFT028A2-4 with No Touch Panel Outline Drawing" (rev 1.0, Dec-10-2019). Portrait orientation, with the FPC at the bottom.
+Source: `_reference/datasheets/ER-TFT028A2-4_Datasheet.pdf` (local), page 6, "3.1 ER-TFT028A2-4 with No Touch Panel Outline Drawing" (rev 1.0, Dec-10-2019). Portrait orientation, with the FPC at the bottom.
 
 | Item | mm |
 |---|---|

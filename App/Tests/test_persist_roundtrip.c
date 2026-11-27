@@ -16,7 +16,9 @@
  * HOST_TEST must be defined by the CMake target to exclude HAL dependencies.
  */
 
-#define HOST_TEST  /* pulled in by CMake -DHOST_TEST=1; repeated here for IDEs */
+#ifndef HOST_TEST
+#define HOST_TEST 1  /* CMake passes -DHOST_TEST=1; repeated here for IDEs */
+#endif
 
 #include "../Inc/persist.h"
 #include "../Inc/calc_engine.h"

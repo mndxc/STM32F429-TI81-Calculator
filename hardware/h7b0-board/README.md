@@ -10,7 +10,7 @@ The custom board that replaces the STM32F429 Discovery: STM32H743V (LQFP100; was
 
 - Design notes: [`docs/PCB_DESIGN.md`](../../docs/PCB_DESIGN.md)
 - Parts check, footprint swaps and the open charger/USB items: [`PARTS_VERIFICATION.md`](PARTS_VERIFICATION.md)
-- Datasheets: [`../datasheets/`](../datasheets/) (local)
+- Datasheets: `_reference/datasheets/` (local only)
 
 ## Starting the KiCad project
 

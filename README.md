@@ -27,7 +27,7 @@ STM32F429I-DISC1 (Cortex-M4, 180 MHz, 2.4" ILI9341 display, 8 MB SDRAM) with a s
 
 ## Status
 
-~95% of the original TI-81 guidebook is implemented and daily-usable on the STM32F429I-DISC1 development board. Hardware validation is ongoing — see [docs/hardware_checklist.md](docs/hardware_checklist.md). A custom PCB to replace the original TI-81 internals while keeping the original shell is in progress.
+~95% of the original TI-81 guidebook is implemented and daily-usable on the STM32F429I-DISC1 development board. Hardware validation is ongoing — see [docs/hardware_checklist.md](docs/hardware_checklist.md). A custom PCB to replace the original TI-81 internals while keeping the original shell is in design: an STM32H743 main board carrying its own 50-key keypad, plus a small display carrier board that mounts the new 2.8" panel on the original screw posts. See [hardware/](hardware/README.md).
 
 ---
 
@@ -42,7 +42,7 @@ cmake -S App/Tests -B build-tests && cmake --build build-tests
 ctest --test-dir build-tests
 ```
 
-All host tests pass on plain x86/ARM Linux and macOS with any standard C compiler — see [docs/TESTING.md](docs/TESTING.md) for the current suite breakdown (16 suites, 1096 assertions). No toolchain, no board, no USB cable needed.
+All host tests pass on plain x86/ARM Linux and macOS with any standard C compiler — see [docs/TESTING.md](docs/TESTING.md) for the current suite breakdown (16 suites, 1112 assertions). No toolchain, no board, no USB cable needed.
 
 ---
 
@@ -59,6 +59,22 @@ All host tests pass on plain x86/ARM Linux and macOS with any standard C compile
 | Understand display stability and power-off behaviour | [docs/DISPLAY_STABILITY.md](docs/DISPLAY_STABILITY.md) |
 | Understand power management and Stop mode | [docs/POWER_MANAGEMENT.md](docs/POWER_MANAGEMENT.md) |
 | Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Design the hardware (boards, enclosure) | [hardware/README.md](hardware/README.md) |
+
+---
+
+## What's not in this repo
+
+Some reference material can't be published (it's copyrighted by TI or by part vendors) or is too large to be useful in git. It all lives in **one** local folder, `_reference/`, which `.gitignore` excludes as a whole. Nothing else in the tree is hand-placed and ignored; the other `.gitignore` entries are tool output (builds, caches, backups).
+
+| `_reference/…` | What it holds | Where to get it |
+|---|---|---|
+| `guidebook/` | The TI-81 Guidebook (PDF and a Markdown transcription). It is the behavioural spec for every calculator feature | TI's original manual: any TI-81 guidebook scan or the printed booklet |
+| `datasheets/` | Vendor datasheets for the parts in [docs/PCB_DESIGN.md](docs/PCB_DESIGN.md) and `hardware/` | Each manufacturer's product page (part numbers are in the docs) |
+| `kicad-libs/` | Downloaded KiCad libraries, e.g. the CDFER JLCPCB library | KiCad's Plugin and Content Manager |
+| `TI-81 Stuff/` | Teardown photos and measurements of original TI-81s | Your own calculator |
+
+You don't need any of it to build the firmware or run the tests.
 
 ---
 

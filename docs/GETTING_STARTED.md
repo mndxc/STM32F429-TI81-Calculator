@@ -35,7 +35,7 @@ The TI-81 keypad works on a **Matrix**—a grid of rows and columns. Instead of 
 
 The image below shows the back of the Rev b PCB with each keypad switch colour-coded to its column and row line.
 
-![TI-81 Rev b PCB matrix trace map](TI-81bPCB_Mapped2.png)
+![TI-81 Rev b PCB matrix trace map](TI-81bPCB_Mapped2.jpg)
 
 ---
 
@@ -43,7 +43,7 @@ The image below shows the back of the Rev b PCB with each keypad switch colour-c
 
 After removing the controller IC, the pad footprint becomes the solder points for your wire harness. The diagram below shows which pad numbers carry each matrix signal. Columns land on pins 59–65; rows on pins 70–77; ON button on pin 5.
 
-![IC pad footprint pin assignments](IC_Matrix_pins.png)
+![IC pad footprint pin assignments](IC_Matrix_pins.jpg)
 
 ---
 

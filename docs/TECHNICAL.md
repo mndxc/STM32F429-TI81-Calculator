@@ -22,8 +22,12 @@ App/                            ← Custom application code (never touched by Cu
     graph.c                     Graph canvas, axes, tick marks, curve renderer, STAT plot renderers, Graph_HandleKey() graph-mode key dispatcher
     graph_draw.c                Draw layer — persistent user-drawn overlay (DRAW menu; SDRAM 0xD0080800)
     graph_ui.c                  Graph screen UI and handlers (Y=, TRACE, ZBox)
+    graph_ui_cursor.c           Trace and free-cursor mode state machines for the graph canvas (extracted from graph_ui.c)
     graph_ui_range.c            RANGE field editor and ZOOM FACTORS editor screens (extracted from graph_ui.c)
     ui_graph_zoom.c             ZOOM menu screen — state, display, preset executor, and token handler (extracted from graph_ui.c)
+    mode_dispatcher.c           Execute_Token() routing table (k_route_table[]) and the FreeRTOS calculator core task
+    ui_main_display.c           Main screen LVGL layout, cursor rendering, and history display (extracted from calculator_core.c)
+    ui_cursor.c                 UICursor_t — shared blink-timer cursor lifecycle for UI modules
     persist.c                   FLASH sector 10 erase/write/load for calculator state
     prgm_exec.c                 Program storage (FLASH sector 11 erase/write/load) and execution engine
     expr_editor.c               Expression editor module — owns ExprBuffer_t expr, sto_pending, cursor_visible, LVGL cursor objects; STO synthesis rule consolidated in ExprEditor_CursorUpdate() (extracted from calculator_core.c)
@@ -63,8 +67,12 @@ App/                            ← Custom application code (never touched by Cu
     graph_coord.h               Graph coordinate transforms — header-only static inline (graph_coord_math_x_to_px, math_y_to_px, px_to_math_x, px_to_math_y); shared by graph.c and graph_draw.c
     graph_draw.h                Draw layer API (Graph_DrawLayer*, Graph_DrawF, Graph_Shade, Graph_ApplyDrawLayer)
     graph_ui.h                  Graph screen UI interface (Y=, TRACE, ZBox; includes graph_ui_range.h and ui_param_yeq.h)
+    graph_ui_cursor.h           Trace and free-cursor mode API (extracted from graph_ui.h)
     graph_ui_range.h            RANGE and ZOOM FACTORS screen API (screen pointers, nav entry points, handlers)
     ui_graph_zoom.h             ZOOM menu screen API (screen pointer, init, display-update, handler)
+    mode_dispatcher.h           Execute_Token() and calculator core task declarations
+    ui_main_display.h           Main screen layout, cursor rendering and history display API
+    ui_cursor.h                 UICursor_t blink-timer cursor API
     persist.h                   Persistent storage API
     prgm_exec.h                 Program storage/FLASH persistence and execution engine API
     expr_editor.h               Expression editor module API (ExprBuffer_t ownership, sto_pending, cursor_visible, ExprEditor_Insert/Delete/Clear/Left/Right/PrependAns/LoadStr/SetCursor, ExprEditor_CursorUpdate with STO synthesis)

@@ -67,11 +67,11 @@ void UiMode_SetRow(uint8_t row, uint8_t val)
     }
 }
 
-/* Screen pointer — private; accessed externally via Mode_HideScreen().
- * lv_obj_t is provided by lvgl.h (firmware) or calculator_core_test_stubs.h (host test). */
-static lv_obj_t *ui_mode_screen = NULL;
-
 #ifndef HOST_TEST
+
+/* Screen pointer — private; accessed externally via Mode_HideScreen().
+ * Firmware-only: every use is inside this #ifndef HOST_TEST block. */
+static lv_obj_t *ui_mode_screen = NULL;
 
 /*---------------------------------------------------------------------------
  * Private data
