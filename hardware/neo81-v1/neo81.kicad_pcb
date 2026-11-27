@@ -240,7 +240,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -267,7 +267,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/78de5d8e-0697-43de-9035-1109893661bf")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -550,7 +550,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -577,7 +577,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/814a38dd-e415-4769-970e-ca1e7ca364e4")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -860,7 +860,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -887,7 +887,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/9bdb1a4d-3771-4a7f-8657-b5dc40fd97cd")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -1170,7 +1170,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -1197,7 +1197,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/789ecfcb-068c-4c68-9360-d2c503922a9b")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -1480,7 +1480,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -1507,7 +1507,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/6399855b-ca93-4737-ad64-04eebda3037c")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -1770,7 +1770,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -1797,7 +1797,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/47cae37b-a4d1-4237-ab7b-5c478884ee83")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -2080,7 +2080,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -2107,7 +2107,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/f6825e49-03d7-41f7-b2d0-d9a8ea92fc62")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -2390,7 +2390,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -2417,7 +2417,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/2567b072-50de-4e86-b55c-b447b5bd0986")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -2700,7 +2700,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -2727,7 +2727,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/d8fcc870-b436-4d27-946a-5b1424e51e2b")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -3010,7 +3010,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -3037,7 +3037,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/39cbcea4-13b4-4356-b6a1-cb20321bc340")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -3320,7 +3320,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -3347,7 +3347,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/54384dcb-f7c1-4098-b1b2-970abf5fd32d")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -3630,7 +3630,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -3657,7 +3657,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/bfd39286-3b3f-4bdd-a682-a31d87b0b3c1")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -3940,7 +3940,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -3967,7 +3967,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/000a90dd-848e-477c-8e90-5e246f2c1332")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -4230,7 +4230,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -4257,7 +4257,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/e26b343c-6769-4a4c-819f-457a80de6502")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -4540,7 +4540,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -4567,7 +4567,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/c737aa9f-ad13-4571-ae24-df023425a7d8")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -4850,7 +4850,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -4877,7 +4877,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/ae64a456-bd9a-45fb-a0cb-0a4fc5219b3d")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -5160,7 +5160,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -5187,7 +5187,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/a7035dcd-c22c-4c07-919d-063691fc2b5d")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -5470,7 +5470,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -5497,7 +5497,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/bf9504a1-2018-4775-a5f8-4d2481d84c55")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -5780,7 +5780,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -5807,7 +5807,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/61118682-fef5-4103-89e0-d4676a2ae33c")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -6090,7 +6090,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -6117,7 +6117,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/7aaaf869-42cd-44ba-99ef-17bb50995430")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -6400,7 +6400,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -6427,7 +6427,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/5b1665d9-296f-49c6-97bb-d87b3acace7c")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -6710,7 +6710,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -6737,7 +6737,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/bdea717b-e944-44c7-b322-98a6133e80fa")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -7020,7 +7020,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -7047,7 +7047,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/33022dc0-40d7-46f5-bcf0-410e76d8d97e")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -7310,7 +7310,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -7337,7 +7337,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/e87d6bba-54af-44e6-92a0-ee9917fd74fc")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -7620,7 +7620,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -7647,7 +7647,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/283e0530-b336-4af0-9c76-1366ffbfdf65")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -7930,7 +7930,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -7957,7 +7957,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/38321bdc-1e2f-459d-9873-d9402320c284")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -8240,7 +8240,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -8267,7 +8267,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/af1dd0aa-1134-4b89-a383-6ac77b09f771")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -8550,7 +8550,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -8577,7 +8577,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/9972928d-a989-4ca7-86c6-0cc6a2292705")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -8860,7 +8860,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -8887,7 +8887,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/f547f147-546c-4999-b1f9-d4a79c0e1d13")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -9170,7 +9170,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -9197,7 +9197,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/7e8095e5-c12b-4860-bd63-875d78d355d2")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -9480,7 +9480,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -9507,7 +9507,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/3f2d3899-f841-435f-a7f5-c9f6f0bcdba5")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -9790,7 +9790,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -9817,7 +9817,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/51b4e348-3ccf-4e31-819b-e12346989143")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -10100,7 +10100,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -10127,7 +10127,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/a80002ad-ee9e-471f-b535-b2e348b104cd")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -10390,7 +10390,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -10417,7 +10417,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/39387da1-46d0-459c-94a3-e013d1459018")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -10700,7 +10700,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -10727,7 +10727,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/4d6f4402-2f0d-4697-8446-46ef77fd1ce0")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -11010,7 +11010,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -11037,7 +11037,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/b0e98596-fec0-433a-aecf-92c2e613a872")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -11320,7 +11320,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -11347,7 +11347,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/9c4c8df3-f286-45d0-9dcb-9724145de546")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -11630,7 +11630,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -11657,7 +11657,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/917c0655-b270-4af9-b866-a99cfdc37f0f")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -11940,7 +11940,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -11967,7 +11967,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/86e59c8c-73a9-432e-adb0-386d54cdceef")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -12250,7 +12250,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -12277,7 +12277,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/be505bbc-3467-430b-b3cc-3975f0bfa99d")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -12560,7 +12560,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -12587,7 +12587,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/4d494117-f635-4f3a-9e61-7021106d0ecc")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -12870,7 +12870,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -12897,7 +12897,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/53f89d82-0da3-4456-b147-da068ee638a2")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -13180,7 +13180,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -13207,7 +13207,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/bfc605d2-44ea-49b0-bc26-a228984361d4")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -13490,7 +13490,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -13517,7 +13517,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/ac688268-84bb-4cf8-a631-5ce11d3b5a6e")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -13800,7 +13800,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -13827,7 +13827,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/5870d40b-f1c7-4ee3-8692-eb0247816201")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -14110,7 +14110,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -14137,7 +14137,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/b881d559-f023-43fb-aa5f-754b4737927a")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -14420,7 +14420,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -14447,7 +14447,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/528fdd4f-59f4-4e30-9a96-c5f020615afe")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -14730,7 +14730,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -14757,7 +14757,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/8753b637-fc79-48bc-a705-f2312f27734c")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -15040,7 +15040,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -15067,7 +15067,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/7df633a9-7f39-4da0-a637-614f7d4180d3")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -15350,7 +15350,7 @@
 				)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -15377,7 +15377,7 @@
 		(path "/03ba2331-af0f-47a7-be58-36b545ac6077/4095b185-ac34-493f-ae2e-f81706ae543d")
 		(sheetname "/Keypad/")
 		(sheetfile "keypad.kicad_sch")
-		(attr board_only exclude_from_pos_files)
+		(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 		(fp_circle
 			(center 0.01 0)
 			(end 3.21 0)
@@ -15674,6 +15674,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f1947ec4-eb60-4919-96a7-071afcaf7864")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "0603WAF5102T5E"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f1947ec4-eb60-4919-96a7-071afcaf7864")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 0)
 			(layer "B.Fab")
@@ -15687,7 +15713,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C23196"
+		(property "LCSC" "C23196"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -15860,6 +15886,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "KYOCERA AVX"
+			(at 0 0 270)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "2b4cb244-232a-4f46-a13c-9aec39b7b46b")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "TAJB107K006RNJ"
+			(at 0 0 270)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "2b4cb244-232a-4f46-a13c-9aec39b7b46b")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 270)
 			(layer "B.Fab")
@@ -15873,7 +15925,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C16133"
+		(property "LCSC" "C16133"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -16007,6 +16059,20 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2409272203_Foshan-NationStar-Optoelectronics-NCD0805R1_C84256.pdf"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "40589323-2162-4ca2-a57a-f8b3bf760f24")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "NCD0805R1"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -16529,7 +16595,7 @@
 				(justify mirror)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
 			(at 0 0 90)
 			(layer "B.Fab")
 			(hide yes)
@@ -17008,6 +17074,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f3a44ab1-5f49-4cda-8608-2f23ff384f02")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f3a44ab1-5f49-4cda-8608-2f23ff384f02")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 90)
 			(layer "B.Fab")
@@ -17021,7 +17113,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -17238,6 +17330,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "1a81a437-cb44-4a3c-bcde-64aa88aef0f5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL10A105KB8NNNC"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "1a81a437-cb44-4a3c-bcde-64aa88aef0f5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 0)
 			(layer "B.Fab")
@@ -17251,7 +17369,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C15849"
+		(property "LCSC" "C15849"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -17459,6 +17577,20 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2409272203_Foshan-NationStar-Optoelectronics-NCD0805R1_C84256.pdf"
+			(at 0 0 270)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "6a7da53e-828a-46f7-9b61-f3e71a9c91f5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "NCD0805R1"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -17990,6 +18122,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "0e00b238-a77e-4c78-b624-9578d0842472")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "0603WAF100KT5E"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "0e00b238-a77e-4c78-b624-9578d0842472")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 90)
 			(layer "B.Fab")
@@ -18003,7 +18161,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C22936"
+		(property "LCSC" "C22936"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -18176,6 +18334,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "cb4744ca-fef0-4f27-a2ca-5cdce314feec")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "0603WAF1002T5E"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "cb4744ca-fef0-4f27-a2ca-5cdce314feec")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 0)
 			(layer "B.Fab")
@@ -18189,7 +18373,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C25804"
+		(property "LCSC" "C25804"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -18362,6 +18546,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "JST"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "d6a6d16f-e8b7-4421-bab3-5f4b279266f4")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "S2B-PH-SM4-TB(LF)(SN)"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "d6a6d16f-e8b7-4421-bab3-5f4b279266f4")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 0)
 			(layer "B.Fab")
@@ -18375,7 +18585,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C295747"
+		(property "LCSC" "C295747"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -18586,6 +18796,45 @@
 			)
 		)
 		(property "Datasheet" "https://jlcpcb.com/api/file/downloadByFileSystemAccessId/8588883876538429440"
+			(at 0 0 315)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f6492593-efc2-4e45-b1ff-9a17e83e2b05")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Manufacturer" "Injoinic"
+			(at 0 0 315)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f6492593-efc2-4e45-b1ff-9a17e83e2b05")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "IP5310"
+			(at 0 0 315)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f6492593-efc2-4e45-b1ff-9a17e83e2b05")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "LCSC" "C191176"
 			(at 0 0 315)
 			(layer "B.Fab")
 			(hide yes)
@@ -19498,6 +19747,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "1ce037e0-3e9e-4d58-abbb-e016f0c04263")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "0603WAF100KT5E"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "1ce037e0-3e9e-4d58-abbb-e016f0c04263")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 90)
 			(layer "B.Fab")
@@ -19511,7 +19786,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C22936"
+		(property "LCSC" "C22936"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -19684,6 +19959,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "ee83b96c-97dd-41d6-8d4c-3fd1109eeae7")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "ee83b96c-97dd-41d6-8d4c-3fd1109eeae7")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 90)
 			(layer "B.Fab")
@@ -19697,7 +19998,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -19914,6 +20215,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "4ab64d1f-a64d-437b-87b0-ef867fa50144")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "4ab64d1f-a64d-437b-87b0-ef867fa50144")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 0)
 			(layer "B.Fab")
@@ -19927,7 +20254,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -20135,6 +20462,20 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2409272203_Foshan-NationStar-Optoelectronics-NCD0805R1_C84256.pdf"
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "2f92b290-0fe4-49c8-a2c3-2b57dd0aaf24")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "NCD0805R1"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -20666,6 +21007,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "e8a11190-5ea1-42ac-bb73-4814ea356e29")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "e8a11190-5ea1-42ac-bb73-4814ea356e29")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 90)
 			(layer "B.Fab")
@@ -20679,7 +21046,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -20896,6 +21263,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "b00affa8-0951-4ac9-9fa7-dd996ccf2f87")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "b00affa8-0951-4ac9-9fa7-dd996ccf2f87")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 90)
 			(layer "B.Fab")
@@ -20909,7 +21302,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -21127,6 +21520,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Korean Hroparts Elec"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "17cf1477-872b-4976-bdb6-437fb73c8f76")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "TYPE-C-31-M-12"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "17cf1477-872b-4976-bdb6-437fb73c8f76")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 0)
 			(layer "B.Fab")
@@ -21140,7 +21559,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C165948"
+		(property "LCSC" "C165948"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -21453,7 +21872,20 @@
 				(justify mirror)
 			)
 		)
-		(property "Datasheet" "~"
+		(property "Datasheet" ""
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "f9fd14e0-dcc5-487a-a625-cb8d0867a8ac")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "MHCC12050-1R0M-R7"
 			(at 0 0 0)
 			(layer "B.Fab")
 			(hide yes)
@@ -21479,7 +21911,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C329553"
+		(property "LCSC" "C329553"
 			(at 0 0 180)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -21644,6 +22076,20 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2409272203_Foshan-NationStar-Optoelectronics-NCD0805R1_C84256.pdf"
+			(at 0 0 270)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "01bcf591-1dd1-42bd-9c60-05c14fc92551")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "NCD0805R1"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -22175,6 +22621,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "1de19a85-24ff-4381-9881-f952474725cd")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 0 0 90)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "1de19a85-24ff-4381-9881-f952474725cd")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 90)
 			(layer "B.Fab")
@@ -22188,7 +22660,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -22405,6 +22877,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Advanced Monolithic Systems"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "34f2f908-a630-4252-97a4-925e16fd7a1f")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "AMS1117-3.3"
+			(at 0 0 0)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "34f2f908-a630-4252-97a4-925e16fd7a1f")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 0)
 			(layer "B.Fab")
@@ -22418,7 +22916,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C6186"
+		(property "LCSC" "C6186"
 			(at 0 0 0)
 			(unlocked yes)
 			(layer "B.Fab")
@@ -22600,6 +23098,32 @@
 				(justify mirror)
 			)
 		)
+		(property "Manufacturer" "Alpha & Omega Semiconductor"
+			(at 0 0 270)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "dbd8b51d-bc39-49ca-aebc-123ec299e2f5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "MPN" "AO3401A"
+			(at 0 0 270)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "dbd8b51d-bc39-49ca-aebc-123ec299e2f5")
+			(effects
+				(font
+					(size 1.27 1.27)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
 		(property "Description" ""
 			(at 0 0 270)
 			(layer "B.Fab")
@@ -22613,7 +23137,7 @@
 				(justify mirror)
 			)
 		)
-		(property "LCSC Part" "C15127"
+		(property "LCSC" "C15127"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "B.Fab")

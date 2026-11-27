@@ -176,7 +176,7 @@
 					)
 				)
 			)
-			(pin power_out line
+			(pin passive line
 				(at -13.97 -2.54 0)
 				(length 2.54)
 				(name "VOUT"
@@ -194,7 +194,7 @@
 					)
 				)
 			)
-			(pin power_out line
+			(pin passive line
 				(at -13.97 -5.08 0)
 				(length 2.54)
 				(name "VOUT"
@@ -212,7 +212,7 @@
 					)
 				)
 			)
-			(pin power_out line
+			(pin passive line
 				(at -13.97 -7.62 0)
 				(length 2.54)
 				(name "VOUT"
@@ -554,7 +554,7 @@
 					)
 				)
 			)
-			(pin power_out line
+			(pin passive line
 				(at 13.97 -15.24 180)
 				(length 2.54)
 				(name "LX"
@@ -572,7 +572,7 @@
 					)
 				)
 			)
-			(pin power_out line
+			(pin passive line
 				(at 13.97 -17.78 180)
 				(length 2.54)
 				(name "LX"
@@ -590,7 +590,7 @@
 					)
 				)
 			)
-			(pin power_out line
+			(pin passive line
 				(at 13.97 -20.32 180)
 				(length 2.54)
 				(name "LX"
@@ -608,7 +608,7 @@
 					)
 				)
 			)
-			(pin power_out line
+			(pin passive line
 				(at 13.97 -22.86 180)
 				(length 2.54)
 				(name "LX"
@@ -626,7 +626,7 @@
 					)
 				)
 			)
-			(pin power_out line
+			(pin passive line
 				(at 13.97 -25.4 180)
 				(length 2.54)
 				(name "LX"

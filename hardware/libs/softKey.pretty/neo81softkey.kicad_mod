@@ -56,7 +56,7 @@
 			)
 		)
 	)
-	(attr smd exclude_from_bom dnp)
+	(attr board_only exclude_from_pos_files exclude_from_bom allow_soldermask_bridges)
 	(fp_line
 		(start -3.49622 0)
 		(end 3 0)

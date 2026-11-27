@@ -240,7 +240,7 @@
 						(type background)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at -5.08 0 0)
 					(length 2.54)
 					(name "1"
@@ -258,7 +258,7 @@
 						)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at 5.08 0 180)
 					(length 2.54)
 					(name "2"
@@ -347,7 +347,7 @@
 						(type background)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at -5.08 0 0)
 					(length 2.54)
 					(name "1"
@@ -365,7 +365,7 @@
 						)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at 5.08 0 180)
 					(length 2.54)
 					(name "2"
@@ -454,7 +454,7 @@
 						(type background)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at -5.08 0 0)
 					(length 2.54)
 					(name "1"
@@ -472,7 +472,7 @@
 						)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at 5.08 0 180)
 					(length 2.54)
 					(name "2"
@@ -572,7 +572,7 @@
 						(type none)
 					)
 				)
-				(pin unspecified line
+				(pin power_in line
 					(at -11.43 2.54 0)
 					(length 2.54)
 					(name "GND"
@@ -590,7 +590,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin power_out line
 					(at -11.43 0 0)
 					(length 2.54)
 					(name "VOUT"
@@ -608,7 +608,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin power_in line
 					(at -11.43 -2.54 0)
 					(length 2.54)
 					(name "VIN"
@@ -626,7 +626,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 11.43 0 180)
 					(length 2.54)
 					(name "VOUT"
@@ -860,7 +860,7 @@
 						(type none)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -5.08 0 0)
 					(length 2.54)
 					(name "G"
@@ -878,7 +878,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 2.54 5.08 270)
 					(length 2.54)
 					(name "D"
@@ -896,7 +896,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 2.54 -5.08 90)
 					(length 2.54)
 					(name "S"
@@ -1022,7 +1022,7 @@
 						(type none)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -5.08 0 0)
 					(length 2.54)
 					(name "1"
@@ -1040,7 +1040,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 5.08 0 180)
 					(length 2.54)
 					(name "2"
@@ -1166,7 +1166,7 @@
 						(type none)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at -3.81 0 0)
 					(length 2.54)
 					(name "1"
@@ -1184,7 +1184,7 @@
 						)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at 3.81 0 180)
 					(length 2.54)
 					(name "2"
@@ -1286,7 +1286,7 @@
 						(type none)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -3.81 1.27 0)
 					(length 2.54)
 					(name "1"
@@ -1304,7 +1304,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -3.81 -1.27 0)
 					(length 2.54)
 					(name "2"
@@ -1322,7 +1322,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 3.81 6.35 270)
 					(length 2.54)
 					(name "4"
@@ -1340,7 +1340,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 3.81 -6.35 90)
 					(length 2.54)
 					(name "3"
@@ -1490,7 +1490,7 @@
 						(type none)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at -3.81 0 0)
 					(length 2.54)
 					(name "2"
@@ -1508,7 +1508,7 @@
 						)
 					)
 				)
-				(pin input line
+				(pin passive line
 					(at 3.81 0 180)
 					(length 2.54)
 					(name "1"
@@ -1703,7 +1703,7 @@
 						)
 					)
 				)
-				(pin power_out line
+				(pin passive line
 					(at -13.97 -2.54 0)
 					(length 2.54)
 					(name "VOUT"
@@ -1721,7 +1721,7 @@
 						)
 					)
 				)
-				(pin power_out line
+				(pin passive line
 					(at -13.97 -5.08 0)
 					(length 2.54)
 					(name "VOUT"
@@ -1739,7 +1739,7 @@
 						)
 					)
 				)
-				(pin power_out line
+				(pin passive line
 					(at -13.97 -7.62 0)
 					(length 2.54)
 					(name "VOUT"
@@ -2081,7 +2081,7 @@
 						)
 					)
 				)
-				(pin power_out line
+				(pin passive line
 					(at 13.97 -15.24 180)
 					(length 2.54)
 					(name "LX"
@@ -2099,7 +2099,7 @@
 						)
 					)
 				)
-				(pin power_out line
+				(pin passive line
 					(at 13.97 -17.78 180)
 					(length 2.54)
 					(name "LX"
@@ -2117,7 +2117,7 @@
 						)
 					)
 				)
-				(pin power_out line
+				(pin passive line
 					(at 13.97 -20.32 180)
 					(length 2.54)
 					(name "LX"
@@ -2135,7 +2135,7 @@
 						)
 					)
 				)
-				(pin power_out line
+				(pin passive line
 					(at 13.97 -22.86 180)
 					(length 2.54)
 					(name "LX"
@@ -2153,7 +2153,7 @@
 						)
 					)
 				)
-				(pin power_out line
+				(pin passive line
 					(at 13.97 -25.4 180)
 					(length 2.54)
 					(name "LX"
@@ -2255,7 +2255,7 @@
 						(type background)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 13.97 0)
 					(length 2.54)
 					(name "GND"
@@ -2273,7 +2273,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 11.43 0)
 					(length 2.54)
 					(name "VBUS"
@@ -2291,7 +2291,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 8.89 0)
 					(length 2.54)
 					(name "SBU2"
@@ -2309,7 +2309,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 6.35 0)
 					(length 2.54)
 					(name "CC1"
@@ -2327,7 +2327,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 3.81 0)
 					(length 2.54)
 					(name "DN2"
@@ -2345,7 +2345,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 1.27 0)
 					(length 2.54)
 					(name "DP1"
@@ -2363,7 +2363,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 -1.27 0)
 					(length 2.54)
 					(name "DN1"
@@ -2381,7 +2381,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 -3.81 0)
 					(length 2.54)
 					(name "DP2"
@@ -2399,7 +2399,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 -6.35 0)
 					(length 2.54)
 					(name "SBU1"
@@ -2417,7 +2417,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 -8.89 0)
 					(length 2.54)
 					(name "CC2"
@@ -2435,7 +2435,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 -11.43 0)
 					(length 2.54)
 					(name "VBUS"
@@ -2453,7 +2453,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at -8.89 -13.97 0)
 					(length 2.54)
 					(name "GND"
@@ -2471,7 +2471,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 8.89 -6.35 180)
 					(length 2.54)
 					(name "EH"
@@ -2489,7 +2489,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 8.89 -8.89 180)
 					(length 2.54)
 					(name "EH"
@@ -2507,7 +2507,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 8.89 -11.43 180)
 					(length 2.54)
 					(name "EH"
@@ -2525,7 +2525,7 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin passive line
 					(at 8.89 -13.97 180)
 					(length 2.54)
 					(name "EH"
@@ -5247,6 +5247,72 @@
 		)
 	)
 	(symbol
+		(lib_id "power:PWR_FLAG")
+		(at 95.25 52.07 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "a0f00c49-b7c0-4e28-a615-dc0c583ee827")
+		(property "Reference" "#FLG02"
+			(at 95.25 48.26 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "PWR_FLAG"
+			(at 95.25 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 96.52 88.9 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 96.52 88.9 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Special symbol for telling ERC where power comes from"
+			(at 96.52 88.9 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "39b98709-dfe4-47ff-b218-fcbc2f5b718d")
+		)
+		(instances
+			(project ""
+				(path "/a7a87b8a-b844-41ac-810f-f365602787ff/0a7a6fe8-2a27-40e8-928c-c152e2968dd6"
+					(reference "#FLG02")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 95.25 52.07 0)
 		(unit 1)
@@ -5492,6 +5558,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 256.54 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 256.54 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 246.38 85.09 0)
 			(effects
@@ -5501,7 +5585,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 259.08 85.09 0)
 			(effects
 				(font
@@ -5570,6 +5654,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 248.92 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 248.92 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 238.76 85.09 0)
 			(effects
@@ -5579,7 +5681,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 251.46 85.09 0)
 			(effects
 				(font
@@ -5665,69 +5767,6 @@
 				(hide yes)
 			)
 		)
-		(property "Stock" "2976925"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Price" "0.016USD"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Process" "SMT"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Minimum Qty" "20"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Attrition Qty" "10"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Class" "Basic Component"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Category" "Optoelectronics,Light Emitting Diodes (LED)"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
 		(property "Manufacturer" "Foshan NationStar Optoelectronics"
 			(at 191.77 80.01 0)
 			(effects
@@ -5737,97 +5776,7 @@
 				(hide yes)
 			)
 		)
-		(property "Part" "NCD0805R1"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Operating Temperature" "-30°C~+85°C"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Viewing Angle" "130°"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Forward Current" "25mA"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Forward Voltage (VF)" "1.6V~2.6V"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Luminous Intensity" "67mcd~195mcd"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Dominant Wavelength" "615nm~630nm"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Power Dissipation" "65mW"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Emitted Color" "Red"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Diode Configuration" "Independent Diode"
-			(at 191.77 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Lens Color" "Colorless Transparent Lens"
+		(property "MPN" "NCD0805R1"
 			(at 191.77 80.01 0)
 			(effects
 				(font
@@ -5902,6 +5851,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 144.78 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "0603WAF5102T5E"
+			(at 144.78 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 144.78 114.3 0)
 			(effects
@@ -5911,7 +5878,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C23196"
+		(property "LCSC" "C23196"
 			(at 144.78 127 0)
 			(effects
 				(font
@@ -5981,6 +5948,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "JST"
+			(at 180.34 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "S2B-PH-SM4-TB(LF)(SN)"
+			(at 180.34 124.46 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 180.34 140.97 0)
 			(effects
@@ -5990,7 +5975,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C295747"
+		(property "LCSC" "C295747"
 			(at 180.34 121.92 0)
 			(effects
 				(font
@@ -6066,6 +6051,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "KYOCERA AVX"
+			(at 109.22 171.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "TAJB107K006RNJ"
+			(at 109.22 171.45 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 99.06 171.45 0)
 			(effects
@@ -6075,7 +6078,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C16133"
+		(property "LCSC" "C16133"
 			(at 111.76 171.45 0)
 			(effects
 				(font
@@ -6345,6 +6348,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 241.3 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 241.3 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 231.14 85.09 0)
 			(effects
@@ -6354,7 +6375,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 243.84 85.09 0)
 			(effects
 				(font
@@ -6421,6 +6442,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 156.21 137.16 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "0603WAF100KT5E"
+			(at 156.21 137.16 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 156.21 127 0)
 			(effects
@@ -6430,7 +6469,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C22936"
+		(property "LCSC" "C22936"
 			(at 156.21 139.7 0)
 			(effects
 				(font
@@ -6516,69 +6555,6 @@
 				(hide yes)
 			)
 		)
-		(property "Stock" "2976925"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Price" "0.016USD"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Process" "SMT"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Minimum Qty" "20"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Attrition Qty" "10"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Class" "Basic Component"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Category" "Optoelectronics,Light Emitting Diodes (LED)"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
 		(property "Manufacturer" "Foshan NationStar Optoelectronics"
 			(at 191.77 102.87 0)
 			(effects
@@ -6588,97 +6564,7 @@
 				(hide yes)
 			)
 		)
-		(property "Part" "NCD0805R1"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Operating Temperature" "-30°C~+85°C"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Viewing Angle" "130°"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Forward Current" "25mA"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Forward Voltage (VF)" "1.6V~2.6V"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Luminous Intensity" "67mcd~195mcd"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Dominant Wavelength" "615nm~630nm"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Power Dissipation" "65mW"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Emitted Color" "Red"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Diode Configuration" "Independent Diode"
-			(at 191.77 102.87 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Lens Color" "Colorless Transparent Lens"
+		(property "MPN" "NCD0805R1"
 			(at 191.77 102.87 0)
 			(effects
 				(font
@@ -6753,6 +6639,15 @@
 				(hide yes)
 			)
 		)
+		(property "MPN" "MHCC12050-1R0M-R7"
+			(at 144.78 138.43 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" "Inductor"
 			(at 144.78 138.43 0)
 			(effects
@@ -6762,7 +6657,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C329553"
+		(property "LCSC" "C329553"
 			(at 144.78 138.43 90)
 			(effects
 				(font
@@ -6848,69 +6743,6 @@
 				(hide yes)
 			)
 		)
-		(property "Stock" "2976925"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Price" "0.016USD"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Process" "SMT"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Minimum Qty" "20"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Attrition Qty" "10"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Class" "Basic Component"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Category" "Optoelectronics,Light Emitting Diodes (LED)"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
 		(property "Manufacturer" "Foshan NationStar Optoelectronics"
 			(at 191.77 88.9 0)
 			(effects
@@ -6920,97 +6752,7 @@
 				(hide yes)
 			)
 		)
-		(property "Part" "NCD0805R1"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Operating Temperature" "-30°C~+85°C"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Viewing Angle" "130°"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Forward Current" "25mA"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Forward Voltage (VF)" "1.6V~2.6V"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Luminous Intensity" "67mcd~195mcd"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Dominant Wavelength" "615nm~630nm"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Power Dissipation" "65mW"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Emitted Color" "Red"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Diode Configuration" "Independent Diode"
-			(at 191.77 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Lens Color" "Colorless Transparent Lens"
+		(property "MPN" "NCD0805R1"
 			(at 191.77 88.9 0)
 			(effects
 				(font
@@ -7145,6 +6887,33 @@
 			)
 		)
 		(property "Datasheet" "https://jlcpcb.com/api/file/downloadByFileSystemAccessId/8588883876538429440"
+			(at 121.92 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "Injoinic"
+			(at 121.92 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "IP5310"
+			(at 121.92 106.68 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C191176"
 			(at 121.92 106.68 0)
 			(effects
 				(font
@@ -7314,6 +7083,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Alpha & Omega Semiconductor"
+			(at 95.25 109.22 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "AO3401A"
+			(at 95.25 109.22 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 80.01 109.22 0)
 			(effects
@@ -7323,7 +7110,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C15127"
+		(property "LCSC" "C15127"
 			(at 97.79 109.22 0)
 			(effects
 				(font
@@ -7412,69 +7199,6 @@
 				(hide yes)
 			)
 		)
-		(property "Stock" "2976925"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Price" "0.016USD"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Process" "SMT"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Minimum Qty" "20"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Attrition Qty" "10"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Class" "Basic Component"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Category" "Optoelectronics,Light Emitting Diodes (LED)"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
 		(property "Manufacturer" "Foshan NationStar Optoelectronics"
 			(at 191.77 95.25 0)
 			(effects
@@ -7484,97 +7208,7 @@
 				(hide yes)
 			)
 		)
-		(property "Part" "NCD0805R1"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Operating Temperature" "-30°C~+85°C"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Viewing Angle" "130°"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Forward Current" "25mA"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Forward Voltage (VF)" "1.6V~2.6V"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Luminous Intensity" "67mcd~195mcd"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Dominant Wavelength" "615nm~630nm"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Power Dissipation" "65mW"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Emitted Color" "Red"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Diode Configuration" "Independent Diode"
-			(at 191.77 95.25 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Lens Color" "Colorless Transparent Lens"
+		(property "MPN" "NCD0805R1"
 			(at 191.77 95.25 0)
 			(effects
 				(font
@@ -7715,6 +7349,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Advanced Monolithic Systems"
+			(at 86.36 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "AMS1117-3.3"
+			(at 86.36 151.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 99.06 151.13 0)
 			(effects
@@ -7724,7 +7376,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C6186"
+		(property "LCSC" "C6186"
 			(at 83.82 151.13 0)
 			(effects
 				(font
@@ -7933,6 +7585,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 176.53 146.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 176.53 146.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 166.37 146.05 0)
 			(effects
@@ -7942,7 +7612,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 179.07 146.05 0)
 			(effects
 				(font
@@ -8011,6 +7681,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 101.6 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "0603WAF1002T5E"
+			(at 101.6 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 91.44 105.41 0)
 			(effects
@@ -8020,7 +7708,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C25804"
+		(property "LCSC" "C25804"
 			(at 104.14 105.41 0)
 			(effects
 				(font
@@ -8089,6 +7777,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 107.95 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL10A105KB8NNNC"
+			(at 107.95 105.41 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 97.79 105.41 0)
 			(effects
@@ -8098,7 +7804,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C15849"
+		(property "LCSC" "C15849"
 			(at 110.49 105.41 0)
 			(effects
 				(font
@@ -8234,6 +7940,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Korean Hroparts Elec"
+			(at 100.33 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "TYPE-C-31-M-12"
+			(at 100.33 60.96 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 76.2 60.96 0)
 			(effects
@@ -8243,7 +7967,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C165948"
+		(property "LCSC" "C165948"
 			(at 102.87 60.96 0)
 			(effects
 				(font
@@ -8352,6 +8076,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "UNI-ROYAL"
+			(at 156.21 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "0603WAF100KT5E"
+			(at 156.21 142.24 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 156.21 132.08 0)
 			(effects
@@ -8361,7 +8103,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C22936"
+		(property "LCSC" "C22936"
 			(at 156.21 144.78 0)
 			(effects
 				(font
@@ -8430,6 +8172,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 233.68 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 233.68 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 223.52 85.09 0)
 			(effects
@@ -8439,7 +8199,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 236.22 85.09 0)
 			(effects
 				(font
@@ -8643,6 +8403,24 @@
 				(hide yes)
 			)
 		)
+		(property "Manufacturer" "Samsung Electro-Mechanics"
+			(at 154.94 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "MPN" "CL31A226KAHNNNE"
+			(at 154.94 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
 		(property "Description" ""
 			(at 154.94 123.19 0)
 			(effects
@@ -8652,7 +8430,7 @@
 				(hide yes)
 			)
 		)
-		(property "LCSC Part" "C12891"
+		(property "LCSC" "C12891"
 			(at 154.94 110.49 0)
 			(effects
 				(font

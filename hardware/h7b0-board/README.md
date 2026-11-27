@@ -12,4 +12,5 @@ The custom board that replaces the STM32F429 Discovery: STM32H7B0VBT6, RT9471 ch
 
 1. In KiCad 10, create `h7b0-board.kicad_pro` in this folder.
 2. Copy `../neo81-v1/sym-lib-table` and `fp-lib-table` here. They point at `../libs`. For datasheets.md parts, add their library the same way.
+   Follow [`../KICAD_CONVENTIONS.md`](../KICAD_CONVENTIONS.md) from the first symbol.
 3. Settle the open items in `PARTS_VERIFICATION.md` before you start the schematic: USB D+/D− routing, the CC pull-downs and PSEL.
